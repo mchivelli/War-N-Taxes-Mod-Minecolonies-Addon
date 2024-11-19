@@ -142,7 +142,7 @@ dependencies {
     runtimeOnly fg.deobf("curse.maven:sdm-engine-core-964997:5761090")
     runtimeOnly fg.deobf("curse.maven:sdm-ui-lib-1095061:5736797")
     runtimeOnly fg.deobf("curse.maven:architectury-api-419699:5137938")
-
+    runtimeOnly fg.deobf("curse.maven:ftb-teams-forge-404468:5267190")
     minecraft "net.minecraftforge:forge:1.20.1-47.3.10"
 
 
