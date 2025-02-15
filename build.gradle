@@ -88,10 +88,14 @@ minecraft {
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             property 'forge.enabledGameTestNamespaces', mod_id
         }
+        client2 {
+            parent runs.client //  Inherits from client (removes need for mainClass)
+            workingDirectory project.file("run2") //  Separate directory to prevent conflicts
+            args "--username=Player2"
+        }
 
         server {
             property 'forge.enabledGameTestNamespaces', mod_id
-            args '--nogui'
 
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
