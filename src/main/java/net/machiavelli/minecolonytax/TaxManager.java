@@ -133,30 +133,34 @@ public class TaxManager {
                 IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
                 colonyManager.getColonies(world).forEach(colony -> {
                     for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
-                        // Ensure building is fully built before generating tax
                         if (building.getBuildingLevel() > 0 && building.isBuilt()) {
-                            String buildingType = building.getBuildingDisplayName(); // Get the display name of the building
+                            String buildingType = building.getBuildingDisplayName();
                             int buildingLevel = building.getBuildingLevel();
 
+                            // Generate Tax Income
                             double baseTax = TaxConfig.getBaseTaxForBuilding(buildingType);
                             double upgradeTax = TaxConfig.getUpgradeTaxForBuilding(buildingType) * buildingLevel;
-
                             int generatedTax = (int) (baseTax + upgradeTax);
-
-                            // Update tax for the colony
                             incrementTaxRevenue(colony, generatedTax);
 
-                            if (generatedTax > 0) {
-                                LOGGER.debug("Generated {} tax for building {} (level {}) in colony {}", generatedTax, buildingType, buildingLevel, colony.getName());
+                            // Deduct Maintenance Cost
+                            double baseMaintenance = TaxConfig.getBaseMaintenanceForBuilding(buildingType);
+                            double upgradeMaintenance = TaxConfig.getUpgradeMaintenanceForBuilding(buildingType) * buildingLevel;
+                            int totalMaintenance = (int) (baseMaintenance + upgradeMaintenance);
+
+                            if (totalMaintenance > 0) {
+                                int colonyId = colony.getID();
+                                int currentTax = colonyTaxMap.getOrDefault(colonyId, 0);
+                                int newTax = currentTax - totalMaintenance;
+                                colonyTaxMap.put(colonyId, newTax);
+                                LOGGER.info("Deducted {} maintenance for {} (level {}) in colony {}. New tax: {}",
+                                        totalMaintenance, buildingType, buildingLevel, colony.getName(), newTax);
                             }
-                        } else {
-                            LOGGER.trace("Skipping tax generation for building {} (level {}) in colony {} as it is not fully built.", building.getBuildingDisplayName(), building.getBuildingLevel(), colony.getName());
                         }
                     }
                 });
             });
 
-            // Save tax data to persist changes
             saveTaxData();
         }
     }

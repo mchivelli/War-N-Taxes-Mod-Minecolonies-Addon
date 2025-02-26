@@ -36,6 +36,10 @@ public class TaxConfig {
     // Define the tax interval in minutes
     public static final ForgeConfigSpec.IntValue TAX_INTERVAL_MINUTES;
 
+    //define Maintenance
+    public static final Map<String, ForgeConfigSpec.DoubleValue> BUILDING_MAINTENANCE = new HashMap<>();
+    public static final Map<String, ForgeConfigSpec.DoubleValue> UPGRADE_MAINTENANCE = new HashMap<>();
+
     public static final ForgeConfigSpec.IntValue ATTACKER_GRACE_PERIOD_MINUTES;
     public static final ForgeConfigSpec.IntValue RAID_GRACE_PERIOD_MINUTES;
     public static final ForgeConfigSpec.IntValue MAX_RAID_DURATION_MINUTES;
@@ -73,13 +77,42 @@ public class TaxConfig {
         BUILDER.pop();
 
 
+
+
+        BUILDER.push("Building Maintenance Costs");
+
+// Military Maintenance
+        BUILDING_MAINTENANCE.put("barracks", BUILDER.comment("Base maintenance cost per hour for Barracks")
+                .defineInRange("barracksMaintenance", 15.0, 0.0, Double.MAX_VALUE));
+        UPGRADE_MAINTENANCE.put("barracks", BUILDER.comment("Additional maintenance per level for Barracks")
+                .defineInRange("barracksMaintenanceUpgrade", 5.0, 0.0, Double.MAX_VALUE));
+
+        BUILDING_MAINTENANCE.put("guardtower", BUILDER.comment("Base maintenance cost per hour for Guard Tower")
+                .defineInRange("guardtowerMaintenance", 10.0, 0.0, Double.MAX_VALUE));
+        UPGRADE_MAINTENANCE.put("guardtower", BUILDER.comment("Additional maintenance per level for Guard Tower")
+                .defineInRange("guardtowerMaintenanceUpgrade", 3.0, 0.0, Double.MAX_VALUE));
+
+        BUILDING_TAXES.put("barrackstower", BUILDER.comment("Base maintenance cost per hour for Barracks Tower")
+                .defineInRange("barrackstowerMaintenance", 14.0, 0.0, Double.MAX_VALUE));
+        UPGRADE_MAINTENANCE.put("barrackstower", BUILDER.comment("Additional maintenance per level for Barracks Tower")
+                .defineInRange("barrackstowerMaintenanceUpgrade", 6.0, 0.0, Double.MAX_VALUE));
+
+        BUILDING_TAXES.put("archery", BUILDER.comment("Base tax for Archery")
+                .defineInRange("archeryMaintenance", 12.0, 0.0, Double.MAX_VALUE));
+        UPGRADE_MAINTENANCE.put("archery", BUILDER.comment("Base maintenance cost per hour for Archery")
+                .defineInRange("archeryMaintenanceUpgrade", 6.0, 0.0, Double.MAX_VALUE));
+
+        BUILDING_TAXES.put("combatacademy", BUILDER.comment("Base maintenance cost per hour for Combat Academy")
+                .defineInRange("combatacademyMaintenance", 14.0, 0.0, Double.MAX_VALUE));
+        UPGRADE_MAINTENANCE.put("combatacademy", BUILDER.comment("Additional maintenance per level for Combat Academy")
+                .defineInRange("combatacademyMaintenanceUpgrade", 6.0, 0.0, Double.MAX_VALUE));
+
+
+
         BUILDER.push("Building Taxes");
 
         // Add base and upgrade taxes for all buildings
-        BUILDING_TAXES.put("archery", BUILDER.comment("Base tax for Archery")
-                .defineInRange("archery", 12.0, 0.0, Double.MAX_VALUE));
-        UPGRADE_TAXES.put("archery", BUILDER.comment("Tax increase per level for Archery")
-                .defineInRange("archeryUpgrade", 6.0, 0.0, Double.MAX_VALUE));
+
 
         BUILDING_TAXES.put("alchemist", BUILDER.comment("Base tax for Alchemist")
                 .defineInRange("alchemist", 12.0, 0.0, Double.MAX_VALUE));
@@ -136,16 +169,6 @@ public class TaxConfig {
         UPGRADE_TAXES.put("bakery", BUILDER.comment("Tax increase per level for Bakery")
                 .defineInRange("bakeryUpgrade", 4.0, 0.0, Double.MAX_VALUE));
 
-        BUILDING_TAXES.put("barracks", BUILDER.comment("Base tax for Barracks")
-                .defineInRange("barracks", 15.0, 0.0, Double.MAX_VALUE));
-        UPGRADE_TAXES.put("barracks", BUILDER.comment("Tax increase per level for Barracks")
-                .defineInRange("barracksUpgrade", 7.0, 0.0, Double.MAX_VALUE));
-
-        BUILDING_TAXES.put("barrackstower", BUILDER.comment("Base tax for Barracks Tower")
-                .defineInRange("barrackstower", 14.0, 0.0, Double.MAX_VALUE));
-        UPGRADE_TAXES.put("barrackstower", BUILDER.comment("Tax increase per level for Barracks Tower")
-                .defineInRange("barrackstowerUpgrade", 6.0, 0.0, Double.MAX_VALUE));
-
         BUILDING_TAXES.put("blacksmith", BUILDER.comment("Base tax for Blacksmith")
                 .defineInRange("blacksmith", 18.0, 0.0, Double.MAX_VALUE));
         UPGRADE_TAXES.put("blacksmith", BUILDER.comment("Tax increase per level for Blacksmith")
@@ -160,11 +183,6 @@ public class TaxConfig {
                 .defineInRange("chickenherder", 9.0, 0.0, Double.MAX_VALUE));
         UPGRADE_TAXES.put("chickenherder", BUILDER.comment("Tax increase per level for Chicken Herder")
                 .defineInRange("chickenherderUpgrade", 3.0, 0.0, Double.MAX_VALUE));
-
-        BUILDING_TAXES.put("combatacademy", BUILDER.comment("Base tax for Combat Academy")
-                .defineInRange("combatacademy", 14.0, 0.0, Double.MAX_VALUE));
-        UPGRADE_TAXES.put("combatacademy", BUILDER.comment("Tax increase per level for Combat Academy")
-                .defineInRange("combatacademyUpgrade", 6.0, 0.0, Double.MAX_VALUE));
 
         BUILDING_TAXES.put("composter", BUILDER.comment("Base tax for Composter")
                 .defineInRange("composter", 6.0, 0.0, Double.MAX_VALUE));
@@ -200,11 +218,6 @@ public class TaxConfig {
                 .defineInRange("fisherman", 10.0, 0.0, Double.MAX_VALUE));
         UPGRADE_TAXES.put("fisherman", BUILDER.comment("Tax increase per level for Fisherman")
                 .defineInRange("fishermanUpgrade", 4.0, 0.0, Double.MAX_VALUE));
-
-        BUILDING_TAXES.put("guardtower", BUILDER.comment("Base tax for Guard Tower")
-                .defineInRange("guardtower", 10.0, 0.0, Double.MAX_VALUE));
-        UPGRADE_TAXES.put("guardtower", BUILDER.comment("Tax increase per level for Guard Tower")
-                .defineInRange("guardtowerUpgrade", 5.0, 0.0, Double.MAX_VALUE));
 
         BUILDING_TAXES.put("home", BUILDER.comment("Base tax for Residence")
                 .defineInRange("home", 5.0, 0.0, Double.MAX_VALUE));
@@ -436,4 +449,17 @@ public class TaxConfig {
     private static String getShortBuildingName(String fullClassName) {
         return CLASS_NAME_TO_SHORT_NAME.getOrDefault(fullClassName, "unknown");
     }
+    public static double getBaseMaintenanceForBuilding(String fullClassName) {
+        String shortName = getShortBuildingName(fullClassName);
+        ForgeConfigSpec.DoubleValue maintenanceValue = BUILDING_MAINTENANCE.get(shortName);
+        return (maintenanceValue != null) ? maintenanceValue.get() : 0.0;
+    }
+
+    public static double getUpgradeMaintenanceForBuilding(String fullClassName) {
+        String shortName = getShortBuildingName(fullClassName);
+        ForgeConfigSpec.DoubleValue upgradeValue = UPGRADE_MAINTENANCE.get(shortName);
+        return (upgradeValue != null) ? upgradeValue.get() : 0.0;
+    }
+
+
 }
