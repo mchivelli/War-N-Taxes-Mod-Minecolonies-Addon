@@ -2,9 +2,11 @@ package net.machiavelli.minecolonytax;
 
 import net.machiavelli.minecolonytax.commands.CheckTaxRevenueCommand;
 import net.machiavelli.minecolonytax.commands.ClaimTaxCommand;
+import net.machiavelli.minecolonytax.commands.PvPArenaCommand;
 import net.machiavelli.minecolonytax.commands.WarCommands;  // Import the new PvP command class
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -14,6 +16,9 @@ import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import net.minecraftforge.event.server.ServerAboutToStartEvent;
+
+import static net.machiavelli.minecolonytax.commands.PvPArenaCommand.loadArenaPositions;
 
 @Mod(MineColonyTax.MOD_ID)
 public class MineColonyTax {
@@ -38,7 +43,7 @@ public class MineColonyTax {
     private void setup(final FMLCommonSetupEvent event) {
         LOGGER.info("Initializing MineColony Tax System");
         TaxConfig.loadConfig(TaxConfig.CONFIG, "minecolonytax.toml");
-        // Additional setup if needed for PvP system
+        // Additional setup if needed for PvP system+
     }
 
     /**
@@ -69,5 +74,9 @@ public class MineColonyTax {
         ClaimTaxCommand.register(event.getDispatcher()); // Register the Claim Tax command
         CheckTaxRevenueCommand.register(event.getDispatcher()); // Register the Check Tax Revenue command
         LOGGER.info("MineColonyTax: Commands registered.");
+        loadArenaPositions();
+
     }
+
+
 }

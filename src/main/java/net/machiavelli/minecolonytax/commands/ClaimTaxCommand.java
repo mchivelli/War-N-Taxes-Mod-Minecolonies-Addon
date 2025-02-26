@@ -12,6 +12,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.machiavelli.minecolonytax.MineColonyTax;
+import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -120,9 +121,15 @@ public class ClaimTaxCommand {
 
             if (claimedAmount > 0) {
                 player.sendSystemMessage(Component.translatable("command.claimtax.success", claimedAmount, colony.getName()));
-                // Execute SDMShop command
-                String commandString = String.format("sdmshop add %s %d", player.getName().getString(), claimedAmount);
-                server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), commandString);
+                // Execute command based on SDMShop config
+                if (TaxConfig.isSDMShopConversionEnabled()) {
+                    String commandString = String.format("sdmshop add %s %d", player.getName().getString(), claimedAmount);
+                    server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), commandString);
+                } else {
+                    String itemName = TaxConfig.getCurrencyItemName();
+                    String giveCommand = String.format("give %s %s %d", player.getName().getString(), itemName, claimedAmount);
+                    server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), giveCommand);
+                }
                 LOGGER.info("Tax claimed: {} for colony {}", claimedAmount, colony.getName());
             } else {
                 player.sendSystemMessage(Component.translatable("command.claimtax.no_tax", colony.getName()));

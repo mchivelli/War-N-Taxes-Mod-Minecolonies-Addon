@@ -235,10 +235,13 @@ public class WarCommands {
                     int claimed = TaxManager.claimTax(raidData.colony, taxToTransfer);
 
                     if (claimed > 0) {
-                        String command = String.format("sdmshop add %s %d",
-                                raiderPlayer.getName().getString(),
-                                claimed
-                        );
+                        String command;
+                        if (TaxConfig.isSDMShopConversionEnabled()) {
+                            command = String.format("sdmshop add %s %d", raiderPlayer.getName().getString(), claimed);
+                        } else {
+                            String itemName = TaxConfig.getCurrencyItemName();
+                            command = String.format("give %s %s %d", raiderPlayer.getName().getString(), itemName, claimed);
+                        }
                         raidData.colony.getWorld().getServer().getCommands()
                                 .performPrefixedCommand(
                                         raidData.colony.getWorld().getServer().createCommandSourceStack(),
@@ -630,7 +633,13 @@ public class WarCommands {
 
             if (claimed > 0) {
                 // Transfer to defender via SDMShop command
-                String command = String.format("sdmshop add %s %d", defenderName, claimed);
+                String command;
+                if (TaxConfig.isSDMShopConversionEnabled()) {
+                    command = String.format("sdmshop add %s %d", defenderName, claimed);
+                } else {
+                    String itemName = TaxConfig.getCurrencyItemName();
+                    command = String.format("give %s %s %d", defenderName, itemName, claimed);
+                }
                 server.getCommands().performPrefixedCommand(
                         server.createCommandSourceStack(),
                         command

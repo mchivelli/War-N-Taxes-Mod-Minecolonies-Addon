@@ -22,7 +22,6 @@ public class TaxConfig {
     public static ForgeConfigSpec CONFIG;
 
     public static final ForgeConfigSpec.BooleanValue ENABLE_SDM_SHOP_CONVERSION;
-    public static final ForgeConfigSpec.ConfigValue<String> CURRENCY_ITEM_TAG;
     public static final ForgeConfigSpec.ConfigValue<String> CURRENCY_ITEM_NAME;
 
     public static final ForgeConfigSpec.IntValue MAX_TAX_REVENUE;
@@ -360,9 +359,6 @@ public class TaxConfig {
         ENABLE_SDM_SHOP_CONVERSION = BUILDER.comment("Enable SDMShop conversion (true = enable, false = disable).")
                 .define("EnableSDMShopConversion", true);
 
-        CURRENCY_ITEM_TAG = BUILDER.comment("The item tag for the custom currency (e.g., 'forge:ingots/gold').")
-                .define("CurrencyItemTag", "minecraft:gold_ingot");
-
         CURRENCY_ITEM_NAME = BUILDER.comment("The item name for the custom currency (e.g., 'minecraft:emerald').")
                 .define("CurrencyItemName", "minecraft:emerald");
 
@@ -388,10 +384,6 @@ public class TaxConfig {
 
     public static boolean isSDMShopConversionEnabled() {
         return ENABLE_SDM_SHOP_CONVERSION.get();
-    }
-
-    public static String getCurrencyItemTag() {
-        return CURRENCY_ITEM_TAG.get();
     }
 
     public static String getCurrencyItemName() {
