@@ -1,0 +1,14 @@
+{
+  "command.checktax.self": "殖民地: %s - 存储的税收: %d",
+  "command.checktax.other": "%s的殖民地: %s - 存储的税收: %d 硬币",
+  "command.checktax.no_colonies": "您不是任何殖民地的所有者或官员。",
+  "command.claimtax.success": "您已从殖民地 %s 领取了 %d 税收。",
+  "command.claimtax.no_tax": "殖民地 %s 没有可领取的税收。",
+  "command.claimtax.no_colonies": "您不是任何殖民地的所有者或官员。",
+  "taxmanager.currency_received": "您已收到 %d %s！",
+  "taxmanager.inventory_full": "您的背包已满！已将 %d %s 掉落至您附近。",
+  "taxmanager.error": "领取奖励时发生错误。",
+  "command.claimtax.colony_not_found": "未找到殖民地: %s",
+  "command.claimtax.invalid_amount": "无效金额。请输入一个正数。",
+  "message.minecolonytax.tax_report": "殖民地：%s - 生成税收：增加 %d 硬币；扣除维护费用：%d 硬币。"
+}

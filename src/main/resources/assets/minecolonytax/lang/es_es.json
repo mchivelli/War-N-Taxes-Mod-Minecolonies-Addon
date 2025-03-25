@@ -1,0 +1,14 @@
+{
+  "command.checktax.self": "Colonia: %s - Impuestos almacenados: %d",
+  "command.checktax.other": "Colonia de %s: %s - Impuestos almacenados: %d monedas",
+  "command.checktax.no_colonies": "No eres propietario ni oficial de una colonia.",
+  "command.claimtax.success": "Has recibido %d de impuestos de la colonia %s.",
+  "command.claimtax.no_tax": "No hay impuestos disponibles para la colonia %s.",
+  "command.claimtax.no_colonies": "No eres propietario ni oficial de una colonia.",
+  "taxmanager.currency_received": "¡Has recibido %d %s!",
+  "taxmanager.inventory_full": "¡Tu inventario está lleno! %d %s ha sido dejado cerca de ti.",
+  "taxmanager.error": "Ha ocurrido un error al recibir tu recompensa.",
+  "command.claimtax.colony_not_found": "Colonia no encontrada: %s",
+  "command.claimtax.invalid_amount": "Cantidad inválida. Por favor, introduce un número positivo.",
+  "message.minecolonytax.tax_report": "Colonia: %s - Impuestos generados: %d monedas añadidas; Mantenimiento deducido: %d monedas."
+}

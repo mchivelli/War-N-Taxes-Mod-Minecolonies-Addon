@@ -1,0 +1,14 @@
+{
+  "command.checktax.self": "Colony: %s - Stored Tax Revenue: %d",
+  "command.checktax.other": "%s's colony: %s - Stored Tax Revenue: %d coins",
+  "command.checktax.no_colonies": "You are not an owner or officer of any colonies.",
+  "command.claimtax.success": "You have claimed %d in tax revenue from colony %s.",
+  "command.claimtax.no_tax": "No taxes available to claim for colony %s.",
+  "command.claimtax.no_colonies": "You are not an owner or officer of any colonies.",
+  "taxmanager.currency_received": "You have received %d %s!",
+  "taxmanager.inventory_full": "Your inventory is full! Dropped %d %s near you.",
+  "command.claimtax.colony_not_found": "Colony not found: %s",
+  "taxmanager.error": "An error occurred while claiming your reward.",
+  "command.claimtax.invalid_amount": "Invalid amount. Please specify a positive number.",
+  "message.minecolonytax.tax_report": "Colony: %s - Generated Tax: %d coins added; Maintenance Deducted: %d coins."
+}
