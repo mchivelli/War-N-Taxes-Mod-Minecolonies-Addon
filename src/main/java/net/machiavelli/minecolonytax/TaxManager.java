@@ -46,7 +46,7 @@ public class TaxManager {
     private static MinecraftServer serverInstance;
     // Set of colony IDs for which tax claims are frozen
     private static final Set<Integer> FROZEN_COLONIES = ConcurrentHashMap.newKeySet();
-
+    private static final Set<Integer> DISABLED_GENERATION = ConcurrentHashMap.newKeySet();
     // Tick interval for generating taxes (1 hour)
     private static long ticksPerInterval = 72000L;
 
@@ -158,6 +158,11 @@ public class TaxManager {
             serverInstance.getAllLevels().forEach(world -> {
                 IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
                 colonyManager.getColonies(world).forEach(colony -> {
+                    int colonyId = colony.getID();
+                    if (isGenerationDisabled(colonyId)) {
+                        LOGGER.debug("Skipping tax generation for disabled colony {}", colonyId);
+                        return;
+                    }
                     int totalGeneratedTax = 0;
                     int totalMaintenance = 0;
 
@@ -180,7 +185,6 @@ public class TaxManager {
                             totalMaintenance += totalMaintenanceForBuilding;
 
                             if (totalMaintenanceForBuilding > 0) {
-                                int colonyId = colony.getID();
                                 int currentTax = colonyTaxMap.getOrDefault(colonyId, 0);
                                 int newTax = currentTax - totalMaintenanceForBuilding;
                                 int debtLimit = TaxConfig.getDebtLimit();
@@ -308,6 +312,22 @@ public class TaxManager {
         LOGGER.info("Colony {} debt paid by {}. New tax value: {}", colony.getName(), effectivePayment, colonyTaxMap.get(colonyId));
         saveTaxData();
         return effectivePayment;
+    }
+
+    public static void disableTaxGeneration(int colonyId) {
+        DISABLED_GENERATION.add(colonyId);
+        LOGGER.info("Tax generation disabled for colony {}", colonyId);
+    }
+
+    /** Re‑enable tax generation for a colony **/
+    public static void enableTaxGeneration(int colonyId) {
+        DISABLED_GENERATION.remove(colonyId);
+        LOGGER.info("Tax generation enabled for colony {}", colonyId);
+    }
+
+    /** Check if generation is disabled **/
+    public static boolean isGenerationDisabled(int colonyId) {
+        return DISABLED_GENERATION.contains(colonyId);
     }
 
 }

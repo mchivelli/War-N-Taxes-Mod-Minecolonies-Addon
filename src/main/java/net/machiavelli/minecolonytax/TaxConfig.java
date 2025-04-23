@@ -20,13 +20,13 @@ import java.util.Map;
 public class TaxConfig {
 
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
-    private static final ForgeConfigSpec.IntValue MIN_GUARDS_TO_RAID;
+
     public static ForgeConfigSpec CONFIG;
 
     public static final ForgeConfigSpec.BooleanValue ENABLE_SDM_SHOP_CONVERSION;
     public static final ForgeConfigSpec.ConfigValue<String> CURRENCY_ITEM_NAME;
     public static final ForgeConfigSpec.IntValue DEBT_LIMIT;
-
+    private static final ForgeConfigSpec.IntValue MIN_GUARDS_TO_RAID;
     public static final ForgeConfigSpec.IntValue MAX_TAX_REVENUE;
 
     // Maps for storing building taxes and upgrade taxes
@@ -55,7 +55,7 @@ public class TaxConfig {
 
     public static final ForgeConfigSpec.IntValue REQUIRED_GUARD_TOWERS_FOR_BOOST;
     public static final ForgeConfigSpec.DoubleValue GUARD_TOWER_TAX_BOOST_PERCENTAGE;
-
+    public static final ForgeConfigSpec.BooleanValue ALLOW_PVP_ARENA_COMMANDS;
 
     static {
 
@@ -127,6 +127,12 @@ public class TaxConfig {
 
 
         BUILDER.pop();
+        BUILDER.push("PvP Arena Settings");
+
+        ALLOW_PVP_ARENA_COMMANDS = BUILDER.comment("If true, players engaged in a PvP duel (active duel) are allowed to execute commands. " +
+                        "If false, commands are blocked only for players actively dueling (i.e. during the duel duration), while non-dueling players in the arena may execute commands.")
+                .define("AllowPvPArenaCommands", false);
+
 
         BUILDER.push("Military Maintenance Costs");
 
@@ -157,6 +163,7 @@ public class TaxConfig {
 
 
         BUILDER.pop();
+
 
         // ========== Building Taxes ========== //
         BUILDER.push("Building Taxes");

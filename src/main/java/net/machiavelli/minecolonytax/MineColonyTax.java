@@ -1,9 +1,6 @@
 package net.machiavelli.minecolonytax;
 
-import net.machiavelli.minecolonytax.commands.CheckTaxRevenueCommand;
-import net.machiavelli.minecolonytax.commands.ClaimTaxCommand;
-import net.machiavelli.minecolonytax.commands.PvPArenaCommand;
-import net.machiavelli.minecolonytax.commands.WarCommands;  // Import the new PvP command class
+import net.machiavelli.minecolonytax.commands.*;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.server.ServerAboutToStartEvent;
@@ -74,6 +71,7 @@ public class MineColonyTax {
         CheckTaxRevenueCommand.register(event.getDispatcher()); // Register the Check Tax Revenue command
         LOGGER.info("MineColonyTax: Commands registered.");
         loadArenaPositions();
+        AdminTaxGenCommand.register(event.getDispatcher());
 
     }
 
