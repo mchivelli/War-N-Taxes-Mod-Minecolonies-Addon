@@ -1,6 +1,7 @@
 package net.machiavelli.minecolonytax.data;
 
 import com.minecolonies.api.colony.IColony;
+import com.minecolonies.api.colony.permissions.Action;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.commands.WarCommands;
 import net.minecraft.server.level.ServerBossEvent;
@@ -25,6 +26,8 @@ public class WarData {
     private final Set<Integer> guardIDs = ConcurrentHashMap.newKeySet();
     private final Set<UUID> attackerAllies = ConcurrentHashMap.newKeySet();
     private final Set<UUID> defenderAllies = ConcurrentHashMap.newKeySet();
+    // Set to track players who should keep their inventory on last life
+    private final Set<UUID> lastLifeInventoryPreservation = ConcurrentHashMap.newKeySet();
 
     public TimerTask timerTask;
     public ServerBossEvent bossEvent;
@@ -34,6 +37,9 @@ public class WarData {
     // Tracking ally join responses
     private final Set<UUID> acceptedAllies = new HashSet<>();
     private final Set<UUID> declinedAllies = new HashSet<>();
+
+    public Map<Action, Boolean> originalHostilePerms;
+    public Map<Action, Boolean> originalHostilePermsForAttacker;
 
     public int totalGuards;
     public int remainingGuards;
@@ -121,4 +127,5 @@ public class WarData {
     public void setJoinPhaseEndTime(long joinPhaseEndTime) { this.joinPhaseEndTime = joinPhaseEndTime; }
     public Set<UUID> getAttackerAllies() { return attackerAllies; }
     public Set<UUID> getDefenderAllies() { return defenderAllies; }
+    public Set<UUID> getLastLifeInventoryPreservation() { return lastLifeInventoryPreservation; }
 }
