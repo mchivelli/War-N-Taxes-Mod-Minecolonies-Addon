@@ -86,10 +86,7 @@ public class TaxDebtCommand {
             }
             foundColony = true;
             int currentTax = TaxManager.getStoredTaxForColony(colony);
-            if (currentTax >= 0) {
-                source.sendFailure(Component.translatable("command.taxdebt.no_debt", colony.getName()));
-                continue;
-            }
+            // Continue even if there's no debt - players can add to their colony's balance
 
             // Attempt to deduct the specified amount from the player's funds.
             boolean deducted = deductCurrency(player, amount);
@@ -98,9 +95,8 @@ public class TaxDebtCommand {
                 continue;
             }
 
-            // Allow payment up to the current debt amount.
-            int effectivePayment = Math.min(amount, -currentTax);
-            int paid = TaxManager.payTaxDebt(colony, effectivePayment);
+            // Allow full payment amount, regardless of current balance
+            int paid = TaxManager.payTaxDebt(colony, amount);
             source.sendSuccess(() -> Component.translatable("command.taxdebt.success", paid, colony.getName(), TaxManager.getStoredTaxForColony(colony)), false);
         }
 

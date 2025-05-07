@@ -28,6 +28,7 @@ public class TaxConfig {
     public static final ForgeConfigSpec.IntValue DEBT_LIMIT;
     private static final ForgeConfigSpec.IntValue MIN_GUARDS_TO_RAID;
     public static final ForgeConfigSpec.IntValue MAX_TAX_REVENUE;
+    public static final ForgeConfigSpec.BooleanValue ENABLE_COLONY_TRANSFER;
 
     // Maps for storing building taxes and upgrade taxes
     public static final Map<String, ForgeConfigSpec.DoubleValue> BUILDING_TAXES = new HashMap<>();
@@ -46,16 +47,24 @@ public class TaxConfig {
     public static final ForgeConfigSpec.ConfigValue<List<Double>> RAID_TAX_PERCENTAGES;
     public static final ForgeConfigSpec.IntValue WAR_DURATION_MINUTES;
     public static final ForgeConfigSpec.IntValue MIN_GUARDS_TO_WAGE_WAR;
+    public static final ForgeConfigSpec.BooleanValue ENABLE_LP_GROUP_SWITCHING;
     public static final Map<String, ForgeConfigSpec.DoubleValue> BUILDING_MAINTENANCE = new HashMap<>();
     public static final Map<String, ForgeConfigSpec.DoubleValue> UPGRADE_MAINTENANCE = new HashMap<>();
     public static final ForgeConfigSpec.BooleanValue ALLOW_OFFLINE_RAIDS;
     public static final ForgeConfigSpec.DoubleValue RAID_PENALTY_PERCENTAGE;
+    public static final ForgeConfigSpec.DoubleValue WAR_VICTORY_PERCENTAGE;
+    public static final ForgeConfigSpec.DoubleValue WAR_DEFEAT_PERCENTAGE;
+    public static final ForgeConfigSpec.DoubleValue WAR_STALEMATE_PERCENTAGE;
+    public static final ForgeConfigSpec.IntValue WAR_TAX_FREEZE_HOURS;
     public static final ForgeConfigSpec.IntValue JOIN_PHASE_DURATION_MINUTES;
     public static final ForgeConfigSpec.BooleanValue WAR_ACCEPTANCE_REQUIRED;
+    public static final ForgeConfigSpec.BooleanValue KEEP_INVENTORY_ON_LAST_LIFE;
 
     public static final ForgeConfigSpec.IntValue REQUIRED_GUARD_TOWERS_FOR_BOOST;
     public static final ForgeConfigSpec.DoubleValue GUARD_TOWER_TAX_BOOST_PERCENTAGE;
     public static final ForgeConfigSpec.BooleanValue ALLOW_PVP_ARENA_COMMANDS;
+
+    public static final ForgeConfigSpec.BooleanValue ENABLE_WAR_ACTIONS;
 
     static {
 
@@ -75,23 +84,30 @@ public class TaxConfig {
         BUILDER.pop();
 
         DEBT_LIMIT = BUILDER.comment("Optional debt limit for colony debt. " +
-                        "If > 0, colony revenue will not deduct more once the debt reaches this limit (i.e. the tax value won’t drop below -DebtLimit). Set to 0 to disable.")
+                        "If > 0, colony revenue will not deduct more once the debt reaches this limit (i.e. the tax value won't drop below -DebtLimit). Set to 0 to disable.")
                 .defineInRange("DebtLimit", 0, 0, Integer.MAX_VALUE);
 
         // ========== War Settings ==========
         BUILDER.push("War Settings");
 
-        WAR_ACCEPTANCE_REQUIRED = BUILDER.comment("If true, war requests must be accepted manually; if false, wars are auto-started if conditions are met.")
-                .define("WarAcceptanceRequired", true);
+        ENABLE_COLONY_TRANSFER = BUILDER.comment("Enable colony ownership transfer when a war is won (true = enable, false = disable).")
+                .define("EnableColonyTransfer", true);
+
+        ENABLE_WAR_ACTIONS = BUILDER.comment("If false, war will not toggle any interaction permissions")
+                .define("EnableWarActions", true);
+
+        //INVERTED! WARACCEPTANCE = TRUE = Manual Accept
+        WAR_ACCEPTANCE_REQUIRED = BUILDER.comment("If true, war requests will be automatically accepted; if false, wars will prompt for accept/decline.")
+                .define("Auto-Accept War Declarations", false);
 
         ATTACKER_GRACE_PERIOD_MINUTES = BUILDER.comment("Grace period between declaring wars (minutes)")
                 .defineInRange("AttackerGracePeriodMinutes", 120, 1, 1440); // Default 2 hours
 
         RAID_GRACE_PERIOD_MINUTES = BUILDER.comment("Grace period between raids (minutes)")
-                .defineInRange("RaidGracePeriodMinutes", 1, 1, 1440); // Default 1 minute
+                .defineInRange("RaidGracePeriodMinutes", 120, 1, 1440); // Default 2h
 
         MAX_RAID_DURATION_MINUTES = BUILDER.comment("Maximum raid duration (minutes)")
-                .defineInRange("MaxRaidDurationMinutes", 20, 1, 1440);
+                .defineInRange("MaxRaidDurationMinutes", 5, 1, 1440);
 
         ALLOW_OFFLINE_RAIDS = BUILDER
                 .comment("Allow players to raid colonies even if the colony owner is offline.")
@@ -100,30 +116,54 @@ public class TaxConfig {
         RAID_PENALTY_PERCENTAGE = BUILDER.comment("Penalty percentage applied when a raider is killed by a defender during a raid (0.0 - 1.0)")
                 .defineInRange("RaidPenaltyPercentage", 0.25, 0.0, 1.0);
 
-        MIN_GUARDS_TO_RAID = BUILDER.comment("Minimum number of guards required to initiate a raid")
-                .defineInRange("MinGuardsToRaid", 5, 1, 100);
+        WAR_VICTORY_PERCENTAGE = BUILDER.comment("Percentage of losing players' balance awarded to each winning player. Set to 0.0 to only enable colony transfer (if enabled).\n" +
+                "Uses SDMShop balance or colony funds based on what's configured.")
+                .defineInRange("WarVictoryPercentage", 0.25, 0.0, 1.0);
 
+        WAR_DEFEAT_PERCENTAGE = BUILDER.comment("Percentage that each losing player loses from their balance when defeated in war.\n" +
+                "Uses SDMShop balance or colony funds based on what's configured.")
+                .defineInRange("WarDefeatPercentage", 0.15, 0.0, 1.0);
+                
+        WAR_STALEMATE_PERCENTAGE = BUILDER.comment("Percentage that all war participants lose from their balance when a war ends in stalemate.\n" +
+                "Uses SDMShop balance or colony funds based on what's configured.")
+                .defineInRange("WarStalematePercentage", 0.10, 0.0, 1.0);
+                
+        WAR_TAX_FREEZE_HOURS = BUILDER.comment("Duration (in hours) to freeze colony tax generation after a war loss or stalemate.\n" +
+                "Set to 0 to disable tax freezing.")
+                .defineInRange("WarTaxFreezeHours", 0, 0, 168); // Max 1 week
+
+        MIN_GUARDS_TO_RAID = BUILDER.comment("Minimum number of guards required to initiate a raid")
+                .defineInRange("MinGuardsToRaid", 3, 1, 100);
 
         RAID_TAX_INTERVAL_SECONDS = BUILDER.comment("Interval between tax transfers during raids (seconds)")
-                .defineInRange("RaidTaxIntervalSeconds", 10, 5, 3600);
+                .defineInRange("RaidTaxIntervalSeconds", 60, 5, 3600);
 
         RAID_TAX_PERCENTAGES = BUILDER.comment("Tax transfer percentages during raids (comma-separated decimals)")
-                .define("RaidTaxPercentages", List.of(0.1, 0.3, 0.5, 0.7));
+                .define("RaidTaxPercentages", List.of(0.1, 0.25, 0.5, 0.7));
 
         WAR_DURATION_MINUTES = BUILDER.comment("War duration (minutes)")
                 .defineInRange("WarDurationMinutes", 120, 1, 1440);
 
         MIN_GUARDS_TO_WAGE_WAR = BUILDER.comment("Minimum guards required to declare war")
                 .defineInRange("MinGuardsToWageWar", 5, 1, 100);
+                
+        ENABLE_LP_GROUP_SWITCHING = BUILDER.comment("If enabled, war participants will be switched to the 'war' LP permission group during wars.\n" +
+                "This requires LuckPerms to be installed and the 'war' group to be properly set up.\n" +
+                "The command used is: /lp user <Player> parent set war")
+                .define("EnableLPGroupSwitching", false);
 
         JOIN_PHASE_DURATION_MINUTES = BUILDER.comment("Duration of the join phase in minutes")
                 .defineInRange("JoinPhaseDurationMinutes", 5, 1, 30);
+                
+        KEEP_INVENTORY_ON_LAST_LIFE = BUILDER.comment("If enabled, players will keep their inventory on their last life when they die in war.\n" +
+                "This allows them to continue fighting without losing their gear, and especially important when colony transfer is enabled.")
+                .define("KeepInventoryOnLastLife", true);
 
         REQUIRED_GUARD_TOWERS_FOR_BOOST = BUILDER.comment("Number of Guard Towers required to activate a tax boost for all buildings in a colony.")
                 .defineInRange("RequiredGuardTowersForBoost", 5, 1, 100);
 
         GUARD_TOWER_TAX_BOOST_PERCENTAGE = BUILDER.comment("Percentage increase in tax revenue for all buildings when required Guard Towers are built.")
-                .defineInRange("GuardTowerTaxBoostPercentage", 0.10, 0.0, 1.0);
+                .defineInRange("GuardTowerTaxBoostPercentage", 0.5, 0.0, 1.0);
 
 
         BUILDER.pop();
@@ -541,5 +581,25 @@ public class TaxConfig {
      */
     private static String getShortBuildingName(String fullClassName) {
         return CLASS_NAME_TO_SHORT_NAME.getOrDefault(fullClassName, "unknown");
+    }
+
+    public static boolean isColonyTransferEnabled() {
+        return ENABLE_COLONY_TRANSFER.get();
+    }
+
+    public static double getWarVictoryPercentage() {
+        return WAR_VICTORY_PERCENTAGE.get();
+    }
+
+    public static double getWarDefeatPercentage() {
+        return WAR_DEFEAT_PERCENTAGE.get();
+    }
+    
+    public static double getWarStalematePercentage() {
+        return WAR_STALEMATE_PERCENTAGE.get();
+    }
+    
+    public static int getWarTaxFreezeHours() {
+        return WAR_TAX_FREEZE_HOURS.get();
     }
 }

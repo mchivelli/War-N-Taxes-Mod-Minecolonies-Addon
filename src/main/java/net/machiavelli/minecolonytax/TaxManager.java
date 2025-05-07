@@ -296,22 +296,19 @@ public class TaxManager {
     }
 
     /**
-     * Applies a payment to reduce the colony's tax debt.
+     * Applies a payment to reduce the colony's tax debt or add to its balance.
      * @param colony The colony to receive the payment.
      * @param amount The payment amount.
-     * @return The effective payment applied (which may be lower than the requested amount if it would exceed the debt).
+     * @return The effective payment applied (full amount is always used).
      */
     public static int payTaxDebt(IColony colony, int amount) {
         int colonyId = colony.getID();
         int currentTax = colonyTaxMap.getOrDefault(colonyId, 0);
-        if (currentTax >= 0) {
-            return 0; // No debt to pay.
-        }
-        int effectivePayment = Math.min(amount, -currentTax);
-        colonyTaxMap.put(colonyId, currentTax + effectivePayment);
-        LOGGER.info("Colony {} debt paid by {}. New tax value: {}", colony.getName(), effectivePayment, colonyTaxMap.get(colonyId));
+        // Apply the full amount regardless of current balance
+        colonyTaxMap.put(colonyId, currentTax + amount);
+        LOGGER.info("Colony {} tax payment of {}. New tax value: {}", colony.getName(), amount, colonyTaxMap.get(colonyId));
         saveTaxData();
-        return effectivePayment;
+        return amount;
     }
 
     public static void disableTaxGeneration(int colonyId) {
