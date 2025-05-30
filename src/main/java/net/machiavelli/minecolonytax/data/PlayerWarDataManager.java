@@ -1,0 +1,144 @@
+package net.machiavelli.minecolonytax.data;
+
+import net.machiavelli.minecolonytax.MineColonyTax;
+import net.machiavelli.minecolonytax.capability.PlayerWarDataCapability;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.scores.Scoreboard;
+
+public class PlayerWarDataManager {
+
+    /**
+     * Increment the number of players killed in war for a player
+     *
+     * @param player The player who killed someone
+     */
+    public static void incrementPlayersKilledInWar(ServerPlayer player) {
+        PlayerWarDataCapability.get(player).ifPresent(data -> {
+            data.incrementPlayersKilledInWar();
+            updateScoreboard(player, "playersKilled", data.getPlayersKilledInWar());
+            // Mark data as dirty to ensure it's saved
+            markDirty(player);
+        });
+    }
+
+    /**
+     * Increment the number of colonies raided by the player
+     *
+     * @param player The player who raided a colony
+     */
+    public static void incrementRaidedColonies(ServerPlayer player) {
+        PlayerWarDataCapability.get(player).ifPresent(data -> {
+            data.incrementRaidedColonies();
+            updateScoreboard(player, "raidsCompleted", data.getRaidedColonies());
+            // Mark data as dirty to ensure it's saved
+            markDirty(player);
+        });
+    }
+
+    /**
+     * Add to the total amount raided by the player
+     *
+     * @param player The player who raided
+     * @param amount The amount raided
+     */
+    public static void addAmountRaided(ServerPlayer player, long amount) {
+        PlayerWarDataCapability.get(player).ifPresent(data -> {
+            data.addAmountRaided(amount);
+            updateScoreboard(player, "amountRaided", (int)data.getAmountRaided());
+            // Mark data as dirty to ensure it's saved
+            markDirty(player);
+        });
+    }
+
+    /**
+     * Increment the number of wars won by the player
+     *
+     * @param player The player who won a war
+     */
+    public static void incrementWarsWon(ServerPlayer player) {
+        PlayerWarDataCapability.get(player).ifPresent(data -> {
+            data.incrementWarsWon();
+            updateScoreboard(player, "warsWon", data.getWarsWon());
+            // Mark data as dirty to ensure it's saved
+            markDirty(player);
+        });
+    }
+
+    /**
+     * Increment the number of war stalemates the player was involved in
+     *
+     * @param player The player involved in a stalemated war
+     */
+    public static void incrementWarStalemates(ServerPlayer player) {
+        PlayerWarDataCapability.get(player).ifPresent(data -> {
+            data.incrementWarStalemates();
+            updateScoreboard(player, "warStalemates", data.getWarStalemates());
+            // Mark data as dirty to ensure it's saved
+            markDirty(player);
+        });
+    }
+
+    /**
+     * Update a player's scoreboard to show their statistics
+     *
+     * @param player The player to update the scoreboard for
+     * @param objective The scoreboard objective to update
+     * @param value The value to set for the objective
+     */
+    private static void updateScoreboard(ServerPlayer player, String objective, int value) {
+        if (player.getServer() != null) {
+            Scoreboard sb = player.getServer().getScoreboard();
+            var obj = sb.getObjective(objective);
+            if (obj != null) {
+                sb.getOrCreatePlayerScore(player.getName().getString(), obj).setScore(value);
+            }
+        }
+    }
+    
+    /**
+     * Force the player to save their data.
+     * This ensures capability data is persisted to the player's .dat file.
+     * 
+     * @param player The player whose data should be saved
+     */
+    private static void markDirty(ServerPlayer player) {
+        try {
+            MineColonyTax.LOGGER.info("Marking player data dirty for " + player.getName().getString());
+            
+            // Get the latest data from the capability
+            PlayerWarDataCapability.get(player).ifPresent(data -> {
+                try {
+                    // Serialize the current war data
+                    CompoundTag nbt = data.serializeNBT();
+                    
+                    // Save directly to player's persistent data to ensure it gets written to UUID.dat
+                    CompoundTag persistentData = player.getPersistentData();
+                    if (!persistentData.contains("ForgeData")) {
+                        persistentData.put("ForgeData", new CompoundTag());
+                    }
+                    CompoundTag forgeData = persistentData.getCompound("ForgeData");
+                    forgeData.put(MineColonyTax.MOD_ID + "_war_data", nbt);
+                    
+                    MineColonyTax.LOGGER.info("Updated persistent data for player " + 
+                        player.getName().getString() + ": " + nbt);
+                    
+                    // Set a flag to indicate data has changed
+                    player.getPersistentData().putBoolean("minecolonytax:data_changed", true);
+                    
+                    // Force save if server is available
+                    net.minecraft.server.MinecraftServer server = player.getServer();
+                    if (server != null) {
+                        server.getPlayerList().saveAll();
+                    }
+                } catch (Exception e) {
+                    MineColonyTax.LOGGER.error("Error updating persistent data: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            });
+        } catch (Exception e) {
+            MineColonyTax.LOGGER.error("Failed to save player data: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+} 

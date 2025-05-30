@@ -20,8 +20,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import net.minecraftforge.event.server.ServerAboutToStartEvent;
 
-import static net.machiavelli.minecolonytax.commands.PvPArenaCommand.loadArenaPositions;
-
 @Mod(MineColonyTax.MOD_ID)
 public class MineColonyTax {
 
@@ -69,6 +67,16 @@ public class MineColonyTax {
         
         // Set up scoreboards for tracking player statistics
         setupScoreboards(event.getServer().getScoreboard());
+        
+        // Reset war and raid permissions on server startup to prevent griefing after crashes
+        LOGGER.info("Resetting all colony war and raid permissions to prevent post-crash griefing");
+        com.minecolonies.api.colony.IColonyManager.getInstance().getAllColonies().forEach(colony -> {
+            WarSystem.setWarInteractionPermissions(colony, false);
+            WarSystem.setRaidInteractionPermissions(colony, false);
+        });
+        // Clear any active wars that might have been in progress during crash
+        WarSystem.ACTIVE_WARS.clear();
+        LOGGER.info("War and raid permissions reset successfully");
     }
 
     /**
@@ -99,15 +107,9 @@ public class MineColonyTax {
      */
     @SubscribeEvent
     public void onRegisterCommands(RegisterCommandsEvent event) {
-        WarCommands.register(event.getDispatcher()); // Register the PvP command
-        LOGGER.info("MineColonyTax: PvP command registered.");
-        ClaimTaxCommand.register(event.getDispatcher()); // Register the Claim Tax command
-        CheckTaxRevenueCommand.register(event.getDispatcher());
-        AdminTaxGenCommand.register(event.getDispatcher());
-        WarHistoryCommand.register(event.getDispatcher());
-        WarStatsCommand.register(event.getDispatcher()); // Register the War Stats command
-        LOGGER.info("MineColonyTax: Commands registered.");
-        loadArenaPositions();
+        WntCommands.register(event.getDispatcher()); // Register the unified /wnt command
+        LOGGER.info("MineColonyTax: /wnt commands registered.");
+        
         LOGGER.info("Loaded Arena Positions");
     }
 }

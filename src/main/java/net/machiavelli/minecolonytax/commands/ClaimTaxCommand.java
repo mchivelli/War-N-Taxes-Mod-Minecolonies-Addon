@@ -28,7 +28,6 @@ import net.sixik.sdmshoprework.SDMShopR; // Import the SDMShop API
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class ClaimTaxCommand {
 
     private static final Logger LOGGER = LogManager.getLogger(ClaimTaxCommand.class);
@@ -72,11 +71,6 @@ public class ClaimTaxCommand {
                         )
                         .executes(context -> execute(context, null, -1))
         );
-    }
-
-    @SubscribeEvent
-    public static void onRegisterCommands(RegisterCommandsEvent event) {
-        ClaimTaxCommand.register(event.getDispatcher());
     }
 
     private static int execute(CommandContext<CommandSourceStack> context, String colonyName, int amount) throws CommandSyntaxException {

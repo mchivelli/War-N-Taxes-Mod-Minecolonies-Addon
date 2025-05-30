@@ -15,6 +15,7 @@ import net.machiavelli.minecolonytax.MineColonyTax;  // Import the main mod clas
 import net.machiavelli.minecolonytax.TaxManager;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -26,7 +27,6 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 
-@Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class CheckTaxRevenueCommand {
 
     private static final Logger LOGGER = LogManager.getLogger(CheckTaxRevenueCommand.class);
@@ -41,12 +41,6 @@ public class CheckTaxRevenueCommand {
                 .executes(CheckTaxRevenueCommand::checkTaxForSelf);
 
         dispatcher.register(command);
-    }
-
-    // Subscribe to the command registration event
-    @SubscribeEvent
-    public static void onRegisterCommands(RegisterCommandsEvent event) {
-        CheckTaxRevenueCommand.register(event.getDispatcher());
     }
 
     private static int checkTaxForSelf(CommandContext<CommandSourceStack> context) {

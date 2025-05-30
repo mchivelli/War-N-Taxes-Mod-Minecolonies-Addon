@@ -15,6 +15,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Mod.EventBusSubscriber
 public class TaxConfig {
@@ -65,6 +66,10 @@ public class TaxConfig {
     public static final ForgeConfigSpec.BooleanValue ALLOW_PVP_ARENA_COMMANDS;
 
     public static final ForgeConfigSpec.BooleanValue ENABLE_WAR_ACTIONS;
+    public static final ForgeConfigSpec.IntValue PLAYER_LIVES_IN_WAR; // New config
+
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_WAR_ACTIONS;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_RAID_ACTIONS;
 
     static {
 
@@ -96,9 +101,8 @@ public class TaxConfig {
         ENABLE_WAR_ACTIONS = BUILDER.comment("If false, war will not toggle any interaction permissions")
                 .define("EnableWarActions", true);
 
-        //INVERTED! WARACCEPTANCE = TRUE = Manual Accept
-        WAR_ACCEPTANCE_REQUIRED = BUILDER.comment("If true, war requests will be automatically accepted; if false, wars will prompt for accept/decline.")
-                .define("Auto-Accept War Declarations", false);
+        WAR_ACCEPTANCE_REQUIRED = BUILDER.comment("If true, war requests must be manually accepted; if false, wars requests will automatically accept.")
+                .define("WarAcceptanceRequired", true);
 
         ATTACKER_GRACE_PERIOD_MINUTES = BUILDER.comment("Grace period between declaring wars (minutes)")
                 .defineInRange("AttackerGracePeriodMinutes", 120, 1, 1440); // Default 2 hours
@@ -158,6 +162,19 @@ public class TaxConfig {
         KEEP_INVENTORY_ON_LAST_LIFE = BUILDER.comment("If enabled, players will keep their inventory on their last life when they die in war.\n" +
                 "This allows them to continue fighting without losing their gear, and especially important when colony transfer is enabled.")
                 .define("KeepInventoryOnLastLife", true);
+
+        PLAYER_LIVES_IN_WAR = BUILDER.comment("Number of lives each player has during a war.")
+                .defineInRange("PlayerLivesInWar", 5, 1, 100); // Default 5 lives
+
+        CONFIGURABLE_WAR_ACTIONS = BUILDER.comment("Actions permitted during a War. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.")
+                .defineList("WarActions",
+                        List.of("PLACE_BLOCKS", "BREAK_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY", "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN", "HURT_VISITOR", "THROW_POTION"),
+                        obj -> obj instanceof String);
+
+        CONFIGURABLE_RAID_ACTIONS = BUILDER.comment("Actions permitted during a Raid. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.")
+                .defineList("RaidActions",
+                        List.of("TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY", "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN", "HURT_VISITOR", "THROW_POTION"),
+                        obj -> obj instanceof String);
 
         REQUIRED_GUARD_TOWERS_FOR_BOOST = BUILDER.comment("Number of Guard Towers required to activate a tax boost for all buildings in a colony.")
                 .defineInRange("RequiredGuardTowersForBoost", 5, 1, 100);
@@ -601,5 +618,37 @@ public class TaxConfig {
     
     public static int getWarTaxFreezeHours() {
         return WAR_TAX_FREEZE_HOURS.get();
+    }
+
+    public static Set<com.minecolonies.api.colony.permissions.Action> getWarActions() {
+        List<? extends String> actionsStr = CONFIGURABLE_WAR_ACTIONS.get();
+        return actionsStr.stream()
+            .map(s -> {
+                try {
+                    return com.minecolonies.api.colony.permissions.Action.valueOf(s.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    // Log error or handle invalid action string
+                    System.err.println("Invalid war action in config: " + s);
+                    return null;
+                }
+            })
+            .filter(java.util.Objects::nonNull)
+            .collect(java.util.stream.Collectors.toSet());
+    }
+
+    public static Set<com.minecolonies.api.colony.permissions.Action> getRaidActions() {
+        List<? extends String> actionsStr = CONFIGURABLE_RAID_ACTIONS.get();
+        return actionsStr.stream()
+            .map(s -> {
+                try {
+                    return com.minecolonies.api.colony.permissions.Action.valueOf(s.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    // Log error or handle invalid action string
+                    System.err.println("Invalid raid action in config: " + s);
+                    return null;
+                }
+            })
+            .filter(java.util.Objects::nonNull)
+            .collect(java.util.stream.Collectors.toSet());
     }
 }

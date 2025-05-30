@@ -5,8 +5,11 @@ import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
 import net.machiavelli.minecolonytax.MineColonyTax;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.WarSystem;
+import net.machiavelli.minecolonytax.data.RaidData;
 import net.machiavelli.minecolonytax.data.WarData;
 import net.machiavelli.minecolonytax.commands.WarCommands;
+import net.machiavelli.minecolonytax.raid.ActiveRaidData;
+import net.machiavelli.minecolonytax.raid.RaidManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -31,17 +34,20 @@ public class WarEventHandler {
     // Store player inventories temporarily when keeping inventory on death
     private static final Map<UUID, ItemStack[]> savedInventories = new HashMap<>();
     
+    // Track players who have disconnected during active wars/raids for reconnection handling
+    private static final Map<UUID, Integer> disconnectedWarParticipants = new HashMap<>();
+    
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onPlayerDeath(LivingDeathEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         // Handle raider death during active raid
-        WarCommands.RaidData raidData = WarCommands.getActiveRaidForPlayer(player.getUUID());
+        ActiveRaidData raidData = RaidManager.getActiveRaidForPlayer(player.getUUID());
         if (raidData != null) {
             Entity src = event.getSource().getEntity();
             if (src instanceof ServerPlayer killer) {
-                WarCommands.handleRaiderKilled(raidData, killer);
+                RaidManager.handleRaiderKilled(raidData, killer);
             } else {
-                WarCommands.endActiveRaid(raidData, "Raider killed");
+                RaidManager.endActiveRaid(raidData, "Raider killed");
             }
             return;
         }
@@ -102,12 +108,12 @@ public class WarEventHandler {
             WarSystem.onPlayerKilledInWar(killer, player, war);
             
             // Also handle if this is a raider being killed during a raid
-            for (Map.Entry<UUID, WarCommands.RaidData> entry : WarCommands.getActiveRaids().entrySet()) {
+            for (Map.Entry<UUID, ActiveRaidData> entry : RaidManager.getActiveRaids().entrySet()) {
                 // Check if the dead player is an active raider
                 if (entry.getKey().equals(player.getUUID())) {
                     // Call the raid kill handler
                     System.out.println("[DEBUG] Raider killed during raid: " + player.getName().getString());
-                    WarCommands.handleRaiderKilled(entry.getValue(), killer);
+                    RaidManager.handleRaiderKilled(entry.getValue(), killer);
                     break;
                 }
             }
@@ -200,6 +206,109 @@ public class WarEventHandler {
                     999999, 0,
                     false, false
             ));
+        }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        
+        UUID playerUUID = player.getUUID();
+        
+        // Check if player is in an active war
+        WarData war = WarSystem.getActiveWarForPlayer(player);
+        if (war != null) {
+            // Store player in our tracking map to restore boss bar on reconnect
+            // This also indicates they're part of an active war
+            if (war.getAttackerLives().containsKey(playerUUID)) {
+                disconnectedWarParticipants.put(playerUUID, 1); // 1 indicates attacker side
+            } else if (war.getDefenderLives().containsKey(playerUUID)) {
+                disconnectedWarParticipants.put(playerUUID, 2); // 2 indicates defender side
+            }
+            
+            // We don't need to do anything with boss bars here, as the ServerBossEvent 
+            // automatically removes disconnected players
+            
+            System.out.println("[DEBUG] Player " + player.getName().getString() + " disconnected during active war");
+        }
+        
+        // Check if player is in an active raid
+        ActiveRaidData raidData = RaidManager.getActiveRaidForPlayer(playerUUID);
+        if (raidData != null) {
+            // Mark this player as participating in a raid when disconnected
+            // 3 indicates active raid participation
+            disconnectedWarParticipants.put(playerUUID, 3);
+            
+            // Do not end the raid when the raider disconnects
+            // The raid will continue and the player can reconnect to it
+            
+            System.out.println("[DEBUG] Player " + player.getName().getString() + " disconnected during active raid");
+        }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        
+        UUID playerUUID = player.getUUID();
+        
+        // Check if this player was in an active war when they disconnected
+        if (disconnectedWarParticipants.containsKey(playerUUID)) {
+            int warStatus = disconnectedWarParticipants.get(playerUUID);
+            
+            // Handle war reconnection
+            if (warStatus == 1 || warStatus == 2) { // War attacker or defender
+                // Find the war they were participating in
+                for (WarData war : WarSystem.ACTIVE_WARS.values()) {
+                    boolean isAttacker = war.getAttackerLives().containsKey(playerUUID);
+                    boolean isDefender = war.getDefenderLives().containsKey(playerUUID);
+                    
+                    if (isAttacker || isDefender) {
+                        // Re-add player to the appropriate boss bar
+                        if (war.alliesBossEvent != null && war.alliesBossEvent.isVisible()) {
+                            war.alliesBossEvent.addPlayer(player);
+                        } else if (war.bossEvent != null) {
+                            war.bossEvent.addPlayer(player);
+                        }
+                        
+                        player.sendSystemMessage(Component.literal("You have reconnected to an active war.")
+                                .withStyle(ChatFormatting.GOLD));
+                        
+                        // If they're spectating due to no lives left, ensure they're in spectator mode
+                        if (war.getSpectators().contains(playerUUID)) {
+                            player.setGameMode(GameType.SPECTATOR);
+                        }
+                    }
+                }
+            } 
+            // Handle raid reconnection
+            else if (warStatus == 3) { // Raid participant
+                ActiveRaidData raidData = RaidManager.getActiveRaidForPlayer(playerUUID);
+                if (raidData != null && raidData.getBossEvent() != null) {
+                    // Re-add player to the raid boss bar
+                    raidData.getBossEvent().addPlayer(player);
+                    
+                    player.sendSystemMessage(Component.literal("You have reconnected to an active raid.")
+                            .withStyle(ChatFormatting.GOLD));
+                }
+            }
+            
+            // Remove from our tracking now that they've reconnected
+            disconnectedWarParticipants.remove(playerUUID);
+        }
+        
+        // Always check if player belongs to a colony that's being raided (defender logic)
+        // This catches cases where a defender wasn't properly tracked or was offline when raid started
+        for (ActiveRaidData raidData : RaidManager.getActiveRaids().values()) {
+            if (raidData.isActive() && raidData.getBossEvent() != null && raidData.getColony() != null) {
+                // Check if player is a member of the colony being raided
+                if (raidData.getColony().getPermissions().getPlayers().containsKey(playerUUID)) {
+                    // Add them to the boss bar
+                    raidData.getBossEvent().addPlayer(player);
+                    player.sendSystemMessage(Component.literal("Your colony is currently being raided!")
+                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+                }
+            }
         }
     }
 
