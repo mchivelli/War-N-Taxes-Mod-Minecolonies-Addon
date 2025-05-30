@@ -8,6 +8,8 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.minecraft.commands.CommandSourceStack;
@@ -26,7 +28,6 @@ import net.sixik.sdmshoprework.SDMShopR;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Mod.EventBusSubscriber(modid = "minecolonytax", bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class TaxDebtCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -62,12 +63,7 @@ public class TaxDebtCommand {
         );
     }
 
-    @SubscribeEvent
-    public static void onRegisterCommands(RegisterCommandsEvent event) {
-        register(event.getDispatcher());
-    }
-
-    private static int execute(CommandContext<CommandSourceStack> context, String colonyName, int amount) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+    private static int execute(CommandContext<CommandSourceStack> context, String colonyName, int amount) throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
         ServerPlayer player = source.getPlayerOrException();
 

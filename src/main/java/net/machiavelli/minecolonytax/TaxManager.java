@@ -114,7 +114,7 @@ public class TaxManager {
         }
 
         LOGGER.info("Claimed {} tax for colony {}", claimedAmount, colony.getName());
-        saveTaxData();  // Save changes to file
+        saveTaxData(true);  // Log save for important operations like claiming tax
 
         return claimedAmount;
     }
@@ -137,10 +137,10 @@ public class TaxManager {
         if (currentTax < maxTax) {
             int newTax = Math.min(currentTax + taxAmount, maxTax);
             colonyTaxMap.put(colony.getID(), newTax);
-
-            LOGGER.info("Updated tax revenue for colony {} to {} (Max: {}).", colony.getName(), newTax, maxTax);
+            // Removed per-building logging - will be aggregated in generateTaxesForAllColonies
         } else {
-            LOGGER.info("Tax revenue for colony {} has reached the maximum limit ({}).", colony.getName(), maxTax);
+            // Only log max limit reached once per colony per iteration
+            // This will be handled in generateTaxesForAllColonies method
         }
     }
 
@@ -163,11 +163,21 @@ public class TaxManager {
                         LOGGER.debug("Skipping tax generation for disabled colony {}", colonyId);
                         return;
                     }
+                    
+                    // Track colony-level statistics
                     int totalGeneratedTax = 0;
                     int totalMaintenance = 0;
+                    int buildingCount = 0;
+                    int maxLimitHits = 0;
+                    boolean hasDebt = false;
+                    int finalTaxBalance;
+                    
+                    // Store initial tax for comparison
+                    int initialTax = colonyTaxMap.getOrDefault(colonyId, 0);
 
                     for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
                         if (building.getBuildingLevel() > 0 && building.isBuilt()) {
+                            buildingCount++;
                             String buildingType = building.getBuildingDisplayName();
                             int buildingLevel = building.getBuildingLevel();
 
@@ -176,7 +186,15 @@ public class TaxManager {
                             double upgradeTax = TaxConfig.getUpgradeTaxForBuilding(buildingType) * buildingLevel;
                             int generatedTax = (int) (baseTax + upgradeTax);
                             totalGeneratedTax += generatedTax;
-                            incrementTaxRevenue(colony, generatedTax);
+                            
+                            // Check if we hit max limit for this building's tax
+                            int currentTax = colonyTaxMap.getOrDefault(colonyId, 0);
+                            int maxTax = TaxConfig.getMaxTaxRevenue();
+                            if (currentTax >= maxTax) {
+                                maxLimitHits++;
+                            } else {
+                                incrementTaxRevenue(colony, generatedTax);
+                            }
 
                             // Deduct Maintenance Cost
                             double baseMaintenance = TaxConfig.getBaseMaintenanceForBuilding(buildingType);
@@ -185,22 +203,35 @@ public class TaxManager {
                             totalMaintenance += totalMaintenanceForBuilding;
 
                             if (totalMaintenanceForBuilding > 0) {
-                                int currentTax = colonyTaxMap.getOrDefault(colonyId, 0);
+                                currentTax = colonyTaxMap.getOrDefault(colonyId, 0);
                                 int newTax = currentTax - totalMaintenanceForBuilding;
                                 int debtLimit = TaxConfig.getDebtLimit();
                                 if (debtLimit > 0 && newTax < -debtLimit) {
                                     newTax = -debtLimit;  // Do not allow tax to drop below negative debt limit
+                                    hasDebt = true;
                                 }
                                 colonyTaxMap.put(colonyId, newTax);
-                                LOGGER.info("Deducted {} maintenance for {} (level {}) in colony {}. New tax: {}",
-                                        totalMaintenanceForBuilding, buildingType, buildingLevel, colony.getName(), newTax);
+                                // Removed per-building maintenance logging
                             }
-
-
                         }
                     }
+                    
+                    finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
+                    
+                    // Consolidated logging per colony
+                    LOGGER.info("Tax cycle completed for colony {} - Buildings: {}, Generated: {}, Maintenance: {}, Final Balance: {}", 
+                               colony.getName(), buildingCount, totalGeneratedTax, totalMaintenance, finalTaxBalance);
+                    
+                    if (maxLimitHits > 0) {
+                        LOGGER.info("Colony {} reached tax revenue maximum limit on {} building calculations (Max: {})", 
+                                   colony.getName(), maxLimitHits, TaxConfig.getMaxTaxRevenue());
+                    }
+                    
+                    if (hasDebt) {
+                        LOGGER.info("Colony {} hit debt limit during maintenance deductions", colony.getName());
+                    }
 
-                    // Notify colony managers
+                    // Notify colony managers with enhanced tax report
                     IPermissions permissions = colony.getPermissions();
                     Set<ColonyPlayer> officers = permissions.getPlayersByRank(permissions.getRankOfficer());
                     UUID ownerId = permissions.getOwner();
@@ -210,19 +241,50 @@ public class TaxManager {
                             .collect(Collectors.toSet());
                     recipients.add(ownerId);
 
+                    // Send enhanced tax report to players
                     for (UUID playerId : recipients) {
                         ServerPlayer player = serverInstance.getPlayerList().getPlayer(playerId);
                         if (player != null) {
+                            // Send main tax report header
                             player.sendSystemMessage(Component.translatable(
-                                    "message.minecolonytax.tax_report",
-                                    colony.getName(),
+                                    "message.minecolonytax.tax_report_header",
+                                    colony.getName()
+                            ));
+                            
+                            // Send tax summary
+                            player.sendSystemMessage(Component.translatable(
+                                    "message.minecolonytax.tax_report_summary",
+                                    buildingCount,
                                     totalGeneratedTax,
-                                    totalMaintenance
+                                    totalMaintenance,
+                                    finalTaxBalance
+                            ));
+                            
+                            // Send status indicators
+                            if (finalTaxBalance < 0) {
+                                player.sendSystemMessage(Component.translatable(
+                                        "message.minecolonytax.tax_report_debt",
+                                        Math.abs(finalTaxBalance)
+                                ));
+                            } else if (finalTaxBalance >= TaxConfig.getMaxTaxRevenue() * 0.9) {
+                                player.sendSystemMessage(Component.translatable(
+                                        "message.minecolonytax.tax_report_near_max",
+                                        TaxConfig.getMaxTaxRevenue()
+                                ));
+                            } else {
+                                player.sendSystemMessage(Component.translatable(
+                                        "message.minecolonytax.tax_report_healthy"
+                                ));
+                            }
+                            
+                            // Send footer
+                            player.sendSystemMessage(Component.translatable(
+                                    "message.minecolonytax.tax_report_footer"
                             ));
                         }
-
                     }
 
+                    // Send debt warning if applicable (simplified)
                     if (totalMaintenance > totalGeneratedTax) {
                         for (UUID playerId : recipients) {
                             ServerPlayer player = serverInstance.getPlayerList().getPlayer(playerId);
@@ -235,7 +297,9 @@ public class TaxManager {
                     }
                 });
             });
+            // Only log save operation once per full tax cycle
             saveTaxData();
+            LOGGER.info("Tax generation cycle completed for all colonies");
         }
     }
 
@@ -255,9 +319,16 @@ public class TaxManager {
 
     // Save tax data to a JSON file
     private static void saveTaxData() {
+        saveTaxData(false); // Default to not log
+    }
+    
+    // Overloaded method with logging control
+    private static void saveTaxData(boolean logSave) {
         try (FileWriter writer = new FileWriter(TAX_DATA_FILE)) {
             GSON.toJson(colonyTaxMap, writer);
-            LOGGER.info("Saved tax data to file.");
+            if (logSave) {
+                LOGGER.info("Saved tax data to file.");
+            }
         } catch (IOException e) {
             LOGGER.error("Error saving tax data", e);
         }
@@ -307,7 +378,7 @@ public class TaxManager {
         // Apply the full amount regardless of current balance
         colonyTaxMap.put(colonyId, currentTax + amount);
         LOGGER.info("Colony {} tax payment of {}. New tax value: {}", colony.getName(), amount, colonyTaxMap.get(colonyId));
-        saveTaxData();
+        saveTaxData(true);
         return amount;
     }
 

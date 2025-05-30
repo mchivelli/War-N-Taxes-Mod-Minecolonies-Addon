@@ -2,17 +2,12 @@ package net.machiavelli.minecolonytax.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.context.CommandContext;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
-import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 
-import java.util.function.Supplier;
-
-@Mod.EventBusSubscriber(modid = "minecolonytax", bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class AdminTaxGenCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -44,10 +39,5 @@ public class AdminTaxGenCommand {
                                 )
                         )
         );
-    }
-
-    @SubscribeEvent
-    public static void onRegisterCommands(RegisterCommandsEvent event) {
-        register(event.getDispatcher());
     }
 }

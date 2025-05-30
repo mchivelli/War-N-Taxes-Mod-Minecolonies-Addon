@@ -3,7 +3,7 @@ package net.machiavelli.minecolonytax.data;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.permissions.Action;
 import net.machiavelli.minecolonytax.TaxConfig;
-import net.machiavelli.minecolonytax.commands.WarCommands;
+import net.machiavelli.minecolonytax.peace.PeaceProposal;
 import net.minecraft.server.level.ServerBossEvent;
 
 import java.util.*;
@@ -43,7 +43,7 @@ public class WarData {
 
     public int totalGuards;
     public int remainingGuards;
-    private WarCommands.PeaceProposal activeProposal;
+    private PeaceProposal activeProposal;
     private boolean stalemateTriggered;
     public enum WarStatus { JOINING, INWAR, ERROR }
     private WarStatus status;
@@ -91,7 +91,7 @@ public class WarData {
                 .forEach(citizen -> guardIDs.add(citizen.getId()));
     }
 
-    public void setActiveProposal(WarCommands.PeaceProposal proposal) {
+    public void setActiveProposal(PeaceProposal proposal) {
         this.activeProposal = proposal;
     }
     public void setPenaltyReport(String report) {
@@ -120,7 +120,7 @@ public class WarData {
     public boolean isJoinPhaseActive() { return System.currentTimeMillis() < joinPhaseEndTime; }
     public boolean isWarTimeExpired() { return System.currentTimeMillis() - warStartTime > TimeUnit.HOURS.toMillis(2); }
     public boolean isStalemateTriggered() { return stalemateTriggered; }
-    public WarCommands.PeaceProposal getActiveProposal() { return activeProposal; }
+    public PeaceProposal getActiveProposal() { return activeProposal; }
     public Set<UUID> getAcceptedAllies() { return acceptedAllies; }
     public Set<UUID> getDeclinedAllies() { return declinedAllies; }
     public long getJoinPhaseEndTime() { return joinPhaseEndTime; }

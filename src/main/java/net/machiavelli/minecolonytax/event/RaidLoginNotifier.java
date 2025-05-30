@@ -1,8 +1,8 @@
 package net.machiavelli.minecolonytax.event;
 
 import net.machiavelli.minecolonytax.MineColonyTax;
-import net.machiavelli.minecolonytax.commands.WarCommands;
-import net.machiavelli.minecolonytax.commands.WarCommands.RaidData;
+import net.machiavelli.minecolonytax.raid.ActiveRaidData;
+import net.machiavelli.minecolonytax.raid.RaidManager;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -19,13 +19,13 @@ import java.util.stream.Collectors;
 public class RaidLoginNotifier {
 
     // Keep history of completed (including aborted) raids
-    private static final List<RaidData> completedRaids = Collections.synchronizedList(new ArrayList<>());
+    private static final List<ActiveRaidData> completedRaids = Collections.synchronizedList(new ArrayList<>());
 
     // For each player, track which raids they've already seen
     private static final Map<UUID, Set<UUID>> notifiedRaidsByPlayer = new HashMap<>();
 
     /** Call this from your raid‐ending logic in WarCommands (endRaid/stopRaid) */
-    public static void recordCompletedRaid(RaidData raid) {
+    public static void recordCompletedRaid(ActiveRaidData raid) {
         completedRaids.add(raid);
     }
 
@@ -39,7 +39,7 @@ public class RaidLoginNotifier {
         Set<UUID> notified = notifiedRaidsByPlayer.get(playerUUID);
 
         // First check active raids with higher priority - this is critical for officers logging in during a raid
-        for (RaidData raid : WarCommands.getActiveRaids().values()) {
+        for (ActiveRaidData raid : RaidManager.getActiveRaids().values()) {
             // Force notification for active raids to ensure officers get the message
             if (isPlayerOfficerOrOwner(player, raid.getColony().getPermissions())) {
                 notifyPlayer(player, raid, true);
@@ -53,9 +53,9 @@ public class RaidLoginNotifier {
 
         // Now notify for all past (completed) raids
         synchronized (completedRaids) {
-            Iterator<RaidData> it = completedRaids.iterator();
+            Iterator<ActiveRaidData> it = completedRaids.iterator();
             while (it.hasNext()) {
-                RaidData raid = it.next();
+                ActiveRaidData raid = it.next();
                 boolean wasRelevant = notifyIfRelevant(player, raid, notified, false);
                 // Once the owner has been notified, we can drop this history entry
                 if (wasRelevant && raid.getColony().getPermissions().getOwner().equals(playerUUID)) {
@@ -85,7 +85,7 @@ public class RaidLoginNotifier {
     /**
      * Directly notify a player about a raid without checking if they've been notified
      */
-    private static void notifyPlayer(ServerPlayer player, RaidData raid, boolean ongoing) {
+    private static void notifyPlayer(ServerPlayer player, ActiveRaidData raid, boolean ongoing) {
         String raiderName = getRaiderName(raid.getRaider());
         String colonyName = raid.getColony().getName();
         
@@ -121,7 +121,7 @@ public class RaidLoginNotifier {
         }
     }
     
-    private static boolean notifyIfRelevant(ServerPlayer player, RaidData raid, Set<UUID> notified, boolean ongoing) {
+    private static boolean notifyIfRelevant(ServerPlayer player, ActiveRaidData raid, Set<UUID> notified, boolean ongoing) {
         IPermissions perms = raid.getColony().getPermissions();
 
         // Officers + owner

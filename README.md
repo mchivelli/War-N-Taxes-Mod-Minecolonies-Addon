@@ -1,98 +1,222 @@
-# MineColonyTax: War ’N Taxes Addon for MineColonies
+# MineColonyTax: War 'N Taxes Addon for MineColonies
 
-A Forge mod extension for MineColonies that adds:
+A comprehensive Forge mod extension for MineColonies that adds:
 
-- **Automated tax collection & management**  
-- **Debt tracking & repayment**  
-- **Raid mechanics** (hit other colonies, grace periods, penalties)  
-- **Full-fledged war system** (declarations, join phase, lives, guards, boss bars, victory conditions)  
-- **Peace proposals** (white peace or coin reparations)  
-- **PvP arena duels** (configurable arena, wagers, invites, spectating)  
-- **Crash logging** for easier debugging
+- **🏛️ Automated tax collection & management** with debt tracking
+- **⚔️ Advanced war system** with declarations, join phases, lives, and strategic combat
+- **🏴‍☠️ Dynamic raid mechanics** with penalties and grace periods
+- **🕊️ Peace proposal system** for diplomatic resolution
+- **📊 Comprehensive statistics tracking** for players and colonies
+- **🎮 Unified command interface** with `/wnt` prefix and intelligent suggestions
+- **🛡️ Admin tools** for server management and debugging
 
 ---
 
 ## 📦 Installation
 
-1. Install Minecraft Forge (1.XX.X) and the MineColonies mod.  
-2. Drop the `MineColonyTax-<version>.jar` into your `mods/` folder.  
-3. (Optional) Configure settings in `config/minecolonytax.toml`.  
-4. Launch the game—commands and systems register automatically.
+1. Install **Minecraft Forge** (1.XX.X) and the **MineColonies** mod
+2. Drop `MineColonyTax-<version>.jar` into your `mods/` folder
+3. (Optional) Configure settings in `config/minecolonytax.toml`
+4. Launch the game—all systems register automatically
+
+---
+
+## 🎮 Command System
+
+**All commands use the unified `/wnt` prefix** (War 'N Taxes)
+
+### 📚 Getting Help
+- **`/wnt`** or **`/wnt help`** - Show overview of all commands
+- **`/wnt help <command>`** - Get detailed help for specific commands
+
+### ⚔️ War Commands
+| Command | Description | Requirements |
+|---------|-------------|--------------|
+| `/wnt wagewar "<colony>"`| Declare war on a colony | 5+ guards, grace period met, no active raids |
+| `/wnt raid "<colony>"` | Start a raid on a colony | Target owner offline (configurable) |
+| `/wnt joinwar` | Join the current war during join phase | Active war with open join phase |
+| `/wnt leavewar` | Leave war during join phase | Cannot be colony owner/attacker |
+| `/wnt war accept <colonyId>` | Accept a war declaration | Must be colony owner/officer |
+| `/wnt war decline <colonyId>` | Decline a war declaration | Must be colony owner/officer |
+| `/wnt warinfo` | Show detailed war status | Must be participating in war |
+
+### 🕊️ Peace & Diplomacy
+| Command | Description | Requirements |
+|---------|-------------|--------------|
+| `/wnt peace whitepeace` | Propose peace with no reparations | Must be in active war |
+| `/wnt peace reparations <amount>` | Propose peace with payment | Must be in active war |
+| `/wnt peace accept` | Accept a peace proposal | Must be authorized to negotiate |
+| `/wnt peace decline` | Decline a peace proposal | Must be authorized to negotiate |
+
+### 💰 Tax Management
+| Command | Description | Requirements |
+|---------|-------------|--------------|
+| `/wnt claimtax` | Claim all tax from all your colonies | Must be colony manager |
+| `/wnt claimtax "<colony>"` | Claim all tax from specific colony | Must manage that colony |
+| `/wnt claimtax "<colony>" <amount>` | Claim specific amount | Must manage that colony |
+| `/wnt checktax` | Check tax revenue for your colonies | Must be colony manager |
+| `/wnt checktax <player>` | Check another player's tax (Admin) | Permission level 2 |
+| `/wnt taxdebt pay <amount> "<colony>"` | Pay colony debt | Must manage colony, have funds |
+
+### 📈 Statistics & History
+| Command | Description | Requirements |
+|---------|-------------|--------------|
+| `/wnt warhistory` | View war history for your colonies | Must be colony manager |
+| `/wnt warhistory "<colony>"` | View specific colony's history | Must manage that colony |
+| `/wnt warstats` | View your personal war statistics | None |
+
+### 🛡️ Admin Commands
+| Command | Description | Permission |
+|---------|-------------|-----------|
+| `/wnt wardebug` | Show debug info for all wars | Level 2 (OP) |
+| `/wnt warstop "<colony>"` | Stop specific war by colony | Level 2 (OP) |
+| `/wnt warstopall` | Stop all active wars | Level 2 (OP) |
+| `/wnt raidstop` | Stop active raids | Level 2 (OP) |
+| `/wnt taxgen disable <colonyId>` | Disable tax generation | Level 2 (OP) |
+| `/wnt taxgen enable <colonyId>` | Enable tax generation | Level 2 (OP) |
+
+---
+
+## 🎯 Smart Features
+
+### 🤖 Intelligent Command Suggestions
+- **Colony names** automatically suggested with proper quotes for spaces
+- **Player names** suggested for admin commands
+- **Colony IDs** suggested for war responses
+- **Context-aware** suggestions based on your permissions
+
+### 📊 Comprehensive Help System
+- **Command-specific help** with `/wnt help <command>`
+- **Permission-aware** - only shows commands you can use
+- **Detailed explanations** including requirements and examples
+
+### 💳 Flexible Currency Support
+- **SDMShop integration** - Uses shop balance when available
+- **Item-based currency** - Falls back to emeralds or configured items
+- **Automatic detection** and seamless switching
 
 ---
 
 ## ⚙️ Configuration
 
-All settings live in `config/minecolonytax.toml`. Key options:
+Settings in `config/minecolonytax.toml`:
 
-| Option                         | Default        | Description                                             |
-|------------------------------- |--------------- |-------------------------------------------------------- |
-| `TaxIntervalMinutes`           | `60`           | How often (minutes) each colony generates taxes.       |
-| `MaxTaxRevenue`                | `5000`         | Cap on stored tax before generation pauses.            |
-| `EnableSDMShopConversion`      | `true`         | Use SDMShopR API instead of emerald items.             |
-| `CurrencyItemName`             | `"minecraft:emerald"` | Item used for on-hand taxes & reparations.    |
-| **War Settings**               |                |                                                        |
-| `WarAcceptanceRequired`        | `true`         | Require manual acceptance or start automatically.      |
-| `AttackerGracePeriodMinutes`   | `120`          | Cooldown before same player can declare another war.   |
-| `RaidGracePeriodMinutes`       | `1`            | Cooldown between raids.                                |
-| `MaxRaidDurationMinutes`       | `20`           | How long a raid may last.                              |
-| `JOIN_PHASE_DURATION_MINUTES`  | `5`            | Time window to join a declared war.                    |
-| **PvP Arena Settings**         |                |                                                        |
-| `AllowPvPArenaCommands`        | `false`        | Allow commands while standing in the PvP arena bounds. |
+### 💰 Tax Settings
+| Option | Default | Description |
+|--------|---------|-------------|
+| `TaxIntervalMinutes` | `60` | Tax generation frequency |
+| `MaxTaxRevenue` | `5000` | Maximum stored tax per colony |
+| `EnableSDMShopConversion` | `true` | Use SDMShop API for currency |
+| `CurrencyItemName` | `"minecraft:emerald"` | Fallback currency item |
 
-> See `TaxConfig.java` for the full list of building taxes, maintenance costs, and more.
+### ⚔️ War Settings
+| Option | Default | Description |
+|--------|---------|-------------|
+| `WarAcceptanceRequired` | `true` | Require manual war acceptance |
+| `AttackerGracePeriodMinutes` | `120` | Cooldown between war declarations |
+| `JOIN_PHASE_DURATION_MINUTES` | `5` | Time to join declared wars |
+| `WAR_DURATION_MINUTES` | `60` | Maximum war duration |
+| `MinGuardCountForWar` | `5` | Minimum guards required |
 
----
-
-## 🛠️ Commands
-
-### Tax System
-| Command                                            | Permission | Description                                                   |
-|--------------------------------------------------- |----------- |-------------------------------------------------------------- |
-| `/claimtax [<colony>] [<amount>]`                  | 0          | Claim all (or `<amount>`) of accumulated tax from your colony. |
-| `/checktax [<player>]`                             | 0 (other: 2)| View stored tax for your colonies (or `<player>`’s if you’re an operator). |
-| `/taxdebt pay <amount> <colony>`                   | 0          | Repay up to `<amount>` of your colony’s debt.                |
-
-### Raid System
-| Command         | Permission | Description                                                                                |
-|---------------- |----------- |-------------------------------------------------------------------------------------------|
-| `/raid <colony>`| 0          | Start a raid on `<colony>` (must meet guard count, owner offline checks, grace period).   |
-| `/raidstop`     | 2          | Force-stop the active raid.                                                               |
-
-### War System
-| Command                                              | Permission | Description                                                               |
-|----------------------------------------------------- |----------- |--------------------------------------------------------------------------|
-| `/wagewar <colony>`                                  | 0          | Declare war on `<colony>` (checks guard counts, offline status, grace).  |
-| `/joinwar`                                           | 0          | Join the current war’s join phase (clickable prompts also available).    |
-| `/leavewar`                                          | 0          | Leave during join phase.                                                 |
-| `/war accept <colonyId>` / `/war decline <colonyId>` | 0          | Owner/officer accepts or declines a pending war request.                 |
-| `/peace whitepeace`                                  | 0          | Propose “white peace” (no reparations).                                   |
-| `/peace reparations <amount>`                        | 0          | Propose peace with `<amount>` coin reparations.                           |
-| `/warinfo`                                           | 0          | Show live war details: lives, guards, timer, pending penalties.           |
-| `/wardebug`                                          | 2          | Operator debug output for every active war.                               |
-| `/warstop`                                           | 2          | End all wars immediately.                                                 |
-
-### PvP Arena Duels
-| Command                               | Permission | Description                                                                                   |
-|-------------------------------------- |----------- |----------------------------------------------------------------------------------------------|
-| `/pvparena p1` / `/pvparena p2`        | 2          | Define the two corners of your duel arena.                                                  |
-| `/pvp <target> [<wager>]`             | 0          | Challenge another player (optional `<wager>` in coins).                                      |
-| `/pvp accept` / `/pvp decline`        | 0          | Respond to a pending duel request.                                                           |
-| `/pvp spectate <player>` / `/pvp spectate stop` | 0 | Spectate or stop spectating an active duel.                                                  |
+### 🏴‍☠️ Raid Settings
+| Option | Default | Description |
+|--------|---------|-------------|
+| `RaidGracePeriodMinutes` | `1` | Cooldown between raids |
+| `MaxRaidDurationMinutes` | `20` | Maximum raid duration |
+| `RaidOwnerMustBeOffline` | `true` | Target owner offline requirement |
 
 ---
 
-## 🔧 Developer & Build
+## 🔥 War System Features
 
-- **Package:** `net.machiavelli.minecolonytax`  
-- **Main Mod Class:** `MineColonyTax.java`  
-- **Build:** Standard ForgeGradle setup.  
-- **Crash Logging:** All uncaught exceptions are logged to `crash_report.log` via `CrashLogger.java`.  
-- **Persistent Data:**  
-  - Tax data in `config/colonyTaxData.json`  
-  - PvP arena positions in `config/pvp_arena_data.json`
+### 📋 War Phases
+1. **Declaration Phase** - Attacker declares war, defender can accept/decline
+2. **Join Phase** - Other players can join either side (configurable duration)
+3. **Combat Phase** - Active warfare with lives, guards, and objectives
+4. **Resolution** - Victory conditions, reparations, or stalemate
 
-> Contributions, bug reports, and pull requests are welcome! Please fork this repo, create a feature branch, and submit a PR.
+### 🎯 Victory Conditions
+- **Total Victory** - Eliminate all enemy lives or guards
+- **Strategic Victory** - Superior performance when time expires
+- **Stalemate** - Proportional losses or inactivity
+
+### 📊 Live War Tracking
+- **Real-time statistics** with `/wnt warinfo`
+- **Boss bars** showing war progress and timers
+- **Lives tracking** for all participants
+- **Guard count** monitoring
+- **Penalty reports** for rule violations
+
+---
+
+## 🏴‍☠️ Raid System Features
+
+### ⚡ Dynamic Raids
+- **Territory-based** - Must stay in target colony
+- **Progressive rewards** - Tax transferred over time
+- **Risk/reward** - Death penalties vs. profit potential
+- **Automatic termination** - Time limits and death consequences
+
+### 🛡️ Defense Mechanics
+- **Colony alerts** - Automatic notifications to defenders
+- **Raider tracking** - Know who's attacking
+- **Counter-attack opportunities** - Turn the tables on raiders
+
+---
+
+## 📈 Statistics & History
+
+### 📊 Personal Stats (via `/wnt warstats`)
+- Players killed in wars
+- Colonies raided successfully
+- Total amount gained from raids
+- Wars won/lost
+- War stalemates
+
+### 📚 Colony History (via `/wnt warhistory`)
+- Complete war and raid records
+- Outcomes and results
+- Amounts transferred
+- Timestamps and participants
+
+---
+
+## 🔧 Developer Information
+
+### 📁 Project Structure
+- **Package:** `net.machiavelli.minecolonytax`
+- **Main Class:** `MineColonyTax.java`
+- **Command System:** `WntCommands.java` (unified command handler)
+- **War Engine:** `WarSystem.java`
+- **Raid Engine:** `RaidManager.java`
+
+### 💾 Data Persistence
+- **Tax data:** `config/colonyTaxData.json`
+- **War history:** Tracked via `HistoryManager`
+- **Player stats:** Capability-based storage
+- **Crash logs:** `crash_report.log` via `CrashLogger`
+
+### 🔨 Building
+```bash
+./gradlew build
+```
+
+---
+
+## 📋 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! Please:
+1. Fork this repository
+2. Create a feature branch
+3. Submit a pull request
+
+Bug reports and feature requests can be submitted via Issues.
 
 ---
 
