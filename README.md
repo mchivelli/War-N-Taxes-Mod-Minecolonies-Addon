@@ -223,3 +223,28 @@ Bug reports and feature requests can be submitted via Issues.
 ## 📄 License
 
 This project is released under the [MIT License](LICENSE).
+
+---
+
+## Configuration Options
+
+### Console Logging Control
+
+To reduce console spam during initialization, you can now control the logging of tax generation details in the configuration file.
+
+In your `config/minecolonytax-common.toml` file, under the `[General]` section, you'll find:
+
+```toml
+#Enable console logging of tax generation details (building upgrades, max warnings, etc.). Set to false to reduce console spam during initialization.
+ShowTaxGenerationLogs = true
+```
+
+Set this to `false` to hide the following types of console messages:
+- Tax generation cycle details for each colony
+- Building upgrade tax calculations
+- Maximum tax revenue warnings
+- Debt limit notifications
+- Tax claim/payment logs
+- Colony tax freeze/unfreeze notifications
+
+Error messages will still be displayed regardless of this setting to ensure important issues are not missed.

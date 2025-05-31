@@ -52,7 +52,9 @@ public class TaxManager {
 
     // Initialize Tax Manager
     public static void initialize(MinecraftServer server) {
-        LOGGER.info("Initializing Tax Manager...");
+        if (TaxConfig.showTaxGenerationLogs()) {
+            LOGGER.info("Initializing Tax Manager...");
+        }
         serverInstance = server;
 
         // Load tax data on server start
@@ -98,7 +100,9 @@ public class TaxManager {
 
         // If the colony's tax is frozen, do not allow claiming.
         if (FROZEN_COLONIES.contains(colonyId)) {
-            LOGGER.info("Tax claims for colony {} are currently frozen.", colony.getName());
+            if (TaxConfig.showTaxGenerationLogs()) {
+                LOGGER.info("Tax claims for colony {} are currently frozen.", colony.getName());
+            }
             return 0;
         }
 
@@ -113,7 +117,9 @@ public class TaxManager {
             colonyTaxMap.put(colonyId, storedTax - claimedAmount);  // Deduct the claimed amount
         }
 
-        LOGGER.info("Claimed {} tax for colony {}", claimedAmount, colony.getName());
+        if (TaxConfig.showTaxGenerationLogs()) {
+            LOGGER.info("Claimed {} tax for colony {}", claimedAmount, colony.getName());
+        }
         saveTaxData(true);  // Log save for important operations like claiming tax
 
         return claimedAmount;
@@ -148,7 +154,9 @@ public class TaxManager {
         int currentTax = colonyTaxMap.getOrDefault(colony.getID(), 0);
         int deduction = (int)(currentTax * percentage);
         colonyTaxMap.put(colony.getID(), currentTax - deduction);
-        LOGGER.info("Deducted {} tax as penalty from colony {}", deduction, colony.getName());
+        if (TaxConfig.showTaxGenerationLogs()) {
+            LOGGER.info("Deducted {} tax as penalty from colony {}", deduction, colony.getName());
+        }
         saveTaxData();
     }
 
@@ -219,18 +227,20 @@ public class TaxManager {
                     finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
                     
                     // Consolidated logging per colony
-                    LOGGER.info("Tax cycle completed for colony {} - Buildings: {}, Generated: {}, Maintenance: {}, Final Balance: {}", 
-                               colony.getName(), buildingCount, totalGeneratedTax, totalMaintenance, finalTaxBalance);
-                    
-                    if (maxLimitHits > 0) {
-                        LOGGER.info("Colony {} reached tax revenue maximum limit on {} building calculations (Max: {})", 
-                                   colony.getName(), maxLimitHits, TaxConfig.getMaxTaxRevenue());
+                    if (TaxConfig.showTaxGenerationLogs()) {
+                        LOGGER.info("Tax cycle completed for colony {} - Buildings: {}, Generated: {}, Maintenance: {}, Final Balance: {}", 
+                                   colony.getName(), buildingCount, totalGeneratedTax, totalMaintenance, finalTaxBalance);
+                        
+                        if (maxLimitHits > 0) {
+                            LOGGER.info("Colony {} reached tax revenue maximum limit on {} building calculations (Max: {})", 
+                                       colony.getName(), maxLimitHits, TaxConfig.getMaxTaxRevenue());
+                        }
+                        
+                        if (hasDebt) {
+                            LOGGER.info("Colony {} hit debt limit during maintenance deductions", colony.getName());
+                        }
                     }
                     
-                    if (hasDebt) {
-                        LOGGER.info("Colony {} hit debt limit during maintenance deductions", colony.getName());
-                    }
-
                     // Notify colony managers with enhanced tax report
                     IPermissions permissions = colony.getPermissions();
                     Set<ColonyPlayer> officers = permissions.getPlayersByRank(permissions.getRankOfficer());
@@ -299,7 +309,9 @@ public class TaxManager {
             });
             // Only log save operation once per full tax cycle
             saveTaxData();
-            LOGGER.info("Tax generation cycle completed for all colonies");
+            if (TaxConfig.showTaxGenerationLogs()) {
+                LOGGER.info("Tax generation cycle completed for all colonies");
+            }
         }
     }
 
@@ -326,7 +338,7 @@ public class TaxManager {
     private static void saveTaxData(boolean logSave) {
         try (FileWriter writer = new FileWriter(TAX_DATA_FILE)) {
             GSON.toJson(colonyTaxMap, writer);
-            if (logSave) {
+            if (logSave && TaxConfig.showTaxGenerationLogs()) {
                 LOGGER.info("Saved tax data to file.");
             }
         } catch (IOException e) {
@@ -356,12 +368,16 @@ public class TaxManager {
     // --- New method added to freeze tax claims for a colony for a given number of hours ---
     public static void freezeColonyTax(int colonyId, int freezeHours) {
         FROZEN_COLONIES.add(colonyId);
-        LOGGER.info("Colony {} tax is frozen for {} hours.", colonyId, freezeHours);
+        if (TaxConfig.showTaxGenerationLogs()) {
+            LOGGER.info("Colony {} tax is frozen for {} hours.", colonyId, freezeHours);
+        }
         new Timer().schedule(new TimerTask() {
             @Override
             public void run() {
                 FROZEN_COLONIES.remove(colonyId);
-                LOGGER.info("Colony {} tax freeze expired.", colonyId);
+                if (TaxConfig.showTaxGenerationLogs()) {
+                    LOGGER.info("Colony {} tax freeze expired.", colonyId);
+                }
             }
         }, TimeUnit.HOURS.toMillis(freezeHours));
     }
@@ -377,20 +393,26 @@ public class TaxManager {
         int currentTax = colonyTaxMap.getOrDefault(colonyId, 0);
         // Apply the full amount regardless of current balance
         colonyTaxMap.put(colonyId, currentTax + amount);
-        LOGGER.info("Colony {} tax payment of {}. New tax value: {}", colony.getName(), amount, colonyTaxMap.get(colonyId));
+        if (TaxConfig.showTaxGenerationLogs()) {
+            LOGGER.info("Colony {} tax payment of {}. New tax value: {}", colony.getName(), amount, colonyTaxMap.get(colonyId));
+        }
         saveTaxData(true);
         return amount;
     }
 
     public static void disableTaxGeneration(int colonyId) {
         DISABLED_GENERATION.add(colonyId);
-        LOGGER.info("Tax generation disabled for colony {}", colonyId);
+        if (TaxConfig.showTaxGenerationLogs()) {
+            LOGGER.info("Tax generation disabled for colony {}", colonyId);
+        }
     }
 
     /** Re‑enable tax generation for a colony **/
     public static void enableTaxGeneration(int colonyId) {
         DISABLED_GENERATION.remove(colonyId);
-        LOGGER.info("Tax generation enabled for colony {}", colonyId);
+        if (TaxConfig.showTaxGenerationLogs()) {
+            LOGGER.info("Tax generation enabled for colony {}", colonyId);
+        }
     }
 
     /** Check if generation is disabled **/
