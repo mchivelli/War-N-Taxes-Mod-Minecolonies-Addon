@@ -71,6 +71,9 @@ public class TaxConfig {
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_WAR_ACTIONS;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_RAID_ACTIONS;
 
+    // Logging configuration
+    public static final ForgeConfigSpec.BooleanValue SHOW_TAX_GENERATION_LOGS;
+
     static {
 
         // Define general settings
@@ -86,6 +89,11 @@ public class TaxConfig {
 
         CURRENCY_ITEM_NAME = BUILDER.comment("The item name for the custom currency (e.g., 'minecraft:emerald').")
                 .define("CurrencyItemName", "minecraft:emerald");
+        
+        SHOW_TAX_GENERATION_LOGS = BUILDER.comment("Enable console logging of tax generation details (building upgrades, max warnings, etc.). " +
+                "Set to false to reduce console spam during initialization.")
+                .define("ShowTaxGenerationLogs", true);
+        
         BUILDER.pop();
 
         DEBT_LIMIT = BUILDER.comment("Optional debt limit for colony debt. " +
@@ -650,5 +658,9 @@ public class TaxConfig {
             })
             .filter(java.util.Objects::nonNull)
             .collect(java.util.stream.Collectors.toSet());
+    }
+    
+    public static boolean showTaxGenerationLogs() {
+        return SHOW_TAX_GENERATION_LOGS.get();
     }
 }
