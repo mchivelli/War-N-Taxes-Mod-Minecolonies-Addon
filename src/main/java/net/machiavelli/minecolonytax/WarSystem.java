@@ -28,7 +28,9 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.scores.Scoreboard;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.server.ServerLifecycleHooks;
+import net.machiavelli.minecolonytax.event.WarEventHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -785,6 +787,28 @@ public class WarSystem {
 
     public static void handleTimeExpiry(WarData war) {
         if (war.getColony().getWorld() == null || war.getColony().getWorld().getServer() == null) return;
+        
+        // Handle disconnected players - set their lives to zero
+        Map<UUID, Integer> disconnectedPlayers = WarEventHandler.getDisconnectedWarParticipants();
+        
+        // Process disconnected attackers
+        for (UUID uuid : new ArrayList<>(war.getAttackerLives().keySet())) {
+            if (disconnectedPlayers.containsKey(uuid) && disconnectedPlayers.get(uuid) == 1) { // 1 = attacker
+                // Player is disconnected and part of this war, set lives to zero
+                war.getAttackerLives().put(uuid, 0);
+                WARSYSTEM_LOGGER.info("[MineColonyTax] Setting disconnected attacker {} to 0 lives on war expiry", uuid);
+            }
+        }
+        
+        // Process disconnected defenders
+        for (UUID uuid : new ArrayList<>(war.getDefenderLives().keySet())) {
+            if (disconnectedPlayers.containsKey(uuid) && disconnectedPlayers.get(uuid) == 2) { // 2 = defender
+                // Player is disconnected and part of this war, set lives to zero
+                war.getDefenderLives().put(uuid, 0);
+                WARSYSTEM_LOGGER.info("[MineColonyTax] Setting disconnected defender {} to 0 lives on war expiry", uuid);
+            }
+        }
+        
         int attackerTotalLives = war.getAttackerLives().values().stream().mapToInt(Integer::intValue).sum();
         int defenderTotalLives = war.getDefenderLives().values().stream().mapToInt(Integer::intValue).sum();
         String attackerColonyName = war.getAttackerColony() != null ? war.getAttackerColony().getName() : "The Attackers";

@@ -37,6 +37,16 @@ public class WarEventHandler {
     // Track players who have disconnected during active wars/raids for reconnection handling
     private static final Map<UUID, Integer> disconnectedWarParticipants = new HashMap<>();
     
+    /**
+     * Get the map of disconnected war participants.
+     * Map values: 1 = attacker, 2 = defender, 3 = raider
+     * 
+     * @return Map of UUID to integer indicating player role
+     */
+    public static Map<UUID, Integer> getDisconnectedWarParticipants() {
+        return disconnectedWarParticipants;
+    }
+    
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onPlayerDeath(LivingDeathEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
