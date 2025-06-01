@@ -5,7 +5,23 @@ All notable changes to the MineColonyTax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2025-01-30
+## [Unreleased] - 2025-06-01
+
+### Vassalization Feature Enhancements
+
+- **Improved tribute display**: Vassal tribute payments now correctly displayed in tax reports
+- **Enhanced `/wnt vasals` command**: Shows tribute percentage, last payment amount, and vassal status
+- **Dynamic currency display**: Shows "$" if SDMShop is enabled and proper item name (e.g., "emerald") when using custom currency
+- **Vassal status information**: Command now displays if the player is a vassal, including overlord name and tribute rate
+- **Tribute payment tracking**: Added system to track and display the last tribute amount paid by vassal colonies
+
+### War System Improvements
+
+- **Added team selection feature**: Players who are members of both warring teams can now choose which side to join instead of being blocked from participating
+- **New commands**: `/choosewarside attacker` and `/choosewarside defender` for selecting a team when dual membership is detected
+- **Improved war participation**: Players receive clickable prompts in chat to select their preferred side
+
+## [Previous Release] - 2025-01-30
 
 ### 🚀 Major Features Added
 

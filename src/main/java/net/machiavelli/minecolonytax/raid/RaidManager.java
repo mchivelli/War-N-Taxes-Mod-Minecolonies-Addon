@@ -243,28 +243,41 @@ public class RaidManager {
             raidData.addToTotalTransferred(raidPenalty);
 
             if (raidPenalty > 0) {
-                String removeCmd = String.format("sdmshop remove %s %d", raider.getName().getString(), raidPenalty);
-                LOGGER.debug("Executing: {}", removeCmd);
+                // Use the /sdmshop pay command to transfer funds directly from raider to killer
+                // The command format is: /sdmshop pay <recipient> <amount>
+                String payCmd = String.format("sdmshop pay %s %d", killer.getName().getString(), raidPenalty);
+                LOGGER.debug("Executing command on behalf of raider: {}", payCmd);
                 try {
-                    raidData.getColony().getWorld().getServer().getCommands()
-                            .performPrefixedCommand(
-                                    raidData.getColony().getWorld().getServer().createCommandSourceStack(),
-                                    removeCmd
-                            );
+                    // Execute the pay command using the raider's command source stack
+                    // This ensures the command is processed as if the raider executed it
+                    CommandSourceStack raiderSource = raider.createCommandSourceStack();
+                    raider.getServer().getCommands().performPrefixedCommand(raiderSource, payCmd);
+                    
+                    LOGGER.debug("Successfully transferred {} from {} to {}", 
+                        raidPenalty, raider.getName().getString(), killer.getName().getString());
                 } catch (Exception e) {
-                    LOGGER.error("Failed to remove funds from raider", e);
-                }
-
-                String addCmd = String.format("sdmshop add %s %d", killer.getName().getString(), raidPenalty);
-                LOGGER.debug("Executing: {}", addCmd);
-                try {
-                    raidData.getColony().getWorld().getServer().getCommands()
-                            .performPrefixedCommand(
-                                    raidData.getColony().getWorld().getServer().createCommandSourceStack(),
-                                    addCmd
-                            );
-                } catch (Exception e) {
-                    LOGGER.error("Failed to add funds to killer", e);
+                    LOGGER.error("Failed to transfer funds from raider to killer", e);
+                    // Fallback to the old method if the pay command fails
+                    try {
+                        String removeCmd = String.format("sdmshop remove %s %d", raider.getName().getString(), raidPenalty);
+                        String addCmd = String.format("sdmshop add %s %d", killer.getName().getString(), raidPenalty);
+                        
+                        LOGGER.debug("Falling back to remove/add method. Executing: {}", removeCmd);
+                        raidData.getColony().getWorld().getServer().getCommands()
+                                .performPrefixedCommand(
+                                        raidData.getColony().getWorld().getServer().createCommandSourceStack(),
+                                        removeCmd
+                                );
+                        
+                        LOGGER.debug("Executing: {}", addCmd);
+                        raidData.getColony().getWorld().getServer().getCommands()
+                                .performPrefixedCommand(
+                                        raidData.getColony().getWorld().getServer().createCommandSourceStack(),
+                                        addCmd
+                                );
+                    } catch (Exception ex) {
+                        LOGGER.error("Fallback method also failed", ex);
+                    }
                 }
             }
         } else {
@@ -276,6 +289,17 @@ public class RaidManager {
             raidPenalty = Math.max(100, raidPenalty);
             LOGGER.debug("Using direct item. Base amount: {}, Penalty: {}", baseTaxAmount, raidPenalty);
             raidData.addToTotalTransferred(raidPenalty);
+            
+            // Deduct from raider's colony tax balance
+            IColony raiderColony = raidData.getRaiderColony();
+            if (raiderColony != null) {
+                LOGGER.debug("Deducting {} from raider's colony tax balance", raidPenalty);
+                TaxManager.adjustTax(raiderColony, -raidPenalty);
+            } else {
+                LOGGER.error("Could not deduct raid penalty: raider's colony is null");
+            }
+            
+            // Give items to the killer
             String giveCmd = String.format("give %s %s %d", killer.getName().getString(),
                     TaxConfig.getCurrencyItemName(), raidPenalty);
             LOGGER.debug("Executing command: {}", giveCmd);
@@ -289,6 +313,10 @@ public class RaidManager {
             }
         }
 
+        // Update war statistics for the killer
+        PlayerWarDataManager.incrementPlayersKilledInWar(killer);
+        PlayerWarDataManager.addAmountRaided(killer, raidPenalty);
+        
         Component message = Component.literal("⚔ RAID DEFENDER VICTORY! ⚔")
                 .withStyle(style -> style.withColor(ChatFormatting.GOLD).withBold(true))
                 .append(Component.literal("\n"))

@@ -1,35 +1,26 @@
 package net.machiavelli.minecolonytax.commands;
 
-import com.minecolonies.api.IMinecoloniesAPI;
 import com.minecolonies.api.colony.IColony;
-import com.minecolonies.api.colony.IColonyManager;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.WarSystem;
 import net.machiavelli.minecolonytax.data.WarData;
-import net.machiavelli.minecolonytax.util.TranslationUtil;
 import net.machiavelli.minecolonytax.peace.PeaceProposalManager;
 import net.machiavelli.minecolonytax.raid.RaidManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.fml.common.Mod;
-// import org.apache.logging.log4j.LogManager; // LOGGER is unused
-// import org.apache.logging.log4j.Logger; // LOGGER is unused
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class WarCommands {
 
@@ -95,6 +86,15 @@ public class WarCommands {
         dispatcher.register(Commands.literal("warinfo")
                 .executes(WarCommands::warInfoCommand)
         );
+        dispatcher.register(Commands.literal("choosewarside")
+                .then(Commands.literal("attacker")
+                        .executes(ctx -> chooseWarSideCommand(ctx, true))
+                )
+                .then(Commands.literal("defender")
+                        .executes(ctx -> chooseWarSideCommand(ctx, false))
+                )
+        );
+        
         dispatcher.register(Commands.literal("warstop") // For stopping a specific war by colony name
                 .requires(src -> src.hasPermission(2))
                 .then(Commands.argument("colony", StringArgumentType.string())
@@ -250,7 +250,8 @@ public class WarCommands {
     }
 
     private static int debugWarCommand(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        ServerPlayer player = ctx.getSource().getPlayerOrException(); // Already requires permission 2
+        // Ensure this command is executed by a player with appropriate permissions
+        ctx.getSource().getPlayerOrException(); // This validates player existence and permissions
         if (WarSystem.ACTIVE_WARS.isEmpty()) {
             ctx.getSource().sendFailure(Component.literal("No active wars at the moment!").withStyle(ChatFormatting.RED));
             return 0;
@@ -334,5 +335,66 @@ public class WarCommands {
          // Admin command needs a different way to target, or stops all.
          // For now, RaidManager.stopRaidCommand will try to stop any active raid if called by admin.
         return getRaidManager().stopRaidCommand(ctx);
+    }
+    
+    /**
+     * Handle the player's choice of which side to join in a war when they are members of both teams.
+     * 
+     * @param ctx Command context
+     * @param joinAttackers True to join attackers, false to join defenders
+     * @return Command success status
+     */
+    private static int chooseWarSideCommand(CommandContext<CommandSourceStack> ctx, boolean joinAttackers) {
+        try {
+            ServerPlayer player = ctx.getSource().getPlayerOrException();
+            WarData war = WarSystem.getActiveWarForPlayer(player);
+            
+            if (war == null) {
+                ctx.getSource().sendFailure(Component.literal("No active war to join."));
+                return 0;
+            }
+            
+            if (!war.isJoinPhaseActive()) {
+                ctx.getSource().sendFailure(Component.literal("Join phase is over."));
+                return 0;
+            }
+            
+            int playerLives = TaxConfig.PLAYER_LIVES_IN_WAR.get();
+            
+            if (joinAttackers) {
+                // Join attacker side
+                if (!war.getAttackerLives().containsKey(player.getUUID())) {
+                    war.getAttackerLives().put(player.getUUID(), playerLives);
+                    player.sendSystemMessage(Component.literal("You have chosen to join the attacking side.").withStyle(ChatFormatting.GREEN));
+                    if (war.alliesBossEvent != null && war.alliesBossEvent.isVisible()) {
+                        war.alliesBossEvent.addPlayer(player);
+                    } else {
+                        war.bossEvent.addPlayer(player);
+                    }
+                    return 1;
+                } else {
+                    ctx.getSource().sendFailure(Component.literal("You are already registered on the attacking side."));
+                    return 0;
+                }
+            } else {
+                // Join defender side
+                if (!war.getDefenderLives().containsKey(player.getUUID())) {
+                    war.getDefenderLives().put(player.getUUID(), playerLives);
+                    player.sendSystemMessage(Component.literal("You have chosen to join the defending side.").withStyle(ChatFormatting.GREEN));
+                    if (war.alliesBossEvent != null && war.alliesBossEvent.isVisible()) {
+                        war.alliesBossEvent.addPlayer(player);
+                    } else {
+                        war.bossEvent.addPlayer(player);
+                    }
+                    return 1;
+                } else {
+                    ctx.getSource().sendFailure(Component.literal("You are already registered on the defending side."));
+                    return 0;
+                }
+            }
+        } catch (CommandSyntaxException e) {
+            ctx.getSource().sendFailure(Component.literal("You must be a player to use this command."));
+            return 0;
+        }
     }
 }

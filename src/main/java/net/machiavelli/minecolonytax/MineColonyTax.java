@@ -5,6 +5,7 @@ import net.machiavelli.minecolonytax.commands.*;
 import net.machiavelli.minecolonytax.data.PlayerWarDataManager;
 import net.machiavelli.minecolonytax.event.RaidEndEvent;
 import net.machiavelli.minecolonytax.event.WarVictoryEvent;
+import net.machiavelli.minecolonytax.vassalization.VassalManager;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.server.ServerAboutToStartEvent;
@@ -18,7 +19,6 @@ import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import net.minecraftforge.event.server.ServerAboutToStartEvent;
 
 @Mod(MineColonyTax.MOD_ID)
 public class MineColonyTax {
@@ -64,6 +64,9 @@ public class MineColonyTax {
         LOGGER.info("Server starting: Initializing Tax System and PvP System");
         // Initialize TaxManager after the config is loaded
         TaxManager.initialize(event.getServer());
+        
+        // Initialize VassalManager
+        VassalManager.initialize(event.getServer());
         
         // Set up scoreboards for tracking player statistics
         setupScoreboards(event.getServer().getScoreboard());
@@ -111,5 +114,13 @@ public class MineColonyTax {
         LOGGER.info("MineColonyTax: /wnt commands registered.");
         
         LOGGER.info("Loaded Arena Positions");
+    }
+
+    /**
+     * Method to handle server stopping event.
+     */
+    @SubscribeEvent
+    public void onServerStopping(ServerStoppingEvent event) {
+        VassalManager.shutdown();
     }
 }

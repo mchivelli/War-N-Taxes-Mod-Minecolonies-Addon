@@ -28,7 +28,9 @@ import net.minecraftforge.fml.common.Mod;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
+import net.machiavelli.minecolonytax.raid.ActiveRaidData;
 
 @Mod.EventBusSubscriber(modid = "minecolonytax", bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class WntCommands {
@@ -92,7 +94,7 @@ public class WntCommands {
                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(
                                         List.of("wagewar", "raid", "claimtax", "checktax", "taxdebt", "joinwar", "leavewar", 
                                                "war", "peace", "warinfo", "wardebug", "warstop", "warstopall", "raidstop", 
-                                               "warhistory", "warstats", "taxgen"), builder))
+                                               "warhistory", "warstats", "taxgen", "vasalize", "vasalaccept", "vasaldecline", "revoke", "vasals"), builder))
                                 .executes(WntCommands::showSpecificHelp)
                         )
                 )
@@ -254,6 +256,31 @@ public class WntCommands {
                         .executes(WntCommands::showWarStats)
                 )
                 
+                // Vassal commands
+                .then(Commands.literal("vasalize")
+                        .then(Commands.argument("percent", IntegerArgumentType.integer(1, 100))
+                                .then(Commands.argument("colony", StringArgumentType.string())
+                                        .suggests(COLONY_SUGGESTIONS)
+                                        .executes(ctx -> handleVassalize(ctx,
+                                                IntegerArgumentType.getInteger(ctx, "percent"),
+                                                extractColonyName(StringArgumentType.getString(ctx, "colony"))))))
+                )
+                .then(Commands.literal("vasalaccept")
+                        .then(Commands.argument("colonyId", IntegerArgumentType.integer())
+                                .executes(ctx -> handleVassalAccept(ctx, IntegerArgumentType.getInteger(ctx, "colonyId"))))
+                )
+                .then(Commands.literal("vasaldecline")
+                        .then(Commands.argument("colonyId", IntegerArgumentType.integer())
+                                .executes(ctx -> handleVassalDecline(ctx, IntegerArgumentType.getInteger(ctx, "colonyId"))))
+                )
+                .then(Commands.literal("revoke")
+                        .then(Commands.argument("player", StringArgumentType.word())
+                                .executes(ctx -> handleVassalRevoke(ctx, StringArgumentType.getString(ctx, "player"))))
+                )
+                .then(Commands.literal("vasals")
+                        .executes(WntCommands::handleVassalList)
+                )
+                
                 // Admin commands
                 .then(Commands.literal("taxgen")
                         .requires(src -> src.hasPermission(2))
@@ -318,6 +345,14 @@ public class WntCommands {
         source.sendSuccess(() -> Component.literal("§6Info Commands:"), false);
         source.sendSuccess(() -> Component.literal("§e/wnt warhistory [colony] §7- View war history"), false);
         source.sendSuccess(() -> Component.literal("§e/wnt warstats §7- View your war statistics"), false);
+        source.sendSuccess(() -> Component.literal(""), false);
+        
+        source.sendSuccess(() -> Component.literal("§6Vassal Commands:"), false);
+        source.sendSuccess(() -> Component.literal("§e/wnt vasalize <percent> <colony> §7- Offer vassalization to a colony"), false);
+        source.sendSuccess(() -> Component.literal("§e/wnt vasalaccept <colonyId> §7- Accept a vassalization proposal"), false);
+        source.sendSuccess(() -> Component.literal("§e/wnt vasaldecline <colonyId> §7- Decline a vassalization proposal"), false);
+        source.sendSuccess(() -> Component.literal("§e/wnt revoke <player> §7- Revoke a vassalization relationship"), false);
+        source.sendSuccess(() -> Component.literal("§e/wnt vasals §7- List your vassals"), false);
         source.sendSuccess(() -> Component.literal(""), false);
         
         if (source.hasPermission(2)) {
@@ -419,6 +454,37 @@ public class WntCommands {
                 source.sendSuccess(() -> Component.literal("§6/wnt warstats"), false);
                 source.sendSuccess(() -> Component.literal("§7View your personal war statistics."), false);
                 source.sendSuccess(() -> Component.literal("§7Shows kills, raids, amount gained, wars won, etc."), false);
+                break;
+                
+            // Vassal commands
+            case "vasalize":
+                source.sendSuccess(() -> Component.literal("§6/wnt vasalize <percent> <colony>"), false);
+                source.sendSuccess(() -> Component.literal("§7Offer vassalization to a colony."), false);
+                source.sendSuccess(() -> Component.literal("§7- percent: The percentage of tax revenue to be paid to the overlord"), false);
+                source.sendSuccess(() -> Component.literal("§7- colony: The name of the colony to offer vassalization to"), false);
+                break;
+                
+            case "vasalaccept":
+                source.sendSuccess(() -> Component.literal("§6/wnt vasalaccept <colonyId>"), false);
+                source.sendSuccess(() -> Component.literal("§7Accept a vassalization proposal from a colony."), false);
+                source.sendSuccess(() -> Component.literal("§7- colonyId: The ID of the colony that proposed vassalization"), false);
+                break;
+                
+            case "vasaldecline":
+                source.sendSuccess(() -> Component.literal("§6/wnt vasaldecline <colonyId>"), false);
+                source.sendSuccess(() -> Component.literal("§7Decline a vassalization proposal from a colony."), false);
+                source.sendSuccess(() -> Component.literal("§7- colonyId: The ID of the colony that proposed vassalization"), false);
+                break;
+                
+            case "revoke":
+                source.sendSuccess(() -> Component.literal("§6/wnt revoke <player>"), false);
+                source.sendSuccess(() -> Component.literal("§7Revoke a vassalization relationship with a player."), false);
+                source.sendSuccess(() -> Component.literal("§7- player: The name of the player to revoke the relationship with"), false);
+                break;
+                
+            case "vasals":
+                source.sendSuccess(() -> Component.literal("§6/wnt vasals"), false);
+                source.sendSuccess(() -> Component.literal("§7List your vassals."), false);
                 break;
                 
             // Admin commands
@@ -681,14 +747,26 @@ public class WntCommands {
     }
     
     private static int stopRaidCommand(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        var activeRaids = getRaidManager().getActiveRaids();
+        var raidManager = getRaidManager();
+        var activeRaids = raidManager.getActiveRaids();
         if (activeRaids.isEmpty()) {
             ctx.getSource().sendFailure(Component.literal("No active raids to stop.").withStyle(ChatFormatting.RED));
             return 0;
         }
         
-        // Clear all active raids
+        // Properly end all active raids rather than just clearing the collection
+        // Create a new ArrayList to avoid ConcurrentModificationException
+        List<UUID> raiderIds = new ArrayList<>(activeRaids.keySet());
+        for (UUID raiderId : raiderIds) {
+            ActiveRaidData raidData = activeRaids.get(raiderId);
+            if (raidData != null) {
+                RaidManager.endActiveRaid(raidData, "Raid administratively stopped via /wnt raidstop command");
+            }
+        }
+        
+        // Just in case any weren't properly removed
         activeRaids.clear();
+        
         ctx.getSource().sendSuccess(() -> Component.literal("All active raids stopped."), false);
         return 1;
     }
@@ -996,6 +1074,39 @@ public class WntCommands {
         }
     }
 
+    // Vassal command handlers
+    private static int handleVassalize(CommandContext<CommandSourceStack> ctx, int percent, String colonyName) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        IColony target = IMinecoloniesAPI.getInstance().getColonyManager().getAllColonies().stream()
+                .filter(c -> c.getName().equalsIgnoreCase(colonyName))
+                .findFirst().orElse(null);
+        if (target == null) {
+            ctx.getSource().sendFailure(Component.literal("Colony not found"));
+            return 0;
+        }
+        return net.machiavelli.minecolonytax.vassalization.VassalManager.requestVassalization(player, target, percent);
+    }
+
+    private static int handleVassalAccept(CommandContext<CommandSourceStack> ctx, int colonyId) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        return net.machiavelli.minecolonytax.vassalization.VassalManager.acceptProposal(player, colonyId);
+    }
+
+    private static int handleVassalDecline(CommandContext<CommandSourceStack> ctx, int colonyId) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        return net.machiavelli.minecolonytax.vassalization.VassalManager.declineProposal(player, colonyId);
+    }
+
+    private static int handleVassalRevoke(CommandContext<CommandSourceStack> ctx, String playerName) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        return net.machiavelli.minecolonytax.vassalization.VassalManager.revokeRelation(player, playerName);
+    }
+
+    private static int handleVassalList(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        return net.machiavelli.minecolonytax.vassalization.VassalManager.listVassals(player);
+    }
+
     // Helper method to extract colony name from quote format
     private static String extractColonyName(String input) {
         if (input.startsWith("\"") && input.endsWith("\"")) {
@@ -1003,4 +1114,4 @@ public class WntCommands {
         }
         return input; // Fallback for manually typed names without quotes
     }
-} 
+}
