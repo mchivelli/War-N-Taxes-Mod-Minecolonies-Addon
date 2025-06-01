@@ -13,6 +13,8 @@ DebtLimit = 0
 	EnableSDMShopConversion = true
 	#The item name for the custom currency (e.g., 'minecraft:emerald').
 	CurrencyItemName = "minecraft:emerald"
+	#Enable console logging of tax generation details (building upgrades, max warnings, etc.). Set to false to reduce console spam during initialization.
+	ShowTaxGenerationLogs = true
 
 ["War Settings"]
 	#Grace period between declaring wars (minutes)

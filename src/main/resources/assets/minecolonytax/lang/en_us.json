@@ -15,6 +15,7 @@
   
   "message.minecolonytax.tax_report_header": "📊 ═══ TAX REPORT FOR %s ═══ 📊",
   "message.minecolonytax.tax_report_summary": "🏢 Buildings: %d | 💰 Generated: +%d | 🔧 Maintenance: -%d | 💳 Balance: %d",
+  "message.minecolonytax.tax_report_tribute": "🏰 Vassal Tribute: -%d coins sent to overlord",
   "message.minecolonytax.tax_report_debt": "⚠️  DEBT STATUS: %d coins in debt! Consider reducing expenses.",
   "message.minecolonytax.tax_report_near_max": "📈 NEAR CAPACITY: Approaching maximum tax storage (%d). Consider claiming taxes!",
   "message.minecolonytax.tax_report_healthy": "✅ FINANCIAL STATUS: Colony finances are healthy!",

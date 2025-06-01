@@ -54,7 +54,7 @@ public class PeaceProposalManager {
                 .withStyle(Style.EMPTY
                         .withColor(ChatFormatting.GREEN)
                         .withBold(true)
-                        .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/peace accept"))
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/wnt peace accept"))
                         .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                                 Component.literal("Only the colony owner may confirm!"))));
 
@@ -62,7 +62,7 @@ public class PeaceProposalManager {
                 .withStyle(Style.EMPTY
                         .withColor(ChatFormatting.RED)
                         .withBold(true)
-                        .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/peace decline"))
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/wnt peace decline"))
                         .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                                 Component.literal("Only the colony owner may decline!"))));
 

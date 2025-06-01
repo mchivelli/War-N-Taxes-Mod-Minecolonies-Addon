@@ -63,13 +63,13 @@ public class WarSystem {
     private static final Component JOIN_MSG = Component.literal("[Join War]")
             .withStyle(Style.EMPTY.withColor(ChatFormatting.GREEN)
                     .withBold(true)
-                    .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/joinwar"))
+                    .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/wnt joinwar"))
                     .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("Click to join the war!").withStyle(style -> style.withColor(ChatFormatting.AQUA)))));
 
     private static final Component LEAVE_MSG = Component.literal("[Leave War]")
             .withStyle(style -> style.withColor(ChatFormatting.RED)
                     .withBold(true)
-                    .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/leavewar"))
+                    .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/wnt leavewar"))
                     .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("Click to leave the war!").withStyle(ChatFormatting.AQUA))));
 
     public static final long WAR_PHASE_DURATION_SECONDS = 60; // For debugging
@@ -1543,14 +1543,14 @@ public class WarSystem {
         return Component.literal("[Accept]")
                 .setStyle(Style.EMPTY.withColor(ChatFormatting.GREEN)
                         .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
-                                String.format("/war accept %d", colony.getID()))));
+                                String.format("/wnt war accept %d", colony.getID()))));
     }
 
     private static Component createDeclineButton(IColony colony) {
         return Component.literal("[Decline]")
                 .setStyle(Style.EMPTY.withColor(ChatFormatting.RED)
                         .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
-                                String.format("/war decline %d", colony.getID()))));
+                                String.format("/wnt war decline %d", colony.getID()))));
     }
     
     public static int processJoinWar(ServerPlayer player, CommandSourceStack source) {
@@ -1593,8 +1593,30 @@ public class WarSystem {
             }
 
             if (alliedToAttacker && alliedToDefender) {
-                source.sendFailure(Component.literal("You are allied with both sides. Please resolve team allegiances."));
-                return 0;
+                // Create clickable options to choose sides
+                MutableComponent message = Component.literal("You are allied with both sides. Please choose which side to join:\n")
+                        .withStyle(ChatFormatting.GOLD);
+                
+                // Create clickable components for joining each side
+                Component joinAttackers = Component.literal("[Join Attackers]")
+                        .withStyle(style -> style.withColor(ChatFormatting.RED)
+                                .withBold(true)
+                                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/wnt choosewarside attacker"))
+                                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
+                                        Component.literal("Click to join the attacking side").withStyle(ChatFormatting.GOLD))));
+                
+                Component joinDefenders = Component.literal("[Join Defenders]")
+                        .withStyle(style -> style.withColor(ChatFormatting.BLUE)
+                                .withBold(true)
+                                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/wnt choosewarside defender"))
+                                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
+                                        Component.literal("Click to join the defending side").withStyle(ChatFormatting.GOLD))));
+                
+                // Send the complete message with options
+                player.sendSystemMessage(message.append(" ")
+                        .append(joinAttackers).append(" ")
+                        .append(joinDefenders));
+                return 1;
             }
 
             if ((playerTeam != null && playerTeam.getId().equals(war.getAttackerTeamID())) || alliedToAttacker) {

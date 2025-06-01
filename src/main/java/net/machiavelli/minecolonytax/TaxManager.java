@@ -160,6 +160,13 @@ public class TaxManager {
         saveTaxData();
     }
 
+    // Helper method to adjust tax delta
+    public static void adjustTax(IColony colony, int delta) {
+        int id = colony.getID();
+        int current = colonyTaxMap.getOrDefault(id, 0);
+        colonyTaxMap.put(id, current + delta);
+    }
+
     // Generate taxes for all colonies
     public static void generateTaxesForAllColonies() {
         if (serverInstance != null) {
@@ -225,6 +232,13 @@ public class TaxManager {
                     }
                     
                     finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
+
+                    // --- Vassal tribute processing ---
+                    int tributePaid = net.machiavelli.minecolonytax.vassalization.VassalManager.handleTaxIncome(colony, totalGeneratedTax);
+                    if (tributePaid > 0) {
+                        // Recalculate final balance after tribute deduction
+                        finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
+                    }
                     
                     // Consolidated logging per colony
                     if (TaxConfig.showTaxGenerationLogs()) {
@@ -269,6 +283,14 @@ public class TaxManager {
                                     totalMaintenance,
                                     finalTaxBalance
                             ));
+                            
+                            // Show tribute paid if applicable
+                            if (tributePaid > 0) {
+                                player.sendSystemMessage(Component.translatable(
+                                        "message.minecolonytax.tax_report_tribute",
+                                        tributePaid
+                                ));
+                            }
                             
                             // Send status indicators
                             if (finalTaxBalance < 0) {
