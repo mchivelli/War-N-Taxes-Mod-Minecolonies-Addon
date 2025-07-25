@@ -216,10 +216,20 @@ public class WarCommands {
         String status = (war.getStatus() != null) ? war.getStatus().toString() : "UNKNOWN";
 
         long now = System.currentTimeMillis();
-        long warDuration = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
-        long elapsed = (now - war.warStartTime) / 1000;
-        long remaining = Math.max(0, warDuration - elapsed);
-        String remainingStr = String.format("%02d:%02d", remaining / 60, remaining % 60);
+        long remaining;
+        String remainingStr;
+        
+        if (war.isJoinPhaseActive()) {
+            // During join phase, show time until join phase ends
+            remaining = Math.max(0, (war.getJoinPhaseEndTime() - now) / 1000);
+            remainingStr = String.format("%02d:%02d", remaining / 60, remaining % 60);
+        } else {
+            // During active war, show time until war ends
+            long warDuration = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
+            long elapsed = (now - war.warStartTime) / 1000;
+            remaining = Math.max(0, warDuration - elapsed);
+            remainingStr = String.format("%02d:%02d", remaining / 60, remaining % 60);
+        }
 
         sb.append("§a§lWar Report: ").append(attackerColName).append(" vs ").append(defenderColName).append("\n");
         sb.append("§aWar ID: §f").append(war.getWarID()).append("\n");
@@ -262,10 +272,20 @@ public class WarCommands {
             String defenderColName = (war.getColony() != null) ? war.getColony().getName() : "UnknownDefenderColony";
             String status = (war.getStatus() != null) ? war.getStatus().toString() : "UNKNOWN";
             long now = System.currentTimeMillis();
-            long warDuration = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
-            long elapsed = (now - war.warStartTime) / 1000;
-            long remaining = Math.max(0, warDuration - elapsed);
-            String remainingStr = String.format("%02d:%02d", remaining / 60, remaining % 60);
+            long remaining;
+            String remainingStr;
+            
+            if (war.isJoinPhaseActive()) {
+                // During join phase, show time until join phase ends
+                remaining = Math.max(0, (war.getJoinPhaseEndTime() - now) / 1000);
+                remainingStr = String.format("%02d:%02d", remaining / 60, remaining % 60);
+            } else {
+                // During active war, show time until war ends
+                long warDuration = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
+                long elapsed = (now - war.warStartTime) / 1000;
+                remaining = Math.max(0, warDuration - elapsed);
+                remainingStr = String.format("%02d:%02d", remaining / 60, remaining % 60);
+            }
 
             sb.append("\n§e§lWar Report: ").append(attackerColName).append(" vs ").append(defenderColName).append("\n");
             sb.append("§eWar ID: §f").append(war.getWarID()).append("\n");

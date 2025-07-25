@@ -42,7 +42,7 @@ public class TaxManager {
     private static final Logger LOGGER = LogManager.getLogger(TaxManager.class);
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Map<Integer, Integer> colonyTaxData = new HashMap<>();
-    private static final String TAX_DATA_FILE = "config/colonyTaxData.json";
+    private static final String TAX_DATA_FILE = "config/warntaxmod/colonyTaxData.json";
     private static MinecraftServer serverInstance;
     // Set of colony IDs for which tax claims are frozen
     private static final Set<Integer> FROZEN_COLONIES = ConcurrentHashMap.newKeySet();
@@ -186,6 +186,8 @@ public class TaxManager {
                     int maxLimitHits = 0;
                     boolean hasDebt = false;
                     int finalTaxBalance;
+                    int guardTowerCount = 0;
+                    int requiredGuardTowers = TaxConfig.getRequiredGuardTowersForBoost();
                     
                     // Store initial tax for comparison
                     int initialTax = colonyTaxMap.getOrDefault(colonyId, 0);
@@ -232,6 +234,39 @@ public class TaxManager {
                     }
                     
                     finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
+
+                    // --- Guard Tower Tax Boost Processing ---
+                    for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+                        if (building.getBuildingLevel() > 0 && building.isBuilt()) {
+                            // Count guard towers using the same logic as WarSystem
+                            String displayName = building.getBuildingDisplayName();
+                            String className = building.getClass().getName().toLowerCase();
+                            String toString = building.toString().toLowerCase();
+                            
+                            if ((displayName != null && "Guard Tower".equalsIgnoreCase(displayName)) ||
+                                className.contains("guardtower") ||
+                                toString.contains("guardtower") ||
+                                toString.contains("guard_tower")) {
+                                guardTowerCount++;
+                            }
+                        }
+                    }
+                    
+                    // Apply guard tower boost if requirements are met
+                    if (guardTowerCount >= requiredGuardTowers) {
+                        double boostPercentage = TaxConfig.getGuardTowerTaxBoostPercentage();
+                        int boostAmount = (int) (totalGeneratedTax * boostPercentage);
+                        
+                        if (boostAmount > 0) {
+                            incrementTaxRevenue(colony, boostAmount);
+                            finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
+                            
+                            if (TaxConfig.showTaxGenerationLogs()) {
+                                LOGGER.info("Applied guard tower tax boost to colony {}: {} tax ({} guard towers, {}% boost)", 
+                                           colony.getName(), boostAmount, guardTowerCount, (int)(boostPercentage * 100));
+                            }
+                        }
+                    }
 
                     // --- Vassal tribute processing ---
                     int tributePaid = net.machiavelli.minecolonytax.vassalization.VassalManager.handleTaxIncome(colony, totalGeneratedTax);
@@ -283,6 +318,18 @@ public class TaxManager {
                                     totalMaintenance,
                                     finalTaxBalance
                             ));
+                            
+                            // Show guard tower boost if applicable
+                            if (guardTowerCount >= requiredGuardTowers) {
+                                double boostPercentage = TaxConfig.getGuardTowerTaxBoostPercentage();
+                                int boostAmount = (int) (totalGeneratedTax * boostPercentage);
+                                player.sendSystemMessage(Component.translatable(
+                                        "message.minecolonytax.tax_report_guard_boost",
+                                        guardTowerCount,
+                                        (int)(boostPercentage * 100),
+                                        boostAmount
+                                ));
+                            }
                             
                             // Show tribute paid if applicable
                             if (tributePaid > 0) {
@@ -358,7 +405,9 @@ public class TaxManager {
     
     // Overloaded method with logging control
     private static void saveTaxData(boolean logSave) {
-        try (FileWriter writer = new FileWriter(TAX_DATA_FILE)) {
+        File file = new File(TAX_DATA_FILE);
+        file.getParentFile().mkdirs(); // Ensure the directory exists
+        try (FileWriter writer = new FileWriter(file)) {
             GSON.toJson(colonyTaxMap, writer);
             if (logSave && TaxConfig.showTaxGenerationLogs()) {
                 LOGGER.info("Saved tax data to file.");
@@ -370,7 +419,7 @@ public class TaxManager {
 
     // Load tax data from a JSON file
     private static void loadTaxData(MinecraftServer server) {
-        File taxFile = new File(server.getServerDirectory(), TAX_DATA_FILE);
+        File taxFile = new File(TAX_DATA_FILE);
         if (taxFile.exists()) {
             try (FileReader reader = new FileReader(taxFile)) {
                 Type taxDataType = new TypeToken<Map<Integer, Integer>>() {}.getType();

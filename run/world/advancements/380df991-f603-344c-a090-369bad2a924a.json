@@ -1,0 +1,472 @@
+{
+  "minecraft:recipes/decorations/crafting_table": {
+    "criteria": {
+      "unlock_right_away": "2024-10-01 00:18:42 +0200"
+    },
+    "done": true
+  },
+  "minecraft:adventure/adventuring_time": {
+    "criteria": {
+      "minecraft:taiga": "2024-10-01 03:24:52 +0200",
+      "minecraft:frozen_river": "2024-10-01 02:52:32 +0200",
+      "minecraft:river": "2024-10-01 20:07:58 +0200",
+      "minecraft:snowy_plains": "2024-10-01 00:18:43 +0200",
+      "minecraft:stony_shore": "2024-10-01 00:35:53 +0200",
+      "minecraft:snowy_taiga": "2024-10-01 02:53:11 +0200",
+      "minecraft:forest": "2024-10-01 03:24:55 +0200",
+      "minecraft:frozen_ocean": "2024-10-01 02:53:30 +0200",
+      "minecraft:snowy_beach": "2024-10-01 00:36:19 +0200",
+      "minecraft:flower_forest": "2024-10-05 12:48:16 +0200",
+      "minecraft:plains": "2024-10-01 03:25:01 +0200"
+    },
+    "done": false
+  },
+  "minecolonies:recipes/misc/blockwaypoint": {
+    "criteria": {
+      "has_build_tool": "2024-10-01 00:36:06 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/blockhuttownhall": {
+    "criteria": {
+      "has_items": "2024-10-01 00:36:06 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/questlog": {
+    "criteria": {
+      "has_build_tool": "2024-10-01 00:36:06 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/clipboard": {
+    "criteria": {
+      "has_build_tool": "2024-10-01 00:36:06 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/resourcescroll": {
+    "criteria": {
+      "has_build_tool": "2024-10-01 00:36:06 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/blockminecoloniesrack": {
+    "criteria": {
+      "has_build_tool": "2024-10-01 00:36:06 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/build_goggles": {
+    "criteria": {
+      "has_build_tool": "2024-10-01 00:36:06 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/transportation/mangrove_boat": {
+    "criteria": {
+      "in_water": "2024-10-01 02:53:35 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/transportation/acacia_boat": {
+    "criteria": {
+      "in_water": "2024-10-01 02:53:35 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/transportation/cherry_boat": {
+    "criteria": {
+      "in_water": "2024-10-01 02:53:35 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/transportation/bamboo_raft": {
+    "criteria": {
+      "in_water": "2024-10-01 02:53:35 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/transportation/spruce_boat": {
+    "criteria": {
+      "in_water": "2024-10-01 02:53:35 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/transportation/birch_boat": {
+    "criteria": {
+      "in_water": "2024-10-01 02:53:35 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/transportation/oak_boat": {
+    "criteria": {
+      "in_water": "2024-10-01 02:53:35 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/transportation/jungle_boat": {
+    "criteria": {
+      "in_water": "2024-10-01 02:53:35 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/transportation/dark_oak_boat": {
+    "criteria": {
+      "in_water": "2024-10-01 02:53:35 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:minecolonies/check_out_guide": {
+    "criteria": {
+      "click_gui_button_close": "2024-10-01 03:23:28 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:minecolonies/place_townhall": {
+    "criteria": {
+      "build_tool_place_town_hall": "2024-10-01 18:32:50 +0200"
+    },
+    "done": true
+  },
+  "minecraft:end/elytra": {
+    "criteria": {
+      "elytra": "2024-10-01 20:08:05 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:minecolonies/start_builder": {
+    "criteria": {
+      "builder_request": "2024-10-01 20:10:21 +0200"
+    },
+    "done": true
+  },
+  "minecraft:adventure/root": {
+    "criteria": {
+      "killed_something": "2024-10-01 20:11:13 +0200"
+    },
+    "done": true
+  },
+  "minecraft:adventure/kill_all_mobs": {
+    "criteria": {
+      "minecraft:skeleton": "2024-10-01 20:21:38 +0200",
+      "minecraft:spider": "2024-10-01 20:11:13 +0200",
+      "minecraft:creeper": "2024-10-01 20:26:51 +0200",
+      "minecraft:zombie": "2024-10-01 20:26:12 +0200"
+    },
+    "done": false
+  },
+  "minecraft:adventure/kill_a_mob": {
+    "criteria": {
+      "minecraft:spider": "2024-10-01 20:11:13 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/light_gray_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:30 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/pink_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/light_blue_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/lime_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/brewing/fermented_spider_eye": {
+    "criteria": {
+      "has_spider_eye": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/blockhutsifter": {
+    "criteria": {
+      "has_items": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/white_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/combat/bow": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/yellow_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/gray_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/red_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/tools/fishing_rod": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/building_blocks/white_wool_from_string": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/green_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/brown_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/blue_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/redstone/tripwire_hook": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/combat/crossbow": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/orange_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/decorations/candle": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/blockhutfletcher": {
+    "criteria": {
+      "has_items": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/black_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/cyan_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/decorations/loom": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/magenta_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "domum_ornamentum:recipes/decorations/purple_floating_carpet": {
+    "criteria": {
+      "has_string": "2024-10-01 20:21:31 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/decorations/chest": {
+    "criteria": {
+      "has_lots_of_items": "2024-10-01 20:26:37 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/blockhutcitizen": {
+    "criteria": {
+      "has_items": "2024-10-01 20:26:37 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:minecolonies/colony_population_5": {
+    "criteria": {
+      "population_5": "2024-10-01 23:12:47 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/blockhutlumberjackstone": {
+    "criteria": {
+      "has_items": "2024-10-03 00:50:21 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/blockhutshepherd": {
+    "criteria": {
+      "has_items": "2024-10-03 00:50:30 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/misc/black_dye": {
+    "criteria": {
+      "has_ink_sac": "2024-10-03 02:31:17 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/food/cake": {
+    "criteria": {
+      "has_egg": "2024-10-04 19:08:07 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/blockhutchickenherder": {
+    "criteria": {
+      "has_items": "2024-10-04 19:08:07 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/blockhutgraveyard": {
+    "criteria": {
+      "has_items": "2024-10-05 17:17:31 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/misc/bone_meal": {
+    "criteria": {
+      "has_bone": "2024-10-05 17:17:31 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/misc/yellow_dye_from_dandelion": {
+    "criteria": {
+      "has_dandelion": "2024-11-19 23:15:42 +0100"
+    },
+    "done": true
+  },
+  "minecraft:recipes/decorations/white_banner": {
+    "criteria": {
+      "has_white_wool": "2025-02-02 20:13:36 +0100"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/colony_banner": {
+    "criteria": {
+      "has_items": "2025-02-02 20:13:36 +0100"
+    },
+    "done": true
+  },
+  "minecraft:recipes/decorations/painting": {
+    "criteria": {
+      "has_wool": "2025-02-02 20:13:36 +0100"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/blockconstructiontape": {
+    "criteria": {
+      "has_wool": "2025-02-02 20:13:36 +0100"
+    },
+    "done": true
+  },
+  "minecraft:recipes/decorations/white_bed": {
+    "criteria": {
+      "has_white_wool": "2025-02-02 20:13:36 +0100"
+    },
+    "done": true
+  },
+  "minecraft:recipes/decorations/white_carpet": {
+    "criteria": {
+      "has_white_wool": "2025-02-02 20:13:36 +0100"
+    },
+    "done": true
+  },
+  "minecraft:recipes/food/cooked_mutton_from_smoking": {
+    "criteria": {
+      "has_mutton": "2025-02-02 20:13:37 +0100"
+    },
+    "done": true
+  },
+  "minecraft:recipes/food/cooked_mutton": {
+    "criteria": {
+      "has_mutton": "2025-02-02 20:13:37 +0100"
+    },
+    "done": true
+  },
+  "minecraft:recipes/food/cooked_mutton_from_campfire_cooking": {
+    "criteria": {
+      "has_mutton": "2025-02-02 20:13:37 +0100"
+    },
+    "done": true
+  },
+  "minecolonies:minecolonies/citizen_eat_food_first": {
+    "criteria": {
+      "citizen_eat_anything": "2025-02-07 21:48:58 +0100"
+    },
+    "done": true
+  },
+  "minecolonies:minecolonies/fulfill_request": {
+    "criteria": {
+      "click_gui_button_fulfill": "2025-02-07 21:49:01 +0100"
+    },
+    "done": true
+  },
+  "minecraft:adventure/sleep_in_bed": {
+    "criteria": {
+      "slept_in_bed": "2025-02-07 21:49:36 +0100"
+    },
+    "done": true
+  },
+  "minecolonies:minecolonies/colony_population_10": {
+    "criteria": {
+      "population_10": "2025-02-07 22:51:08 +0100"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/banner_rally_guards": {
+    "criteria": {
+      "has_items": "2025-02-07 22:56:32 +0100"
+    },
+    "done": true
+  },
+  "DataVersion": 3465
+}

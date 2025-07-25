@@ -17,9 +17,9 @@ license="MIT"
 # The modid of the mod
 modId="minecolonytax" #mandatory
 # The version number of the mod
-version="1.0" #mandatory
+version="2.2" #mandatory
 # A display name for the mod
-displayName="Minecolony Tax System" #mandatory
+displayName="War N' Taxes: Minecolonies Addon" #mandatory
 # A URL to query for updates for this mod. See the JSON update specification https://docs.minecraftforge.net/en/latest/misc/updatechecker/
 #updateJSONURL="https://change.me.example.invalid/updates.json" #optional
 # A URL for the "homepage" for this mod, displayed in the mod UI

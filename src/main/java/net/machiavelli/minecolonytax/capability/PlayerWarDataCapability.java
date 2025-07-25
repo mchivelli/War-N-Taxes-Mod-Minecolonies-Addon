@@ -247,7 +247,7 @@ public class PlayerWarDataCapability {
     }
 
     // Add player save event handler
-    @SubscribeEvent
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.HIGH)
     public static void onPlayerSave(net.minecraftforge.event.entity.player.PlayerEvent.SaveToFile event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             try {

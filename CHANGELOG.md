@@ -5,7 +5,65 @@ All notable changes to the MineColonyTax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2025-06-01
+## [Unreleased] - 2025-06-20
+
+### 🔧 PvP Configuration Overhaul
+
+- **Centralized PvP Settings**: All PvP-related settings have been moved into the main `minecolonytax.toml` config file under the `["PvP Arena Settings"]` section. This removes the separate `minecolonytax-pvp.toml` file and consolidates all server configurations into a single, easy-to-manage location.
+- **Configurable Timers & Cooldowns**: Added new configuration options for all PvP countdowns and cooldowns:
+    - `allowCommandsInBattle`: Toggle whether players can use commands during a battle.
+    - `challengeCooldownSeconds`: Set the cooldown for duel challenges.
+    - `teamBattleCooldownSeconds`: Set the cooldown for starting team battles.
+    - `battleDurationSeconds`: Define the default length of a battle before it's declared a draw.
+    - `teamBattleStartCountdownSeconds`: Control the countdown before a team battle begins.
+    - `battleEndCountdownSeconds`: Adjust the delay before players are teleported back after a battle.
+- **Improved Countdown Notifications**: The team battle start countdown is now less spammy. It notifies players at 10-second intervals until the last 5 seconds, at which point it notifies every second to build anticipation.
+- **NEW FEATURE - Team PvP System**: Added comprehensive team-based PvP functionality with the new `/teampvp` command:
+    - `/teampvp create <map>`: Create a new team battle on a specified map
+    - `/teampvp join <battleId> <team>`: Join a team battle (team 1 or 2)
+    - `/teampvp switch <battleId> <team>`: Switch teams within a battle
+    - `/teampvp start <battleId>`: Start a team battle early (organizer only)
+    - Team battles support multiple players per team with automatic balancing
+    - Interactive team rosters with real-time updates
+    - Configurable team sizes based on map capacity
+    - Automatic countdown system with configurable duration
+
+### 🛡️ Raid Guard Protection System
+
+- **NEW FEATURE**: Added RaidGuardProtection system to protect smaller colonies from being overwhelmed by raids
+- **Configurable protection requirements**: Target colonies must meet minimum defense requirements to be eligible for raids
+- **Guard protection**: New `MinGuardsToBeRaided` config (default: 2) requires target colonies to have sufficient guards
+- **Guard tower protection**: New `MinGuardTowersToBeRaided` config (default: 1) requires target colonies to have sufficient guard towers
+- **Master toggle**: New `EnableRaidGuardProtection` config (default: true) to enable/disable the entire protection system
+- **Enhanced raid command help**: `/wnt help raid` now shows current protection requirements dynamically
+- **Clear feedback**: Raiders receive informative error messages when raids are blocked due to protection requirements
+- **Localized messages**: Added translatable error messages for better international support
+- **Performance optimized**: Efficient guard tower counting using building display name filtering
+- **Admin flexibility**: Set either requirement to 0 to disable specific protection checks
+
+### 🔧 Guard Tower Detection Bug Fix
+
+- **CRITICAL FIX**: Fixed guard tower counting bug in RaidGuardProtection system
+- **Root cause resolved**: Guard towers now properly detected using robust building type identification instead of unreliable display names
+- **Multiple detection methods**: Implemented fallback detection using class names and building type patterns
+- **Backwards compatibility**: Maintains support for existing display name detection while adding new robust methods
+- **Future proof**: Will correctly identify new guard tower types and variations automatically
+- **Enhanced debugging**: Added `/wnt debugguards [colony]` admin command for troubleshooting guard/tower counting issues
+- **Comprehensive diagnostics**: Debug command shows guard counts, protection status, building analysis, and detection mismatches
+- **Improved reliability**: Guard tower protection now functions correctly across all Minecolonies versions and configurations
+
+### Death Processing Fixes
+
+- **Fixed corpse spawning during wars**: Death events now properly process natural death mechanics, allowing Corpse mod and other death-related mods to function correctly
+- **Fixed death messages and scoreboards**: Deaths in war now trigger proper death messages and update death scoreboards as expected
+- **Improved inventory preservation**: Last life inventory preservation now works through respawn events for more reliable inventory restoration
+- **Enhanced death debugging**: Added extensive debug logging for war death processing to help diagnose future issues
+
+### Console Logging Control
+
+- **Added configurable tax generation logging**: New `ShowTaxGenerationLogs` config option to reduce console spam during initialization
+- **Preserved error logging**: Critical error messages still display regardless of logging setting
+- **Improved server administration**: Cleaner server logs while maintaining debugging capabilities when needed
 
 ### Vassalization Feature Enhancements
 
@@ -20,6 +78,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Added team selection feature**: Players who are members of both warring teams can now choose which side to join instead of being blocked from participating
 - **New commands**: `/choosewarside attacker` and `/choosewarside defender` for selecting a team when dual membership is detected
 - **Improved war participation**: Players receive clickable prompts in chat to select their preferred side
+
+### Fixed
+- **Server Startup Performance**: Drastically reduced log spam during server startup by condensing building detection messages into single summary per colony
+- **Guard Tower Boost Bug**: Fixed guard tower tax boost being applied every tick instead of once per cooldown period (configurable, default 5 minutes)
+- **Improved Logging**: Replaced individual building messages with comprehensive colony summaries showing processed buildings, tax generated, guard count, and max tax status
+- **Duplicate Raid Tax Announcements**: Fixed issue where raid tax announcements were being displayed twice per interval. Messages are now sent only once to all relevant players without duplication, even if players are members of both colonies involved in the raid.
+
+
+### 🏰 Guard Tower Tax Boost Implementation
+
+- **NEW FEATURE**: Implemented the long-awaited guard tower tax boost system
+- **Automatic Application**: Tax boost is now applied every tax interval when colonies have sufficient guard towers
+- **Configurable Requirements**: `RequiredGuardTowersForBoost` setting determines how many guard towers are needed (default: 5)
+- **Percentage-Based Boost**: `GuardTowerTaxBoostPercentage` setting controls the boost amount (default: 50% increase)
+- **Tax Report Integration**: Guard tower boost information is now displayed in tax reports when applicable
+- **Removed Unnecessary Cooldown**: Eliminated the `GuardTowerBoostCooldownMinutes` setting as the boost now applies every tax interval as intended
+- **Robust Detection**: Uses multiple methods to detect guard towers (display name, class name, and toString analysis)
+- **Performance Optimized**: Guard tower counting is integrated into the main tax generation cycle for efficiency
 
 ## [Previous Release] - 2025-01-30
 

@@ -2,13 +2,15 @@ package net.machiavelli.minecolonytax;
 
 import net.machiavelli.minecolonytax.capability.PlayerWarDataCapability;
 import net.machiavelli.minecolonytax.commands.*;
-import net.machiavelli.minecolonytax.data.PlayerWarDataManager;
-import net.machiavelli.minecolonytax.event.RaidEndEvent;
-import net.machiavelli.minecolonytax.event.WarVictoryEvent;
+import net.machiavelli.minecolonytax.event.ColonyEventListener;
+import net.machiavelli.minecolonytax.event.RaidLoginNotifier;
+import net.machiavelli.minecolonytax.peace.PeaceProposalManager;
+import net.machiavelli.minecolonytax.pvp.PvPEventHandler;
+import net.machiavelli.minecolonytax.raid.RaidManager;
+import net.machiavelli.minecolonytax.util.TranslationUtil;
 import net.machiavelli.minecolonytax.vassalization.VassalManager;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -19,33 +21,78 @@ import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import net.minecraftforge.fml.event.lifecycle.InterModProcessEvent;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.List;
+import java.util.stream.Collectors;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.ModLoadingContext;
 
 @Mod(MineColonyTax.MOD_ID)
 public class MineColonyTax {
 
     public static final String MOD_ID = "minecolonytax";
-    public static final Logger LOGGER = LogManager.getLogger(MineColonyTax.class);
+    public static final Logger LOGGER = LogManager.getLogger();
 
     // Constructor
     public MineColonyTax() {
-        // Register to Forge event bus
-        MinecraftForge.EVENT_BUS.register(this);
-
-        // Register to the mod event bus
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+
+        LOGGER.info("[DEBUG] Registering config with path: warntaxmod/minecolonytax.toml");
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, TaxConfig.CONFIG, "warntaxmod/minecolonytax.toml");
+        LOGGER.info("[DEBUG] Config registered successfully");
+
         modEventBus.addListener(this::setup);
         modEventBus.addListener(this::clientSetup);
-        
-        // Register capability
-        modEventBus.addListener(PlayerWarDataCapability::register);
+        MinecraftForge.EVENT_BUS.register(this);
     }
 
     /**
      * Common setup method for server-side initialization.
      */
     private void setup(final FMLCommonSetupEvent event) {
-        LOGGER.info("Initializing MineColony Tax System");
-        TaxConfig.loadConfig(TaxConfig.CONFIG, "minecolonytax.toml");
+        migrateOldConfigFiles();
+        LOGGER.info("Initializing War N Taxes Mod");
+        
+        // Debug: Check config values during setup
+        LOGGER.info("[DEBUG] Config loaded status: {}", TaxConfig.CONFIG.isLoaded());
+        if (TaxConfig.CONFIG.isLoaded()) {
+            LOGGER.info("[DEBUG] Join Phase Duration from config: {} minutes", TaxConfig.JOIN_PHASE_DURATION_MINUTES.get());
+        } else {
+            LOGGER.warn("[DEBUG] Config not loaded yet during setup!");
+        }
+    }
+
+    private static void migrateOldConfigFiles() {
+        List<String> filesToMove = List.of(
+            "pvp_arena_data.json",
+            "vassals.json",
+            "colony_history.json",
+            "colonyTaxData.json"
+        );
+        Path configDir = Paths.get("config");
+        Path newDir = configDir.resolve("warntaxmod");
+
+        try {
+            if (!Files.exists(newDir)) {
+                Files.createDirectories(newDir);
+            }
+
+            for (String fileName : filesToMove) {
+                Path oldFile = configDir.resolve(fileName);
+                Path newFile = newDir.resolve(fileName);
+                if (Files.exists(oldFile) && !Files.exists(newFile)) {
+                    Files.move(oldFile, newFile, StandardCopyOption.REPLACE_EXISTING);
+                    LOGGER.info("Migrated '{}' to the 'warntaxmod' directory.", fileName);
+                }
+            }
+        } catch (IOException e) {
+            LOGGER.error("Failed to migrate old config files.", e);
+        }
     }
 
     /**

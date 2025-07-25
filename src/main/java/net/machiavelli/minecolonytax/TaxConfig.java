@@ -63,7 +63,6 @@ public class TaxConfig {
 
     public static final ForgeConfigSpec.IntValue REQUIRED_GUARD_TOWERS_FOR_BOOST;
     public static final ForgeConfigSpec.DoubleValue GUARD_TOWER_TAX_BOOST_PERCENTAGE;
-    public static final ForgeConfigSpec.BooleanValue ALLOW_PVP_ARENA_COMMANDS;
 
     public static final ForgeConfigSpec.BooleanValue ENABLE_WAR_ACTIONS;
     public static final ForgeConfigSpec.IntValue PLAYER_LIVES_IN_WAR; // New config
@@ -71,8 +70,23 @@ public class TaxConfig {
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_WAR_ACTIONS;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_RAID_ACTIONS;
 
+    // PvP Arena Settings
+    public static final ForgeConfigSpec.BooleanValue PVP_COMMANDS_IN_BATTLE_ENABLED;
+    public static final ForgeConfigSpec.IntValue CHALLENGE_COOLDOWN_SECONDS;
+    public static final ForgeConfigSpec.IntValue TEAM_BATTLE_COOLDOWN_SECONDS;
+    public static final ForgeConfigSpec.IntValue BATTLE_DURATION_SECONDS;
+    public static final ForgeConfigSpec.IntValue TEAM_BATTLE_START_COUNTDOWN_SECONDS;
+    public static final ForgeConfigSpec.IntValue BATTLE_END_COUNTDOWN_SECONDS;
+    public static final ForgeConfigSpec.BooleanValue PVP_DISABLE_FRIENDLY_FIRE;
+
     // Logging configuration
     public static final ForgeConfigSpec.BooleanValue SHOW_TAX_GENERATION_LOGS;
+    public static final ForgeConfigSpec.BooleanValue SHOW_COLONY_INITIALIZATION_LOGS;
+
+    // RaidGuardProtection Configuration
+    public static final ForgeConfigSpec.IntValue MIN_GUARDS_TO_BE_RAIDED;
+    public static final ForgeConfigSpec.IntValue MIN_GUARD_TOWERS_TO_BE_RAIDED;
+    public static final ForgeConfigSpec.BooleanValue ENABLE_RAID_GUARD_PROTECTION;
 
     static {
 
@@ -93,6 +107,10 @@ public class TaxConfig {
         SHOW_TAX_GENERATION_LOGS = BUILDER.comment("Enable console logging of tax generation details (building upgrades, max warnings, etc.). " +
                 "Set to false to reduce console spam during initialization.")
                 .define("ShowTaxGenerationLogs", true);
+        
+        SHOW_COLONY_INITIALIZATION_LOGS = BUILDER.comment("Enable console logging during colony building initialization. " +
+                "Set to false to reduce console spam during server startup. Colony initialization will still occur, just with less verbose logging.")
+                .define("ShowColonyInitializationLogs", true);
         
         BUILDER.pop();
 
@@ -147,6 +165,16 @@ public class TaxConfig {
         MIN_GUARDS_TO_RAID = BUILDER.comment("Minimum number of guards required to initiate a raid")
                 .defineInRange("MinGuardsToRaid", 3, 1, 100);
 
+        // RaidGuardProtection Configuration - Protects smaller colonies from being raided
+        ENABLE_RAID_GUARD_PROTECTION = BUILDER.comment("Enable raid guard protection system. When enabled, colonies must meet minimum defense requirements to be eligible for raids, protecting smaller/newer colonies from being overwhelmed.")
+                .define("EnableRaidGuardProtection", true);
+
+        MIN_GUARDS_TO_BE_RAIDED = BUILDER.comment("Minimum number of guards a colony must have to be eligible for raids. Set to 0 to disable guard requirement. Default: 2 guards minimum.")
+                .defineInRange("MinGuardsToBeRaided", 2, 0, 100);
+
+        MIN_GUARD_TOWERS_TO_BE_RAIDED = BUILDER.comment("Minimum number of guard towers a colony must have to be eligible for raids. Set to 0 to disable guard tower requirement. Default: 1 guard tower minimum.")
+                .defineInRange("MinGuardTowersToBeRaided", 1, 0, 100);
+
         RAID_TAX_INTERVAL_SECONDS = BUILDER.comment("Interval between tax transfers during raids (seconds)")
                 .defineInRange("RaidTaxIntervalSeconds", 60, 5, 3600);
 
@@ -187,17 +215,42 @@ public class TaxConfig {
         REQUIRED_GUARD_TOWERS_FOR_BOOST = BUILDER.comment("Number of Guard Towers required to activate a tax boost for all buildings in a colony.")
                 .defineInRange("RequiredGuardTowersForBoost", 5, 1, 100);
 
-        GUARD_TOWER_TAX_BOOST_PERCENTAGE = BUILDER.comment("Percentage increase in tax revenue for all buildings when required Guard Towers are built.")
-                .defineInRange("GuardTowerTaxBoostPercentage", 0.5, 0.0, 1.0);
-
+        GUARD_TOWER_TAX_BOOST_PERCENTAGE = BUILDER.comment("Percentage increase in total tax revenue when required Guard Towers are built. " +
+                "This acts as a multiplier on the colony's total generated tax income. " +
+                "For example: 0.5 = 50% increase, so 1000 tax becomes 1500 tax.")
+                .defineInRange("GuardTowerTaxBoostPercentage", 0.5, 0.0, 2.0);
 
         BUILDER.pop();
+
         BUILDER.push("PvP Arena Settings");
 
-        ALLOW_PVP_ARENA_COMMANDS = BUILDER.comment("If true, players engaged in a PvP duel (active duel) are allowed to execute commands. " +
-                        "If false, commands are blocked only for players actively dueling (i.e. during the duel duration), while non-dueling players in the arena may execute commands.")
-                .define("AllowPvPArenaCommands", false);
+        PVP_COMMANDS_IN_BATTLE_ENABLED = BUILDER
+            .comment("Allow players to use commands while in a PvP battle. It's recommended to keep this false to prevent exploits.")
+            .define("allowCommandsInBattle", false);
 
+        CHALLENGE_COOLDOWN_SECONDS = BUILDER
+            .comment("Cooldown in seconds before a player can send another duel challenge.")
+            .defineInRange("challengeCooldownSeconds", 5, 1, 300);
+
+        TEAM_BATTLE_COOLDOWN_SECONDS = BUILDER
+            .comment("Cooldown in seconds before a player can organize another team battle.")
+            .defineInRange("teamBattleCooldownSeconds", 30, 1, 600);
+        
+        BATTLE_DURATION_SECONDS = BUILDER
+            .comment("Default duration of a battle in seconds before it ends in a draw.")
+            .defineInRange("battleDurationSeconds", 300, 60, 3600);
+
+        TEAM_BATTLE_START_COUNTDOWN_SECONDS = BUILDER
+            .comment("The countdown in seconds before a team battle starts after enough players have joined.")
+            .defineInRange("teamBattleStartCountdownSeconds", 20, 5, 120);
+        
+        BATTLE_END_COUNTDOWN_SECONDS = BUILDER.comment("Time in seconds before battle ends after victory is decided.")
+                .defineInRange("BattleEndCountdownSeconds", 10, 1, 60);
+        
+        PVP_DISABLE_FRIENDLY_FIRE = BUILDER.comment("Prevents players from damaging teammates in team PvP battles.")
+                .define("DisableFriendlyFire", true);
+
+        BUILDER.pop();
 
         BUILDER.push("Military Maintenance Costs");
 
@@ -514,12 +567,15 @@ public class TaxConfig {
      */
     public static void loadConfig(ForgeConfigSpec config, String path) {
         final Path configPath = FMLPaths.CONFIGDIR.get().resolve(path);
-        final CommentedFileConfig file = CommentedFileConfig.builder(configPath)
-                .sync()
-                .autosave()
-                .preserveInsertionOrder()
-                .build();
 
+        // Create the parent directory if it doesn't exist
+        try {
+            java.nio.file.Files.createDirectories(configPath.getParent());
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to create config directory", e);
+        }
+
+        final CommentedFileConfig file = CommentedFileConfig.builder(configPath).sync().autosave().writingMode(com.electronwill.nightconfig.core.io.WritingMode.REPLACE).build();
         file.load();
         config.setConfig(file);
     }
@@ -662,5 +718,22 @@ public class TaxConfig {
     
     public static boolean showTaxGenerationLogs() {
         return SHOW_TAX_GENERATION_LOGS.get();
+    }
+
+    // RaidGuardProtection Configuration
+    public static int getMinGuardsToBeRaided() {
+        return MIN_GUARDS_TO_BE_RAIDED.get();
+    }
+
+    public static int getMinGuardTowersToBeRaided() {
+        return MIN_GUARD_TOWERS_TO_BE_RAIDED.get();
+    }
+
+    public static boolean isRaidGuardProtectionEnabled() {
+        return ENABLE_RAID_GUARD_PROTECTION.get();
+    }
+
+    public static boolean showColonyInitializationLogs() {
+        return SHOW_COLONY_INITIALIZATION_LOGS.get();
     }
 }

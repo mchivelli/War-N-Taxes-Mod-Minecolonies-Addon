@@ -72,9 +72,14 @@ public class RaidManager {
 
         try {
             ServerPlayer raider = context.getSource().getPlayerOrException();
+            // Prefer the colony where the player is the OWNER; fall back to any colony where the player is a member.
             IColony raiderColony = IColonyManager.getInstance().getColonies(raider.level()).stream()
-                    .filter(c -> c.getPermissions().getPlayers().containsKey(raider.getUUID()))
-                    .findFirst().orElse(null);
+                    .filter(c -> c.getPermissions().getOwner().equals(raider.getUUID()))
+                    .findFirst()
+                    .orElseGet(() -> IColonyManager.getInstance().getColonies(raider.level()).stream()
+                            .filter(c -> c.getPermissions().getPlayers().containsKey(raider.getUUID()))
+                            .findFirst()
+                            .orElse(null));
 
             if (raiderColony == null) {
                 context.getSource().sendFailure(Component.literal("You must belong to a colony to initiate a raid."));
@@ -109,6 +114,26 @@ public class RaidManager {
             if (!isRaiderInColony(raider, colony)) {
                 context.getSource().sendFailure(Component.literal("You must be inside the colony to start a raid."));
                 return 0;
+            }
+
+            // Check RaidGuardProtection
+            if (TaxConfig.isRaidGuardProtectionEnabled()) {
+                int targetGuards = WarSystem.countGuards(colony);
+                int targetGuardTowers = WarSystem.countGuardTowers(colony);
+                int minGuardsRequired = TaxConfig.getMinGuardsToBeRaided();
+                int minGuardTowersRequired = TaxConfig.getMinGuardTowersToBeRaided();
+
+                if (targetGuards < minGuardsRequired) {
+                    context.getSource().sendFailure(Component.translatable("raid.protection.guards", 
+                            minGuardsRequired, targetGuards).withStyle(ChatFormatting.RED));
+                    return 0;
+                }
+
+                if (targetGuardTowers < minGuardTowersRequired) {
+                    context.getSource().sendFailure(Component.translatable("raid.protection.guard_towers", 
+                            minGuardTowersRequired, targetGuardTowers).withStyle(ChatFormatting.RED));
+                    return 0;
+                }
             }
 
             Long graceEnd = RAID_GRACE_PERIODS.get(raiderUUID);
@@ -300,16 +325,30 @@ public class RaidManager {
             }
             
             // Give items to the killer
-            String giveCmd = String.format("give %s %s %d", killer.getName().getString(),
-                    TaxConfig.getCurrencyItemName(), raidPenalty);
-            LOGGER.debug("Executing command: {}", giveCmd);
-            try {
-                raidData.getColony().getWorld().getServer().getCommands().performPrefixedCommand(
-                    raidData.getColony().getWorld().getServer().createCommandSourceStack(),
-                    giveCmd
-                );
-            } catch (Exception e) {
-                LOGGER.error("Failed to give items to killer", e);
+            net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation(TaxConfig.getCurrencyItemName()));
+            if (item != null) {
+                net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, raidPenalty);
+                boolean added = killer.getInventory().add(itemStack);
+                if (!added) {
+                    // If inventory is full, drop items near killer
+                    killer.drop(itemStack, false);
+                    LOGGER.debug("Killer's inventory was full, dropped {} items near them", raidPenalty);
+                } else {
+                    LOGGER.debug("Successfully gave {} items to killer", raidPenalty);
+                }
+            } else {
+                // Fallback to give command if item not found in registry
+                String giveCmd = String.format("give %s %s %d", killer.getName().getString(),
+                        TaxConfig.getCurrencyItemName(), raidPenalty);
+                LOGGER.debug("Executing command: {}", giveCmd);
+                try {
+                    raidData.getColony().getWorld().getServer().getCommands().performPrefixedCommand(
+                        raidData.getColony().getWorld().getServer().createCommandSourceStack(),
+                        giveCmd
+                    );
+                } catch (Exception e) {
+                    LOGGER.error("Failed to give items to killer", e);
+                }
             }
         }
 
@@ -448,43 +487,79 @@ public class RaidManager {
                                 }
                             } else {
                                 // Fallback to giving items if SDM not enabled
-                                String itemName = TaxConfig.getCurrencyItemName();
-                                String command = String.format("give %s %s %d", raiderPlayer.getName().getString(), itemName, amountToDeduct);
-                                raidData.getColony().getWorld().getServer().getCommands().performPrefixedCommand(
-                                        raidData.getColony().getWorld().getServer().createCommandSourceStack(),
-                                        command);
-                                LOGGER.info("Raid tax: Gave {} {} items to player {}", 
-                                        amountToDeduct, itemName, raiderPlayer.getName().getString());
+                                if (raiderPlayer != null) {
+                                    net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation(TaxConfig.getCurrencyItemName()));
+                                    if (item != null) {
+                                        net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, amountToDeduct);
+                                        boolean added = raiderPlayer.getInventory().add(itemStack);
+                                        if (!added) {
+                                            // If inventory is full, drop items near raider
+                                            raiderPlayer.drop(itemStack, false);
+                                            LOGGER.info("Raid tax: Raider's inventory was full, dropped {} items near them", amountToDeduct);
+                                        } else {
+                                            LOGGER.info("Raid tax: Gave {} {} items to player {}", 
+                                                    amountToDeduct, TaxConfig.getCurrencyItemName(), raiderPlayer.getName().getString());
+                                        }
+                                    } else {
+                                        // Fallback to give command if item not found in registry
+                                        String itemName = TaxConfig.getCurrencyItemName();
+                                        String command = String.format("give %s %s %d", raiderPlayer.getName().getString(), itemName, amountToDeduct);
+                                        raidData.getColony().getWorld().getServer().getCommands().performPrefixedCommand(
+                                                raidData.getColony().getWorld().getServer().createCommandSourceStack(),
+                                                command);
+                                        LOGGER.info("Raid tax: Gave {} {} items to player {} (via command)", 
+                                                amountToDeduct, itemName, raiderPlayer.getName().getString());
+                                    }
+                                }
                             }
                             
                             // Update total transferred amount for statistics
                             raidData.addToTotalTransferred(amountToDeduct);
                             
+                            // Get proper currency name
+                            String currencyName;
+                            if (TaxConfig.isSDMShopConversionEnabled()) {
+                                currencyName = "Coins";
+                            } else {
+                                currencyName = TaxConfig.getCurrencyItemName();
+                                if (currencyName.contains(":")) {
+                                    currencyName = currencyName.substring(currencyName.indexOf(":") + 1);
+                                }
+                            }
+                            
                             // Create message to send
                             Component taxMessage = Component.literal(raidData.getColony().getName()
                                     + " lost " + amountToDeduct
-                                    + " currency to raider "
+                                    + " " + currencyName + " to raider "
                                     + raiderPlayer.getName().getString()
                                     + "!")
                                     .withStyle(ChatFormatting.DARK_PURPLE);
                             
-                            // Send message only to participating players (both colonies)
-                            // Target colony members
-                            sendColonyMessage(raidData.getColony(), taxMessage);
+                            // Send message to all relevant players without duplication
+                            Set<ServerPlayer> playersToNotify = new HashSet<>();
                             
-                            // Raider's colony members
-                            if (raidData.getRaiderColony() != null) {
-                                sendColonyMessage(raidData.getRaiderColony(), taxMessage);
-                            } else {
-                                // If raider's colony isn't tracked, at least notify the raider
-                                if (raiderPlayer != null) {
-                                    raiderPlayer.sendSystemMessage(taxMessage);
-                                }
+                            // Add target colony members
+                            raidData.getColony().getPermissions().getPlayers().forEach((uuid, data) -> {
+                                ServerPlayer p = (ServerPlayer) raidData.getColony().getWorld().getPlayerByUUID(uuid);
+                                if (p != null) playersToNotify.add(p);
+                            });
+                            
+                            // Add raider's colony members (if different colony)
+                            if (raidData.getRaiderColony() != null && !raidData.getRaiderColony().equals(raidData.getColony())) {
+                                raidData.getRaiderColony().getPermissions().getPlayers().forEach((uuid, data) -> {
+                                    ServerPlayer p = (ServerPlayer) raidData.getRaiderColony().getWorld().getPlayerByUUID(uuid);
+                                    if (p != null) playersToNotify.add(p);
+                                });
+                            }
+                            
+                            // Send message to all collected players
+                            for (ServerPlayer player : playersToNotify) {
+                                player.sendSystemMessage(taxMessage);
                             }
                             
                             // Comprehensive logging of the transaction
-                            LOGGER.info("Raid tax transfer completed: {} currency from {} to {}", 
-                                    amountToDeduct, raidData.getColony().getName(), raiderPlayer.getName().getString());
+                            LOGGER.info("Raid tax transfer completed: {} {} from {} to {}", 
+                                    amountToDeduct, currencyName, raidData.getColony().getName(), raiderPlayer.getName().getString());
                         } catch (Exception e) {
                             LOGGER.error("Error processing raid tax transfer: ", e);
                         }
@@ -579,16 +654,14 @@ public class RaidManager {
         }
 
 
-        HistoryManager.Record rec = new HistoryManager.Record();
-        rec.type              = HistoryManager.Record.Type.RAID;
-        rec.colonyId          = raidData.getColony().getID();
-        rec.colonyName        = raidData.getColony().getName();
-        rec.actorName         = raiderNameFinal;
-        rec.actorUuid         = raiderUUID.toString();
-        rec.timestamp         = System.currentTimeMillis();
-        rec.amountTransferred = raidData.getTotalTransferred();
-        rec.outcome           = reason;
-        HistoryManager.addRecord(rec);
+        String eventString = String.format("[RAID] Colony '%s' was raided by '%s'. Outcome: %s. Amount transferred: %d.",
+                raidData.getColony().getName(),
+                raiderNameFinal,
+                reason,
+                raidData.getTotalTransferred());
+
+        HistoryManager.getColonyHistory(raidData.getColony().getID()).addEvent(eventString);
+        HistoryManager.saveHistory();
 
         if (raidData.getTimerTask() != null) raidData.getTimerTask().cancel();
     }
