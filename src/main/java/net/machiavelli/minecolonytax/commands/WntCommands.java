@@ -256,6 +256,15 @@ public class WntCommands {
                         .executes(WntCommands::showWarStats)
                 )
                 
+                // Debug commands
+                .then(Commands.literal("debugguards")
+                        .requires(src -> src.hasPermission(2))
+                        .executes(WntCommands::debugGuardCounts)
+                        .then(Commands.argument("colony", StringArgumentType.greedyString())
+                                .suggests(COLONY_SUGGESTIONS)
+                                .executes(WntCommands::debugGuardCountsForColony))
+                )
+                
                 // Vassal commands
                 .then(Commands.literal("vasalize")
                         .then(Commands.argument("percent", IntegerArgumentType.integer(1, 100))
@@ -361,6 +370,7 @@ public class WntCommands {
             source.sendSuccess(() -> Component.literal("§e/wnt warstop <colony> §7- Stop specific war"), false);
             source.sendSuccess(() -> Component.literal("§e/wnt warstopall §7- Stop all wars"), false);
             source.sendSuccess(() -> Component.literal("§e/wnt raidstop §7- Stop active raid"), false);
+            source.sendSuccess(() -> Component.literal("§e/wnt debugguards [colony] §7- Debug guard/tower counting"), false);
             source.sendSuccess(() -> Component.literal("§e/wnt taxgen disable/enable <colonyId> §7- Control tax generation"), false);
         }
         
@@ -385,6 +395,12 @@ public class WntCommands {
             case "raid":
                 source.sendSuccess(() -> Component.literal("§6/wnt raid <colony>"), false);
                 source.sendSuccess(() -> Component.literal("§7Start a raid on the specified colony."), false);
+                source.sendSuccess(() -> Component.literal("§7Requirements:"), false);
+                source.sendSuccess(() -> Component.literal("§7- Your colony must have at least " + TaxConfig.getMinGuardsToRaid() + " guards"), false);
+                if (TaxConfig.isRaidGuardProtectionEnabled()) {
+                    source.sendSuccess(() -> Component.literal("§7- Target colony must have at least " + TaxConfig.getMinGuardsToBeRaided() + " guards"), false);
+                    source.sendSuccess(() -> Component.literal("§7- Target colony must have at least " + TaxConfig.getMinGuardTowersToBeRaided() + " guard towers"), false);
+                }
                 source.sendSuccess(() -> Component.literal("§7During a raid:"), false);
                 source.sendSuccess(() -> Component.literal("§7- Tax is periodically transferred from the colony to you"), false);
                 source.sendSuccess(() -> Component.literal("§7- If you die, you pay a penalty to your killer"), false);
@@ -454,6 +470,16 @@ public class WntCommands {
                 source.sendSuccess(() -> Component.literal("§6/wnt warstats"), false);
                 source.sendSuccess(() -> Component.literal("§7View your personal war statistics."), false);
                 source.sendSuccess(() -> Component.literal("§7Shows kills, raids, amount gained, wars won, etc."), false);
+                break;
+                
+            case "debugguards":
+                if (source.hasPermission(2)) {
+                    source.sendSuccess(() -> Component.literal("§c/wnt debugguards [colony]"), false);
+                    source.sendSuccess(() -> Component.literal("§7Debug guard and guard tower counting for raid protection."), false);
+                    source.sendSuccess(() -> Component.literal("§7Shows detection results for the specified colony or your colony."), false);
+                } else {
+                    source.sendFailure(Component.literal("§cYou don't have permission to view this command."));
+                }
                 break;
                 
             // Vassal commands
@@ -632,10 +658,20 @@ public class WntCommands {
         String status = (war.getStatus() != null) ? war.getStatus().toString() : "UNKNOWN";
 
         long now = System.currentTimeMillis();
-        long warDuration = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
-        long elapsed = (now - war.warStartTime) / 1000;
-        long remaining = Math.max(0, warDuration - elapsed);
-        String remainingStr = String.format("%02d:%02d", remaining / 60, remaining % 60);
+        long remaining;
+        String remainingStr;
+        
+        if (war.isJoinPhaseActive()) {
+            // During join phase, show time until join phase ends
+            remaining = Math.max(0, (war.getJoinPhaseEndTime() - now) / 1000);
+            remainingStr = String.format("%02d:%02d", remaining / 60, remaining % 60);
+        } else {
+            // During active war, show time until war ends
+            long warDuration = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
+            long elapsed = (now - war.warStartTime) / 1000;
+            remaining = Math.max(0, warDuration - elapsed);
+            remainingStr = String.format("%02d:%02d", remaining / 60, remaining % 60);
+        }
 
         sb.append("§a§lWar Report: ").append(attackerColName).append(" vs ").append(defenderColName).append("\n");
         sb.append("§aWar ID: §f").append(war.getWarID()).append("\n");
@@ -676,10 +712,20 @@ public class WntCommands {
             String defenderColName = (war.getColony() != null) ? war.getColony().getName() : "UnknownDefenderColony";
             String status = (war.getStatus() != null) ? war.getStatus().toString() : "UNKNOWN";
             long now = System.currentTimeMillis();
-            long warDuration = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
-            long elapsed = (now - war.warStartTime) / 1000;
-            long remaining = Math.max(0, warDuration - elapsed);
-            String remainingStr = String.format("%02d:%02d", remaining / 60, remaining % 60);
+            long remaining;
+            String remainingStr;
+            
+            if (war.isJoinPhaseActive()) {
+                // During join phase, show time until join phase ends
+                remaining = Math.max(0, (war.getJoinPhaseEndTime() - now) / 1000);
+                remainingStr = String.format("%02d:%02d", remaining / 60, remaining % 60);
+            } else {
+                // During active war, show time until war ends
+                long warDuration = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
+                long elapsed = (now - war.warStartTime) / 1000;
+                remaining = Math.max(0, warDuration - elapsed);
+                remainingStr = String.format("%02d:%02d", remaining / 60, remaining % 60);
+            }
 
             sb.append("\n§e§lWar Report: ").append(attackerColName).append(" vs ").append(defenderColName).append("\n");
             sb.append("§eWar ID: §f").append(war.getWarID()).append("\n");
@@ -801,9 +847,24 @@ public class WntCommands {
                         long currentBalance = net.sixik.sdmshoprework.SDMShopR.getMoney(player);
                         net.sixik.sdmshoprework.SDMShopR.setMoney(player, currentBalance + claimedAmount);
                     } else {
-                        String itemName = TaxConfig.getCurrencyItemName();
-                        String giveCommand = String.format("give %s %s %d", player.getName().getString(), itemName, claimedAmount);
-                        source.getServer().getCommands().performPrefixedCommand(source.getServer().createCommandSourceStack(), giveCommand);
+                        // Use direct inventory manipulation instead of give command for modded items
+                        net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation(TaxConfig.getCurrencyItemName()));
+                        if (item != null) {
+                            net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, claimedAmount);
+                            boolean added = player.getInventory().add(itemStack);
+                            if (!added) {
+                                // If inventory is full, drop items near player
+                                player.drop(itemStack, false);
+                                player.sendSystemMessage(Component.translatable("taxmanager.inventory_full", claimedAmount, TaxConfig.getCurrencyItemName()));
+                            } else {
+                                player.sendSystemMessage(Component.translatable("taxmanager.currency_received", claimedAmount, TaxConfig.getCurrencyItemName()));
+                            }
+                        } else {
+                            // Fallback to give command if item not found in registry
+                            String itemName = TaxConfig.getCurrencyItemName();
+                            String giveCommand = String.format("give %s %s %d", player.getName().getString(), itemName, claimedAmount);
+                            source.getServer().getCommands().performPrefixedCommand(source.getServer().createCommandSourceStack(), giveCommand);
+                        }
                     }
                 } else {
                     player.sendSystemMessage(Component.translatable("command.claimtax.no_tax", colony.getName()));
@@ -988,24 +1049,15 @@ public class WntCommands {
             return 0;
         }
 
-        List<net.machiavelli.minecolonytax.data.HistoryManager.Record> recs = net.machiavelli.minecolonytax.data.HistoryManager.getRecordsForColony(colony.getID());
-        if (recs.isEmpty()) {
-            src.sendSuccess(() -> Component.literal("No war history for colony \"" + colony.getName() + "\""), false);
+        net.machiavelli.minecolonytax.data.HistoryManager.ColonyHistory history = net.machiavelli.minecolonytax.data.HistoryManager.getColonyHistory(colony.getID());
+        if (history == null || history.getEvents().isEmpty()) {
+            src.sendSuccess(() -> Component.literal("No war history for colony " + colony.getName()), false);
             return 1;
         }
 
-        src.sendSuccess(() -> Component.literal("§6War History for \"" + colony.getName() + "\":"), false);
-        for (net.machiavelli.minecolonytax.data.HistoryManager.Record r : recs) {
-            String prefix = (r.type == net.machiavelli.minecolonytax.data.HistoryManager.Record.Type.WAR ? "[WAR]" : "[RAID]");
-            String line = String.format(
-                    "%s [%s] %s by %s → $ %d",
-                    prefix,
-                    new java.util.Date(r.timestamp).toString(),
-                    r.outcome,
-                    r.actorName,
-                    r.amountTransferred
-            );
-            src.sendSuccess(() -> Component.literal(line), false);
+        src.sendSuccess(() -> Component.literal("§6War History for " + colony.getName() + ":"), false);
+        for (String event : history.getEvents()) {
+            src.sendSuccess(() -> Component.literal(event), false);
         }
         return 1;
     }
@@ -1041,6 +1093,14 @@ public class WntCommands {
         if (warDataOptional.isPresent()) {
             var warData = warDataOptional.resolve().get();
             
+            // Debug logging to help troubleshoot data persistence
+            net.machiavelli.minecolonytax.MineColonyTax.LOGGER.info("War stats retrieved for " + player.getName().getString() + 
+                ": PlayersKilled=" + warData.getPlayersKilledInWar() + 
+                ", RaidedColonies=" + warData.getRaidedColonies() + 
+                ", AmountRaided=" + warData.getAmountRaided() + 
+                ", WarsWon=" + warData.getWarsWon() + 
+                ", WarStalemates=" + warData.getWarStalemates());
+            
             Component message = Component.literal("Your War Statistics")
                     .withStyle(style -> style.withColor(ChatFormatting.GOLD).withBold(true))
                     .append(Component.literal("\n- Players killed in wars: ")
@@ -1065,11 +1125,15 @@ public class WntCommands {
                                     .withStyle(ChatFormatting.WHITE)));
             
             player.sendSystemMessage(message);
+            
+            // Mark that player data should be saved
             player.getPersistentData().putBoolean("minecolonytax:save_requested", true);
+            net.machiavelli.minecolonytax.MineColonyTax.LOGGER.debug("Marked player data for save after displaying war stats for " + player.getName().getString());
             
             return 1;
         } else {
             player.sendSystemMessage(Component.literal("No war statistics available."));
+            net.machiavelli.minecolonytax.MineColonyTax.LOGGER.warn("War data capability not found for player " + player.getName().getString());
             return 0;
         }
     }
@@ -1084,6 +1148,15 @@ public class WntCommands {
             ctx.getSource().sendFailure(Component.literal("Colony not found"));
             return 0;
         }
+        
+        // Prevent players from vassalizing their own colony
+        // Check if player is an officer with sufficient permissions, not just any colony member
+        if (target.getPermissions().getRank(player).isColonyManager() ||
+            target.getPermissions().isColonyMember(player)) {
+            ctx.getSource().sendFailure(Component.literal("You cannot vassalize a colony you are a member or officer of"));
+            return 0;
+        }
+        
         return net.machiavelli.minecolonytax.vassalization.VassalManager.requestVassalization(player, target, percent);
     }
 
@@ -1113,5 +1186,100 @@ public class WntCommands {
             return input.substring(1, input.length() - 1);
         }
         return input; // Fallback for manually typed names without quotes
+    }
+
+    private static int debugGuardCounts(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        Level level = context.getSource().getLevel();
+        
+        // Find player's colony
+        IColony playerColony = IColonyManager.getInstance().getColonies(level).stream()
+                .filter(c -> c.getPermissions().getPlayers().containsKey(player.getUUID()))
+                .findFirst().orElse(null);
+                
+        if (playerColony == null) {
+            context.getSource().sendFailure(Component.literal("You must be a member of a colony to use this command without specifying a colony name."));
+            return 0;
+        }
+        
+        return performGuardDebug(context.getSource(), playerColony);
+    }
+    
+    private static int debugGuardCountsForColony(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        Level level = context.getSource().getLevel();
+        String colonyName = extractColonyName(StringArgumentType.getString(context, "colony"));
+        
+        IColony targetColony = net.machiavelli.minecolonytax.WarSystem.findColonyByName(colonyName, level);
+        if (targetColony == null) {
+            context.getSource().sendFailure(Component.literal("Colony '" + colonyName + "' not found!"));
+            return 0;
+        }
+        
+        return performGuardDebug(context.getSource(), targetColony);
+    }
+    
+    private static int performGuardDebug(CommandSourceStack source, IColony colony) {
+        // Count guards and guard towers
+        int guardCount = net.machiavelli.minecolonytax.WarSystem.countGuards(colony);
+        int guardTowerCount = net.machiavelli.minecolonytax.WarSystem.countGuardTowers(colony);
+        
+        // Get protection requirements
+        int minGuardsRequired = net.machiavelli.minecolonytax.TaxConfig.getMinGuardsToBeRaided();
+        int minGuardTowersRequired = net.machiavelli.minecolonytax.TaxConfig.getMinGuardTowersToBeRaided();
+        boolean protectionEnabled = net.machiavelli.minecolonytax.TaxConfig.isRaidGuardProtectionEnabled();
+        
+        // Determine protection status
+        boolean guardProtection = guardCount >= minGuardsRequired;
+        boolean towerProtection = guardTowerCount >= minGuardTowersRequired;
+        boolean fullyProtected = protectionEnabled && guardProtection && towerProtection;
+        
+        // Send debug report
+        source.sendSuccess(() -> Component.literal("§6=== Guard Debug Report for Colony: " + colony.getName() + " ==="), false);
+        source.sendSuccess(() -> Component.literal("§7Colony ID: " + colony.getID()), false);
+        source.sendSuccess(() -> Component.literal(""), false);
+        
+        source.sendSuccess(() -> Component.literal("§eGuard Counts:"), false);
+        source.sendSuccess(() -> Component.literal("§7Guards found: " + guardCount + " (required: " + minGuardsRequired + ") " + 
+                (guardProtection ? "§a✓" : "§c✗")), false);
+        source.sendSuccess(() -> Component.literal("§7Guard towers found: " + guardTowerCount + " (required: " + minGuardTowersRequired + ") " + 
+                (towerProtection ? "§a✓" : "§c✗")), false);
+        source.sendSuccess(() -> Component.literal(""), false);
+        
+        source.sendSuccess(() -> Component.literal("§eProtection Status:"), false);
+        source.sendSuccess(() -> Component.literal("§7Raid Guard Protection: " + 
+                (protectionEnabled ? "§aEnabled" : "§cDisabled")), false);
+        source.sendSuccess(() -> Component.literal("§7Can be raided: " + 
+                (fullyProtected ? "§cNo (protected)" : "§aYes (vulnerable)")), false);
+        source.sendSuccess(() -> Component.literal(""), false);
+        
+        // Show detailed building analysis
+        source.sendSuccess(() -> Component.literal("§eBuilding Analysis:"), false);
+        
+        java.util.concurrent.atomic.AtomicInteger totalBuildings = new java.util.concurrent.atomic.AtomicInteger(0);
+        java.util.concurrent.atomic.AtomicInteger guardTowersDetected = new java.util.concurrent.atomic.AtomicInteger(0);
+        
+        for (com.minecolonies.api.colony.buildings.IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+            totalBuildings.incrementAndGet();
+            String displayName = building.getBuildingDisplayName();
+            String className = building.getClass().getName();
+            boolean isGuardTower = net.machiavelli.minecolonytax.WarSystem.isGuardTower(building);
+            
+            if (isGuardTower) {
+                guardTowersDetected.incrementAndGet();
+                source.sendSuccess(() -> Component.literal("§7Found Guard Tower: " + displayName + " (class: " + className + ")"), false);
+            }
+        }
+        
+        final int totalBuildingCount = totalBuildings.get();
+        final int guardTowerDetectedCount = guardTowersDetected.get();
+        
+        source.sendSuccess(() -> Component.literal("§7Total buildings scanned: " + totalBuildingCount), false);
+        source.sendSuccess(() -> Component.literal("§7Guard towers detected: " + guardTowerDetectedCount), false);
+        
+        if (guardTowerDetectedCount != guardTowerCount) {
+            source.sendSuccess(() -> Component.literal("§c⚠ Warning: Guard tower count mismatch!"), false);
+        }
+        
+        return 1;
     }
 }

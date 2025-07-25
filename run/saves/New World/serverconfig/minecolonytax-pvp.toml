@@ -1,0 +1,20 @@
+
+[pvp_arena]
+	#Allow players to use commands while in a PvP battle. It's recommended to keep this false to prevent exploits.
+	allowCommandsInBattle = false
+	#Cooldown in seconds before a player can send another duel challenge.
+	#Range: 1 ~ 300
+	challengeCooldownSeconds = 5
+	#Cooldown in seconds before a player can organize another team battle.
+	#Range: 1 ~ 600
+	teamBattleCooldownSeconds = 30
+	#Default duration of a battle in seconds before it ends in a draw.
+	#Range: 60 ~ 3600
+	battleDurationSeconds = 300
+	#The countdown in seconds before a team battle starts after enough players have joined.
+	#Range: 5 ~ 120
+	teamBattleStartCountdownSeconds = 20
+	#The countdown in seconds after a battle ends before players are teleported back to their original locations.
+	#Range: 1 ~ 60
+	battleEndCountdownSeconds = 5
+

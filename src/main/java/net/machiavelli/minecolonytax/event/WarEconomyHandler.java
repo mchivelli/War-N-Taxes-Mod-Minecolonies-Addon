@@ -148,9 +148,9 @@ public class WarEconomyHandler {
                 ItemStack coinStack = new ItemStack(ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName())), (int) totalTransferred);
                 boolean added = winnerPlayer.getInventory().add(coinStack);
                 if (!added) {
-                    // If inventory is full, fall back to executing a give command.
-                    String command = String.format("give %s %s %d", winnerPlayer.getName().getString(), TaxConfig.getCurrencyItemName(), totalTransferred);
-                    winnerPlayer.getServer().getCommands().performPrefixedCommand(winnerPlayer.createCommandSourceStack(), command);
+                    // If inventory is full, drop items near winner
+                    winnerPlayer.drop(coinStack, false);
+                    LOGGER.debug("Winner's inventory was full, dropped {} items near them", totalTransferred);
                 }
                 winnerPlayer.sendSystemMessage(
                         Component.literal("You received " + totalTransferred + " coins in war reparations!")
@@ -322,12 +322,9 @@ public class WarEconomyHandler {
                             (int) totalTaken
                     );
                     if (!winner.getInventory().add(stack)) {
-                        String cmd = String.format("give %s %s %d",
-                                winner.getName().getString(),
-                                TaxConfig.getCurrencyItemName(),
-                                totalTaken);
-                        winner.getServer().getCommands().performPrefixedCommand(
-                                winner.createCommandSourceStack(), cmd);
+                        // If inventory is full, drop items near winner
+                        winner.drop(stack, false);
+                        LOGGER.debug("Winner's inventory was full, dropped {} items near them", totalTaken);
                     }
                     winner.sendSystemMessage(Component.literal("You received " + totalTaken + " coins in reparations!")
                             .withStyle(ChatFormatting.GREEN));
@@ -395,13 +392,9 @@ public class WarEconomyHandler {
                                 
                         boolean added = winnerPlayer.getInventory().add(coinStack);
                         if (!added) {
-                            // If inventory is full, execute give command
-                            String command = String.format("give %s %s %d", 
-                                    winnerPlayer.getName().getString(), 
-                                    TaxConfig.getCurrencyItemName(), 
-                                    actuallyDeducted);
-                            winnerPlayer.getServer().getCommands().performPrefixedCommand(
-                                    winnerPlayer.createCommandSourceStack(), command);
+                            // If inventory is full, drop items near winner
+                            winnerPlayer.drop(coinStack, false);
+                            LOGGER.debug("Winner's inventory was full, dropped {} items near them", actuallyDeducted);
                         }
                         
                         transferredAmount = actuallyDeducted;

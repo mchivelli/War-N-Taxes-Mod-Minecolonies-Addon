@@ -1,0 +1,11 @@
+
+#Alle Konfigurationen zu Kernfunktionen des Spiels
+[gameplay]
+	#Ob Nachschub-Schiffe und Camps in Kisten generiert werden sollen. [Standard: true]
+	generatesupplyloot = true
+
+#Alle Konfigurationen beziehen sich auf das Anforderungssystem
+[requestsystem]
+	#Soll das Anfragesystem Debug-Informationen im debug.log anzeigen? Nützlich bei Fehlfunktionen. [Standard: false]
+	enabledebuglogging = false
+

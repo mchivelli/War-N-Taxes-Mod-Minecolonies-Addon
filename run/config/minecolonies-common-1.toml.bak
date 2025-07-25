@@ -1,0 +1,7 @@
+requestsystem = {}
+
+#Alle Konfigurationen zu Kernfunktionen des Spiels
+[gameplay]
+	#Ob Nachschub-Schiffe und Camps in Kisten generiert werden sollen. [Standard: true]
+	generatesupplyloot = true
+

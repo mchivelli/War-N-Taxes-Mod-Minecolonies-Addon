@@ -43,7 +43,7 @@ public class WarHistoryCommand
 
         IColony colony = resolveColony(src, player, colonyArg);
         if (colony == null) {
-            src.sendFailure(Component.literal("Colony not found or you’re not a manager of any colony."));
+            src.sendFailure(Component.literal("Colony not found or you're not a manager of any colony."));
             return 0;
         }
 
@@ -54,24 +54,15 @@ public class WarHistoryCommand
             return 0;
         }
 
-        List<HistoryManager.Record> recs = HistoryManager.getRecordsForColony(colony.getID());
-        if (recs.isEmpty()) {
+        HistoryManager.ColonyHistory history = HistoryManager.getColonyHistory(colony.getID());
+        if (history == null || history.getEvents().isEmpty()) {
             src.sendSuccess(() -> Component.literal("No war history for colony “" + colony.getName() + "”"), false);
             return 1;
         }
 
         src.sendSuccess(() -> Component.literal("§6War History for “" + colony.getName() + "”:"), false);
-        for (HistoryManager.Record r : recs) {
-            String prefix = (r.type == HistoryManager.Record.Type.WAR ? "[WAR]" : "[RAID]");
-            String line = String.format(
-                    "%s [%s] %s by %s → $ %d",
-                    prefix,
-                    new java.util.Date(r.timestamp).toString(),
-                    r.outcome,
-                    r.actorName,
-                    r.amountTransferred
-            );
-            src.sendSuccess(() -> Component.literal(line), false);
+        for (String event : history.getEvents()) {
+            src.sendSuccess(() -> Component.literal(event), false);
         }
         return 1;
     }

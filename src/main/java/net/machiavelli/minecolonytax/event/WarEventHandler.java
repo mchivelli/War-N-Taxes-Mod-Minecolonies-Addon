@@ -10,10 +10,12 @@ import net.machiavelli.minecolonytax.data.WarData;
 import net.machiavelli.minecolonytax.commands.WarCommands;
 import net.machiavelli.minecolonytax.raid.ActiveRaidData;
 import net.machiavelli.minecolonytax.raid.RaidManager;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
@@ -50,6 +52,7 @@ public class WarEventHandler {
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onPlayerDeath(LivingDeathEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        
         // Handle raider death during active raid
         ActiveRaidData raidData = RaidManager.getActiveRaidForPlayer(player.getUUID());
         if (raidData != null) {
@@ -61,6 +64,7 @@ public class WarEventHandler {
             }
             return;
         }
+        
         System.out.println("[DEBUG] WarEventHandler.onPlayerDeath fired for " + player.getName().getString());
         WarData war = WarSystem.getActiveWarForPlayer(player);
         if (war == null) return;
@@ -68,27 +72,21 @@ public class WarEventHandler {
         // Debug logging to confirm event trigger.
         System.out.println("[DEBUG] WarEventHandler.onPlayerDeath triggered confirmed for " + player.getName().getString());
         
+        // Check if war is still in join phase - don't deduct lives during join phase
+        if (war.isJoinPhaseActive()) {
+            System.out.println("[DEBUG] War is still in join phase, not deducting lives for " + player.getName().getString());
+            return;
+        }
+        
         // Check if we should keep inventory on last life
         Map<UUID, Integer> lives = WarSystem.getLivesForPlayer(war, player);
         int currentLives = lives.getOrDefault(player.getUUID(), 0);
         
-        // Notify player if they're on their last life
-        if (currentLives == 1) {
-            // Send the info message about being on last life
-            String keepInventoryMessage = TaxConfig.KEEP_INVENTORY_ON_LAST_LIFE.get() 
-                ? "§e§lWarning: §r§eYou are on your last life! If you die, you will keep your inventory and become a spectator."
-                : "§e§lWarning: §r§eYou are on your last life! If you die, you will lose your inventory and become a spectator.";
-            
-            player.sendSystemMessage(Component.literal(keepInventoryMessage));
-            // Play an alert sound to make sure they notice
-            player.playSound(SoundEvents.EXPERIENCE_ORB_PICKUP, 1.0F, 0.5F);
-        }
-        
-        // If player is on their last life and keepInventoryOnLastLife is enabled, preserve inventory
+        // If player is on their last life and keepInventoryOnLastLife is enabled, prepare for inventory preservation
         if (currentLives == 1 && TaxConfig.KEEP_INVENTORY_ON_LAST_LIFE.get()) {
-            System.out.println("[DEBUG] Player " + player.getName().getString() + " is on last life with keepInventoryOnLastLife enabled");
+            System.out.println("[DEBUG] Player " + player.getName().getString() + " is on last life with keepInventoryOnLastLife enabled - preserving inventory on respawn");
             
-            // Save the player's inventory before they die
+            // Save the player's inventory for restoration on respawn
             ItemStack[] inventoryCopy = new ItemStack[player.getInventory().getContainerSize()];
             for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
                 inventoryCopy[i] = player.getInventory().getItem(i).copy();
@@ -98,18 +96,10 @@ public class WarEventHandler {
             // Add player to the list for tracking
             war.getLastLifeInventoryPreservation().add(player.getUUID());
             
-            // We still want to reduce lives, so we'll handle that manually
-            lives.compute(player.getUUID(), (k, v) -> (v == null ? 0 : Math.max(0, v - 1)));
+            // Mark that this player should have keep inventory enabled for this death
+            event.getEntity().getTags().add("war_keep_inventory");
             
-            // Send message about inventory preservation
-            player.sendSystemMessage(Component.literal("You have died on your last life! Your inventory will be restored when you respawn.")
-                    .withStyle(style -> style.withColor(ChatFormatting.GOLD).withBold(true)));
-            
-            // Set player to spectator mode
-            war.getSpectators().add(player.getUUID());
-            
-            // Check for victory
-            WarSystem.checkForVictory(war);
+            System.out.println("[DEBUG] Inventory saved for last life preservation for " + player.getName().getString());
         }
 
         // Check if killed by another player and track it
@@ -129,45 +119,44 @@ public class WarEventHandler {
             }
         }
 
-        // IMPORTANT: We need to actually decrement the lives counter for normal deaths
-        // This was fixed - lives weren't being reduced properly
-        int remaining = lives.compute(player.getUUID(), (k, v) -> (v == null ? 0 : Math.max(0, v - 1)));
-        System.out.println("[DEBUG] " + player.getName().getString() + " had life decremented and now has " + remaining + " lives.");
-
-        if (remaining <= 0) {
-            // We've already handled the last life case above, so this is for other cases
-            // where the player has run out of lives
-            
-            // Save inventory if not already saved and keepInventoryOnLastLife is disabled
-            if (!net.machiavelli.minecolonytax.TaxConfig.KEEP_INVENTORY_ON_LAST_LIFE.get()) {
-                if (!WarSystem.WarInventoryHandler.hasSavedInventory(player)) {
-                    WarSystem.WarInventoryHandler.saveAndClearInventory(player);
-                }
-            }
-            
-            war.getSpectators().add(player.getUUID());
-            player.setGameMode(GameType.SPECTATOR);
-            player.sendSystemMessage(Component.literal("You are now a spectator until the war ends.")
-                    .withStyle(style -> style.withColor(ChatFormatting.DARK_GRAY).withItalic(true)));
-            WarSystem.checkForVictory(war);
-        } else if (remaining == 1) {
-            // This is their last life - notify them!
-            player.sendSystemMessage(Component.literal("⚠ WARNING: This is your LAST LIFE! ⚠")
-                    .withStyle(style -> style.withColor(ChatFormatting.RED).withBold(true)));
-            
-            // If colony transfer is enabled, remind them they can keep fighting
-            if (net.machiavelli.minecolonytax.TaxConfig.ENABLE_COLONY_TRANSFER.get() && 
-                net.machiavelli.minecolonytax.TaxConfig.KEEP_INVENTORY_ON_LAST_LIFE.get()) {
-                player.sendSystemMessage(Component.literal("If you die, you will keep your inventory and can continue fighting as a spectator.")
-                        .withStyle(style -> style.withColor(ChatFormatting.GOLD)));
-            }
+        // Debug: Check if player was properly initialized in war
+        UUID playerUUID = player.getUUID();
+        System.out.println("[DEBUG] Player " + player.getName().getString() + " died during war. Lives map before: " + lives);
+        System.out.println("[DEBUG] Player UUID: " + playerUUID + ", lives before death: " + lives.get(playerUUID));
+        
+        // Check if this is an empty map (player not in war) - skip processing if so
+        if (lives.isEmpty()) {
+            System.out.println("[DEBUG] Player " + player.getName().getString() + " is not participating in any war, skipping lives processing");
+            return;
         }
+        
+        // Ensure player is properly initialized if they somehow weren't
+        int defaultLives = TaxConfig.PLAYER_LIVES_IN_WAR.get();
+        if (!lives.containsKey(playerUUID)) {
+            System.out.println("[DEBUG] Player " + player.getName().getString() + " was not in lives map, initializing with " + defaultLives + " lives");
+            lives.put(playerUUID, defaultLives);
+        }
+        
+        // Reduce lives count - this will be processed properly on respawn
+        int remaining = lives.compute(playerUUID, (k, v) -> {
+            if (v == null || v <= 0) {
+                // Safety check: if somehow still null or invalid, use default minus 1
+                System.out.println("[DEBUG] Lives value was null or invalid (" + v + "), using default " + defaultLives + " minus 1");
+                return defaultLives - 1;
+            } else {
+                // Normal case: decrement lives
+                return Math.max(0, v - 1);
+            }
+        });
+        System.out.println("[DEBUG] " + player.getName().getString() + " now has " + remaining + " lives after death.");
+        System.out.println("[DEBUG] Lives map after: " + lives);
 
-
+        // Play death sound and remove glow effect
         player.playSound(net.minecraft.sounds.SoundEvents.GHAST_DEATH, 1.0F, 1.0F);
         player.removeEffect(net.minecraft.world.effect.MobEffects.GLOWING);
 
-        WarSystem.updateBossBar(war);
+        // The actual life processing will happen on respawn to ensure proper death mechanics
+        // DO NOT cancel the event - let natural death processing occur (corpses, death messages, etc.)
     }
 
     @SubscribeEvent
@@ -182,8 +171,25 @@ public class WarEventHandler {
             return; // not in a war, do nothing
         }
         
-        // Check if this player died on their last life and we need to restore their inventory
         UUID playerUUID = player.getUUID();
+        Map<UUID, Integer> lives = WarSystem.getLivesForPlayer(war, player);
+        
+        System.out.println("[DEBUG] RESPAWN - Player " + player.getName().getString() + " respawning");
+        System.out.println("[DEBUG] RESPAWN - Lives map: " + lives);
+        System.out.println("[DEBUG] RESPAWN - Player UUID: " + playerUUID);
+        System.out.println("[DEBUG] RESPAWN - Contains player key: " + lives.containsKey(playerUUID));
+        
+        // Check if this is an empty map (player not in war) - skip processing if so
+        if (lives.isEmpty()) {
+            System.out.println("[DEBUG] RESPAWN - Player " + player.getName().getString() + " is not participating in any war, skipping respawn processing");
+            return;
+        }
+        
+        int currentLives = lives.getOrDefault(playerUUID, 0);
+        
+        System.out.println("[DEBUG] RESPAWN - Player " + player.getName().getString() + " respawned with " + currentLives + " lives remaining");
+        
+        // Check if this player died on their last life and we need to restore their inventory
         if (war.getLastLifeInventoryPreservation().contains(playerUUID) && savedInventories.containsKey(playerUUID)) {
             // Restore the player's inventory
             ItemStack[] savedItems = savedInventories.get(playerUUID);
@@ -203,10 +209,57 @@ public class WarEventHandler {
             savedInventories.remove(playerUUID);
             
             // Set the player to spectator mode
+            war.getSpectators().add(playerUUID);
             player.setGameMode(GameType.SPECTATOR);
+            player.sendSystemMessage(Component.literal("You have died on your last life! You are now a spectator until the war ends.")
+                    .withStyle(style -> style.withColor(ChatFormatting.GOLD).withBold(true)));
             
             // Confirm to console
             System.out.println("[INFO] Restored inventory for player " + player.getName().getString() + " after last life death");
+            
+            // Check for victory after processing
+            WarSystem.checkForVictory(war);
+            WarSystem.updateBossBar(war);
+        } else if (currentLives <= 0) {
+            // Player has no lives left and not keeping inventory
+            // Save inventory if not already saved and keepInventoryOnLastLife is disabled
+            if (!TaxConfig.KEEP_INVENTORY_ON_LAST_LIFE.get()) {
+                if (!WarSystem.WarInventoryHandler.hasSavedInventory(player)) {
+                    WarSystem.WarInventoryHandler.saveAndClearInventory(player);
+                }
+            }
+            
+            war.getSpectators().add(playerUUID);
+            player.setGameMode(GameType.SPECTATOR);
+            player.sendSystemMessage(Component.literal("You are now a spectator until the war ends.")
+                    .withStyle(style -> style.withColor(ChatFormatting.DARK_GRAY).withItalic(true)));
+            
+            WarSystem.checkForVictory(war);
+            WarSystem.updateBossBar(war);
+        } else if (currentLives == 1) {
+            // This is their last life - notify them!
+            player.sendSystemMessage(Component.literal("⚠ WARNING: This is your LAST LIFE! ⚠")
+                    .withStyle(style -> style.withColor(ChatFormatting.RED).withBold(true)));
+            
+            // Send the info message about being on last life
+            String keepInventoryMessage = TaxConfig.KEEP_INVENTORY_ON_LAST_LIFE.get() 
+                ? "§e§lWarning: §r§eYou are on your last life! If you die, you will keep your inventory and become a spectator."
+                : "§e§lWarning: §r§eYou are on your last life! If you die, you will lose your inventory and become a spectator.";
+            
+            player.sendSystemMessage(Component.literal(keepInventoryMessage));
+            // Play an alert sound to make sure they notice
+            player.playSound(SoundEvents.EXPERIENCE_ORB_PICKUP, 1.0F, 0.5F);
+            
+            // If colony transfer is enabled, remind them they can keep fighting
+            if (TaxConfig.ENABLE_COLONY_TRANSFER.get() && TaxConfig.KEEP_INVENTORY_ON_LAST_LIFE.get()) {
+                player.sendSystemMessage(Component.literal("If you die, you will keep your inventory and can continue fighting as a spectator.")
+                        .withStyle(style -> style.withColor(ChatFormatting.GOLD)));
+            }
+            
+            WarSystem.updateBossBar(war);
+        } else {
+            // Player still has lives, just update boss bar
+            WarSystem.updateBossBar(war);
         }
 
         // If the war is still ongoing, re-apply the glow effect
@@ -217,6 +270,9 @@ public class WarEventHandler {
                     false, false
             ));
         }
+        
+        // Remove the war keep inventory tag if it exists
+        player.getTags().remove("war_keep_inventory");
     }
 
     @SubscribeEvent
@@ -368,6 +424,14 @@ public class WarEventHandler {
             }
             // Remove glowing effect from the citizen.
             citizen.removeEffect(net.minecraft.world.effect.MobEffects.GLOWING);
+            
+            // Play guard death sound at the location of the fallen guard using Minecraft's villager hurt sound
+            citizen.level().playSound(null, citizen.position().x(), citizen.position().y(), citizen.position().z(), 
+                                    net.minecraft.sounds.SoundEvents.VILLAGER_HURT, 
+                                    net.minecraft.sounds.SoundSource.HOSTILE, 
+                                    1.0F, 
+                                    0.8F);
+            
             WarSystem.updateBossBar(war);
             WarSystem.checkForVictory(war);
             System.out.println("[DEBUG] Attacker Guards: " + war.getRemainingAttackerGuards() +

@@ -1,691 +1,606 @@
-[01Juni2025 05:43:42.914] [main/INFO] [cpw.mods.modlauncher.Launcher/MODLAUNCHER]: ModLauncher running: args [--launchTarget, forgeclientuserdev, --version, MOD_DEV, --assetIndex, 5, --assetsDir, C:\Users\paulm\.gradle\caches\forge_gradle\assets, --gameDir, ., --fml.forgeVersion, 47.3.10, --fml.mcVersion, 1.20.1, --fml.forgeGroup, net.minecraftforge, --fml.mcpVersion, 20230612.114412, --username=Player2]
-[01Juni2025 05:43:42.924] [main/INFO] [cpw.mods.modlauncher.Launcher/MODLAUNCHER]: ModLauncher 10.0.9+10.0.9+main.dcd20f30 starting: java version 17.0.14 by Eclipse Adoptium; OS Windows 11 arch amd64 version 10.0
-[01Juni2025 05:43:43.226] [main/INFO] [net.minecraftforge.fml.loading.ImmediateWindowHandler/]: Loading ImmediateWindowProvider fmlearlywindow
-[01Juni2025 05:43:43.319] [main/INFO] [EARLYDISPLAY/]: Trying GL version 4.6
-[01Juni2025 05:43:43.619] [main/INFO] [EARLYDISPLAY/]: Requested GL version 4.6 got version 4.6
-[01Juni2025 05:43:43.712] [main/INFO] [mixin/]: SpongePowered MIXIN Subsystem Version=0.8.5 Source=union:/C:/Users/paulm/.gradle/caches/modules-2/files-2.1/org.spongepowered/mixin/0.8.5/9d1c0c3a304ae6697ecd477218fa61b850bf57fc/mixin-0.8.5.jar%23128!/ Service=ModLauncher Env=CLIENT
-[01Juni2025 05:43:43.801] [pool-2-thread-1/INFO] [EARLYDISPLAY/]: GL info: NVIDIA GeForce RTX 2070 SUPER/PCIe/SSE2 GL version 4.6.0 NVIDIA 566.36, NVIDIA Corporation
-[01Juni2025 05:43:44.138] [main/WARN] [net.minecraftforge.fml.loading.moddiscovery.ModFileParser/LOADING]: Mod file C:\Users\paulm\.gradle\caches\modules-2\files-2.1\net.minecraftforge\javafmllanguage\1.20.1-47.3.10\7a15037366722893d76a3d0b2e9d1fd13a63a22d\javafmllanguage-1.20.1-47.3.10.jar is missing mods.toml file
-[01Juni2025 05:43:44.142] [main/WARN] [net.minecraftforge.fml.loading.moddiscovery.ModFileParser/LOADING]: Mod file C:\Users\paulm\.gradle\caches\modules-2\files-2.1\net.minecraftforge\lowcodelanguage\1.20.1-47.3.10\e67d9b3451d64ccc812cbbd33c066bd3ebbf2167\lowcodelanguage-1.20.1-47.3.10.jar is missing mods.toml file
-[01Juni2025 05:43:44.145] [main/WARN] [net.minecraftforge.fml.loading.moddiscovery.ModFileParser/LOADING]: Mod file C:\Users\paulm\.gradle\caches\modules-2\files-2.1\net.minecraftforge\mclanguage\1.20.1-47.3.10\2023f9726a509c5ba5a925cac934944066093de8\mclanguage-1.20.1-47.3.10.jar is missing mods.toml file
-[01Juni2025 05:43:44.149] [main/WARN] [net.minecraftforge.fml.loading.moddiscovery.ModFileParser/LOADING]: Mod file C:\Users\paulm\.gradle\caches\modules-2\files-2.1\net.minecraftforge\fmlcore\1.20.1-47.3.10\523aa0cd9a773b2b56268d8689b2fb5c1f072941\fmlcore-1.20.1-47.3.10.jar is missing mods.toml file
-[01Juni2025 05:43:44.468] [main/INFO] [net.minecraftforge.fml.loading.moddiscovery.JarInJarDependencyLocator/]: No dependencies to load found. Skipping!
-[01Juni2025 05:43:47.209] [main/INFO] [mixin/]: Compatibility level set to JAVA_17
-[01Juni2025 05:43:47.223] [main/INFO] [cpw.mods.modlauncher.LaunchServiceHandler/MODLAUNCHER]: Launching target 'forgeclientuserdev' with arguments [--version, MOD_DEV, --gameDir, ., --assetsDir, C:\Users\paulm\.gradle\caches\forge_gradle\assets, --assetIndex, 5, --username=Player2]
-[01Juni2025 05:43:47.471] [main/INFO] [mixin/]: Remapping refMap architectury-forge-refmap.json using C:\Users\paulm\Desktop\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
-[01Juni2025 05:43:47.472] [main/INFO] [mixin/]: Remapping refMap architectury-common-refmap.json using C:\Users\paulm\Desktop\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
-[01Juni2025 05:43:47.474] [main/INFO] [mixin/]: Remapping refMap SDMCore-common-common-refmap.json using C:\Users\paulm\Desktop\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
-[01Juni2025 05:43:47.474] [main/INFO] [mixin/]: Remapping refMap ftb-library-common-refmap.json using C:\Users\paulm\Desktop\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
-[01Juni2025 05:43:47.475] [main/INFO] [mixin/]: Remapping refMap sdm_economy-common-refmap.json using C:\Users\paulm\Desktop\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
-[01Juni2025 05:43:47.476] [main/INFO] [mixin/]: Remapping refMap sdm_ui_lib-common-refmap.json using C:\Users\paulm\Desktop\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
-[01Juni2025 05:43:47.477] [main/WARN] [mixin/]: Reference map 'sdmshoprework-common-refmap.json' for sdmshoprework-common.mixins.json could not be read. If this is a development environment you can ignore this message
-[01Juni2025 05:43:47.478] [main/INFO] [mixin/]: Remapping refMap mixins.recruits.refmap.json using C:\Users\paulm\Desktop\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
-[01Juni2025 05:43:49.000] [main/WARN] [oshi.driver.windows.perfmon.PerfmonDisabled/]: Invalid registry value type detected for PerfOS counters. Should be REG_DWORD. Ignoring: HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\PerfOS\Performance\Disable Performance Counters.
-[01Juni2025 05:43:49.348] [pool-4-thread-1/WARN] [mixin/]: Method overwrite conflict for sdm$getCustomData in sdm_economy-common.mixins.json:EntityMixin, previously written by net.sdm.sdm_core.mixin.entity.EntityMixin. Skipping method.
-[01Juni2025 05:43:52.186] [Datafixer Bootstrap/INFO] [com.mojang.datafixers.DataFixerBuilder/]: 188 Datafixer optimizations took 97 milliseconds
-[01Juni2025 05:43:54.056] [Render thread/WARN] [net.minecraft.server.packs.VanillaPackResourcesBuilder/]: Assets URL 'union:/C:/Users/paulm/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1/forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1.jar%23191!/assets/.mcassetsroot' uses unexpected schema
-[01Juni2025 05:43:54.057] [Render thread/WARN] [net.minecraft.server.packs.VanillaPackResourcesBuilder/]: Assets URL 'union:/C:/Users/paulm/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1/forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1.jar%23191!/data/.mcassetsroot' uses unexpected schema
-[01Juni2025 05:43:54.083] [Render thread/INFO] [com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService/]: Environment: authHost='https://authserver.mojang.com', accountsHost='https://api.mojang.com', sessionHost='https://sessionserver.mojang.com', servicesHost='https://api.minecraftservices.com', name='PROD'
-[01Juni2025 05:43:54.092] [Render thread/INFO] [net.minecraft.client.Minecraft/]: Setting user: Player2
-[01Juni2025 05:43:54.199] [Render thread/INFO] [net.minecraft.client.Minecraft/]: Backend library: LWJGL version 3.3.1 build 7
-[01Juni2025 05:43:54.662] [modloading-worker-0/INFO] [net.minecraftforge.common.ForgeMod/FORGEMOD]: Forge mod loading, version 47.3.10, for MC 1.20.1 with MCP 20230612.114412
-[01Juni2025 05:43:54.662] [modloading-worker-0/INFO] [net.minecraftforge.common.MinecraftForge/FORGE]: MinecraftForge v47.3.10 Initialized
-[01Juni2025 05:43:54.709] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:recruit_block]
-[01Juni2025 05:43:54.711] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:recruit_shield_block]
-[01Juni2025 05:43:54.711] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:bowman_block]
-[01Juni2025 05:43:54.711] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:crossbowman_block]
-[01Juni2025 05:43:54.712] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:horseman_block]
-[01Juni2025 05:43:54.712] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:nomad_block]
-[01Juni2025 05:43:54.715] [modloading-worker-0/INFO] [recruits/]: Registering profession for recruit with POI net.minecraftforge.registries.RegistryObject@810c44e9
-[01Juni2025 05:43:54.716] [modloading-worker-0/INFO] [recruits/]: Registering profession for shieldman with POI net.minecraftforge.registries.RegistryObject@73a49efc
-[01Juni2025 05:43:54.716] [modloading-worker-0/INFO] [recruits/]: Registering profession for bowman with POI net.minecraftforge.registries.RegistryObject@ee1298fb
-[01Juni2025 05:43:54.716] [modloading-worker-0/INFO] [recruits/]: Registering profession for crossbowman with POI net.minecraftforge.registries.RegistryObject@278013b
-[01Juni2025 05:43:54.716] [modloading-worker-0/INFO] [recruits/]: Registering profession for horseman with POI net.minecraftforge.registries.RegistryObject@2cde3e08
-[01Juni2025 05:43:54.716] [modloading-worker-0/INFO] [recruits/]: Registering profession for nomad with POI net.minecraftforge.registries.RegistryObject@46c5f19a
-[01Juni2025 05:43:54.760] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id architectury:sync_ids
-[01Juni2025 05:43:54.764] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id architectury:sync_ids
-[01Juni2025 05:43:54.764] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id sdm_economy:update_client_data
-[01Juni2025 05:43:54.764] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftblibrary:edit_nbt
-[01Juni2025 05:43:54.764] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftbteams:sync_teams
-[01Juni2025 05:43:54.768] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftbteams:sync_message_history
-[01Juni2025 05:43:54.771] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdm_economy:update_server_data
-[01Juni2025 05:43:54.771] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftblibrary:edit_nbt_response
-[01Juni2025 05:43:54.773] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftbteams:open_gui
-[01Juni2025 05:43:54.775] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftblibrary:sync_known_server_registries
-[01Juni2025 05:43:54.777] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftbteams:open_my_team_gui
-[01Juni2025 05:43:54.779] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftblibrary:edit_config
-[01Juni2025 05:43:54.782] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftbteams:update_settings
-[01Juni2025 05:43:54.786] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftbteams:update_settings_response
-[01Juni2025 05:43:54.789] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftbteams:send_message
-[01Juni2025 05:43:54.795] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftbteams:send_message_response
-[01Juni2025 05:43:54.805] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftbteams:update_presence
-[01Juni2025 05:43:54.809] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftbteams:create_party
-[01Juni2025 05:43:54.811] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id sdmshoprework:sync_shop
-[01Juni2025 05:43:54.815] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id sdmshoprework:send_edit_mode
-[01Juni2025 05:43:54.815] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftbteams:player_gui_operation
-[01Juni2025 05:43:54.818] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id sdmshoprework:send_reload_config
-[01Juni2025 05:43:54.822] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id sdmshoprework:send_config
-[01Juni2025 05:43:54.826] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id sdmshoprework:send_open_shop
-[01Juni2025 05:43:54.830] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_buy_entry
-[01Juni2025 05:43:54.833] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Warped Netherlands
-[01Juni2025 05:43:54.833] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Stalactite Caves
-[01Juni2025 05:43:54.834] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Space Wars
-[01Juni2025 05:43:54.834] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Shire
-[01Juni2025 05:43:54.834] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Desert Oasis
-[01Juni2025 05:43:54.834] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Pagoda
-[01Juni2025 05:43:54.835] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Minecolonies Original
-[01Juni2025 05:43:54.835] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Nordic Spruce
-[01Juni2025 05:43:54.835] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:create_shop_tab
-[01Juni2025 05:43:54.835] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Medieval Spruce
-[01Juni2025 05:43:54.835] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Medieval Oak
-[01Juni2025 05:43:54.835] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Medieval Dark Oak
-[01Juni2025 05:43:54.836] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Medieval Birch
-[01Juni2025 05:43:54.836] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Lost Mesa City
-[01Juni2025 05:43:54.836] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Jungle Treehouse
-[01Juni2025 05:43:54.836] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Incan
-[01Juni2025 05:43:54.836] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Fortress
-[01Juni2025 05:43:54.836] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Dark Oak Treehouse
-[01Juni2025 05:43:54.836] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Colonial
-[01Juni2025 05:43:54.836] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Cavern
-[01Juni2025 05:43:54.836] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Caledonia
-[01Juni2025 05:43:54.836] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Urban Birch
-[01Juni2025 05:43:54.836] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Ancient Athens
-[01Juni2025 05:43:54.837] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Urban Savanna
-[01Juni2025 05:43:54.838] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Dev
-[01Juni2025 05:43:54.839] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Player1
-[01Juni2025 05:43:54.839] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:create_shop_entry
-[01Juni2025 05:43:54.840] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Player2
-[01Juni2025 05:43:54.840] [Structurize IO Worker #0/WARN] [structurize/]: Finished discovering Client Structure packs
-[01Juni2025 05:43:54.843] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_changes_shop
-[01Juni2025 05:43:54.847] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_change_entries
-[01Juni2025 05:43:54.851] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:senc_change_tab
-[01Juni2025 05:43:54.855] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_edit_tab
-[01Juni2025 05:43:54.860] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_edit_entry
-[01Juni2025 05:43:54.864] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_move_tab
-[01Juni2025 05:43:54.867] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_move_entry
-[01Juni2025 05:43:55.101] [modloading-worker-0/INFO] [mezz.jei.library.load.PluginCaller/]: Sending ConfigManager...
-[01Juni2025 05:43:55.109] [modloading-worker-0/INFO] [mezz.jei.library.load.PluginCaller/]: Sending ConfigManager took 6.433 ms
-[01Juni2025 05:43:56.722] [Render thread/INFO] [net.minecraftforge.gametest.ForgeGameTestHooks/]: Enabled Gametest Namespaces: [minecolonytax]
-[01Juni2025 05:43:57.042] [Render thread/INFO] [net.minecraft.server.packs.resources.ReloadableResourceManager/]: Reloading ResourceManager: vanilla, mod_resources
-[01Juni2025 05:43:57.068] [Worker-Main-9/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Initializing MineColony Tax System
-[01Juni2025 05:43:57.071] [Worker-Main-9/WARN] [net.minecraftforge.common.ForgeConfigSpec/CORE]: Configuration file C:\Users\paulm\Desktop\MinecolonyTaxAddon - Kopie\run2\config\minecolonytax.toml is not correct. Correcting
-[01Juni2025 05:43:57.073] [Worker-Main-9/WARN] [net.minecraftforge.common.ForgeConfigSpec/CORE]: Incorrect key War Settings.RaidTaxPercentages was corrected from [0.1, 0.25, 0.5, 0.7] to its default, [0.1, 0.25, 0.5, 0.7]. 
-[01Juni2025 05:43:57.299] [Worker-Main-3/INFO] [net.minecraft.client.gui.font.providers.UnihexProvider/]: Found unifont_all_no_pua-15.0.06.hex, loading
-[01Juni2025 05:43:57.348] [Forge Version Check/INFO] [net.minecraftforge.fml.VersionChecker/]: [forge] Starting version check at https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json
-[01Juni2025 05:43:57.700] [Worker-Main-14/WARN] [net.minecraft.client.renderer.texture.SpriteLoader/]: Texture minecolonies:gui/builderhut/builder_paper with size 190x244 limits mip level from 4 to 1
-[01Juni2025 05:43:57.700] [Worker-Main-14/WARN] [net.minecraft.client.renderer.texture.SpriteLoader/]: Texture sdmshoprework:icons/staricon with size 9x9 limits mip level from 1 to 0
-[01Juni2025 05:43:58.139] [Forge Version Check/INFO] [net.minecraftforge.fml.VersionChecker/]: [forge] Found status: OUTDATED Current: 47.3.10 Target: 47.4.0
-[01Juni2025 05:43:58.139] [Forge Version Check/INFO] [net.minecraftforge.fml.VersionChecker/]: [recruits] Starting version check at https://raw.githubusercontent.com/talhanation/recruits/main/update.json
-[01Juni2025 05:43:58.228] [Forge Version Check/INFO] [net.minecraftforge.fml.VersionChecker/]: [recruits] Found status: UP_TO_DATE Current: 1.13.3 Target: null
-[01Juni2025 05:43:58.311] [Worker-Main-2/WARN] [net.minecraft.client.resources.model.ModelBakery/]: Unable to load model: 'sdmshoprework:custom_icon#inventory' referenced from: sdmshoprework:custom_icon#inventory: java.io.FileNotFoundException: sdmshoprework:models/item/custom_icon.json
-[01Juni2025 05:43:58.342] [Worker-Main-11/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Client setup for MineColonyTax Mod
-[01Juni2025 05:43:58.541] [Render thread/INFO] [recruits/]: MenuScreens registered
-[01Juni2025 05:43:59.199] [Worker-Main-28/WARN] [minecolonies/]: Register mappings
-[01Juni2025 05:44:00.223] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecraft:item.goat_horn.play
-[01Juni2025 05:44:00.223] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecraft:entity.goat.screaming.horn_break
-[01Juni2025 05:44:00.223] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: sdmshoprework:cancel_sound
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.general
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.general
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.general
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.general
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.general
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.general
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.general
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.general
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.noise
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.noise
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.noise
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.noise
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.noise
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.noise
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.noise
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.noise
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.gotobed
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.gotobed
-[01Juni2025 05:44:00.227] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.gotobed
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.gotobed
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.gotobed
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.gotobed
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.gotobed
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.gotobed
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.badweather
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.badweather
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.badweather
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.badweather
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.badweather
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.badweather
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.badweather
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.badweather
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.lowsaturation
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.lowsaturation
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.lowsaturation
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.lowsaturation
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.lowsaturation
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.lowsaturation
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.lowsaturation
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.lowsaturation
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.highsaturation
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.highsaturation
-[01Juni2025 05:44:00.228] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.highsaturation
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.highsaturation
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.highsaturation
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.highsaturation
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.highsaturation
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.highsaturation
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.badhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.badhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.badhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.badhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.badhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.badhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.badhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.badhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.goodhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.goodhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.goodhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.goodhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.goodhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.goodhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.goodhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.goodhousing
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.greeting
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.greeting
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.greeting
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.greeting
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.greeting
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.greeting
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.greeting
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.greeting
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.farewell
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.farewell
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.farewell
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.farewell
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.farewell
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.farewell
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.farewell
-[01Juni2025 05:44:00.229] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.farewell
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.missingequipment
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.missingequipment
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.missingequipment
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.missingequipment
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.missingequipment
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.missingequipment
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.missingequipment
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.missingequipment
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.happy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.happy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.happy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.happy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.happy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.happy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.happy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.happy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.unhappy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.unhappy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.unhappy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.unhappy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.unhappy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.unhappy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.unhappy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.unhappy
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.sick
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.sick
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.sick
-[01Juni2025 05:44:00.230] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.sick
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.sick
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.sick
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.sick
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.sick
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.interaction
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.interaction
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.interaction
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.interaction
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.interaction
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.interaction
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.interaction
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.interaction
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.success
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.success
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.success
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.success
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.success
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.success
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.success
-[01Juni2025 05:44:00.232] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.success
-[01Juni2025 05:44:00.233] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.danger
-[01Juni2025 05:44:00.233] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.danger
-[01Juni2025 05:44:00.233] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.danger
-[01Juni2025 05:44:00.233] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.danger
-[01Juni2025 05:44:00.233] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.danger
-[01Juni2025 05:44:00.233] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.danger
-[01Juni2025 05:44:00.233] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.danger
-[01Juni2025 05:44:00.233] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.danger
-[01Juni2025 05:44:00.282] [Render thread/INFO] [com.mojang.blaze3d.audio.Library/]: OpenAL initialized on device OpenAL Soft on Speakers (Wireless Gaming Headset)
-[01Juni2025 05:44:00.284] [Render thread/INFO] [net.minecraft.client.sounds.SoundEngine/SOUNDS]: Sound engine started
-[01Juni2025 05:44:00.366] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 2048x1024x4 minecraft:textures/atlas/blocks.png-atlas
-[01Juni2025 05:44:00.378] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 256x256x4 minecraft:textures/atlas/signs.png-atlas
-[01Juni2025 05:44:00.378] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 1024x1024x4 minecraft:textures/atlas/shield_patterns.png-atlas
-[01Juni2025 05:44:00.378] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 1024x512x4 minecraft:textures/atlas/banner_patterns.png-atlas
-[01Juni2025 05:44:00.379] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 1024x1024x4 minecraft:textures/atlas/armor_trims.png-atlas
-[01Juni2025 05:44:00.381] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 128x64x4 minecraft:textures/atlas/decorated_pot.png-atlas
-[01Juni2025 05:44:00.382] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 256x256x4 minecraft:textures/atlas/chest.png-atlas
-[01Juni2025 05:44:00.382] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 512x256x4 minecraft:textures/atlas/shulker_boxes.png-atlas
-[01Juni2025 05:44:00.382] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 512x256x4 minecraft:textures/atlas/beds.png-atlas
-[01Juni2025 05:44:00.547] [Render thread/WARN] [net.minecraft.client.renderer.ShaderInstance/]: Shader rendertype_entity_translucent_emissive could not find sampler named Sampler2 in the specified shader program.
-[01Juni2025 05:44:00.599] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 256x256x0 minecraft:textures/atlas/particles.png-atlas
-[01Juni2025 05:44:00.599] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 256x256x0 minecraft:textures/atlas/paintings.png-atlas
-[01Juni2025 05:44:00.600] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 128x128x0 minecraft:textures/atlas/mob_effects.png-atlas
-[01Juni2025 05:44:00.601] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 256x256x0 jei:textures/atlas/gui.png-atlas
-[01Juni2025 05:44:00.810] [Realms Notification Availability checker #1/INFO] [com.mojang.realmsclient.client.RealmsClient/]: Could not authorize you against Realms server: Invalid session id
-[01Juni2025 05:49:26.041] [Render thread/INFO] [net.minecraftforge.registries.GameData/REGISTRIES]: Injecting existing registry data into this CLIENT instance
-[01Juni2025 05:49:27.020] [Render thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: MineColonyTax: /wnt commands registered.
-[01Juni2025 05:49:27.020] [Render thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Loaded Arena Positions
-[01Juni2025 05:49:27.562] [Render thread/INFO] [net.minecraft.world.item.crafting.RecipeManager/]: Loaded 9 recipes
-[01Juni2025 05:49:27.673] [Render thread/INFO] [net.minecraft.advancements.AdvancementList/]: Loaded 1487 advancements
-[01Juni2025 05:49:27.679] [Render thread/INFO] [minecolonies/]: Beginning load of custom recipes for colony workers
-[01Juni2025 05:49:27.692] [Render thread/INFO] [minecolonies/]: Loaded 164 recipes for 16 crafters
-[01Juni2025 05:49:27.692] [Render thread/INFO] [minecolonies/]: Beginning load of research for University.
-[01Juni2025 05:49:27.725] [Render thread/INFO] [minecolonies/]: Loaded 201 recipes for 4 research branches
-[01Juni2025 05:49:27.728] [Render thread/INFO] [minecolonies/]: Loading quests from data
-[01Juni2025 05:49:27.742] [Render thread/INFO] [minecolonies/]: Finished loading quests from data
-[01Juni2025 05:49:27.746] [Render thread/WARN] [minecolonies/]: Read 1500 items with their nbt keys for compatibility.
-[01Juni2025 05:49:28.060] [Server thread/INFO] [net.minecraft.client.server.IntegratedServer/]: Starting integrated minecraft server version 1.20.1
-[01Juni2025 05:49:28.060] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Generating keypair
-[01Juni2025 05:49:28.191] [Server thread/INFO] [FTB Teams/]: loaded team data: 1 known players, 1 teams total
-[01Juni2025 05:49:28.695] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Preparing start region for dimension minecraft:overworld
-[01Juni2025 05:49:30.072] [Render thread/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Preparing spawn area: 0%
-[01Juni2025 05:49:30.090] [Render thread/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Preparing spawn area: 0%
-[01Juni2025 05:49:30.090] [Render thread/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Preparing spawn area: 0%
-[01Juni2025 05:49:30.215] [Render thread/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Preparing spawn area: 0%
-[01Juni2025 05:49:30.710] [Render thread/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Preparing spawn area: 4%
-[01Juni2025 05:49:31.036] [Server thread/INFO] [net.minecraftforge.server.permission.PermissionAPI/]: Successfully initialized permission handler forge:default_handler
-[01Juni2025 05:49:31.037] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Server starting: Initializing Tax System and PvP System
-[01Juni2025 05:49:31.037] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Initializing Tax Manager...
-[01Juni2025 05:49:31.038] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Loaded tax data from file.
-[01Juni2025 05:49:31.041] [Server thread/INFO] [net.machiavelli.minecolonytax.vassalization.VassalManager/]: VassalManager initialized
-[01Juni2025 05:49:31.041] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Resetting all colony war and raid permissions to prevent post-crash griefing
-[01Juni2025 05:49:31.044] [Render thread/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Time elapsed: 2343 ms
-[01Juni2025 05:49:31.060] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: War and raid permissions reset successfully
-[01Juni2025 05:49:31.176] [Server thread/INFO] [minecolonies/]: Finished discovering Ores 19 22
-[01Juni2025 05:49:31.176] [Server thread/INFO] [minecolonies/]: Finished discovering saplings 14
-[01Juni2025 05:49:31.176] [Server thread/INFO] [minecolonies/]: Finished discovering plantables 19
-[01Juni2025 05:49:31.177] [Server thread/INFO] [minecolonies/]: Finished discovering food 60 74
-[01Juni2025 05:49:31.177] [Server thread/INFO] [minecolonies/]: Finished discovering fuel 249
-[01Juni2025 05:49:31.177] [Server thread/INFO] [minecolonies/]: Finished discovering flowers 24
-[01Juni2025 05:49:31.177] [Server thread/INFO] [minecolonies/]: Finished discovering items 1832
-[01Juni2025 05:49:31.177] [Server thread/INFO] [minecolonies/]: Finished discovering lucky oreBlocks 6
-[01Juni2025 05:49:31.178] [Server thread/INFO] [minecolonies/]: Finished discovering recruitment costs
-[01Juni2025 05:49:31.179] [Server thread/INFO] [minecolonies/]: Finished discovering diseases
-[01Juni2025 05:49:31.189] [Server thread/INFO] [minecolonies/]: Finished discovering compostables 169
-[01Juni2025 05:49:31.545] [Server thread/INFO] [net.minecraft.client.server.IntegratedServer/]: Changing view distance to 12, from 10
-[01Juni2025 05:49:31.548] [Server thread/INFO] [net.minecraft.client.server.IntegratedServer/]: Changing simulation distance to 12, from 0
-[01Juni2025 05:49:31.821] [Render thread/WARN] [io.netty.util.internal.SystemPropertyUtil/]: Unable to parse the boolean system property 'java.net.preferIPv6Addresses':system - using the default value: false
-[01Juni2025 05:49:33.365] [Netty Local Client IO #0/INFO] [net.minecraftforge.network.NetworkHooks/]: Connected to a modded server.
-[01Juni2025 05:49:33.378] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Attempting to load persistent war data for player 06e2d088-0b09-484e-be51-319a2d1df529
-[01Juni2025 05:49:33.437] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Loaded war stats - PlayersKilled: 0, RaidedColonies: 0, AmountRaided: 0, WarsWon: 0, WarStalemates: 0
-[01Juni2025 05:49:33.438] [Server thread/INFO] [net.minecraft.server.players.PlayerList/]: Player2[local:E:de37e020] logged in with entity id 173 at (101.41387945168205, 75.0, 10.782017142077857)
-[01Juni2025 05:49:33.507] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Player2 joined the game
-[01Juni2025 05:49:33.698] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Player aed5efd4-551b-3965-bc28-ae21aa072a66 logged in, ensuring war data is loaded
-[01Juni2025 05:49:33.701] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: War data loaded on player login: {amountRaided:0L,playersKilledInWar:0,raidedColonies:0,warStalemates:0,warsWon:0}
-[01Juni2025 05:49:33.701] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: War stats on login - PlayersKilled: 0, RaidedColonies: 0, AmountRaided: 0, WarsWon: 0, WarStalemates: 0
-[01Juni2025 05:49:33.706] [Server thread/INFO] [structurize/]: New Server UUID 2392aa41-8948-466a-b6f4-7b174fc7c9c6
-[01Juni2025 05:49:33.896] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.client.event.ClientPlayerNetworkEvent$LoggingIn
-[01Juni2025 05:49:33.897] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver transitioning state from DISABLED to ENABLED
-[01Juni2025 05:49:34.049] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.client.event.RecipesUpdatedEvent
-[01Juni2025 05:49:34.073] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.event.TagsUpdatedEvent
-[01Juni2025 05:49:34.073] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver transitioning state from ENABLED to JEI_STARTED
-[01Juni2025 05:49:34.075] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Starting JEI...
-[01Juni2025 05:49:34.091] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering item subtypes...
-[01Juni2025 05:49:34.105] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering item subtypes: jei:minecraft took 13.69 milliseconds
-[01Juni2025 05:49:34.107] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering item subtypes took 15.83 ms
-[01Juni2025 05:49:34.108] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering fluid subtypes...
-[01Juni2025 05:49:34.113] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering fluid subtypes took 4.847 ms
-[01Juni2025 05:49:34.118] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering ingredients...
-[01Juni2025 05:49:34.158] [Render thread/WARN] [mezz.jei.library.plugins.vanilla.ingredients.ItemStackListFactory/]: Item Group has no display items and no search tab display items. Items from this group will be missing from the JEI ingredient list. Operator Utilities
-[01Juni2025 05:49:34.160] [Render thread/WARN] [mezz.jei.library.plugins.vanilla.ingredients.ItemStackListFactory/]: 14 duplicate items were found in 'Domum Ornamentum (DO)' creative tab's: displayItems
+[18Juli2025 08:46:43.149] [main/INFO] [cpw.mods.modlauncher.Launcher/MODLAUNCHER]: ModLauncher running: args [--launchTarget, forgeclientuserdev, --version, MOD_DEV, --assetIndex, 5, --assetsDir, C:\Users\paulm\.gradle\caches\forge_gradle\assets, --gameDir, ., --fml.forgeVersion, 47.3.10, --fml.mcVersion, 1.20.1, --fml.forgeGroup, net.minecraftforge, --fml.mcpVersion, 20230612.114412, --username=Player2]
+[18Juli2025 08:46:43.175] [main/INFO] [cpw.mods.modlauncher.Launcher/MODLAUNCHER]: ModLauncher 10.0.9+10.0.9+main.dcd20f30 starting: java version 17.0.14 by Eclipse Adoptium; OS Windows 11 arch amd64 version 10.0
+[18Juli2025 08:46:43.330] [main/INFO] [net.minecraftforge.fml.loading.ImmediateWindowHandler/]: Loading ImmediateWindowProvider fmlearlywindow
+[18Juli2025 08:46:43.394] [main/INFO] [EARLYDISPLAY/]: Trying GL version 4.6
+[18Juli2025 08:46:43.547] [main/INFO] [EARLYDISPLAY/]: Requested GL version 4.6 got version 4.6
+[18Juli2025 08:46:43.609] [main/INFO] [mixin/]: SpongePowered MIXIN Subsystem Version=0.8.5 Source=union:/C:/Users/paulm/.gradle/caches/modules-2/files-2.1/org.spongepowered/mixin/0.8.5/9d1c0c3a304ae6697ecd477218fa61b850bf57fc/mixin-0.8.5.jar%23128!/ Service=ModLauncher Env=CLIENT
+[18Juli2025 08:46:43.656] [pool-2-thread-1/INFO] [EARLYDISPLAY/]: GL info: NVIDIA GeForce RTX 3080/PCIe/SSE2 GL version 4.6.0 NVIDIA 576.88, NVIDIA Corporation
+[18Juli2025 08:46:44.133] [main/WARN] [net.minecraftforge.fml.loading.moddiscovery.ModFileParser/LOADING]: Mod file C:\Users\paulm\.gradle\caches\modules-2\files-2.1\net.minecraftforge\javafmllanguage\1.20.1-47.3.10\7a15037366722893d76a3d0b2e9d1fd13a63a22d\javafmllanguage-1.20.1-47.3.10.jar is missing mods.toml file
+[18Juli2025 08:46:44.136] [main/WARN] [net.minecraftforge.fml.loading.moddiscovery.ModFileParser/LOADING]: Mod file C:\Users\paulm\.gradle\caches\modules-2\files-2.1\net.minecraftforge\lowcodelanguage\1.20.1-47.3.10\e67d9b3451d64ccc812cbbd33c066bd3ebbf2167\lowcodelanguage-1.20.1-47.3.10.jar is missing mods.toml file
+[18Juli2025 08:46:44.138] [main/WARN] [net.minecraftforge.fml.loading.moddiscovery.ModFileParser/LOADING]: Mod file C:\Users\paulm\.gradle\caches\modules-2\files-2.1\net.minecraftforge\mclanguage\1.20.1-47.3.10\2023f9726a509c5ba5a925cac934944066093de8\mclanguage-1.20.1-47.3.10.jar is missing mods.toml file
+[18Juli2025 08:46:44.141] [main/WARN] [net.minecraftforge.fml.loading.moddiscovery.ModFileParser/LOADING]: Mod file C:\Users\paulm\.gradle\caches\modules-2\files-2.1\net.minecraftforge\fmlcore\1.20.1-47.3.10\523aa0cd9a773b2b56268d8689b2fb5c1f072941\fmlcore-1.20.1-47.3.10.jar is missing mods.toml file
+[18Juli2025 08:46:44.541] [main/INFO] [net.minecraftforge.fml.loading.moddiscovery.JarInJarDependencyLocator/]: No dependencies to load found. Skipping!
+[18Juli2025 08:46:47.329] [main/INFO] [mixin/]: Compatibility level set to JAVA_17
+[18Juli2025 08:46:47.347] [main/INFO] [cpw.mods.modlauncher.LaunchServiceHandler/MODLAUNCHER]: Launching target 'forgeclientuserdev' with arguments [--version, MOD_DEV, --gameDir, ., --assetsDir, C:\Users\paulm\.gradle\caches\forge_gradle\assets, --assetIndex, 5, --username=Player2]
+[18Juli2025 08:46:47.753] [main/INFO] [mixin/]: Remapping refMap architectury-forge-refmap.json using C:\Users\paulm\Desktop\Projects\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
+[18Juli2025 08:46:47.754] [main/INFO] [mixin/]: Remapping refMap architectury-common-refmap.json using C:\Users\paulm\Desktop\Projects\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
+[18Juli2025 08:46:47.755] [main/INFO] [mixin/]: Remapping refMap SDMCore-common-common-refmap.json using C:\Users\paulm\Desktop\Projects\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
+[18Juli2025 08:46:47.756] [main/INFO] [mixin/]: Remapping refMap ftb-library-common-refmap.json using C:\Users\paulm\Desktop\Projects\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
+[18Juli2025 08:46:47.756] [main/INFO] [mixin/]: Remapping refMap sdm_economy-common-refmap.json using C:\Users\paulm\Desktop\Projects\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
+[18Juli2025 08:46:47.758] [main/INFO] [mixin/]: Remapping refMap sdm_ui_lib-common-refmap.json using C:\Users\paulm\Desktop\Projects\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
+[18Juli2025 08:46:47.760] [main/WARN] [mixin/]: Reference map 'sdmshoprework-common-refmap.json' for sdmshoprework-common.mixins.json could not be read. If this is a development environment you can ignore this message
+[18Juli2025 08:46:47.761] [main/INFO] [mixin/]: Remapping refMap mixins.recruits.refmap.json using C:\Users\paulm\Desktop\Projects\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
+[18Juli2025 08:46:49.675] [main/WARN] [oshi.driver.windows.perfmon.PerfmonDisabled/]: Invalid registry value type detected for PerfOS counters. Should be REG_DWORD. Ignoring: HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\PerfOS\Performance\Disable Performance Counters.
+[18Juli2025 08:46:50.029] [pool-4-thread-1/WARN] [mixin/]: Method overwrite conflict for sdm$getCustomData in sdm_economy-common.mixins.json:EntityMixin, previously written by net.sdm.sdm_core.mixin.entity.EntityMixin. Skipping method.
+[18Juli2025 08:46:53.012] [Datafixer Bootstrap/INFO] [com.mojang.datafixers.DataFixerBuilder/]: 188 Datafixer optimizations took 96 milliseconds
+[18Juli2025 08:46:54.520] [Render thread/WARN] [net.minecraft.server.packs.VanillaPackResourcesBuilder/]: Assets URL 'union:/C:/Users/paulm/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1/forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1.jar%23191!/assets/.mcassetsroot' uses unexpected schema
+[18Juli2025 08:46:54.521] [Render thread/WARN] [net.minecraft.server.packs.VanillaPackResourcesBuilder/]: Assets URL 'union:/C:/Users/paulm/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1/forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1.jar%23191!/data/.mcassetsroot' uses unexpected schema
+[18Juli2025 08:46:54.572] [Render thread/INFO] [com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService/]: Environment: authHost='https://authserver.mojang.com', accountsHost='https://api.mojang.com', sessionHost='https://sessionserver.mojang.com', servicesHost='https://api.minecraftservices.com', name='PROD'
+[18Juli2025 08:46:54.587] [Render thread/INFO] [net.minecraft.client.Minecraft/]: Setting user: Player2
+[18Juli2025 08:46:54.698] [Render thread/INFO] [net.minecraft.client.Minecraft/]: Backend library: LWJGL version 3.3.1 build 7
+[18Juli2025 08:46:55.111] [modloading-worker-0/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: [DEBUG] Registering config with path: warntaxmod/minecolonytax.toml
+[18Juli2025 08:46:55.190] [modloading-worker-0/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: [DEBUG] Config registered successfully
+[18Juli2025 08:46:55.214] [modloading-worker-0/INFO] [net.minecraftforge.common.ForgeMod/FORGEMOD]: Forge mod loading, version 47.3.10, for MC 1.20.1 with MCP 20230612.114412
+[18Juli2025 08:46:55.215] [modloading-worker-0/INFO] [net.minecraftforge.common.MinecraftForge/FORGE]: MinecraftForge v47.3.10 Initialized
+[18Juli2025 08:46:55.265] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:recruit_block]
+[18Juli2025 08:46:55.267] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:recruit_shield_block]
+[18Juli2025 08:46:55.267] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:bowman_block]
+[18Juli2025 08:46:55.267] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:crossbowman_block]
+[18Juli2025 08:46:55.267] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:horseman_block]
+[18Juli2025 08:46:55.267] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:nomad_block]
+[18Juli2025 08:46:55.270] [modloading-worker-0/INFO] [recruits/]: Registering profession for recruit with POI net.minecraftforge.registries.RegistryObject@810c44e9
+[18Juli2025 08:46:55.272] [modloading-worker-0/INFO] [recruits/]: Registering profession for shieldman with POI net.minecraftforge.registries.RegistryObject@73a49efc
+[18Juli2025 08:46:55.272] [modloading-worker-0/INFO] [recruits/]: Registering profession for bowman with POI net.minecraftforge.registries.RegistryObject@ee1298fb
+[18Juli2025 08:46:55.272] [modloading-worker-0/INFO] [recruits/]: Registering profession for crossbowman with POI net.minecraftforge.registries.RegistryObject@278013b
+[18Juli2025 08:46:55.272] [modloading-worker-0/INFO] [recruits/]: Registering profession for horseman with POI net.minecraftforge.registries.RegistryObject@2cde3e08
+[18Juli2025 08:46:55.272] [modloading-worker-0/INFO] [recruits/]: Registering profession for nomad with POI net.minecraftforge.registries.RegistryObject@46c5f19a
+[18Juli2025 08:46:55.334] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id architectury:sync_ids
+[18Juli2025 08:46:55.341] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id architectury:sync_ids
+[18Juli2025 08:46:55.341] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftblibrary:edit_nbt
+[18Juli2025 08:46:55.341] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id sdm_economy:update_client_data
+[18Juli2025 08:46:55.348] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdm_economy:update_server_data
+[18Juli2025 08:46:55.348] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftblibrary:edit_nbt_response
+[18Juli2025 08:46:55.353] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftblibrary:sync_known_server_registries
+[18Juli2025 08:46:55.358] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftblibrary:edit_config
+[18Juli2025 08:46:55.358] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftbteams:sync_teams
+[18Juli2025 08:46:55.364] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftbteams:sync_message_history
+[18Juli2025 08:46:55.373] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftbteams:open_gui
+[18Juli2025 08:46:55.378] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftbteams:open_my_team_gui
+[18Juli2025 08:46:55.379] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id sdmshoprework:sync_shop
+[18Juli2025 08:46:55.383] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftbteams:update_settings
+[18Juli2025 08:46:55.383] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id sdmshoprework:send_edit_mode
+[18Juli2025 08:46:55.383] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Warped Netherlands
+[18Juli2025 08:46:55.383] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Stalactite Caves
+[18Juli2025 08:46:55.383] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Space Wars
+[18Juli2025 08:46:55.383] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Shire
+[18Juli2025 08:46:55.385] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Desert Oasis
+[18Juli2025 08:46:55.385] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Pagoda
+[18Juli2025 08:46:55.385] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Minecolonies Original
+[18Juli2025 08:46:55.385] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Nordic Spruce
+[18Juli2025 08:46:55.385] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Medieval Spruce
+[18Juli2025 08:46:55.385] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Medieval Oak
+[18Juli2025 08:46:55.385] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Medieval Dark Oak
+[18Juli2025 08:46:55.386] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Medieval Birch
+[18Juli2025 08:46:55.386] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Lost Mesa City
+[18Juli2025 08:46:55.386] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Jungle Treehouse
+[18Juli2025 08:46:55.386] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Incan
+[18Juli2025 08:46:55.386] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Fortress
+[18Juli2025 08:46:55.386] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Dark Oak Treehouse
+[18Juli2025 08:46:55.386] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Colonial
+[18Juli2025 08:46:55.386] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Cavern
+[18Juli2025 08:46:55.386] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Caledonia
+[18Juli2025 08:46:55.386] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Urban Birch
+[18Juli2025 08:46:55.386] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Ancient Athens
+[18Juli2025 08:46:55.386] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Urban Savanna
+[18Juli2025 08:46:55.388] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Dev
+[18Juli2025 08:46:55.388] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftbteams:update_settings_response
+[18Juli2025 08:46:55.388] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Player1
+[18Juli2025 08:46:55.388] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Player2
+[18Juli2025 08:46:55.388] [Structurize IO Worker #0/WARN] [structurize/]: Finished discovering Client Structure packs
+[18Juli2025 08:46:55.388] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id sdmshoprework:send_reload_config
+[18Juli2025 08:46:55.393] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftbteams:send_message
+[18Juli2025 08:46:55.394] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id sdmshoprework:send_config
+[18Juli2025 08:46:55.397] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id sdmshoprework:send_open_shop
+[18Juli2025 08:46:55.398] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftbteams:send_message_response
+[18Juli2025 08:46:55.403] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering S2C receiver with id ftbteams:update_presence
+[18Juli2025 08:46:55.403] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_buy_entry
+[18Juli2025 08:46:55.407] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:create_shop_tab
+[18Juli2025 08:46:55.408] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftbteams:create_party
+[18Juli2025 08:46:55.412] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:create_shop_entry
+[18Juli2025 08:46:55.414] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftbteams:player_gui_operation
+[18Juli2025 08:46:55.417] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_changes_shop
+[18Juli2025 08:46:55.421] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_change_entries
+[18Juli2025 08:46:55.425] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:senc_change_tab
+[18Juli2025 08:46:55.430] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_edit_tab
+[18Juli2025 08:46:55.434] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_edit_entry
+[18Juli2025 08:46:55.438] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_move_tab
+[18Juli2025 08:46:55.443] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_move_entry
+[18Juli2025 08:46:55.743] [modloading-worker-0/INFO] [mezz.jei.library.load.PluginCaller/]: Sending ConfigManager...
+[18Juli2025 08:46:55.750] [modloading-worker-0/INFO] [mezz.jei.library.load.PluginCaller/]: Sending ConfigManager took 6.221 ms
+[18Juli2025 08:46:57.645] [Render thread/INFO] [net.minecraftforge.gametest.ForgeGameTestHooks/]: Enabled Gametest Namespaces: [minecolonytax]
+[18Juli2025 08:46:58.115] [Render thread/INFO] [net.minecraft.server.packs.resources.ReloadableResourceManager/]: Reloading ResourceManager: vanilla, mod_resources
+[18Juli2025 08:46:58.140] [Worker-Main-8/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Initializing War N Taxes Mod
+[18Juli2025 08:46:58.141] [Worker-Main-8/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: [DEBUG] Config loaded status: false
+[18Juli2025 08:46:58.141] [Worker-Main-8/WARN] [net.machiavelli.minecolonytax.MineColonyTax/]: [DEBUG] Config not loaded yet during setup!
+[18Juli2025 08:46:58.379] [Worker-Main-15/INFO] [net.minecraft.client.gui.font.providers.UnihexProvider/]: Found unifont_all_no_pua-15.0.06.hex, loading
+[18Juli2025 08:46:58.401] [Forge Version Check/INFO] [net.minecraftforge.fml.VersionChecker/]: [forge] Starting version check at https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json
+[18Juli2025 08:46:58.704] [Worker-Main-9/WARN] [net.minecraft.client.renderer.texture.SpriteLoader/]: Texture minecolonies:gui/builderhut/builder_paper with size 190x244 limits mip level from 4 to 1
+[18Juli2025 08:46:58.704] [Worker-Main-9/WARN] [net.minecraft.client.renderer.texture.SpriteLoader/]: Texture sdmshoprework:icons/staricon with size 9x9 limits mip level from 1 to 0
+[18Juli2025 08:46:59.567] [Worker-Main-8/WARN] [net.minecraft.client.resources.model.ModelBakery/]: Unable to load model: 'sdmshoprework:custom_icon#inventory' referenced from: sdmshoprework:custom_icon#inventory: java.io.FileNotFoundException: sdmshoprework:models/item/custom_icon.json
+[18Juli2025 08:46:59.638] [Forge Version Check/INFO] [net.minecraftforge.fml.VersionChecker/]: [forge] Found status: OUTDATED Current: 47.3.10 Target: 47.4.0
+[18Juli2025 08:46:59.639] [Forge Version Check/INFO] [net.minecraftforge.fml.VersionChecker/]: [recruits] Starting version check at https://raw.githubusercontent.com/talhanation/recruits/main/update.json
+[18Juli2025 08:46:59.700] [Worker-Main-25/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Client setup for MineColonyTax Mod
+[18Juli2025 08:46:59.744] [Forge Version Check/WARN] [net.minecraftforge.fml.VersionChecker/]: Failed to process update information
+com.google.gson.JsonSyntaxException: com.google.gson.stream.MalformedJsonException: Expected name at line 5 column 4 path $..1.20.1-recommended
+	at com.google.gson.Gson.fromJson(Gson.java:1229) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.Gson.fromJson(Gson.java:1124) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.Gson.fromJson(Gson.java:1034) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.Gson.fromJson(Gson.java:969) ~[gson-2.10.jar%23130!/:?]
+	at net.minecraftforge.fml.VersionChecker$1.process(VersionChecker.java:186) ~[fmlcore-1.20.1-47.3.10.jar%23195!/:?]
+	at java.lang.Iterable.forEach(Iterable.java:75) ~[?:?]
+	at net.minecraftforge.fml.VersionChecker$1.run(VersionChecker.java:117) ~[fmlcore-1.20.1-47.3.10.jar%23195!/:?]
+Caused by: com.google.gson.stream.MalformedJsonException: Expected name at line 5 column 4 path $..1.20.1-recommended
+	at com.google.gson.stream.JsonReader.syntaxError(JsonReader.java:1657) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.stream.JsonReader.doPeek(JsonReader.java:514) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.stream.JsonReader.hasNext(JsonReader.java:422) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.internal.bind.ObjectTypeAdapter.read(ObjectTypeAdapter.java:122) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.internal.bind.TypeAdapterRuntimeTypeWrapper.read(TypeAdapterRuntimeTypeWrapper.java:40) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.internal.bind.MapTypeAdapterFactory$Adapter.read(MapTypeAdapterFactory.java:186) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.internal.bind.MapTypeAdapterFactory$Adapter.read(MapTypeAdapterFactory.java:144) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.Gson.fromJson(Gson.java:1214) ~[gson-2.10.jar%23130!/:?]
+	... 6 more
+[18Juli2025 08:47:00.013] [Render thread/INFO] [recruits/]: MenuScreens registered
+[18Juli2025 08:47:00.870] [Worker-Main-2/WARN] [minecolonies/]: Register mappings
+[18Juli2025 08:47:01.885] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecraft:item.goat_horn.play
+[18Juli2025 08:47:01.886] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecraft:entity.goat.screaming.horn_break
+[18Juli2025 08:47:01.886] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: sdmshoprework:cancel_sound
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.general
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.general
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.general
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.general
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.general
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.general
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.general
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.general
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.noise
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.noise
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.noise
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.noise
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.noise
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.noise
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.noise
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.noise
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.gotobed
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.gotobed
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.gotobed
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.gotobed
+[18Juli2025 08:47:01.889] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.gotobed
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.gotobed
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.gotobed
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.gotobed
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.badweather
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.badweather
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.badweather
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.badweather
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.badweather
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.badweather
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.badweather
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.badweather
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.lowsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.lowsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.lowsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.lowsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.lowsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.lowsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.lowsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.lowsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.highsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.highsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.highsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.highsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.highsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.highsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.highsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.highsaturation
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.badhousing
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.badhousing
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.badhousing
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.badhousing
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.badhousing
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.badhousing
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.badhousing
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.badhousing
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.goodhousing
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.goodhousing
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.goodhousing
+[18Juli2025 08:47:01.890] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.goodhousing
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.goodhousing
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.goodhousing
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.goodhousing
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.goodhousing
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.greeting
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.greeting
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.greeting
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.greeting
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.greeting
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.greeting
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.greeting
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.greeting
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.farewell
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.farewell
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.farewell
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.farewell
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.farewell
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.farewell
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.farewell
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.farewell
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.missingequipment
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.missingequipment
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.missingequipment
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.missingequipment
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.missingequipment
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.missingequipment
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.missingequipment
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.missingequipment
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.happy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.happy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.happy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.happy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.happy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.happy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.happy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.happy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.unhappy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.unhappy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.unhappy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.unhappy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.unhappy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.unhappy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.unhappy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.unhappy
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.sick
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.sick
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.sick
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.sick
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.sick
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.sick
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.sick
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.sick
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.interaction
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.interaction
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.interaction
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.interaction
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.interaction
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.interaction
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.interaction
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.interaction
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.success
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.success
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.success
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.success
+[18Juli2025 08:47:01.891] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.success
+[18Juli2025 08:47:01.892] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.success
+[18Juli2025 08:47:01.892] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.success
+[18Juli2025 08:47:01.892] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.success
+[18Juli2025 08:47:01.892] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male1.danger
+[18Juli2025 08:47:01.892] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female1.danger
+[18Juli2025 08:47:01.892] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male2.danger
+[18Juli2025 08:47:01.892] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female2.danger
+[18Juli2025 08:47:01.892] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male3.danger
+[18Juli2025 08:47:01.892] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female3.danger
+[18Juli2025 08:47:01.892] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.male4.danger
+[18Juli2025 08:47:01.892] [Render thread/WARN] [net.minecraft.client.sounds.SoundEngine/]: Missing sound for event: minecolonies:citizen.child.female4.danger
+[18Juli2025 08:47:01.923] [Render thread/INFO] [com.mojang.blaze3d.audio.Library/]: OpenAL initialized on device OpenAL Soft on Speakers (Wireless Gaming Headset)
+[18Juli2025 08:47:01.923] [Render thread/INFO] [net.minecraft.client.sounds.SoundEngine/SOUNDS]: Sound engine started
+[18Juli2025 08:47:02.007] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 2048x1024x4 minecraft:textures/atlas/blocks.png-atlas
+[18Juli2025 08:47:02.017] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 256x256x4 minecraft:textures/atlas/signs.png-atlas
+[18Juli2025 08:47:02.017] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 1024x1024x4 minecraft:textures/atlas/shield_patterns.png-atlas
+[18Juli2025 08:47:02.018] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 1024x512x4 minecraft:textures/atlas/banner_patterns.png-atlas
+[18Juli2025 08:47:02.019] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 1024x1024x4 minecraft:textures/atlas/armor_trims.png-atlas
+[18Juli2025 08:47:02.021] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 128x64x4 minecraft:textures/atlas/decorated_pot.png-atlas
+[18Juli2025 08:47:02.023] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 256x256x4 minecraft:textures/atlas/chest.png-atlas
+[18Juli2025 08:47:02.023] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 512x256x4 minecraft:textures/atlas/shulker_boxes.png-atlas
+[18Juli2025 08:47:02.023] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 512x256x4 minecraft:textures/atlas/beds.png-atlas
+[18Juli2025 08:47:02.144] [Render thread/WARN] [net.minecraft.client.renderer.ShaderInstance/]: Shader rendertype_entity_translucent_emissive could not find sampler named Sampler2 in the specified shader program.
+[18Juli2025 08:47:02.205] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 256x256x0 minecraft:textures/atlas/particles.png-atlas
+[18Juli2025 08:47:02.206] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 256x256x0 minecraft:textures/atlas/paintings.png-atlas
+[18Juli2025 08:47:02.206] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 128x128x0 minecraft:textures/atlas/mob_effects.png-atlas
+[18Juli2025 08:47:02.207] [Render thread/INFO] [net.minecraft.client.renderer.texture.TextureAtlas/]: Created: 256x256x0 jei:textures/atlas/gui.png-atlas
+[18Juli2025 08:47:03.346] [Realms Notification Availability checker #1/INFO] [com.mojang.realmsclient.client.RealmsClient/]: Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: 0
+[18Juli2025 08:48:08.227] [Render thread/INFO] [net.minecraftforge.registries.GameData/REGISTRIES]: Injecting existing registry data into this CLIENT instance
+[18Juli2025 08:48:09.267] [Render thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: MineColonyTax: /wnt commands registered.
+[18Juli2025 08:48:09.267] [Render thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Loaded Arena Positions
+[18Juli2025 08:48:09.742] [Render thread/INFO] [net.minecraft.world.item.crafting.RecipeManager/]: Loaded 9 recipes
+[18Juli2025 08:48:09.833] [Render thread/INFO] [net.minecraft.advancements.AdvancementList/]: Loaded 1487 advancements
+[18Juli2025 08:48:09.838] [Render thread/INFO] [minecolonies/]: Beginning load of custom recipes for colony workers
+[18Juli2025 08:48:09.850] [Render thread/INFO] [minecolonies/]: Loaded 164 recipes for 16 crafters
+[18Juli2025 08:48:09.850] [Render thread/INFO] [minecolonies/]: Beginning load of research for University.
+[18Juli2025 08:48:09.877] [Render thread/INFO] [minecolonies/]: Loaded 201 recipes for 4 research branches
+[18Juli2025 08:48:09.881] [Render thread/INFO] [minecolonies/]: Loading quests from data
+[18Juli2025 08:48:09.893] [Render thread/INFO] [minecolonies/]: Finished loading quests from data
+[18Juli2025 08:48:09.900] [Render thread/WARN] [minecolonies/]: Read 1500 items with their nbt keys for compatibility.
+[18Juli2025 08:48:10.203] [Server thread/INFO] [net.minecraft.client.server.IntegratedServer/]: Starting integrated minecraft server version 1.20.1
+[18Juli2025 08:48:10.203] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Generating keypair
+[18Juli2025 08:48:10.299] [Server thread/WARN] [net.minecraftforge.common.ForgeConfigSpec/CORE]: Configuration file .\saves\New World\serverconfig\warntaxmod\minecolonytax.toml is not correct. Correcting
+[18Juli2025 08:48:10.301] [Server thread/WARN] [net.minecraftforge.common.ForgeConfigSpec/CORE]: Incorrect key War Settings.RaidTaxPercentages was corrected from [0.1, 0.25, 0.5, 0.7] to its default, [0.1, 0.25, 0.5, 0.7]. 
+[18Juli2025 08:48:10.379] [Server thread/INFO] [FTB Teams/]: loaded team data: 2 known players, 2 teams total
+[18Juli2025 08:48:10.380] [Server thread/INFO] [net.machiavelli.minecolonytax.pvp.PvPMapManager/]: No PvP arena data file found. Skipping load.
+[18Juli2025 08:48:10.840] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Preparing start region for dimension minecraft:overworld
+[18Juli2025 08:48:12.437] [Render thread/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Preparing spawn area: 0%
+[18Juli2025 08:48:12.437] [Render thread/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Preparing spawn area: 0%
+[18Juli2025 08:48:12.438] [Render thread/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Preparing spawn area: 0%
+[18Juli2025 08:48:12.438] [Render thread/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Preparing spawn area: 0%
+[18Juli2025 08:48:12.846] [Render thread/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Preparing spawn area: 4%
+[18Juli2025 08:48:13.076] [Server thread/INFO] [net.minecraftforge.server.permission.PermissionAPI/]: Successfully initialized permission handler forge:default_handler
+[18Juli2025 08:48:13.076] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Server starting: Initializing Tax System and PvP System
+[18Juli2025 08:48:13.076] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Initializing Tax Manager...
+[18Juli2025 08:48:13.078] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Loaded tax data from file.
+[18Juli2025 08:48:13.079] [Render thread/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Time elapsed: 2234 ms
+[18Juli2025 08:48:13.081] [Server thread/INFO] [net.machiavelli.minecolonytax.vassalization.VassalManager/]: VassalManager initialized
+[18Juli2025 08:48:13.081] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Resetting all colony war and raid permissions to prevent post-crash griefing
+[18Juli2025 08:48:13.100] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: War and raid permissions reset successfully
+[18Juli2025 08:48:13.222] [Server thread/INFO] [minecolonies/]: Finished discovering Ores 19 22
+[18Juli2025 08:48:13.222] [Server thread/INFO] [minecolonies/]: Finished discovering saplings 14
+[18Juli2025 08:48:13.222] [Server thread/INFO] [minecolonies/]: Finished discovering plantables 19
+[18Juli2025 08:48:13.222] [Server thread/INFO] [minecolonies/]: Finished discovering food 60 74
+[18Juli2025 08:48:13.222] [Server thread/INFO] [minecolonies/]: Finished discovering fuel 249
+[18Juli2025 08:48:13.222] [Server thread/INFO] [minecolonies/]: Finished discovering flowers 24
+[18Juli2025 08:48:13.222] [Server thread/INFO] [minecolonies/]: Finished discovering items 1832
+[18Juli2025 08:48:13.222] [Server thread/INFO] [minecolonies/]: Finished discovering lucky oreBlocks 6
+[18Juli2025 08:48:13.222] [Server thread/INFO] [minecolonies/]: Finished discovering recruitment costs
+[18Juli2025 08:48:13.223] [Server thread/INFO] [minecolonies/]: Finished discovering diseases
+[18Juli2025 08:48:13.233] [Server thread/INFO] [minecolonies/]: Finished discovering compostables 169
+[18Juli2025 08:48:13.421] [Server thread/ERROR] [recruits/]: Villager recruits could not check for updates!
+[18Juli2025 08:48:13.538] [Server thread/INFO] [net.minecraft.client.server.IntegratedServer/]: Changing view distance to 12, from 10
+[18Juli2025 08:48:13.539] [Server thread/INFO] [net.minecraft.client.server.IntegratedServer/]: Changing simulation distance to 12, from 0
+[18Juli2025 08:48:13.733] [Render thread/WARN] [io.netty.util.internal.SystemPropertyUtil/]: Unable to parse the boolean system property 'java.net.preferIPv6Addresses':system - using the default value: false
+[18Juli2025 08:48:14.935] [Netty Local Client IO #0/INFO] [net.minecraftforge.network.NetworkHooks/]: Connected to a modded server.
+[18Juli2025 08:48:14.944] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Attempting to load persistent war data for player 43ef4f44-de6f-4837-984d-f2e38936e837
+[18Juli2025 08:48:14.976] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Loaded war stats - PlayersKilled: 0, RaidedColonies: 0, AmountRaided: 0, WarsWon: 0, WarStalemates: 0
+[18Juli2025 08:48:14.976] [Server thread/INFO] [net.minecraft.server.players.PlayerList/]: Player2[local:E:1df3877a] logged in with entity id 172 at (97.80815694132026, 110.86813671055458, -6.7808325421342435)
+[18Juli2025 08:48:15.014] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Player2 joined the game
+[18Juli2025 08:48:15.159] [Server thread/INFO] [structurize/]: New Server UUID d3c9e382-4177-413c-8716-45f3e1370997
+[18Juli2025 08:48:15.170] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Player aed5efd4-551b-3965-bc28-ae21aa072a66 logged in, ensuring war data is loaded
+[18Juli2025 08:48:15.171] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: War data loaded on player login: {amountRaided:0L,playersKilledInWar:0,raidedColonies:0,warStalemates:0,warsWon:0}
+[18Juli2025 08:48:15.171] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: War stats on login - PlayersKilled: 0, RaidedColonies: 0, AmountRaided: 0, WarsWon: 0, WarStalemates: 0
+[18Juli2025 08:48:15.179] [Server thread/ERROR] [recruits/]: Villager recruits could not check for updates!
+[18Juli2025 08:48:15.264] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.client.event.ClientPlayerNetworkEvent$LoggingIn
+[18Juli2025 08:48:15.264] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver transitioning state from DISABLED to ENABLED
+[18Juli2025 08:48:15.423] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.client.event.RecipesUpdatedEvent
+[18Juli2025 08:48:15.440] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.event.TagsUpdatedEvent
+[18Juli2025 08:48:15.440] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver transitioning state from ENABLED to JEI_STARTED
+[18Juli2025 08:48:15.443] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Starting JEI...
+[18Juli2025 08:48:15.457] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering item subtypes...
+[18Juli2025 08:48:15.467] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering item subtypes took 9.929 ms
+[18Juli2025 08:48:15.467] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering fluid subtypes...
+[18Juli2025 08:48:15.472] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering fluid subtypes took 3.044 ms
+[18Juli2025 08:48:15.475] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering ingredients...
+[18Juli2025 08:48:15.512] [Render thread/WARN] [mezz.jei.library.plugins.vanilla.ingredients.ItemStackListFactory/]: Item Group has no display items and no search tab display items. Items from this group will be missing from the JEI ingredient list. Operator Utilities
+[18Juli2025 08:48:15.512] [Render thread/WARN] [mezz.jei.library.plugins.vanilla.ingredients.ItemStackListFactory/]: 14 duplicate items were found in 'Domum Ornamentum (DO)' creative tab's: displayItems
 This may indicate that these types of item need a subtype interpreter added to JEI:
 [panel]
-[01Juni2025 05:49:34.211] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering ingredients: jei:minecraft took 92.65 milliseconds
-[01Juni2025 05:49:34.212] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering ingredients took 93.50 ms
-[01Juni2025 05:49:34.212] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering extra ingredients...
-[01Juni2025 05:49:34.213] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering extra ingredients took 663.8 μs
-[01Juni2025 05:49:34.216] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering search ingredient aliases...
-[01Juni2025 05:49:34.218] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering search ingredient aliases took 1.325 ms
-[01Juni2025 05:49:34.257] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering categories...
-[01Juni2025 05:49:34.294] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering categories: jei:minecraft took 37.43 milliseconds
-[01Juni2025 05:49:34.332] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering categories: minecraft:minecolonies took 32.05 milliseconds
-[01Juni2025 05:49:34.351] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering categories: jei:internal took 19.15 milliseconds
-[01Juni2025 05:49:34.351] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering categories took 95.06 ms
-[01Juni2025 05:49:34.354] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering vanilla category extensions...
-[01Juni2025 05:49:34.367] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering vanilla category extensions took 11.37 ms
-[01Juni2025 05:49:34.370] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipe catalysts...
-[01Juni2025 05:49:34.372] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipe catalysts took 1.771 ms
-[01Juni2025 05:49:34.373] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building recipe registry...
-[01Juni2025 05:49:34.401] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building recipe registry took 28.54 ms
-[01Juni2025 05:49:34.404] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering advanced plugins...
-[01Juni2025 05:49:34.405] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering advanced plugins took 579.9 μs
-[01Juni2025 05:49:34.407] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes...
-[01Juni2025 05:49:34.635] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: jei:minecraft took 227.2 milliseconds
-[01Juni2025 05:49:34.738] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: minecraft:domum_ornamentum took 103.3 milliseconds
-[01Juni2025 05:49:35.148] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: minecraft:minecolonies took 409.2 milliseconds
-[01Juni2025 05:49:35.238] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: jei:internal took 90.40 milliseconds
-[01Juni2025 05:49:35.239] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes took 831.8 ms
-[01Juni2025 05:49:35.256] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes transfer handlers...
-[01Juni2025 05:49:35.267] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes transfer handlers took 11.61 ms
-[01Juni2025 05:49:35.282] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building runtime...
-[01Juni2025 05:49:35.293] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering gui handlers...
-[01Juni2025 05:49:35.316] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering gui handlers: jei:gui took 14.05 milliseconds
-[01Juni2025 05:49:35.328] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering gui handlers took 33.52 ms
-[01Juni2025 05:49:35.343] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering Runtime...
-[01Juni2025 05:49:35.346] [Render thread/INFO] [mezz.jei.gui.startup.JeiGuiStarter/]: Starting JEI GUI
-[01Juni2025 05:49:35.347] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient list...
-[01Juni2025 05:49:35.389] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient list took 41.40 ms
-[01Juni2025 05:49:35.389] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient filter...
-[01Juni2025 05:49:35.475] [Render thread/INFO] [mezz.jei.gui.ingredients.IngredientFilter/]: Adding 1859 ingredients
-[01Juni2025 05:49:35.697] [Render thread/INFO] [mezz.jei.gui.ingredients.IngredientFilter/]: Added 1859 ingredients
-[01Juni2025 05:49:35.698] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient filter took 308.7 ms
-[01Juni2025 05:49:35.915] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering Runtime: jei:forge_gui took 572.0 milliseconds
-[01Juni2025 05:49:35.916] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering Runtime took 573.1 ms
-[01Juni2025 05:49:35.918] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building runtime took 636.9 ms
-[01Juni2025 05:49:35.920] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime...
-[01Juni2025 05:49:35.920] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime took 742.1 μs
-[01Juni2025 05:49:35.921] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Starting JEI took 1.846 s
-[01Juni2025 05:49:36.044] [Render thread/INFO] [net.minecraft.advancements.AdvancementList/]: Loaded 30 advancements
-[01Juni2025 05:49:37.303] [Server thread/INFO] [net.minecraft.client.server.IntegratedServer/]: Saving and pausing game...
-[01Juni2025 05:49:37.339] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving chunks for level 'ServerLevel[New World]'/minecraft:overworld
-[01Juni2025 05:49:37.375] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving chunks for level 'ServerLevel[New World]'/minecraft:the_nether
-[01Juni2025 05:49:37.376] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving chunks for level 'ServerLevel[New World]'/minecraft:the_end
-[01Juni2025 05:49:38.278] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.client.event.ClientPlayerNetworkEvent$LoggingOut
-[01Juni2025 05:49:38.278] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver transitioning state from JEI_STARTED to DISABLED
-[01Juni2025 05:49:38.278] [Render thread/INFO] [mezz.jei.library.startup.JeiStarter/]: Stopping JEI
-[01Juni2025 05:49:38.278] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime Unavailable...
-[01Juni2025 05:49:38.279] [Render thread/INFO] [mezz.jei.forge.plugins.forge.ForgeGuiPlugin/]: Stopping JEI GUI
-[01Juni2025 05:49:38.283] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime Unavailable took 5.012 ms
-[01Juni2025 05:49:38.287] [Render thread/INFO] [minecolonies/]: Removed all colony views
-[01Juni2025 05:49:38.311] [Server thread/INFO] [net.minecraft.server.network.ServerGamePacketListenerImpl/]: Player2 lost connection: Disconnected
-[01Juni2025 05:49:38.311] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Player2 left the game
-[01Juni2025 05:49:38.317] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Player aed5efd4-551b-3965-bc28-ae21aa072a66 logged out, ensuring war data is saved
-[01Juni2025 05:49:38.327] [Server thread/INFO] [net.minecraft.server.network.ServerGamePacketListenerImpl/]: Stopping singleplayer server as player logged out
-[01Juni2025 05:49:38.355] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Server stopping. Saving tax data...
-[01Juni2025 05:49:38.357] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Stopping server
-[01Juni2025 05:49:38.358] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving players
-[01Juni2025 05:49:38.358] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving worlds
-[01Juni2025 05:49:38.718] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving chunks for level 'ServerLevel[New World]'/minecraft:overworld
-[01Juni2025 05:49:39.262] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving chunks for level 'ServerLevel[New World]'/minecraft:the_nether
-[01Juni2025 05:49:39.264] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving chunks for level 'ServerLevel[New World]'/minecraft:the_end
-[01Juni2025 05:49:39.290] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: ThreadedAnvilChunkStorage (New World): All chunks are saved
-[01Juni2025 05:49:39.290] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: ThreadedAnvilChunkStorage (DIM-1): All chunks are saved
-[01Juni2025 05:49:39.290] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: ThreadedAnvilChunkStorage (DIM1): All chunks are saved
-[01Juni2025 05:49:39.290] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: ThreadedAnvilChunkStorage: All dimensions are saved
-[01Juni2025 05:49:39.614] [Render thread/WARN] [structurize/]: Client logged off. Resetting Pack Meta and Reloading State
-[01Juni2025 05:49:39.615] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Warped Netherlands
-[01Juni2025 05:49:39.615] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Stalactite Caves
-[01Juni2025 05:49:39.615] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Space Wars
-[01Juni2025 05:49:39.615] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Shire
-[01Juni2025 05:49:39.615] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Desert Oasis
-[01Juni2025 05:49:39.616] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Pagoda
-[01Juni2025 05:49:39.616] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Minecolonies Original
-[01Juni2025 05:49:39.616] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Nordic Spruce
-[01Juni2025 05:49:39.616] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Spruce
-[01Juni2025 05:49:39.616] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Oak
-[01Juni2025 05:49:39.616] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Dark Oak
-[01Juni2025 05:49:39.616] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Birch
-[01Juni2025 05:49:39.616] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Lost Mesa City
-[01Juni2025 05:49:39.616] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Jungle Treehouse
-[01Juni2025 05:49:39.616] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Incan
-[01Juni2025 05:49:39.616] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Fortress
-[01Juni2025 05:49:39.616] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Dark Oak Treehouse
-[01Juni2025 05:49:39.617] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Colonial
-[01Juni2025 05:49:39.617] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Cavern
-[01Juni2025 05:49:39.617] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Caledonia
-[01Juni2025 05:49:39.617] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Urban Birch
-[01Juni2025 05:49:39.617] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Ancient Athens
-[01Juni2025 05:49:39.617] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Urban Savanna
-[01Juni2025 05:49:39.617] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Dev
-[01Juni2025 05:49:39.618] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Player1
-[01Juni2025 05:49:39.618] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Player2
-[01Juni2025 05:49:39.618] [Structurize IO Worker #1/WARN] [structurize/]: Finished discovering Client Structure packs
-[01Juni2025 05:57:16.709] [Render thread/INFO] [net.minecraft.client.gui.screens.ConnectScreen/]: Connecting to fe80::674:5f75:a892:24a1, 52359
-[01Juni2025 05:57:18.489] [Downloader 0/WARN] [net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl/]: Failed to log in: Invalid session (Try restarting your game and the launcher)
-[01Juni2025 05:57:20.687] [Render thread/INFO] [net.minecraftforge.registries.GameData/REGISTRIES]: Injecting existing registry data into this CLIENT instance
-[01Juni2025 05:57:21.107] [Netty Client IO #0/WARN] [net.minecraftforge.common.ForgeConfigSpec/CORE]: Configuration file SimpleCommentedConfig:{pathfinding=SimpleCommentedConfig:{pathfindingmaxthreadcount=2, pathfindingdebugverbosity=0, minimumrailstopath=8}, requestSystem=SimpleCommentedConfig:{creativeresolve=false}, permissions=SimpleCommentedConfig:{freetointeractblocks=[dirt, 0 0 0], enablecolonyprotection=true, turnoffexplosionsincolonies=DAMAGE_EVERYTHING}, claims=SimpleCommentedConfig:{initialColonySize=4, maxColonySize=20, maxdistancefromworldspawn=30000, minColonyDistance=8, mindistancefromworldspawn=0}, combat=SimpleCommentedConfig:{minimumnumberofnightsbetweenraids=10, guardhealthmult=1.0, barbarianhordedifficulty=5, dobarbariansbreakthroughwalls=true, guardDamageMultiplier=1.0, mobattackcitizens=true, averagenumberofnightsbetweenraids=14, pvp_mode=true, shouldraiderbreakdoors=true, dobarbariansspawn=true, maxBarbarianSize=80}, compatibility=SimpleCommentedConfig:{auditcraftingtags=false, diseases=[Influenza,100,minecraft:carrot,minecraft:potato, Measles,10,minecraft:dandelion,minecraft:kelp,minecraft:poppy, Smallpox,1,minecraft:honey_bottle,minecraft:golden_apple], configliststudyitems=[minecraft:paper;400;100, minecraft:book;600;10], debuginventories=false, luckyores=[minecraft:coal_ore!64, minecraft:copper_ore!48, minecraft:iron_ore!32, minecraft:gold_ore!16, minecraft:redstone_ore!8, minecraft:lapis_ore!4, minecraft:diamond_ore!2, minecraft:emerald_ore!1], configlistrecruitmentitems=[minecraft:hay_block;3, minecraft:book;2, minecraft:enchanted_book;9, minecraft:diamond;9, minecraft:emerald;8, minecraft:baked_potato;1, minecraft:gold_ingot;2, minecraft:redstone;2, minecraft:lapis_lazuli;2, minecraft:cake;11, minecraft:sunflower;5, minecraft:honeycomb;6, minecraft:quartz;3], blueprintbuildmode=false}, research=SimpleCommentedConfig:{researchcreativecompletion=true, researchresetcost=[minecolonies:ancienttome:1], researchdebuglog=false}, commands=SimpleCommentedConfig:{canplayerusecolonytpcommand=false, canplayerusehometpcommand=false, canplayeruseresetcommand=false, canplayeruseallytownhallteleport=true, canplayerusekillcitizenscommand=false, canplayerusertpcommand=false, canplayerusedeletecolonycommand=false, canplayeruseshowcolonyinfocommand=true, canplayeruseaddofficercommand=true}, gameplay=SimpleCommentedConfig:{nosupplyplacementrestrictions=false, foodmodifier=1.0, loadtime=10, maxcitizenpercolony=250, diseasemodifier=5, enableindevelopmentfeatures=false, colonyloadstrictness=3, initialcitizenamount=4, allowinfinitecolonies=false, forceloadcolony=true, luckyblockchance=1, skyraiders=false, alwaysrendernametag=true, holidayfeatures=true, maxtreesize=400, minthleveltoteleport=3, allowinfinitesupplychests=false, allowotherdimcolonies=true, workersalwaysworkinrain=false}} is not correct. Correcting
-[01Juni2025 05:57:21.180] [Netty Client IO #0/INFO] [net.minecraftforge.network.NetworkHooks/]: Connected to a modded server.
-[01Juni2025 05:57:21.289] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.client.event.ClientPlayerNetworkEvent$LoggingIn
-[01Juni2025 05:57:21.289] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver transitioning state from DISABLED to ENABLED
-[01Juni2025 05:57:21.300] [Render thread/INFO] [minecolonies/]: Finished discovering Ores 0 0
-[01Juni2025 05:57:21.300] [Render thread/INFO] [minecolonies/]: Finished discovering saplings 0
-[01Juni2025 05:57:21.300] [Render thread/INFO] [minecolonies/]: Finished discovering plantables 0
-[01Juni2025 05:57:21.301] [Render thread/INFO] [minecolonies/]: Finished discovering food 77 91
-[01Juni2025 05:57:21.301] [Render thread/INFO] [minecolonies/]: Finished discovering fuel 249
-[01Juni2025 05:57:21.301] [Render thread/INFO] [minecolonies/]: Finished discovering flowers 0
-[01Juni2025 05:57:21.301] [Render thread/INFO] [minecolonies/]: Finished discovering items 1771
-[01Juni2025 05:57:21.307] [Render thread/INFO] [minecolonies/]: Synchronized 14 saplings
-[01Juni2025 05:57:21.307] [Render thread/INFO] [minecolonies/]: Synchronized 19 ore blocks with 22 smeltable ores
-[01Juni2025 05:57:21.307] [Render thread/INFO] [minecolonies/]: Synchronized 19 plantables
-[01Juni2025 05:57:21.307] [Render thread/INFO] [minecolonies/]: Synchronized 24 flowers
-[01Juni2025 05:57:21.307] [Render thread/INFO] [minecolonies/]: Synchronized 91 food types with 77 edible
-[01Juni2025 05:57:21.307] [Render thread/INFO] [minecolonies/]: Synchronized 249 fuel types
-[01Juni2025 05:57:21.307] [Render thread/INFO] [minecolonies/]: Synchronized 55 monsters
-[01Juni2025 05:57:21.310] [Render thread/INFO] [minecolonies/]: Finished discovering lucky oreBlocks 6
-[01Juni2025 05:57:21.310] [Render thread/INFO] [minecolonies/]: Finished discovering recruitment costs
-[01Juni2025 05:57:21.310] [Render thread/INFO] [minecolonies/]: Finished discovering diseases
-[01Juni2025 05:57:21.321] [Render thread/INFO] [minecolonies/]: Loading quests from data
-[01Juni2025 05:57:21.323] [Render thread/INFO] [minecolonies/]: Finished loading quests from data
-[01Juni2025 05:57:21.382] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.client.event.RecipesUpdatedEvent
-[01Juni2025 05:57:21.665] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.event.TagsUpdatedEvent
-[01Juni2025 05:57:21.665] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver transitioning state from ENABLED to JEI_STARTED
-[01Juni2025 05:57:21.665] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Starting JEI...
-[01Juni2025 05:57:21.666] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering item subtypes...
-[01Juni2025 05:57:21.666] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering item subtypes took 412.1 μs
-[01Juni2025 05:57:21.667] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering fluid subtypes...
-[01Juni2025 05:57:21.667] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering fluid subtypes took 372.0 μs
-[01Juni2025 05:57:21.667] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering ingredients...
-[01Juni2025 05:57:21.676] [Render thread/WARN] [mezz.jei.library.plugins.vanilla.ingredients.ItemStackListFactory/]: Item Group has no display items and no search tab display items. Items from this group will be missing from the JEI ingredient list. Operator Utilities
-[01Juni2025 05:57:21.676] [Render thread/WARN] [mezz.jei.library.plugins.vanilla.ingredients.ItemStackListFactory/]: 14 duplicate items were found in 'Domum Ornamentum (DO)' creative tab's: displayItems
+[18Juli2025 08:48:15.559] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering ingredients: jei:minecraft took 83.87 milliseconds
+[18Juli2025 08:48:15.560] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering ingredients took 84.69 ms
+[18Juli2025 08:48:15.561] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering extra ingredients...
+[18Juli2025 08:48:15.561] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering extra ingredients took 755.9 μs
+[18Juli2025 08:48:15.563] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering search ingredient aliases...
+[18Juli2025 08:48:15.565] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering search ingredient aliases took 1.176 ms
+[18Juli2025 08:48:15.614] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering categories...
+[18Juli2025 08:48:15.682] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering categories: jei:minecraft took 66.82 milliseconds
+[18Juli2025 08:48:15.733] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering categories: minecraft:minecolonies took 42.89 milliseconds
+[18Juli2025 08:48:15.755] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering categories: jei:internal took 21.04 milliseconds
+[18Juli2025 08:48:15.755] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering categories took 140.3 ms
+[18Juli2025 08:48:15.758] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering vanilla category extensions...
+[18Juli2025 08:48:15.767] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering vanilla category extensions took 9.285 ms
+[18Juli2025 08:48:15.768] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipe catalysts...
+[18Juli2025 08:48:15.771] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipe catalysts took 1.364 ms
+[18Juli2025 08:48:15.772] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building recipe registry...
+[18Juli2025 08:48:15.801] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building recipe registry took 28.42 ms
+[18Juli2025 08:48:15.803] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering advanced plugins...
+[18Juli2025 08:48:15.804] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering advanced plugins took 608.5 μs
+[18Juli2025 08:48:15.806] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes...
+[18Juli2025 08:48:16.020] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: jei:minecraft took 214.4 milliseconds
+[18Juli2025 08:48:16.104] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: minecraft:domum_ornamentum took 83.63 milliseconds
+[18Juli2025 08:48:16.416] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: minecraft:minecolonies took 310.6 milliseconds
+[18Juli2025 08:48:16.493] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: jei:internal took 77.31 milliseconds
+[18Juli2025 08:48:16.493] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes took 687.2 ms
+[18Juli2025 08:48:16.506] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes transfer handlers...
+[18Juli2025 08:48:16.514] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes transfer handlers took 8.701 ms
+[18Juli2025 08:48:16.526] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building runtime...
+[18Juli2025 08:48:16.538] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering gui handlers...
+[18Juli2025 08:48:16.557] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering gui handlers: jei:gui took 12.07 milliseconds
+[18Juli2025 08:48:16.564] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering gui handlers took 25.47 ms
+[18Juli2025 08:48:16.575] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering Runtime...
+[18Juli2025 08:48:16.577] [Render thread/INFO] [mezz.jei.gui.startup.JeiGuiStarter/]: Starting JEI GUI
+[18Juli2025 08:48:16.577] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient list...
+[18Juli2025 08:48:16.609] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient list took 30.31 ms
+[18Juli2025 08:48:16.609] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient filter...
+[18Juli2025 08:48:16.726] [Render thread/INFO] [mezz.jei.gui.ingredients.IngredientFilter/]: Adding 1859 ingredients
+[18Juli2025 08:48:16.944] [Render thread/INFO] [mezz.jei.gui.ingredients.IngredientFilter/]: Added 1859 ingredients
+[18Juli2025 08:48:16.946] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient filter took 337.9 ms
+[18Juli2025 08:48:17.167] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering Runtime: jei:forge_gui took 592.3 milliseconds
+[18Juli2025 08:48:17.167] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering Runtime took 593.2 ms
+[18Juli2025 08:48:17.170] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building runtime took 644.2 ms
+[18Juli2025 08:48:17.172] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime...
+[18Juli2025 08:48:17.173] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime took 835.0 μs
+[18Juli2025 08:48:17.173] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Starting JEI took 1.730 s
+[18Juli2025 08:48:17.292] [Render thread/INFO] [net.minecraft.advancements.AdvancementList/]: Loaded 30 advancements
+[18Juli2025 08:48:17.720] [Server thread/INFO] [net.minecraft.client.server.IntegratedServer/]: Saving and pausing game...
+[18Juli2025 08:48:17.746] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving chunks for level 'ServerLevel[New World]'/minecraft:overworld
+[18Juli2025 08:48:18.010] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving chunks for level 'ServerLevel[New World]'/minecraft:the_nether
+[18Juli2025 08:48:18.011] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving chunks for level 'ServerLevel[New World]'/minecraft:the_end
+[18Juli2025 08:48:35.649] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.client.event.ClientPlayerNetworkEvent$LoggingOut
+[18Juli2025 08:48:35.649] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver transitioning state from JEI_STARTED to DISABLED
+[18Juli2025 08:48:35.649] [Render thread/INFO] [mezz.jei.library.startup.JeiStarter/]: Stopping JEI
+[18Juli2025 08:48:35.649] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime Unavailable...
+[18Juli2025 08:48:35.649] [Render thread/INFO] [mezz.jei.forge.plugins.forge.ForgeGuiPlugin/]: Stopping JEI GUI
+[18Juli2025 08:48:35.651] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime Unavailable took 2.006 ms
+[18Juli2025 08:48:35.654] [Render thread/INFO] [minecolonies/]: Removed all colony views
+[18Juli2025 08:48:35.680] [Server thread/INFO] [net.minecraft.server.network.ServerGamePacketListenerImpl/]: Player2 lost connection: Disconnected
+[18Juli2025 08:48:35.681] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Player2 left the game
+[18Juli2025 08:48:35.683] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Player aed5efd4-551b-3965-bc28-ae21aa072a66 logged out, ensuring war data is saved
+[18Juli2025 08:48:35.684] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: War stats on logout - PlayersKilled: 0, RaidedColonies: 0, AmountRaided: 0, WarsWon: 0, WarStalemates: 0
+[18Juli2025 08:48:35.684] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: War data saved on player logout: {amountRaided:0L,playersKilledInWar:0,raidedColonies:0,warStalemates:0,warsWon:0}
+[18Juli2025 08:48:35.694] [Server thread/INFO] [net.minecraft.server.network.ServerGamePacketListenerImpl/]: Stopping singleplayer server as player logged out
+[18Juli2025 08:48:35.722] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Server stopping. Saving tax data...
+[18Juli2025 08:48:35.725] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Stopping server
+[18Juli2025 08:48:35.725] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving players
+[18Juli2025 08:48:35.725] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving worlds
+[18Juli2025 08:48:35.977] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving chunks for level 'ServerLevel[New World]'/minecraft:overworld
+[18Juli2025 08:48:36.394] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving chunks for level 'ServerLevel[New World]'/minecraft:the_nether
+[18Juli2025 08:48:36.395] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving chunks for level 'ServerLevel[New World]'/minecraft:the_end
+[18Juli2025 08:48:36.418] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: ThreadedAnvilChunkStorage (New World): All chunks are saved
+[18Juli2025 08:48:36.418] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: ThreadedAnvilChunkStorage (DIM-1): All chunks are saved
+[18Juli2025 08:48:36.418] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: ThreadedAnvilChunkStorage (DIM1): All chunks are saved
+[18Juli2025 08:48:36.418] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: ThreadedAnvilChunkStorage: All dimensions are saved
+[18Juli2025 08:48:36.756] [Render thread/WARN] [structurize/]: Client logged off. Resetting Pack Meta and Reloading State
+[18Juli2025 08:48:36.757] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Warped Netherlands
+[18Juli2025 08:48:36.757] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Stalactite Caves
+[18Juli2025 08:48:36.757] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Space Wars
+[18Juli2025 08:48:36.757] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Shire
+[18Juli2025 08:48:36.757] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Desert Oasis
+[18Juli2025 08:48:36.757] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Pagoda
+[18Juli2025 08:48:36.757] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Minecolonies Original
+[18Juli2025 08:48:36.757] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Nordic Spruce
+[18Juli2025 08:48:36.757] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Spruce
+[18Juli2025 08:48:36.757] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Oak
+[18Juli2025 08:48:36.759] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Dark Oak
+[18Juli2025 08:48:36.759] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Birch
+[18Juli2025 08:48:36.759] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Lost Mesa City
+[18Juli2025 08:48:36.759] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Jungle Treehouse
+[18Juli2025 08:48:36.759] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Incan
+[18Juli2025 08:48:36.759] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Fortress
+[18Juli2025 08:48:36.759] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Dark Oak Treehouse
+[18Juli2025 08:48:36.759] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Colonial
+[18Juli2025 08:48:36.759] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Cavern
+[18Juli2025 08:48:36.759] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Caledonia
+[18Juli2025 08:48:36.759] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Urban Birch
+[18Juli2025 08:48:36.759] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Ancient Athens
+[18Juli2025 08:48:36.759] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Urban Savanna
+[18Juli2025 08:48:36.760] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Dev
+[18Juli2025 08:48:36.760] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Player1
+[18Juli2025 08:48:36.760] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Player2
+[18Juli2025 08:48:36.760] [Structurize IO Worker #1/WARN] [structurize/]: Finished discovering Client Structure packs
+[18Juli2025 08:49:43.696] [Render thread/INFO] [net.minecraft.client.gui.screens.ConnectScreen/]: Connecting to fe80::674:5f75:a892:24a1, 60282
+[18Juli2025 08:49:45.778] [Downloader 0/WARN] [net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl/]: Failed to log in: Invalid session (Try restarting your game and the launcher)
+[18Juli2025 08:49:48.139] [Render thread/INFO] [net.minecraftforge.registries.GameData/REGISTRIES]: Injecting existing registry data into this CLIENT instance
+[18Juli2025 08:49:48.488] [Netty Client IO #0/WARN] [net.minecraftforge.common.ForgeConfigSpec/CORE]: Configuration file SimpleCommentedConfig:{pathfinding=SimpleCommentedConfig:{pathfindingmaxthreadcount=2, pathfindingdebugverbosity=0, minimumrailstopath=8}, requestSystem=SimpleCommentedConfig:{creativeresolve=false}, permissions=SimpleCommentedConfig:{freetointeractblocks=[dirt, 0 0 0], enablecolonyprotection=true, turnoffexplosionsincolonies=DAMAGE_EVERYTHING}, claims=SimpleCommentedConfig:{initialColonySize=4, maxColonySize=20, maxdistancefromworldspawn=30000, minColonyDistance=8, mindistancefromworldspawn=0}, combat=SimpleCommentedConfig:{minimumnumberofnightsbetweenraids=10, guardhealthmult=1.0, barbarianhordedifficulty=5, dobarbariansbreakthroughwalls=true, guardDamageMultiplier=1.0, mobattackcitizens=true, averagenumberofnightsbetweenraids=14, pvp_mode=true, shouldraiderbreakdoors=true, dobarbariansspawn=true, maxBarbarianSize=80}, compatibility=SimpleCommentedConfig:{auditcraftingtags=false, diseases=[Influenza,100,minecraft:carrot,minecraft:potato, Measles,10,minecraft:dandelion,minecraft:kelp,minecraft:poppy, Smallpox,1,minecraft:honey_bottle,minecraft:golden_apple], configliststudyitems=[minecraft:paper;400;100, minecraft:book;600;10], debuginventories=false, luckyores=[minecraft:coal_ore!64, minecraft:copper_ore!48, minecraft:iron_ore!32, minecraft:gold_ore!16, minecraft:redstone_ore!8, minecraft:lapis_ore!4, minecraft:diamond_ore!2, minecraft:emerald_ore!1], configlistrecruitmentitems=[minecraft:hay_block;3, minecraft:book;2, minecraft:enchanted_book;9, minecraft:diamond;9, minecraft:emerald;8, minecraft:baked_potato;1, minecraft:gold_ingot;2, minecraft:redstone;2, minecraft:lapis_lazuli;2, minecraft:cake;11, minecraft:sunflower;5, minecraft:honeycomb;6, minecraft:quartz;3], blueprintbuildmode=false}, research=SimpleCommentedConfig:{researchcreativecompletion=true, researchresetcost=[minecolonies:ancienttome:1], researchdebuglog=false}, commands=SimpleCommentedConfig:{canplayerusecolonytpcommand=false, canplayerusehometpcommand=false, canplayeruseresetcommand=false, canplayeruseallytownhallteleport=true, canplayerusekillcitizenscommand=false, canplayerusertpcommand=false, canplayerusedeletecolonycommand=false, canplayeruseshowcolonyinfocommand=true, canplayeruseaddofficercommand=true}, gameplay=SimpleCommentedConfig:{nosupplyplacementrestrictions=false, foodmodifier=1.0, loadtime=10, maxcitizenpercolony=250, diseasemodifier=5, enableindevelopmentfeatures=false, colonyloadstrictness=3, initialcitizenamount=4, allowinfinitecolonies=false, forceloadcolony=true, luckyblockchance=1, skyraiders=false, alwaysrendernametag=true, holidayfeatures=true, maxtreesize=400, minthleveltoteleport=3, allowinfinitesupplychests=false, allowotherdimcolonies=true, workersalwaysworkinrain=false}} is not correct. Correcting
+[18Juli2025 08:49:48.492] [Netty Client IO #0/WARN] [net.minecraftforge.common.ForgeConfigSpec/CORE]: Configuration file SimpleCommentedConfig:{DebtLimit=0, Building Taxes=SimpleCommentedConfig:{fletcher=9.0, alchemistUpgrade=5.0, warehouseUpgrade=4.0, mechanic=11.0, builderUpgrade=4.0, enchanter=15.0, swineherderUpgrade=4.0, townhallUpgrade=8.0, enchanterUpgrade=5.0, blacksmith=18.0, graveyard=7.0, stonemasonUpgrade=4.0, homeUpgrade=2.0, tavern=14.0, florist=8.0, swineherder=10.0, composter=6.0, crusher=13.0, composterUpgrade=2.0, alchemist=12.0, cowboy=9.0, bakery=10.0, minerUpgrade=5.0, warehouse=10.0, dyer=9.0, stonemason=12.0, concretemixer=10.0, rabbithutch=8.0, rabbithutchUpgrade=2.0, cookUpgrade=5.0, glassblowerUpgrade=3.0, chickenherderUpgrade=3.0, libraryUpgrade=6.0, netherworker=15.0, sawmill=10.0, warehousedeliveryman=12.0, glassblower=10.0, shepherdUpgrade=3.0, universityUpgrade=10.0, floristUpgrade=2.0, crusherUpgrade=6.0, university=20.0, beekeeper=9.0, smeltery=15.0, plantationUpgrade=4.0, shepherd=9.0, miner=11.0, cowboyUpgrade=4.0, lumberjackUpgrade=5.0, library=13.0, plantation=12.0, hospitalUpgrade=8.0, builder=8.0, deliverymanUpgrade=5.0, tavernUpgrade=6.0, hospital=20.0, beekeeperUpgrade=3.0, townhall=20.0, netherworkerUpgrade=6.0, cook=12.0, deliveryman=12.0, mechanicUpgrade=4.0, fishermanUpgrade=4.0, graveyardUpgrade=2.0, farmerUpgrade=5.0, blacksmithUpgrade=8.0, home=5.0, chickenherder=9.0, smelteryUpgrade=6.0, warehousedeliverymanUpgrade=5.0, concretemixerUpgrade=4.0, farmer=11.0, dyerUpgrade=3.0, lumberjack=11.0, bakeryUpgrade=4.0, fisherman=10.0, fletcherUpgrade=3.0, sawmillUpgrade=3.0}, General=SimpleCommentedConfig:{TaxIntervalMinutes=60, MaxTaxRevenue=5000, EnableSDMShopConversion=true, ShowColonyInitializationLogs=true, ShowTaxGenerationLogs=true, CurrencyItemName=minecraft:emerald}, PvP Arena Settings=SimpleCommentedConfig:{teamBattleCooldownSeconds=30, allowCommandsInBattle=false, BattleEndCountdownSeconds=10, DisableFriendlyFire=true, challengeCooldownSeconds=5, battleDurationSeconds=300, teamBattleStartCountdownSeconds=20}, War Settings=SimpleCommentedConfig:{WarVictoryPercentage=0.25, WarTaxFreezeHours=0, EnableColonyTransfer=true, WarStalematePercentage=0.1, AttackerGracePeriodMinutes=120, RequiredGuardTowersForBoost=5, MinGuardTowersToBeRaided=1, KeepInventoryOnLastLife=true, WarDurationMinutes=120, GuardTowerTaxBoostPercentage=0.5, WarAcceptanceRequired=true, MinGuardsToRaid=3, EnableRaidGuardProtection=true, RaidTaxPercentages=[0.1, 0.25, 0.5, 0.7], RaidGracePeriodMinutes=120, WarDefeatPercentage=0.15, RaidPenaltyPercentage=0.25, EnableLPGroupSwitching=false, EnableWarActions=true, PlayerLivesInWar=5, MaxRaidDurationMinutes=5, RaidActions=[TOSS_ITEM, PICKUP_ITEM, ATTACK_CITIZEN, GUARDS_ATTACK, FILL_BUCKET, SHOOT_ARROW, RIGHTCLICK_BLOCK, RIGHTCLICK_ENTITY, ATTACK_ENTITY, EXPLODE, HURT_CITIZEN, HURT_VISITOR, THROW_POTION], MinGuardsToBeRaided=2, RaidTaxIntervalSeconds=60, WarActions=[PLACE_BLOCKS, BREAK_BLOCKS, TOSS_ITEM, PICKUP_ITEM, ATTACK_CITIZEN, GUARDS_ATTACK, FILL_BUCKET, SHOOT_ARROW, RIGHTCLICK_BLOCK, RIGHTCLICK_ENTITY, ATTACK_ENTITY, EXPLODE, HURT_CITIZEN, HURT_VISITOR, THROW_POTION], MinGuardsToWageWar=5, AllowOfflineRaids=true, JoinPhaseDurationMinutes=5}, Military Maintenance Costs=SimpleCommentedConfig:{barracksMaintenance=15.0, guardtowerMaintenance=10.0, barrackstowerMaintenance=14.0, guardtowerMaintenanceUpgrade=3.0, archeryMaintenanceUpgrade=6.0, combatacademyMaintenance=14.0, combatacademyMaintenanceUpgrade=6.0, archeryMaintenance=12.0, barracksMaintenanceUpgrade=5.0, barrackstowerMaintenanceUpgrade=6.0}} is not correct. Correcting
+[18Juli2025 08:49:48.493] [Netty Client IO #0/WARN] [net.minecraftforge.common.ForgeConfigSpec/CORE]: Incorrect key War Settings.RaidTaxPercentages was corrected from [0.1, 0.25, 0.5, 0.7] to its default, [0.1, 0.25, 0.5, 0.7]. 
+[18Juli2025 08:49:48.574] [Netty Client IO #0/INFO] [net.minecraftforge.network.NetworkHooks/]: Connected to a modded server.
+[18Juli2025 08:49:48.671] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.client.event.ClientPlayerNetworkEvent$LoggingIn
+[18Juli2025 08:49:48.672] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver transitioning state from DISABLED to ENABLED
+[18Juli2025 08:49:48.682] [Render thread/INFO] [minecolonies/]: Finished discovering Ores 0 0
+[18Juli2025 08:49:48.682] [Render thread/INFO] [minecolonies/]: Finished discovering saplings 0
+[18Juli2025 08:49:48.682] [Render thread/INFO] [minecolonies/]: Finished discovering plantables 0
+[18Juli2025 08:49:48.682] [Render thread/INFO] [minecolonies/]: Finished discovering food 77 91
+[18Juli2025 08:49:48.682] [Render thread/INFO] [minecolonies/]: Finished discovering fuel 249
+[18Juli2025 08:49:48.682] [Render thread/INFO] [minecolonies/]: Finished discovering flowers 0
+[18Juli2025 08:49:48.682] [Render thread/INFO] [minecolonies/]: Finished discovering items 1771
+[18Juli2025 08:49:48.689] [Render thread/INFO] [minecolonies/]: Synchronized 14 saplings
+[18Juli2025 08:49:48.689] [Render thread/INFO] [minecolonies/]: Synchronized 19 ore blocks with 22 smeltable ores
+[18Juli2025 08:49:48.689] [Render thread/INFO] [minecolonies/]: Synchronized 19 plantables
+[18Juli2025 08:49:48.689] [Render thread/INFO] [minecolonies/]: Synchronized 24 flowers
+[18Juli2025 08:49:48.689] [Render thread/INFO] [minecolonies/]: Synchronized 91 food types with 77 edible
+[18Juli2025 08:49:48.689] [Render thread/INFO] [minecolonies/]: Synchronized 249 fuel types
+[18Juli2025 08:49:48.689] [Render thread/INFO] [minecolonies/]: Synchronized 55 monsters
+[18Juli2025 08:49:48.691] [Render thread/INFO] [minecolonies/]: Finished discovering lucky oreBlocks 6
+[18Juli2025 08:49:48.691] [Render thread/INFO] [minecolonies/]: Finished discovering recruitment costs
+[18Juli2025 08:49:48.691] [Render thread/INFO] [minecolonies/]: Finished discovering diseases
+[18Juli2025 08:49:48.701] [Render thread/INFO] [minecolonies/]: Loading quests from data
+[18Juli2025 08:49:48.702] [Render thread/INFO] [minecolonies/]: Finished loading quests from data
+[18Juli2025 08:49:48.759] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.client.event.RecipesUpdatedEvent
+[18Juli2025 08:49:48.964] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.event.TagsUpdatedEvent
+[18Juli2025 08:49:48.964] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver transitioning state from ENABLED to JEI_STARTED
+[18Juli2025 08:49:48.964] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Starting JEI...
+[18Juli2025 08:49:48.964] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering item subtypes...
+[18Juli2025 08:49:48.965] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering item subtypes took 493.5 μs
+[18Juli2025 08:49:48.967] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering fluid subtypes...
+[18Juli2025 08:49:48.968] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering fluid subtypes took 552.6 μs
+[18Juli2025 08:49:48.968] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering ingredients...
+[18Juli2025 08:49:48.975] [Render thread/WARN] [mezz.jei.library.plugins.vanilla.ingredients.ItemStackListFactory/]: Item Group has no display items and no search tab display items. Items from this group will be missing from the JEI ingredient list. Operator Utilities
+[18Juli2025 08:49:48.975] [Render thread/WARN] [mezz.jei.library.plugins.vanilla.ingredients.ItemStackListFactory/]: 14 duplicate items were found in 'Domum Ornamentum (DO)' creative tab's: displayItems
 This may indicate that these types of item need a subtype interpreter added to JEI:
 [panel]
-[01Juni2025 05:57:21.679] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering ingredients took 11.31 ms
-[01Juni2025 05:57:21.679] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering extra ingredients...
-[01Juni2025 05:57:21.679] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering extra ingredients took 495.4 μs
-[01Juni2025 05:57:21.680] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering search ingredient aliases...
-[01Juni2025 05:57:21.680] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering search ingredient aliases took 641.5 μs
-[01Juni2025 05:57:21.680] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering categories...
-[01Juni2025 05:57:21.686] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering categories took 4.762 ms
-[01Juni2025 05:57:21.686] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering vanilla category extensions...
-[01Juni2025 05:57:21.687] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering vanilla category extensions took 628.4 μs
-[01Juni2025 05:57:21.687] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipe catalysts...
-[01Juni2025 05:57:21.687] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipe catalysts took 778.4 μs
-[01Juni2025 05:57:21.687] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building recipe registry...
-[01Juni2025 05:57:21.698] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building recipe registry took 10.83 ms
-[01Juni2025 05:57:21.698] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering advanced plugins...
-[01Juni2025 05:57:21.699] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering advanced plugins took 515.2 μs
-[01Juni2025 05:57:21.699] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes...
-[01Juni2025 05:57:21.766] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: jei:minecraft took 65.90 milliseconds
-[01Juni2025 05:57:21.791] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: minecraft:domum_ornamentum took 25.54 milliseconds
-[01Juni2025 05:57:21.917] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: minecraft:minecolonies took 125.6 milliseconds
-[01Juni2025 05:57:21.957] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: jei:internal took 39.35 milliseconds
-[01Juni2025 05:57:21.957] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes took 257.5 ms
-[01Juni2025 05:57:21.959] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes transfer handlers...
-[01Juni2025 05:57:21.959] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes transfer handlers took 531.4 μs
-[01Juni2025 05:57:21.959] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building runtime...
-[01Juni2025 05:57:21.959] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering gui handlers...
-[01Juni2025 05:57:21.960] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering gui handlers took 476.2 μs
-[01Juni2025 05:57:21.960] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering Runtime...
-[01Juni2025 05:57:21.960] [Render thread/INFO] [mezz.jei.gui.startup.JeiGuiStarter/]: Starting JEI GUI
-[01Juni2025 05:57:21.960] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient list...
-[01Juni2025 05:57:21.970] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient list took 9.055 ms
-[01Juni2025 05:57:21.970] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient filter...
-[01Juni2025 05:57:21.971] [Render thread/INFO] [mezz.jei.gui.ingredients.IngredientFilter/]: Adding 1859 ingredients
-[01Juni2025 05:57:22.086] [Render thread/INFO] [mezz.jei.gui.ingredients.IngredientFilter/]: Added 1859 ingredients
-[01Juni2025 05:57:22.086] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient filter took 116.1 ms
-[01Juni2025 05:57:22.125] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering Runtime: jei:forge_gui took 164.0 milliseconds
-[01Juni2025 05:57:22.125] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering Runtime took 164.7 ms
-[01Juni2025 05:57:22.125] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building runtime took 165.4 ms
-[01Juni2025 05:57:22.125] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime...
-[01Juni2025 05:57:22.126] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime took 638.0 μs
-[01Juni2025 05:57:22.126] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Starting JEI took 460.3 ms
-[01Juni2025 05:57:22.373] [Render thread/INFO] [net.minecraft.advancements.AdvancementList/]: Loaded 110 advancements
-[01Juni2025 05:57:38.090] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] Teleported Player2 to Dev
-[01Juni2025 05:57:41.288] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] Beware, you're entering Dev's Colony.
-[01Juni2025 05:57:46.155] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] ⚔️ Raid initiated on Dev's Colony! ⚔️ Stay in the colony!
-[01Juni2025 05:57:46.156] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] 🚨 RAID ALERT! 🚨 Colony Dev's Colony is being raided by Player2!
-[01Juni2025 05:58:02.805] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] Money sended !
-[01Juni2025 05:58:02.822] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] ⚔ RAID DEFENDER VICTORY! ⚔\nRaider Player2 was killed by Dev!\nRaid ended with 4447 $ transferred to the killer.
-[01Juni2025 05:58:02.823] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] [Server: Showing new title for Player2]
-[01Juni2025 05:58:02.823] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] [Server: Showing new subtitle for Player2]
-[01Juni2025 05:58:02.823] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] [Server: Showing new title for Dev]
-[01Juni2025 05:58:02.823] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] [Server: Showing new subtitle for Dev]
-[01Juni2025 05:58:02.839] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] 🏁 RAID CONCLUDED 🏁\n----------------------------------------\nRaid on your colony has ended.\nReason: Raider killed by Dev. Penalty: 4447 $\n----------------------------------------
-[01Juni2025 05:58:02.839] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] 🏁 RAID CONCLUDED 🏁\n----------------------------------------\nYour raid on Dev's Colony has ended.\nReason: Raider killed by Dev. Penalty: 4447 $\n----------------------------------------
-[01Juni2025 05:58:02.873] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] Player2 was slain by Dev
-[01Juni2025 05:58:03.039] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.client.event.ClientPlayerNetworkEvent$LoggingOut
-[01Juni2025 05:58:03.039] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver transitioning state from JEI_STARTED to DISABLED
-[01Juni2025 05:58:03.039] [Render thread/INFO] [mezz.jei.library.startup.JeiStarter/]: Stopping JEI
-[01Juni2025 05:58:03.039] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime Unavailable...
-[01Juni2025 05:58:03.039] [Render thread/INFO] [mezz.jei.forge.plugins.forge.ForgeGuiPlugin/]: Stopping JEI GUI
-[01Juni2025 05:58:03.040] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime Unavailable took 1.646 ms
-[01Juni2025 05:58:03.055] [Render thread/INFO] [minecolonies/]: Removed all colony views
-[01Juni2025 05:58:03.363] [Render thread/WARN] [structurize/]: Client logged off. Resetting Pack Meta and Reloading State
-[01Juni2025 05:58:03.364] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Warped Netherlands
-[01Juni2025 05:58:03.364] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Stalactite Caves
-[01Juni2025 05:58:03.364] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Space Wars
-[01Juni2025 05:58:03.364] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Shire
-[01Juni2025 05:58:03.364] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Desert Oasis
-[01Juni2025 05:58:03.364] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Pagoda
-[01Juni2025 05:58:03.364] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Minecolonies Original
-[01Juni2025 05:58:03.364] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Nordic Spruce
-[01Juni2025 05:58:03.364] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Spruce
-[01Juni2025 05:58:03.365] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Oak
-[01Juni2025 05:58:03.365] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Dark Oak
-[01Juni2025 05:58:03.365] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Birch
-[01Juni2025 05:58:03.365] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Lost Mesa City
-[01Juni2025 05:58:03.365] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Jungle Treehouse
-[01Juni2025 05:58:03.365] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Incan
-[01Juni2025 05:58:03.365] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Fortress
-[01Juni2025 05:58:03.365] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Dark Oak Treehouse
-[01Juni2025 05:58:03.365] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Colonial
-[01Juni2025 05:58:03.365] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Cavern
-[01Juni2025 05:58:03.365] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Caledonia
-[01Juni2025 05:58:03.365] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Urban Birch
-[01Juni2025 05:58:03.365] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Ancient Athens
-[01Juni2025 05:58:03.365] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Urban Savanna
-[01Juni2025 05:58:03.366] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Dev
-[01Juni2025 05:58:03.366] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Player1
-[01Juni2025 05:58:03.367] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Player2
-[01Juni2025 05:58:03.367] [Structurize IO Worker #1/WARN] [structurize/]: Finished discovering Client Structure packs
-[01Juni2025 05:59:50.683] [Render thread/INFO] [net.minecraft.client.gui.screens.ConnectScreen/]: Connecting to fe80::674:5f75:a892:24a1, 53172
-[01Juni2025 05:59:52.208] [Downloader 1/WARN] [net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl/]: Failed to log in: Invalid session (Try restarting your game and the launcher)
-[01Juni2025 05:59:54.379] [Render thread/INFO] [net.minecraftforge.registries.GameData/REGISTRIES]: Injecting existing registry data into this CLIENT instance
-[01Juni2025 05:59:54.775] [Netty Client IO #1/WARN] [net.minecraftforge.common.ForgeConfigSpec/CORE]: Configuration file SimpleCommentedConfig:{pathfinding=SimpleCommentedConfig:{pathfindingmaxthreadcount=2, pathfindingdebugverbosity=0, minimumrailstopath=8}, requestSystem=SimpleCommentedConfig:{creativeresolve=false}, permissions=SimpleCommentedConfig:{freetointeractblocks=[dirt, 0 0 0], enablecolonyprotection=true, turnoffexplosionsincolonies=DAMAGE_EVERYTHING}, claims=SimpleCommentedConfig:{initialColonySize=4, maxColonySize=20, maxdistancefromworldspawn=30000, minColonyDistance=8, mindistancefromworldspawn=0}, combat=SimpleCommentedConfig:{minimumnumberofnightsbetweenraids=10, guardhealthmult=1.0, barbarianhordedifficulty=5, dobarbariansbreakthroughwalls=true, guardDamageMultiplier=1.0, mobattackcitizens=true, averagenumberofnightsbetweenraids=14, pvp_mode=true, shouldraiderbreakdoors=true, dobarbariansspawn=true, maxBarbarianSize=80}, compatibility=SimpleCommentedConfig:{auditcraftingtags=false, diseases=[Influenza,100,minecraft:carrot,minecraft:potato, Measles,10,minecraft:dandelion,minecraft:kelp,minecraft:poppy, Smallpox,1,minecraft:honey_bottle,minecraft:golden_apple], configliststudyitems=[minecraft:paper;400;100, minecraft:book;600;10], debuginventories=false, luckyores=[minecraft:coal_ore!64, minecraft:copper_ore!48, minecraft:iron_ore!32, minecraft:gold_ore!16, minecraft:redstone_ore!8, minecraft:lapis_ore!4, minecraft:diamond_ore!2, minecraft:emerald_ore!1], configlistrecruitmentitems=[minecraft:hay_block;3, minecraft:book;2, minecraft:enchanted_book;9, minecraft:diamond;9, minecraft:emerald;8, minecraft:baked_potato;1, minecraft:gold_ingot;2, minecraft:redstone;2, minecraft:lapis_lazuli;2, minecraft:cake;11, minecraft:sunflower;5, minecraft:honeycomb;6, minecraft:quartz;3], blueprintbuildmode=false}, research=SimpleCommentedConfig:{researchcreativecompletion=true, researchresetcost=[minecolonies:ancienttome:1], researchdebuglog=false}, commands=SimpleCommentedConfig:{canplayerusecolonytpcommand=false, canplayerusehometpcommand=false, canplayeruseresetcommand=false, canplayeruseallytownhallteleport=true, canplayerusekillcitizenscommand=false, canplayerusertpcommand=false, canplayerusedeletecolonycommand=false, canplayeruseshowcolonyinfocommand=true, canplayeruseaddofficercommand=true}, gameplay=SimpleCommentedConfig:{nosupplyplacementrestrictions=false, foodmodifier=1.0, loadtime=10, maxcitizenpercolony=250, diseasemodifier=5, enableindevelopmentfeatures=false, colonyloadstrictness=3, initialcitizenamount=4, allowinfinitecolonies=false, forceloadcolony=true, luckyblockchance=1, skyraiders=false, alwaysrendernametag=true, holidayfeatures=true, maxtreesize=400, minthleveltoteleport=3, allowinfinitesupplychests=false, allowotherdimcolonies=true, workersalwaysworkinrain=false}} is not correct. Correcting
-[01Juni2025 05:59:54.870] [Netty Client IO #1/INFO] [net.minecraftforge.network.NetworkHooks/]: Connected to a modded server.
-[01Juni2025 05:59:54.936] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.client.event.ClientPlayerNetworkEvent$LoggingIn
-[01Juni2025 05:59:54.936] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver transitioning state from DISABLED to ENABLED
-[01Juni2025 05:59:54.939] [Render thread/INFO] [minecolonies/]: Finished discovering Ores 0 0
-[01Juni2025 05:59:54.939] [Render thread/INFO] [minecolonies/]: Finished discovering saplings 0
-[01Juni2025 05:59:54.939] [Render thread/INFO] [minecolonies/]: Finished discovering plantables 0
-[01Juni2025 05:59:54.939] [Render thread/INFO] [minecolonies/]: Finished discovering food 77 91
-[01Juni2025 05:59:54.939] [Render thread/INFO] [minecolonies/]: Finished discovering fuel 249
-[01Juni2025 05:59:54.940] [Render thread/INFO] [minecolonies/]: Finished discovering flowers 0
-[01Juni2025 05:59:54.940] [Render thread/INFO] [minecolonies/]: Finished discovering items 1771
-[01Juni2025 05:59:54.940] [Render thread/INFO] [minecolonies/]: Synchronized 14 saplings
-[01Juni2025 05:59:54.940] [Render thread/INFO] [minecolonies/]: Synchronized 19 ore blocks with 22 smeltable ores
-[01Juni2025 05:59:54.940] [Render thread/INFO] [minecolonies/]: Synchronized 19 plantables
-[01Juni2025 05:59:54.940] [Render thread/INFO] [minecolonies/]: Synchronized 24 flowers
-[01Juni2025 05:59:54.940] [Render thread/INFO] [minecolonies/]: Synchronized 91 food types with 77 edible
-[01Juni2025 05:59:54.940] [Render thread/INFO] [minecolonies/]: Synchronized 249 fuel types
-[01Juni2025 05:59:54.940] [Render thread/INFO] [minecolonies/]: Synchronized 55 monsters
-[01Juni2025 05:59:54.940] [Render thread/INFO] [minecolonies/]: Finished discovering lucky oreBlocks 6
-[01Juni2025 05:59:54.940] [Render thread/INFO] [minecolonies/]: Finished discovering recruitment costs
-[01Juni2025 05:59:54.940] [Render thread/INFO] [minecolonies/]: Finished discovering diseases
-[01Juni2025 05:59:54.943] [Render thread/INFO] [minecolonies/]: Loading quests from data
-[01Juni2025 05:59:54.945] [Render thread/INFO] [minecolonies/]: Finished loading quests from data
-[01Juni2025 05:59:54.975] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.client.event.RecipesUpdatedEvent
-[01Juni2025 05:59:55.270] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.event.TagsUpdatedEvent
-[01Juni2025 05:59:55.270] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver transitioning state from ENABLED to JEI_STARTED
-[01Juni2025 05:59:55.270] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Starting JEI...
-[01Juni2025 05:59:55.270] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering item subtypes...
-[01Juni2025 05:59:55.272] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering item subtypes took 560.4 μs
-[01Juni2025 05:59:55.272] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering fluid subtypes...
-[01Juni2025 05:59:55.273] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering fluid subtypes took 311.2 μs
-[01Juni2025 05:59:55.273] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering ingredients...
-[01Juni2025 05:59:55.276] [Render thread/WARN] [mezz.jei.library.plugins.vanilla.ingredients.ItemStackListFactory/]: Item Group has no display items and no search tab display items. Items from this group will be missing from the JEI ingredient list. Operator Utilities
-[01Juni2025 05:59:55.277] [Render thread/WARN] [mezz.jei.library.plugins.vanilla.ingredients.ItemStackListFactory/]: 14 duplicate items were found in 'Domum Ornamentum (DO)' creative tab's: displayItems
-This may indicate that these types of item need a subtype interpreter added to JEI:
-[panel]
-[01Juni2025 05:59:55.278] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering ingredients took 6.424 ms
-[01Juni2025 05:59:55.278] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering extra ingredients...
-[01Juni2025 05:59:55.278] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering extra ingredients took 336.6 μs
-[01Juni2025 05:59:55.278] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering search ingredient aliases...
-[01Juni2025 05:59:55.280] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering search ingredient aliases took 284.3 μs
-[01Juni2025 05:59:55.280] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering categories...
-[01Juni2025 05:59:55.283] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering categories took 3.308 ms
-[01Juni2025 05:59:55.283] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering vanilla category extensions...
-[01Juni2025 05:59:55.284] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering vanilla category extensions took 223.9 μs
-[01Juni2025 05:59:55.284] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipe catalysts...
-[01Juni2025 05:59:55.284] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipe catalysts took 222.4 μs
-[01Juni2025 05:59:55.284] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building recipe registry...
-[01Juni2025 05:59:55.285] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building recipe registry took 287.8 μs
-[01Juni2025 05:59:55.285] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering advanced plugins...
-[01Juni2025 05:59:55.285] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering advanced plugins took 262.1 μs
-[01Juni2025 05:59:55.285] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes...
-[01Juni2025 05:59:55.322] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: jei:minecraft took 36.40 milliseconds
-[01Juni2025 05:59:55.337] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: minecraft:domum_ornamentum took 15.76 milliseconds
-[01Juni2025 05:59:55.440] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: minecraft:minecolonies took 101.8 milliseconds
-[01Juni2025 05:59:55.470] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: jei:internal took 30.10 milliseconds
-[01Juni2025 05:59:55.470] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes took 185.1 ms
-[01Juni2025 05:59:55.472] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes transfer handlers...
-[01Juni2025 05:59:55.472] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes transfer handlers took 529.9 μs
-[01Juni2025 05:59:55.473] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building runtime...
-[01Juni2025 05:59:55.473] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering gui handlers...
-[01Juni2025 05:59:55.473] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering gui handlers took 461.2 μs
-[01Juni2025 05:59:55.473] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering Runtime...
-[01Juni2025 05:59:55.473] [Render thread/INFO] [mezz.jei.gui.startup.JeiGuiStarter/]: Starting JEI GUI
-[01Juni2025 05:59:55.473] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient list...
-[01Juni2025 05:59:55.486] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient list took 12.41 ms
-[01Juni2025 05:59:55.486] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient filter...
-[01Juni2025 05:59:55.488] [Render thread/INFO] [mezz.jei.gui.ingredients.IngredientFilter/]: Adding 1859 ingredients
-[01Juni2025 05:59:55.535] [Render thread/INFO] [mezz.jei.gui.ingredients.IngredientFilter/]: Added 1859 ingredients
-[01Juni2025 05:59:55.535] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient filter took 49.32 ms
-[01Juni2025 05:59:55.542] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering Runtime: jei:forge_gui took 68.90 milliseconds
-[01Juni2025 05:59:55.543] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering Runtime took 69.46 ms
-[01Juni2025 05:59:55.543] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building runtime took 70.20 ms
-[01Juni2025 05:59:55.543] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime...
-[01Juni2025 05:59:55.543] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime took 475.7 μs
-[01Juni2025 05:59:55.543] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Starting JEI took 272.1 ms
-[01Juni2025 05:59:55.598] [Render thread/INFO] [net.minecraft.advancements.AdvancementList/]: Loaded 110 advancements
-[01Juni2025 05:59:59.893] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] Teleported Player2 to Dev
-[01Juni2025 06:00:03.343] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] ⚔️ Raid initiated on Dev's Colony! ⚔️ Stay in the colony!
-[01Juni2025 06:00:03.343] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] 🚨 RAID ALERT! 🚨 Colony Dev's Colony is being raided by Player2!
-[01Juni2025 06:00:04.576] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] Beware, you're entering Dev's Colony.
-[01Juni2025 06:00:15.193] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] Money sended !
-[01Juni2025 06:00:15.209] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] ⚔ RAID DEFENDER VICTORY! ⚔\nRaider Player2 was killed by Dev!\nRaid ended with 4447 $ transferred to the killer.
-[01Juni2025 06:00:15.209] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] [Server: Showing new title for Player2]
-[01Juni2025 06:00:15.209] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] [Server: Showing new subtitle for Player2]
-[01Juni2025 06:00:15.210] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] [Server: Showing new title for Dev]
-[01Juni2025 06:00:15.210] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] [Server: Showing new subtitle for Dev]
-[01Juni2025 06:00:15.227] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] 🏁 RAID CONCLUDED 🏁\n----------------------------------------\nRaid on your colony has ended.\nReason: Raider killed by Dev. Penalty: 4447 $\n----------------------------------------
-[01Juni2025 06:00:15.227] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] 🏁 RAID CONCLUDED 🏁\n----------------------------------------\nYour raid on Dev's Colony has ended.\nReason: Raider killed by Dev. Penalty: 4447 $\n----------------------------------------
-[01Juni2025 06:00:15.260] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] Player2 was slain by Dev
-[01Juni2025 06:00:30.927] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] [Dev: Teleported Dev to Player2]
-[01Juni2025 06:00:49.578] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] [TEST] Beware, Dev just entered the colony.
-[01Juni2025 06:00:50.595] [Render thread/WARN] [net.minecraft.client.multiplayer.ClientPacketListener/]: Unknown custom packet identifier: recruits:default
-[01Juni2025 06:00:50.595] [Render thread/INFO] [recruits/]: Player2 is opening command container for aed5efd4-551b-3965-bc28-ae21aa072a66
-[01Juni2025 06:00:50.596] [Render thread/INFO] [recruits/]: Player is LocalPlayer['Player2'/617, l='ClientLevel', x=6.50, y=70.00, z=144.50]
-[01Juni2025 06:00:52.845] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] Teleported Player2 to Dev
-[01Juni2025 06:01:15.195] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] 🚨 RAID ALERT! 🚨 Colony TEST is being raided by Dev!
-[01Juni2025 06:01:16.195] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] Warning: Hostile player Dev has entered the colony!
-[01Juni2025 06:01:21.930] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] ⚔ RAID DEFENDER VICTORY! ⚔\nRaider Dev was killed by Player2!\nRaid ended with 4201 $ transferred to the killer.
-[01Juni2025 06:01:21.930] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] [Server: Showing new title for Player2]
-[01Juni2025 06:01:21.930] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] [Server: Showing new subtitle for Player2]
-[01Juni2025 06:01:21.930] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] [Server: Showing new title for Dev]
-[01Juni2025 06:01:21.930] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] [Server: Showing new subtitle for Dev]
-[01Juni2025 06:01:21.946] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] 🏁 RAID CONCLUDED 🏁\n----------------------------------------\nRaid on your colony has ended.\nReason: Raider killed by Player2. Penalty: 4201 $\n----------------------------------------
-[01Juni2025 06:01:21.963] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] Dev was slain by Player2
-[01Juni2025 06:01:40.035] [Render thread/INFO] [net.minecraft.client.Minecraft/]: Stopping!
-[01Juni2025 06:01:40.036] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.client.event.ClientPlayerNetworkEvent$LoggingOut
-[01Juni2025 06:01:40.036] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver transitioning state from JEI_STARTED to DISABLED
-[01Juni2025 06:01:40.036] [Render thread/INFO] [mezz.jei.library.startup.JeiStarter/]: Stopping JEI
-[01Juni2025 06:01:40.036] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime Unavailable...
-[01Juni2025 06:01:40.036] [Render thread/INFO] [mezz.jei.forge.plugins.forge.ForgeGuiPlugin/]: Stopping JEI GUI
-[01Juni2025 06:01:40.037] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime Unavailable took 1.038 ms
-[01Juni2025 06:01:40.046] [Render thread/INFO] [minecolonies/]: Removed all colony views
+[18Juli2025 08:49:48.978] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering ingredients took 10.72 ms
+[18Juli2025 08:49:48.978] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering extra ingredients...
+[18Juli2025 08:49:48.979] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering extra ingredients took 492.0 μs
+[18Juli2025 08:49:48.979] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering search ingredient aliases...
+[18Juli2025 08:49:48.979] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering search ingredient aliases took 485.6 μs
+[18Juli2025 08:49:48.980] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering categories...
+[18Juli2025 08:49:48.984] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering categories took 4.432 ms
+[18Juli2025 08:49:48.984] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering vanilla category extensions...
+[18Juli2025 08:49:48.985] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering vanilla category extensions took 522.1 μs
+[18Juli2025 08:49:48.985] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipe catalysts...
+[18Juli2025 08:49:48.986] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipe catalysts took 581.1 μs
+[18Juli2025 08:49:48.986] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building recipe registry...
+[18Juli2025 08:49:48.996] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building recipe registry took 10.58 ms
+[18Juli2025 08:49:48.996] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering advanced plugins...
+[18Juli2025 08:49:48.997] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering advanced plugins took 474.5 μs
+[18Juli2025 08:49:48.997] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes...
+[18Juli2025 08:49:49.043] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: jei:minecraft took 45.08 milliseconds
+[18Juli2025 08:49:49.062] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: minecraft:domum_ornamentum took 18.36 milliseconds
+[18Juli2025 08:49:49.173] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: minecraft:minecolonies took 111.8 milliseconds
+[18Juli2025 08:49:49.202] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering recipes: jei:internal took 28.27 milliseconds
+[18Juli2025 08:49:49.202] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes took 204.5 ms
+[18Juli2025 08:49:49.204] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes transfer handlers...
+[18Juli2025 08:49:49.204] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering recipes transfer handlers took 442.3 μs
+[18Juli2025 08:49:49.204] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building runtime...
+[18Juli2025 08:49:49.204] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering gui handlers...
+[18Juli2025 08:49:49.204] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering gui handlers took 460.1 μs
+[18Juli2025 08:49:49.204] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering Runtime...
+[18Juli2025 08:49:49.206] [Render thread/INFO] [mezz.jei.gui.startup.JeiGuiStarter/]: Starting JEI GUI
+[18Juli2025 08:49:49.206] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient list...
+[18Juli2025 08:49:49.215] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient list took 9.509 ms
+[18Juli2025 08:49:49.215] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient filter...
+[18Juli2025 08:49:49.217] [Render thread/INFO] [mezz.jei.gui.ingredients.IngredientFilter/]: Adding 1859 ingredients
+[18Juli2025 08:49:49.338] [Render thread/INFO] [mezz.jei.gui.ingredients.IngredientFilter/]: Added 1859 ingredients
+[18Juli2025 08:49:49.338] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building ingredient filter took 122.6 ms
+[18Juli2025 08:49:49.348] [Render thread/INFO] [mezz.jei.library.load.PluginCallerTimerRunnable/]: Registering Runtime: jei:forge_gui took 142.6 milliseconds
+[18Juli2025 08:49:49.349] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Registering Runtime took 143.2 ms
+[18Juli2025 08:49:49.349] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Building runtime took 143.9 ms
+[18Juli2025 08:49:49.349] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime...
+[18Juli2025 08:49:49.349] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime took 462.5 μs
+[18Juli2025 08:49:49.349] [Render thread/INFO] [mezz.jei.core.util.LoggedTimer/]: Starting JEI took 384.8 ms
+[18Juli2025 08:49:49.580] [Render thread/INFO] [net.minecraft.advancements.AdvancementList/]: Loaded 112 advancements
+[18Juli2025 08:49:56.512] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] 📜 WAR DECLARED! 📜----------------------------------------\nThe valiant forces of Dev's Colony has declared WAR upon TEST!\n----------------------------------------
+[18Juli2025 08:49:56.518] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] ⚔️ WAR DECLARATION ⚔️\nDev seeks to wage war against your colony!\n\nDo you accept this challenge?\n[Accept] [Decline]
+[18Juli2025 08:50:03.407] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] ✅ WAR ACCEPTED! ✅\n----------------------------------------\nThe colony of TEST (led by Player2) has accepted the challenge! War against Dev's Colony will now proceed to the join phase!\n----------------------------------------
+[18Juli2025 08:50:03.407] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] War declared for colony TEST! Join phase has begun. Time left: 5 minutes
+[18Juli2025 08:50:03.409] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] [Join War] [Leave War]
+[18Juli2025 08:50:03.409] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] TEST is Under Siege! Joining Phase initiated. Time left: 04:59
+[18Juli2025 08:54:57.421] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] ⏱ 6 seconds until war starts!
+[18Juli2025 08:54:58.420] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] ⏱ 5 seconds until war starts!
+[18Juli2025 08:54:59.421] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] ⏱ 4 seconds until war starts!
+[18Juli2025 08:55:00.420] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] ⏱ 3 seconds until war starts!
+[18Juli2025 08:55:01.421] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] ⏱ 2 seconds until war starts!
+[18Juli2025 08:55:02.421] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] ⏱ 1 second until war starts!
+[18Juli2025 08:55:03.421] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] 🔥 THE WAR BEGINS! 🔥----------------------------------------\nForces of Dev's Colony and TEST are now locked in combat! May the most cunning prevail!\n----------------------------------------
+[18Juli2025 08:55:29.339] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] Dev was slain by Player2
+[18Juli2025 08:56:19.925] [Render thread/INFO] [net.minecraft.client.gui.components.ChatComponent/]: [System] [CHAT] Dev left the game
+[18Juli2025 08:56:20.725] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver received class net.minecraftforge.client.event.ClientPlayerNetworkEvent$LoggingOut
+[18Juli2025 08:56:20.725] [Render thread/INFO] [mezz.jei.forge.startup.StartEventObserver/]: JEI StartEventObserver transitioning state from JEI_STARTED to DISABLED
+[18Juli2025 08:56:20.725] [Render thread/INFO] [mezz.jei.library.startup.JeiStarter/]: Stopping JEI
+[18Juli2025 08:56:20.725] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime Unavailable...
+[18Juli2025 08:56:20.725] [Render thread/INFO] [mezz.jei.forge.plugins.forge.ForgeGuiPlugin/]: Stopping JEI GUI
+[18Juli2025 08:56:20.726] [Render thread/INFO] [mezz.jei.library.load.PluginCaller/]: Sending Runtime Unavailable took 1.375 ms
+[18Juli2025 08:56:20.741] [Render thread/INFO] [minecolonies/]: Removed all colony views
+[18Juli2025 08:56:21.012] [Render thread/WARN] [structurize/]: Client logged off. Resetting Pack Meta and Reloading State
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Warped Netherlands
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Stalactite Caves
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Space Wars
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Shire
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Desert Oasis
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Pagoda
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Minecolonies Original
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Nordic Spruce
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Spruce
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Oak
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Dark Oak
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Medieval Birch
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Lost Mesa City
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Jungle Treehouse
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Incan
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Fortress
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Dark Oak Treehouse
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Colonial
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Cavern
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Caledonia
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Urban Birch
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Ancient Athens
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Urban Savanna
+[18Juli2025 08:56:21.014] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Dev
+[18Juli2025 08:56:21.015] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Player1
+[18Juli2025 08:56:21.015] [Structurize IO Worker #1/INFO] [structurize/]: Registered structure pack: Player2
+[18Juli2025 08:56:21.015] [Structurize IO Worker #1/WARN] [structurize/]: Finished discovering Client Structure packs
+[18Juli2025 08:56:21.987] [Render thread/INFO] [net.minecraft.client.Minecraft/]: Stopping!

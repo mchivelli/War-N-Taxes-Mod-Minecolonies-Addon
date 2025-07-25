@@ -104,7 +104,7 @@ public class PlayerWarDataManager {
      */
     private static void markDirty(ServerPlayer player) {
         try {
-            MineColonyTax.LOGGER.info("Marking player data dirty for " + player.getName().getString());
+            MineColonyTax.LOGGER.debug("Marking player data dirty for " + player.getName().getString());
             
             // Get the latest data from the capability
             PlayerWarDataCapability.get(player).ifPresent(data -> {
@@ -120,17 +120,21 @@ public class PlayerWarDataManager {
                     CompoundTag forgeData = persistentData.getCompound("ForgeData");
                     forgeData.put(MineColonyTax.MOD_ID + "_war_data", nbt);
                     
-                    MineColonyTax.LOGGER.info("Updated persistent data for player " + 
-                        player.getName().getString() + ": " + nbt);
+                    // Validate the save was successful
+                    CompoundTag verifyData = forgeData.getCompound(MineColonyTax.MOD_ID + "_war_data");
+                    if (verifyData.isEmpty()) {
+                        MineColonyTax.LOGGER.error("Failed to save war data to persistent storage for player " + player.getName().getString());
+                    } else {
+                        MineColonyTax.LOGGER.debug("Updated persistent data for player " + 
+                            player.getName().getString() + ": " + nbt);
+                    }
                     
                     // Set a flag to indicate data has changed
                     player.getPersistentData().putBoolean("minecolonytax:data_changed", true);
                     
-                    // Force save if server is available
-                    net.minecraft.server.MinecraftServer server = player.getServer();
-                    if (server != null) {
-                        server.getPlayerList().saveAll();
-                    }
+                    // Mark that data needs to be saved - the save will be handled automatically by Minecraft
+                    player.getPersistentData().putBoolean("minecolonytax:data_changed", true);
+                    MineColonyTax.LOGGER.debug("Marked player data as dirty for " + player.getName().getString());
                 } catch (Exception e) {
                     MineColonyTax.LOGGER.error("Error updating persistent data: " + e.getMessage());
                     e.printStackTrace();

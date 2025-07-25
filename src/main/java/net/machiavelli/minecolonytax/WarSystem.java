@@ -20,6 +20,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.*;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.BossEvent;
@@ -46,6 +47,20 @@ public class WarSystem {
     private static final Logger WARSYSTEM_LOGGER = LogManager.getLogger(WarSystem.class);
     private static final Map<Integer, WarRequest> pendingWarRequests = new ConcurrentHashMap<>();
     public record WarRequest(UUID attacker, int colonyId) { }
+
+    private static boolean isOfficerOrFriendly(IColony colony, UUID playerUUID) {
+        if (colony == null || playerUUID == null) {
+            return false;
+        }
+        
+        Rank rank = colony.getPermissions().getRank(playerUUID);
+        if (rank == null) {
+            return false;
+        }
+
+        // isColonyManager checks for officers, and !rank.isHostile() includes any friendly non-enemy rank.
+        return rank.isColonyManager() || !rank.isHostile();
+    }
 
     private static boolean isFTBTeamsLoaded() {
         try {
@@ -90,41 +105,118 @@ public class WarSystem {
         
         int playerLives = TaxConfig.PLAYER_LIVES_IN_WAR.get(); // Use config
 
+        // Always start with the primary participants
+        data.getAttackerLives().put(attacker.getUUID(), playerLives);
+        data.getDefenderLives().put(colony.getPermissions().getOwner(), playerLives);
+        
+        // Assign hostile rank to the main attacker on defender's colony
+        assignWarParticipantRanks(attacker.getUUID(), colony, attackerColony, true);
+        
+        // Add attacker colony members (Officers and Friends) using Minecolonies API
+        if (attackerColony != null) {
+            IPermissions attackerPerms = attackerColony.getPermissions();
+            System.out.println("[DEBUG] Adding attacker colony members from " + attackerColony.getName());
+            
+            attackerPerms.getPlayers().forEach((uuid, player) -> {
+                if (!uuid.equals(attacker.getUUID())) { // Don't add attacker twice
+                    Rank rank = attackerPerms.getRank(uuid);
+                    if (rank != null && (rank.equals(attackerPerms.getRankOfficer()) || rank.equals(attackerPerms.getRankFriend()))) {
+                        data.getAttackerLives().put(uuid, playerLives);
+                        System.out.println("[DEBUG] Added attacker colony member " + uuid + " with rank " + rank.getName());
+                        
+                        // Assign hostile rank to this attacker on defender's colony
+                        assignWarParticipantRanks(uuid, colony, attackerColony, true);
+                        
+                        // Send join prompt to eligible players
+                        if (colony.getWorld() != null) {
+                            MinecraftServer server = colony.getWorld().getServer();
+                            if (server != null) {
+                                ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+                                if (p != null && p.isAlive()) {
+                                    p.sendSystemMessage(Component.literal("War has been declared! You are eligible to join as an attacker.").withStyle(ChatFormatting.YELLOW));
+                                    p.sendSystemMessage(JOIN_MSG);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Add defender colony members (Officers and Friends) using Minecolonies API
+        IPermissions defenderPerms = colony.getPermissions();
+        System.out.println("[DEBUG] Adding defender colony members from " + colony.getName());
+        
+        defenderPerms.getPlayers().forEach((uuid, player) -> {
+            if (!uuid.equals(colony.getPermissions().getOwner())) { // Don't add owner twice
+                Rank rank = defenderPerms.getRank(uuid);
+                if (rank != null && (rank.equals(defenderPerms.getRankOfficer()) || rank.equals(defenderPerms.getRankFriend()))) {
+                    data.getDefenderLives().put(uuid, playerLives);
+                    System.out.println("[DEBUG] Added defender colony member " + uuid + " with rank " + rank.getName());
+                    
+                    // Assign hostile rank to this defender on attacker's colony (if it exists)
+                    assignWarParticipantRanks(uuid, colony, attackerColony, false);
+                    
+                    // Send join prompt to eligible players
+                    if (colony.getWorld() != null) {
+                        MinecraftServer server = colony.getWorld().getServer();
+                        if (server != null) {
+                            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+                            if (p != null && p.isAlive()) {
+                                p.sendSystemMessage(Component.literal("Your colony is under attack! You are eligible to join as a defender.").withStyle(ChatFormatting.RED));
+                                p.sendSystemMessage(JOIN_MSG);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Optional: Add FTB Team members if FTB Teams is installed
         if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
+            System.out.println("[DEBUG] FTB Teams detected, adding team members as additional participants");
+            
             if (attackerTeam != null) {
                 attackerTeam.getMembers().forEach(uuid -> {
-                    if (colony.getWorld() != null && colony.getWorld().getServer() != null) {
-                        ServerPlayer p = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
-                        if (p != null && p.isAlive() && attackerColony != null) { // Added null check for attackerColony
-                            if (attackerColony.getPermissions().getRank(uuid) != null &&
-                                    attackerColony.getPermissions().getRank(uuid).isColonyManager()) {
-                                data.getAttackerLives().put(uuid, playerLives);
+                    if (!data.getAttackerLives().containsKey(uuid)) { // Don't add if already added via colony
+                        data.getAttackerLives().put(uuid, playerLives);
+                        System.out.println("[DEBUG] Added FTB team member to attackers: " + uuid);
+                        
+                        // Assign hostile rank to this attacker on defender's colony
+                        assignWarParticipantRanks(uuid, colony, attackerColony, true);
+                        
+                        // Send join prompt
+                        if (colony.getWorld() != null && colony.getWorld().getServer() != null) {
+                            ServerPlayer p = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
+                            if (p != null && p.isAlive()) {
+                                p.sendSystemMessage(Component.literal("Your team is at war! You are eligible to join as an attacker.").withStyle(ChatFormatting.YELLOW));
+                                p.sendSystemMessage(JOIN_MSG);
                             }
                         }
                     }
                 });
-            } else {
-                data.getAttackerLives().put(attacker.getUUID(), playerLives);
             }
-
+            
             if (defenderTeam != null) {
                 defenderTeam.getMembers().forEach(uuid -> {
-                    if (colony.getWorld() != null && colony.getWorld().getServer() != null) {
-                        ServerPlayer p = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
-                        if (p != null && p.isAlive()) {
-                            if (colony.getPermissions().getRank(uuid) != null &&
-                                    colony.getPermissions().getRank(uuid).isColonyManager()) {
-                                data.getDefenderLives().put(uuid, playerLives);
+                    if (!data.getDefenderLives().containsKey(uuid)) { // Don't add if already added via colony
+                        data.getDefenderLives().put(uuid, playerLives);
+                        System.out.println("[DEBUG] Added FTB team member to defenders: " + uuid);
+                        
+                        // Assign hostile rank to this defender on attacker's colony (if it exists)
+                        assignWarParticipantRanks(uuid, colony, attackerColony, false);
+                        
+                        // Send join prompt
+                        if (colony.getWorld() != null && colony.getWorld().getServer() != null) {
+                            ServerPlayer p = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
+                            if (p != null && p.isAlive()) {
+                                p.sendSystemMessage(Component.literal("Your team's colony is under attack! You are eligible to join as a defender.").withStyle(ChatFormatting.RED));
+                                p.sendSystemMessage(JOIN_MSG);
                             }
                         }
                     }
                 });
-            } else {
-                data.getDefenderLives().put(colony.getPermissions().getOwner(), playerLives);
             }
-        } else {
-            data.getAttackerLives().put(attacker.getUUID(), playerLives);
-            data.getDefenderLives().put(colony.getPermissions().getOwner(), playerLives);
         }
 
         data.initialAttackerTotalLives = data.getAttackerLives().values().stream().mapToInt(Integer::intValue).sum();
@@ -138,6 +230,37 @@ public class WarSystem {
         Rank hostile = perms.getRankHostile();
         for (Action a : TaxConfig.getWarActions()) {
             perms.setPermission(hostile, a, allowed);
+        }
+    }
+    
+    /**
+     * Assigns appropriate ranks to war participants so they can interact with opposing colonies during war.
+     * Attackers get hostile rank on defender colony, defenders get hostile rank on attacker colony.
+     * 
+     * @param playerUUID The UUID of the war participant
+     * @param defenderColony The defending colony
+     * @param attackerColony The attacking colony (can be null)
+     * @param isAttacker True if the player is on attacking side, false if defending
+     */
+    private static void assignWarParticipantRanks(UUID playerUUID, IColony defenderColony, IColony attackerColony, boolean isAttacker) {
+        if (!TaxConfig.ENABLE_WAR_ACTIONS.get()) return;
+        
+        try {
+            if (isAttacker) {
+                // Attackers get hostile rank on defender colony
+                IPermissions defenderPerms = defenderColony.getPermissions();
+                defenderPerms.setPlayerRank(playerUUID, defenderPerms.getRankHostile(), defenderColony.getWorld());
+                System.out.println("[DEBUG] Assigned hostile rank to attacker " + playerUUID + " on defender colony " + defenderColony.getName());
+            } else {
+                // Defenders get hostile rank on attacker colony (if it exists)
+                if (attackerColony != null) {
+                    IPermissions attackerPerms = attackerColony.getPermissions();
+                    attackerPerms.setPlayerRank(playerUUID, attackerPerms.getRankHostile(), attackerColony.getWorld());
+                    System.out.println("[DEBUG] Assigned hostile rank to defender " + playerUUID + " on attacker colony " + attackerColony.getName());
+                }
+            }
+        } catch (Exception e) {
+            WARSYSTEM_LOGGER.error("Failed to assign war participant ranks for player " + playerUUID, e);
         }
     }
 
@@ -242,7 +365,11 @@ public class WarSystem {
         war.warStartTime = System.currentTimeMillis();
         war.setStatus(WarData.WarStatus.INWAR);
         updateBossBar(war);
+        // Apply glow to both defender and attacker guards for clear visibility
         applyGuardGlow(war.getColony());
+        if (war.getAttackerColony() != null) {
+            applyGuardGlow(war.getAttackerColony());
+        }
         applyWarGlowToParticipants(war);
         if (war.getColony().getWorld() != null && war.getColony().getWorld().getServer() != null) {
             String attackerColonyName = war.getAttackerColony() != null ? war.getAttackerColony().getName() : "Attacking Forces";
@@ -282,13 +409,33 @@ public class WarSystem {
         boolean allDefendersDead = war.getDefenderLives().values().stream().allMatch(lives -> lives <= 0);
         boolean allDefenderGuardsDead = war.getRemainingDefenderGuards() <= 0;
         boolean allAttackerGuardsDead = war.getRemainingAttackerGuards() <= 0;
-        boolean attackersWin = allDefendersDead && allDefenderGuardsDead;
-        boolean defendersWin = allAttackersDead && allAttackerGuardsDead;
-
-        if ((!attackersWin && !defendersWin) || (war.getAttackerLives().isEmpty() && war.getDefenderLives().isEmpty())) {
+        
+        // Check if we have any participants at all
+        boolean hasAttackers = !war.getAttackerLives().isEmpty();
+        boolean hasDefenders = !war.getDefenderLives().isEmpty();
+        
+        // If no participants, don't end the war
+        if (!hasAttackers && !hasDefenders) {
             return;
         }
+        
+        // Victory conditions: 
+        // - Attackers win if all defenders are dead (0 lives) OR if all defender guards are dead
+        // - Defenders win if all attackers are dead (0 lives) OR if all attacker guards are dead
+        // - Priority: Player deaths take precedence over guard deaths for ending wars
+        boolean attackersWin = (hasDefenders && allDefendersDead) || (!hasDefenders && allDefenderGuardsDead);
+        boolean defendersWin = (hasAttackers && allAttackersDead) || (!hasAttackers && allAttackerGuardsDead);
+
+        // Only proceed if there's a clear victory condition
+        if (!attackersWin && !defendersWin) {
+            return;
+        }
+        
         if (war.getColony().getWorld() == null || war.getColony().getWorld().getServer() == null) return;
+        
+        System.out.println("[DEBUG] War victory detected - Attackers win: " + attackersWin + ", Defenders win: " + defendersWin);
+        System.out.println("[DEBUG] All attackers dead: " + allAttackersDead + ", All defenders dead: " + allDefendersDead);
+        System.out.println("[DEBUG] Attacker guards: " + war.getRemainingAttackerGuards() + ", Defender guards: " + war.getRemainingDefenderGuards());
 
         if (defendersWin) {
             String defenderColonyName = war.getColony().getName();
@@ -692,17 +839,11 @@ public class WarSystem {
                         .orElse(winnerUuid.toString());
             }
 
-            HistoryManager.Record rec = new HistoryManager.Record();
-            rec.type = HistoryManager.Record.Type.WAR;
-            rec.colonyId = colony.getID();
-            rec.colonyName = colony.getName();
-            rec.actorUuid = winnerUuid.toString();
-            rec.actorName = winnerName;
-            rec.timestamp = System.currentTimeMillis();
+            String outcome;
+            long amountTransferred = 0L;
 
             if (warData.getPenaltyReport().isEmpty()) {
-                rec.outcome = "Stalemate";
-                rec.amountTransferred = 0L;
+                outcome = "Stalemate";
                 if (colony.getWorld() != null && colony.getWorld().getServer() != null) {
                     for (UUID uuid : warData.getAttackerLives().keySet()) {
                         ServerPlayer player = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
@@ -729,21 +870,26 @@ public class WarSystem {
 
                     long transferAmount = Math.max(1000, colonyBalance * 3 / 4);
                     if(loserColonyActual != null) TaxManager.deductColonyTax(loserColonyActual, TaxConfig.getWarDefeatPercentage());
-                    rec.amountTransferred = transferAmount;
-                    rec.outcome = "Victory! Colony funds transferred: " + transferAmount;
+                    amountTransferred = transferAmount;
+                    outcome = "Victory! Colony funds transferred: " + transferAmount;
                     WARSYSTEM_LOGGER.info("[MineColonyTax] War victory funds transfer: {} from colony {}", transferAmount, loserColonyActual != null ? loserColonyActual.getName() : "Unknown");
                 } else {
-                    rec.outcome = "Complete Victory! Colony ownership transferred.";
-                    rec.amountTransferred = 0L;
+                    outcome = "Complete Victory! Colony ownership transferred.";
                     WARSYSTEM_LOGGER.info("[MineColonyTax] War victory colony transfer for colony {}", colony.getName());
                 }
             } else {
-                rec.outcome = warData.getPenaltyReport();
-                if (warData.getPenaltyReport().contains("balances")) {
-                    rec.amountTransferred = 0L;
-                }
+                outcome = warData.getPenaltyReport();
             }
-            HistoryManager.addRecord(rec);
+
+            String attackerName = warData.getAttackerColony() != null ? warData.getAttackerColony().getName() : "Unknown Attacker";
+            String eventString = String.format("[WAR] Colony '%s' was attacked by '%s'. Outcome: %s. Amount Transferred: %d",
+                colony.getName(),
+                attackerName,
+                outcome,
+                amountTransferred);
+
+            HistoryManager.getColonyHistory(colony.getID()).addEvent(eventString);
+            HistoryManager.saveHistory();
             WARSYSTEM_LOGGER.info("War ended for colony {}", colony.getName());
         }
     }
@@ -1030,48 +1176,173 @@ public class WarSystem {
     }
 
     public static Map<UUID, Integer> getLivesForPlayer(WarData war, ServerPlayer player) {
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
-            Optional<Team> teamOpt = FTB_TEAM_MANAGER.getPlayerTeamForPlayerID(player.getUUID());
-            if (teamOpt.isEmpty()) return Collections.emptyMap();
-            Team team = teamOpt.get();
-            if (team.getId().equals(war.getAttackerTeamID())) {
-                return war.getAttackerLives();
-            } else if (team.getId().equals(war.getDefenderTeamID())) {
-                return war.getDefenderLives();
-            }
-            return Collections.emptyMap();
-        } else {
-            if (war.getAttackerLives().containsKey(player.getUUID())) {
-                return war.getAttackerLives();
-            } else if (war.getDefenderLives().containsKey(player.getUUID())) {
-                return war.getDefenderLives();
-            }
-            return Collections.emptyMap();
+        System.out.println("[DEBUG] getLivesForPlayer called for player " + player.getName().getString() + " (" + player.getUUID() + ")");
+        System.out.println("[DEBUG] FTB_TEAMS_INSTALLED: " + FTB_TEAMS_INSTALLED);
+        System.out.println("[DEBUG] Attacker lives: " + war.getAttackerLives());
+        System.out.println("[DEBUG] Defender lives: " + war.getDefenderLives());
+        
+        // First check if player is directly in the lives maps
+        UUID playerUUID = player.getUUID();
+        System.out.println("[DEBUG] Checking if attacker lives contains player UUID: " + war.getAttackerLives().containsKey(playerUUID));
+        System.out.println("[DEBUG] Checking if defender lives contains player UUID: " + war.getDefenderLives().containsKey(playerUUID));
+        
+        if (war.getAttackerLives().containsKey(playerUUID)) {
+            System.out.println("[DEBUG] Player found in attacker lives, returning attacker lives");
+            return war.getAttackerLives();
+        } else if (war.getDefenderLives().containsKey(playerUUID)) {
+            System.out.println("[DEBUG] Player found in defender lives, returning defender lives");
+            return war.getDefenderLives();
         }
+        
+        // Check if player is in attacker or defender allies
+        if (war.getAttackerAllies().contains(playerUUID)) {
+            System.out.println("[DEBUG] Player found in attacker allies, returning attacker lives");
+            return war.getAttackerLives();
+        } else if (war.getDefenderAllies().contains(playerUUID)) {
+            System.out.println("[DEBUG] Player found in defender allies, returning defender lives");
+            return war.getDefenderLives();
+        }
+        
+        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
+            Optional<Team> teamOpt = FTB_TEAM_MANAGER.getPlayerTeamForPlayerID(playerUUID);
+            System.out.println("[DEBUG] Player team found: " + teamOpt.isPresent());
+            if (teamOpt.isPresent()) {
+                Team team = teamOpt.get();
+                System.out.println("[DEBUG] Player team ID: " + team.getId());
+                System.out.println("[DEBUG] War attacker team ID: " + war.getAttackerTeamID());
+                System.out.println("[DEBUG] War defender team ID: " + war.getDefenderTeamID());
+                
+                if (team.getId().equals(war.getAttackerTeamID())) {
+                    System.out.println("[DEBUG] Player is on attacker team, returning attacker lives");
+                    return war.getAttackerLives();
+                } else if (team.getId().equals(war.getDefenderTeamID())) {
+                    System.out.println("[DEBUG] Player is on defender team, returning defender lives");
+                    return war.getDefenderLives();
+                }
+                
+                // Check if player is allied to any participating team
+                Team atkTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
+                if (atkTeam != null && atkTeam.isPartyTeam() && ((PartyTeam) atkTeam).getMembers().contains(playerUUID)) {
+                    System.out.println("[DEBUG] Player is allied to attacker team, returning attacker lives");
+                    return war.getAttackerLives();
+                }
+                
+                Team defTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
+                if (defTeam != null && defTeam.isPartyTeam() && ((PartyTeam) defTeam).getMembers().contains(playerUUID)) {
+                    System.out.println("[DEBUG] Player is allied to defender team, returning defender lives");
+                    return war.getDefenderLives();
+                }
+                
+                System.out.println("[DEBUG] Player team not participating in war, checking Minecolonies membership");
+            } else {
+                System.out.println("[DEBUG] Player has no FTB team, checking Minecolonies membership");
+            }
+        }
+        
+        // Check Minecolonies colony membership and ranks
+        IColony attackerColony = war.getAttackerColony();
+        IColony defenderColony = war.getColony();
+        
+        System.out.println("[DEBUG] Checking Minecolonies membership - Attacker colony: " + (attackerColony != null ? attackerColony.getName() : "null"));
+        System.out.println("[DEBUG] Checking Minecolonies membership - Defender colony: " + (defenderColony != null ? defenderColony.getName() : "null"));
+        
+        // Check if player is in attacker colony (owner, officer, or friend)
+        if (attackerColony != null) {
+            IPermissions attackerPerms = attackerColony.getPermissions();
+            System.out.println("[DEBUG] Player in attacker colony players list: " + attackerPerms.getPlayers().containsKey(playerUUID));
+            if (attackerPerms.getPlayers().containsKey(playerUUID)) {
+                Rank playerRank = attackerPerms.getRank(playerUUID);
+                System.out.println("[DEBUG] Player rank in attacker colony: " + (playerRank != null ? playerRank.getName() : "null"));
+                if (playerRank != null && (playerRank.equals(attackerPerms.getRankOwner()) || 
+                                          playerRank.equals(attackerPerms.getRankOfficer()) ||
+                                          playerRank.equals(attackerPerms.getRankFriend()))) {
+                    System.out.println("[DEBUG] Player is in attacker colony with rank " + playerRank.getName() + ", returning attacker lives");
+                    return war.getAttackerLives();
+                }
+            }
+        }
+        
+        // Check if player is in defender colony (owner, officer, or friend)
+        if (defenderColony != null) {
+            IPermissions defenderPerms = defenderColony.getPermissions();
+            System.out.println("[DEBUG] Player in defender colony players list: " + defenderPerms.getPlayers().containsKey(playerUUID));
+            if (defenderPerms.getPlayers().containsKey(playerUUID)) {
+                Rank playerRank = defenderPerms.getRank(playerUUID);
+                System.out.println("[DEBUG] Player rank in defender colony: " + (playerRank != null ? playerRank.getName() : "null"));
+                if (playerRank != null && (playerRank.equals(defenderPerms.getRankOwner()) || 
+                                          playerRank.equals(defenderPerms.getRankOfficer()) ||
+                                          playerRank.equals(defenderPerms.getRankFriend()))) {
+                    System.out.println("[DEBUG] Player is in defender colony with rank " + playerRank.getName() + ", returning defender lives");
+                    return war.getDefenderLives();
+                }
+            }
+        }
+        
+        System.out.println("[DEBUG] Player not participating in war, returning empty map");
+        return new HashMap<>(); // Return mutable map instead of Collections.emptyMap()
     }
 
     public static WarData getActiveWarForPlayer(ServerPlayer player) {
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
-            UUID teamId;
-            Optional<Team> teamOpt = FTB_TEAM_MANAGER.getTeamForPlayerID(player.getUUID());
-            teamId = teamOpt.map(Team::getId).orElse(player.getUUID());
-            for (WarData war : ACTIVE_WARS.values()) {
-                if (teamId.equals(war.getAttackerTeamID()) || teamId.equals(war.getDefenderTeamID())) {
-                    return war;
-                }
-                Team atkTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
-                if (atkTeam != null && atkTeam.isPartyTeam() && ((PartyTeam) atkTeam).getMembers().contains(player.getUUID())) {
-                    return war;
-                }
-                Team defTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
-                if (defTeam != null && defTeam.isPartyTeam() && ((PartyTeam) defTeam).getMembers().contains(player.getUUID())) {
-                    return war;
+        for (WarData war : ACTIVE_WARS.values()) {
+            // First check if player is directly in the lives maps
+            if (war.getAttackerLives().containsKey(player.getUUID()) || war.getDefenderLives().containsKey(player.getUUID())) {
+                return war;
+            }
+            
+            // Check if player is in attacker or defender allies
+            if (war.getAttackerAllies().contains(player.getUUID()) || war.getDefenderAllies().contains(player.getUUID())) {
+                return war;
+            }
+            
+            // Check FTB Teams
+            if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
+                Optional<Team> teamOpt = FTB_TEAM_MANAGER.getTeamForPlayerID(player.getUUID());
+                if (teamOpt.isPresent()) {
+                    Team team = teamOpt.get();
+                    if (team.getId().equals(war.getAttackerTeamID()) || team.getId().equals(war.getDefenderTeamID())) {
+                        return war;
+                    }
+                    
+                    // Check if player is allied to any participating team
+                    Team atkTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
+                    if (atkTeam != null && atkTeam.isPartyTeam() && ((PartyTeam) atkTeam).getMembers().contains(player.getUUID())) {
+                        return war;
+                    }
+                    
+                    Team defTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
+                    if (defTeam != null && defTeam.isPartyTeam() && ((PartyTeam) defTeam).getMembers().contains(player.getUUID())) {
+                        return war;
+                    }
                 }
             }
-        } else {
-            for (WarData war : ACTIVE_WARS.values()) {
-                if (war.getAttackerLives().containsKey(player.getUUID()) || war.getDefenderLives().containsKey(player.getUUID())) {
-                    return war;
+            
+            // Check Minecolonies colony membership and ranks
+            IColony attackerColony = war.getAttackerColony();
+            IColony defenderColony = war.getColony();
+            
+            // Check if player is in attacker colony (owner, officer, or friend)
+            if (attackerColony != null) {
+                IPermissions attackerPerms = attackerColony.getPermissions();
+                if (attackerPerms.getPlayers().containsKey(player.getUUID())) {
+                    Rank playerRank = attackerPerms.getRank(player.getUUID());
+                    if (playerRank != null && (playerRank.equals(attackerPerms.getRankOwner()) || 
+                                              playerRank.equals(attackerPerms.getRankOfficer()) ||
+                                              playerRank.equals(attackerPerms.getRankFriend()))) {
+                        return war;
+                    }
+                }
+            }
+            
+            // Check if player is in defender colony (owner, officer, or friend)
+            if (defenderColony != null) {
+                IPermissions defenderPerms = defenderColony.getPermissions();
+                if (defenderPerms.getPlayers().containsKey(player.getUUID())) {
+                    Rank playerRank = defenderPerms.getRank(player.getUUID());
+                    if (playerRank != null && (playerRank.equals(defenderPerms.getRankOwner()) || 
+                                              playerRank.equals(defenderPerms.getRankOfficer()) ||
+                                              playerRank.equals(defenderPerms.getRankFriend()))) {
+                        return war;
+                    }
                 }
             }
         }
@@ -1176,16 +1447,21 @@ public class WarSystem {
         initiateWar(attacker, owner.getUUID(), attackerTeam, defenderTeam, colony, attackerColony);
         WarData war = getActiveWarForPlayer(owner);
 
+        int configuredMinutes = TaxConfig.JOIN_PHASE_DURATION_MINUTES.get();
+        WARSYSTEM_LOGGER.info("[DEBUG] JOIN_PHASE_DURATION_MINUTES config value: {} minutes", configuredMinutes);
+        WARSYSTEM_LOGGER.info("[DEBUG] Config spec: {}", TaxConfig.CONFIG.getClass().getName());
+        WARSYSTEM_LOGGER.info("[DEBUG] Config default value: {}", TaxConfig.JOIN_PHASE_DURATION_MINUTES.getDefault());
+        WARSYSTEM_LOGGER.info("[DEBUG] Config is loaded: {}", TaxConfig.CONFIG.isLoaded());
+        
         if (ServerLifecycleHooks.getCurrentServer() != null) {
             // Get the time remaining in a readable format
-            int minutes = TaxConfig.JOIN_PHASE_DURATION_MINUTES.get();
-            String timeRemaining = minutes + " minutes";
+            String timeRemaining = configuredMinutes + " minutes";
             
             ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(
                     Component.translatable("war.join.phase.declared", colony.getName(), timeRemaining),
                     false);
         }
-        WARSYSTEM_LOGGER.info("Join phase started for colony {}. Waiting for participants for {} seconds.", colony.getName(), TaxConfig.JOIN_PHASE_DURATION_MINUTES.get() * 60);
+        WARSYSTEM_LOGGER.info("Join phase started for colony {}. Waiting for participants for {} seconds.", colony.getName(), configuredMinutes * 60);
 
         if (war == null) return;
 
@@ -1215,52 +1491,86 @@ public class WarSystem {
             }
         }
 
-        Component joinAnnouncement = Component.literal("War declared! Owners locked in. ")
-                .append(JOIN_MSG)
-                .append(" or ")
-                .append(LEAVE_MSG)
-                .append(" during join phase.");
+        Component joinAnnouncement = Component.empty()
+            .append(JOIN_MSG)
+            .append(Component.literal(" "))
+            .append(LEAVE_MSG);
 
         if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
             if (attackerTeam != null) {
-                sendMessageToTeam(attackerTeam, joinAnnouncement);
-                if (attackerTeam.isPartyTeam()) {
-                    PartyTeam partyA = (PartyTeam) attackerTeam;
-                    for (UUID allyId : partyA.getMembers()) {
-                        if (ServerLifecycleHooks.getCurrentServer() != null) {
-                            ServerPlayer allyPlayer = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(allyId);
-                            if (allyPlayer != null) allyPlayer.sendSystemMessage(joinAnnouncement);
-                        }
-                    }
-                }
+                sendNotificationToColonyParticipants(attackerColony, joinAnnouncement);
             }
             if (defenderTeam != null) {
-                sendMessageToTeam(defenderTeam, joinAnnouncement);
-                if (defenderTeam.isPartyTeam()) {
-                    PartyTeam partyD = (PartyTeam) defenderTeam;
-                    for (UUID allyId : partyD.getMembers()) {
-                         if (ServerLifecycleHooks.getCurrentServer() != null) {
-                            ServerPlayer allyPlayer = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(allyId);
-                            if (allyPlayer != null) allyPlayer.sendSystemMessage(joinAnnouncement);
-                        }
-                    }
-                }
+                sendNotificationToColonyParticipants(colony, joinAnnouncement);
             }
         } else {
-            sendColonyMessage(colony, joinAnnouncement);
+            sendNotificationToColonyParticipants(attackerColony, joinAnnouncement);
+            sendNotificationToColonyParticipants(colony, joinAnnouncement);
         }
 
+        // Calculate actual remaining time instead of total duration
+        long remainingMillis = war.getJoinPhaseEndTime() - System.currentTimeMillis();
+        remainingMillis = Math.max(0, remainingMillis); // Ensure non-negative
+        
         Component joinPhaseInfo = Component.translatable("war.siege.status", colony.getName(), 
-                        String.format("%02d:%02d", joinDurationMillis / (60 * 1000), (joinDurationMillis / 1000) % 60))
+                        String.format("%02d:%02d", remainingMillis / (60 * 1000), (remainingMillis / 1000) % 60))
                 .withStyle(style -> style.withColor(ChatFormatting.YELLOW).withBold(true));
 
         if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
-            if (attackerTeam != null) sendMessageToTeam(attackerTeam, joinPhaseInfo);
-            if (defenderTeam != null) sendMessageToTeam(defenderTeam, joinPhaseInfo);
+            if (attackerTeam != null) sendNotificationToColonyParticipants(attackerColony, joinPhaseInfo);
+            if (defenderTeam != null) sendNotificationToColonyParticipants(colony, joinPhaseInfo);
         } else {
-            sendColonyMessage(colony, joinPhaseInfo);
+            sendNotificationToColonyParticipants(attackerColony, joinPhaseInfo);
+            sendNotificationToColonyParticipants(colony, joinPhaseInfo);
         }
 
+        // Add countdown sound timer for the last 6 seconds of join phase, but only if join phase is at least 6 seconds long
+        if (joinDurationMillis >= 6000) {
+            new Timer().schedule(new TimerTask() {
+                int secondsLeft = 6;
+                @Override
+                public void run() {
+                    try {
+                        if (war == null || war.getColony() == null || !war.isJoinPhaseActive()) { 
+                            this.cancel(); 
+                            return; 
+                        }
+                        
+                        // Play countdown sound to all war participants
+                        Set<UUID> allParticipants = new HashSet<>();
+                        allParticipants.addAll(war.getAttackerLives().keySet());
+                        allParticipants.addAll(war.getDefenderLives().keySet());
+                        
+                        // Only play sound if there are participants
+                        if (!allParticipants.isEmpty()) {
+                            // Play countdown sound using Minecraft's bell sound
+                            for (UUID uuid : allParticipants) {
+                                ServerPlayer player = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(uuid);
+                                if (player != null) {
+                                    player.playSound(net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BELL.get(), 1.0F, 1.0F);
+                                }
+                            }
+                        }
+                        
+                        // Notify remaining seconds
+                        notifyWarParticipants(war, 
+                            Component.literal("⏱ " + secondsLeft + (secondsLeft == 1 ? " second" : " seconds") + " until war starts!")
+                                    .withStyle(style -> style.withColor(ChatFormatting.YELLOW).withBold(true)));
+                        
+                        secondsLeft--;
+                        if (secondsLeft < 0) {
+                            this.cancel();
+                        }
+                    } catch (Exception ex) {
+                        // Catch any exceptions to prevent timer from crashing
+                        WARSYSTEM_LOGGER.error("Error in countdown timer: " + ex.getMessage(), ex);
+                        this.cancel();
+                    }
+                }
+            }, Math.max(0, joinDurationMillis - 6000), 1000); // Start 6 seconds before join phase ends, repeat every 1 second
+        }
+        
+        // Main timer to start the war when join phase ends
         new Timer().schedule(new TimerTask() {
             @Override
             public void run() {
@@ -1279,7 +1589,25 @@ public class WarSystem {
         war.setAccepted(true);
     }
 
+    private static void sendNotificationToColonyParticipants(IColony colony, Component message) {
+        if (colony == null || colony.getWorld() == null || colony.getWorld().getServer() == null) {
+            return;
+        }
+        colony.getPermissions().getPlayers().keySet().stream()
+            .filter(uuid -> isOfficerOrFriendly(colony, uuid))
+            .forEach(uuid -> {
+                ServerPlayer player = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
+                if (player != null) {
+                    player.sendSystemMessage(message);
+                }
+            });
+    }
+
     private static void startWarCountdown(WarData warData) {
+        if (warData.getColony().getWorld() == null) {
+            WARSYSTEM_LOGGER.error("Cannot start war countdown, world is null for colony {}", warData.getColony().getID());
+            return;
+        }
         final long warDurationSeconds = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
         warData.timerTask = new TimerTask() {
             @Override
@@ -1553,8 +1881,84 @@ public class WarSystem {
                                 String.format("/wnt war decline %d", colony.getID()))));
     }
     
+    /**
+     * Checks if a player can join a specific war based on their team membership, colony membership, and ranks.
+     */
+    private static boolean canPlayerJoinWar(ServerPlayer player, WarData war) {
+        // Don't allow primary participants to join via this method
+        if (player.getUUID().equals(war.getColony().getPermissions().getOwner()) || 
+            player.getUUID().equals(war.getAttacker()) ||
+            (war.getAttackerColony() != null && player.getUUID().equals(war.getAttackerColony().getPermissions().getOwner()))) {
+            return false;
+        }
+        
+        // Check if war is in join phase
+        if (!war.isJoinPhaseActive() || System.currentTimeMillis() >= war.getJoinPhaseEndTime()) {
+            return false;
+        }
+        
+        // Check FTB Teams
+        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
+            Team playerTeam = FTB_TEAM_MANAGER.getTeamForPlayerID(player.getUUID()).orElse(null);
+            Team atkTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
+            Team defTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
+
+            // Direct team membership
+            if (playerTeam != null && (playerTeam.getId().equals(war.getAttackerTeamID()) || 
+                                      playerTeam.getId().equals(war.getDefenderTeamID()))) {
+                return true;
+            }
+            
+            // Allied team membership
+            if ((atkTeam != null && atkTeam.isPartyTeam() && ((PartyTeam) atkTeam).getMembers().contains(player.getUUID())) ||
+                (defTeam != null && defTeam.isPartyTeam() && ((PartyTeam) defTeam).getMembers().contains(player.getUUID()))) {
+                return true;
+            }
+        }
+        
+        // Check Minecolonies colony membership and ranks
+        IColony attackerColony = war.getAttackerColony();
+        IColony defenderColony = war.getColony();
+        
+        // Check if player is in attacker colony with appropriate rank
+        if (attackerColony != null) {
+            IPermissions attackerPerms = attackerColony.getPermissions();
+            if (attackerPerms.getPlayers().containsKey(player.getUUID())) {
+                Rank playerRank = attackerPerms.getRank(player.getUUID());
+                if (playerRank != null && (playerRank.equals(attackerPerms.getRankOwner()) || 
+                                          playerRank.equals(attackerPerms.getRankOfficer()) ||
+                                          playerRank.equals(attackerPerms.getRankFriend()))) {
+                    return true;
+                }
+            }
+        }
+        
+        // Check if player is in defender colony with appropriate rank
+        if (defenderColony != null) {
+            IPermissions defenderPerms = defenderColony.getPermissions();
+            if (defenderPerms.getPlayers().containsKey(player.getUUID())) {
+                Rank playerRank = defenderPerms.getRank(player.getUUID());
+                if (playerRank != null && (playerRank.equals(defenderPerms.getRankOwner()) || 
+                                          playerRank.equals(defenderPerms.getRankOfficer()) ||
+                                          playerRank.equals(defenderPerms.getRankFriend()))) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+    
     public static int processJoinWar(ServerPlayer player, CommandSourceStack source) {
-        WarData war = getActiveWarForPlayer(player); 
+        // Find any active war that the player might be eligible to join
+        WarData war = null;
+        for (WarData activeWar : ACTIVE_WARS.values()) {
+            if (canPlayerJoinWar(player, activeWar)) {
+                war = activeWar;
+                break;
+            }
+        }
+        
         if (war == null) {
             source.sendFailure(Component.literal("No active war to join."));
             return 0;
@@ -1578,105 +1982,128 @@ public class WarSystem {
         }
 
         int playerLives = TaxConfig.PLAYER_LIVES_IN_WAR.get();
+        
+        // Check if already joined
+        if (war.getAttackerLives().containsKey(player.getUUID()) || war.getDefenderLives().containsKey(player.getUUID())) {
+            source.sendFailure(Component.literal("You are already registered in this war."));
+            return 0;
+        }
 
+        // Determine which side the player should join based on various criteria
+        boolean canJoinAttackers = false;
+        boolean canJoinDefenders = false;
+        
+        // Check FTB Teams first
         if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
             Team playerTeam = FTB_TEAM_MANAGER.getTeamForPlayerID(player.getUUID()).orElse(null);
-            boolean alliedToAttacker = false, alliedToDefender = false;
             Team atkTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
             Team defTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
 
-            if (atkTeam != null && atkTeam.isPartyTeam()) {
-                alliedToAttacker = ((PartyTeam) atkTeam).getMembers().contains(player.getUUID());
+            // Direct team membership
+            if (playerTeam != null && playerTeam.getId().equals(war.getAttackerTeamID())) {
+                canJoinAttackers = true;
             }
-            if (defTeam != null && defTeam.isPartyTeam()) {
-                alliedToDefender = ((PartyTeam) defTeam).getMembers().contains(player.getUUID());
+            if (playerTeam != null && playerTeam.getId().equals(war.getDefenderTeamID())) {
+                canJoinDefenders = true;
             }
-
-            if (alliedToAttacker && alliedToDefender) {
-                // Create clickable options to choose sides
-                MutableComponent message = Component.literal("You are allied with both sides. Please choose which side to join:\n")
-                        .withStyle(ChatFormatting.GOLD);
-                
-                // Create clickable components for joining each side
-                Component joinAttackers = Component.literal("[Join Attackers]")
-                        .withStyle(style -> style.withColor(ChatFormatting.RED)
-                                .withBold(true)
-                                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/wnt choosewarside attacker"))
-                                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
-                                        Component.literal("Click to join the attacking side").withStyle(ChatFormatting.GOLD))));
-                
-                Component joinDefenders = Component.literal("[Join Defenders]")
-                        .withStyle(style -> style.withColor(ChatFormatting.BLUE)
-                                .withBold(true)
-                                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/wnt choosewarside defender"))
-                                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
-                                        Component.literal("Click to join the defending side").withStyle(ChatFormatting.GOLD))));
-                
-                // Send the complete message with options
-                player.sendSystemMessage(message.append(" ")
-                        .append(joinAttackers).append(" ")
-                        .append(joinDefenders));
-                return 1;
+            
+            // Allied team membership
+            if (atkTeam != null && atkTeam.isPartyTeam() && ((PartyTeam) atkTeam).getMembers().contains(player.getUUID())) {
+                canJoinAttackers = true;
             }
-
-            if ((playerTeam != null && playerTeam.getId().equals(war.getAttackerTeamID())) || alliedToAttacker) {
-                if (!war.getAttackerLives().containsKey(player.getUUID())) {
-                    war.getAttackerLives().put(player.getUUID(), playerLives); 
-                    if (alliedToAttacker && (playerTeam == null || !playerTeam.getId().equals(war.getAttackerTeamID()))) { 
-                         war.getAttackerAllies().add(player.getUUID());
-                         player.sendSystemMessage(Component.literal("As an ally, you have joined the attacking side!").withStyle(ChatFormatting.AQUA));
-                    } else {
-                         player.sendSystemMessage(Component.literal("You have joined the attacking side.").withStyle(ChatFormatting.GREEN));
-                    }
-                     if (war.alliesBossEvent != null && war.alliesBossEvent.isVisible()) war.alliesBossEvent.addPlayer(player); else war.bossEvent.addPlayer(player);
-
-                } else {
-                    source.sendFailure(Component.literal("You are already registered on the attacking side."));
-                }
-            } else if ((playerTeam != null && playerTeam.getId().equals(war.getDefenderTeamID())) || alliedToDefender) {
-                if (!war.getDefenderLives().containsKey(player.getUUID())) {
-                    war.getDefenderLives().put(player.getUUID(), playerLives); 
-                     if (alliedToDefender && (playerTeam == null || !playerTeam.getId().equals(war.getDefenderTeamID()))) { 
-                        war.getDefenderAllies().add(player.getUUID());
-                        player.sendSystemMessage(Component.literal("As an ally, you have joined the defending side!").withStyle(ChatFormatting.AQUA));
-                    } else {
-                        player.sendSystemMessage(Component.literal("You have joined the defending side.").withStyle(ChatFormatting.GREEN));
-                    }
-                    if (war.alliesBossEvent != null && war.alliesBossEvent.isVisible()) war.alliesBossEvent.addPlayer(player); else war.bossEvent.addPlayer(player);
-                } else {
-                    source.sendFailure(Component.literal("You are already registered on the defending side."));
-                }
-            } else {
-                source.sendFailure(Component.literal("Your team is not part of this war, nor are you allied with a participating team."));
-                return 0;
-            }
-        } else { 
-            IColony playerColony = IColonyManager.getInstance().getColonies(player.level()).stream()
-                    .filter(c -> c.getPermissions().getPlayers().containsKey(player.getUUID()))
-                    .findFirst().orElse(null);
-
-            if (playerColony != null && war.getAttackerColony() != null && playerColony.getID() == war.getAttackerColony().getID()) {
-                 if (!war.getAttackerLives().containsKey(player.getUUID())) {
-                    war.getAttackerLives().put(player.getUUID(), playerLives);
-                    source.sendSuccess(() -> Component.literal("You have joined the attacking side."), false);
-                    if (war.alliesBossEvent != null && war.alliesBossEvent.isVisible()) war.alliesBossEvent.addPlayer(player); else war.bossEvent.addPlayer(player);
-                } else {
-                    source.sendFailure(Component.literal("You are already registered in this war."));
-                }
-            } else if (playerColony != null && playerColony.getID() == war.getColony().getID()) {
-                if (!war.getDefenderLives().containsKey(player.getUUID())) {
-                    war.getDefenderLives().put(player.getUUID(), playerLives);
-                    source.sendSuccess(() -> Component.literal("You have joined the defending side."), false);
-                    if (war.alliesBossEvent != null && war.alliesBossEvent.isVisible()) war.alliesBossEvent.addPlayer(player); else war.bossEvent.addPlayer(player);
-                } else {
-                    source.sendFailure(Component.literal("You are already registered in this war."));
-                }
-            } else {
-                source.sendFailure(Component.literal("You are not a member of either colony involved in the war."));
-                return 0;
+            if (defTeam != null && defTeam.isPartyTeam() && ((PartyTeam) defTeam).getMembers().contains(player.getUUID())) {
+                canJoinDefenders = true;
             }
         }
-        return 1;
+        
+        // Check Minecolonies colony membership and ranks
+        IColony attackerColony = war.getAttackerColony();
+        IColony defenderColony = war.getColony();
+        
+        // Check if player is in attacker colony with appropriate rank
+        if (attackerColony != null) {
+            IPermissions attackerPerms = attackerColony.getPermissions();
+            if (attackerPerms.getPlayers().containsKey(player.getUUID())) {
+                Rank playerRank = attackerPerms.getRank(player.getUUID());
+                if (playerRank != null && (playerRank.equals(attackerPerms.getRankOwner()) || 
+                                          playerRank.equals(attackerPerms.getRankOfficer()) ||
+                                          playerRank.equals(attackerPerms.getRankFriend()))) {
+                    canJoinAttackers = true;
+                }
+            }
+        }
+        
+        // Check if player is in defender colony with appropriate rank
+        if (defenderColony != null) {
+            IPermissions defenderPerms = defenderColony.getPermissions();
+            if (defenderPerms.getPlayers().containsKey(player.getUUID())) {
+                Rank playerRank = defenderPerms.getRank(player.getUUID());
+                if (playerRank != null && (playerRank.equals(defenderPerms.getRankOwner()) || 
+                                          playerRank.equals(defenderPerms.getRankOfficer()) ||
+                                          playerRank.equals(defenderPerms.getRankFriend()))) {
+                    canJoinDefenders = true;
+                }
+            }
+        }
+        
+        // Handle the case where player can join both sides
+        if (canJoinAttackers && canJoinDefenders) {
+            MutableComponent message = Component.literal("You are eligible to join both sides. Please choose which side to join:\n")
+                    .withStyle(ChatFormatting.GOLD);
+            
+            Component joinAttackers = Component.literal("[Join Attackers]")
+                    .withStyle(style -> style.withColor(ChatFormatting.RED)
+                            .withBold(true)
+                            .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/wnt choosewarside attacker"))
+                            .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
+                                    Component.literal("Click to join the attacking side").withStyle(ChatFormatting.GOLD))));
+            
+            Component joinDefenders = Component.literal("[Join Defenders]")
+                    .withStyle(style -> style.withColor(ChatFormatting.BLUE)
+                            .withBold(true)
+                            .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/wnt choosewarside defender"))
+                            .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
+                                    Component.literal("Click to join the defending side").withStyle(ChatFormatting.GOLD))));
+            
+            player.sendSystemMessage(message.append(" ")
+                    .append(joinAttackers).append(" ")
+                    .append(joinDefenders));
+            return 1;
+        }
+        
+        // Join the appropriate side
+        if (canJoinAttackers) {
+            war.getAttackerLives().put(player.getUUID(), playerLives);
+            war.getAttackerAllies().add(player.getUUID());
+            
+            // Assign hostile rank to this attacker on defender's colony
+            assignWarParticipantRanks(player.getUUID(), war.getColony(), war.getAttackerColony(), true);
+            
+            player.sendSystemMessage(Component.literal("You have joined the attacking side!").withStyle(ChatFormatting.GREEN));
+            if (war.alliesBossEvent != null && war.alliesBossEvent.isVisible()) {
+                war.alliesBossEvent.addPlayer(player);
+            } else {
+                war.bossEvent.addPlayer(player);
+            }
+            return 1;
+        } else if (canJoinDefenders) {
+            war.getDefenderLives().put(player.getUUID(), playerLives);
+            war.getDefenderAllies().add(player.getUUID());
+            
+            // Assign hostile rank to this defender on attacker's colony
+            assignWarParticipantRanks(player.getUUID(), war.getColony(), war.getAttackerColony(), false);
+            
+            player.sendSystemMessage(Component.literal("You have joined the defending side!").withStyle(ChatFormatting.GREEN));
+            if (war.alliesBossEvent != null && war.alliesBossEvent.isVisible()) {
+                war.alliesBossEvent.addPlayer(player);
+            } else {
+                war.bossEvent.addPlayer(player);
+            }
+            return 1;
+        } else {
+            source.sendFailure(Component.literal("You are not eligible to join this war. Only colony owners, officers, and friends can participate."));
+            return 0;
+        }
     }
 
     // --- Logic moved from WarCommands.leaveWar ---
@@ -1732,5 +2159,52 @@ public class WarSystem {
         return (int) colony.getCitizenManager().getCitizens().stream()
                 .filter(c -> c.getJob() != null && c.getJob().isGuard())
                 .count();
+    }
+
+    /**
+     * Counts the number of guard towers in a colony.
+     * @param colony The colony to count guard towers for
+     * @return The number of guard towers in the colony, or 0 if the colony is invalid
+     */
+    public static int countGuardTowers(IColony colony) {
+        if (colony == null || colony.getBuildingManager() == null) return 0;
+        return (int) colony.getBuildingManager().getBuildings().values().stream()
+                .filter(WarSystem::isGuardTower)
+                .count();
+    }
+
+    /**
+     * Determines if a building is a guard tower using multiple identification methods.
+     * @param building The building to check
+     * @return true if the building is a guard tower, false otherwise
+     */
+    public static boolean isGuardTower(IBuilding building) {
+        if (building == null) return false;
+        
+        // Method 1: Check display name (current approach)
+        String displayName = building.getBuildingDisplayName();
+        if (displayName != null && "Guard Tower".equalsIgnoreCase(displayName)) {
+            return true;
+        }
+        
+        // Method 2: Check if class name contains "guardtower"
+        String className = building.getClass().getName().toLowerCase();
+        if (className.contains("guardtower")) {
+            return true;
+        }
+        
+        // Method 3: Check if the building has guard-related functionality
+        // This is a fallback in case the building class structure changes
+        try {
+            // Try to get the schematic name if available
+            String toString = building.toString().toLowerCase();
+            if (toString.contains("guardtower") || toString.contains("guard_tower")) {
+                return true;
+            }
+        } catch (Exception e) {
+            // Ignore any reflection exceptions
+        }
+        
+        return false;
     }
 }

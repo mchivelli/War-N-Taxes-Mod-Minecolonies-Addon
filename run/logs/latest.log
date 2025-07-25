@@ -1,0 +1,203 @@
+[18Juli2025 09:33:11.637] [main/INFO] [cpw.mods.modlauncher.Launcher/MODLAUNCHER]: ModLauncher running: args [--launchTarget, forgeserveruserdev, --gameDir, ., --fml.forgeVersion, 47.3.10, --fml.mcVersion, 1.20.1, --fml.forgeGroup, net.minecraftforge, --fml.mcpVersion, 20230612.114412, --nogui]
+[18Juli2025 09:33:11.642] [main/INFO] [cpw.mods.modlauncher.Launcher/MODLAUNCHER]: ModLauncher 10.0.9+10.0.9+main.dcd20f30 starting: java version 17.0.14 by Eclipse Adoptium; OS Windows 11 arch amd64 version 10.0
+[18Juli2025 09:33:11.765] [main/INFO] [net.minecraftforge.fml.loading.ImmediateWindowHandler/]: ImmediateWindowProvider not loading because launch target is forgeserveruserdev
+[18Juli2025 09:33:11.802] [main/INFO] [mixin/]: SpongePowered MIXIN Subsystem Version=0.8.5 Source=union:/C:/Users/paulm/.gradle/caches/modules-2/files-2.1/org.spongepowered/mixin/0.8.5/9d1c0c3a304ae6697ecd477218fa61b850bf57fc/mixin-0.8.5.jar%23128!/ Service=ModLauncher Env=SERVER
+[18Juli2025 09:33:12.105] [main/WARN] [net.minecraftforge.fml.loading.moddiscovery.ModFileParser/LOADING]: Mod file C:\Users\paulm\.gradle\caches\modules-2\files-2.1\net.minecraftforge\javafmllanguage\1.20.1-47.3.10\7a15037366722893d76a3d0b2e9d1fd13a63a22d\javafmllanguage-1.20.1-47.3.10.jar is missing mods.toml file
+[18Juli2025 09:33:12.107] [main/WARN] [net.minecraftforge.fml.loading.moddiscovery.ModFileParser/LOADING]: Mod file C:\Users\paulm\.gradle\caches\modules-2\files-2.1\net.minecraftforge\lowcodelanguage\1.20.1-47.3.10\e67d9b3451d64ccc812cbbd33c066bd3ebbf2167\lowcodelanguage-1.20.1-47.3.10.jar is missing mods.toml file
+[18Juli2025 09:33:12.108] [main/WARN] [net.minecraftforge.fml.loading.moddiscovery.ModFileParser/LOADING]: Mod file C:\Users\paulm\.gradle\caches\modules-2\files-2.1\net.minecraftforge\mclanguage\1.20.1-47.3.10\2023f9726a509c5ba5a925cac934944066093de8\mclanguage-1.20.1-47.3.10.jar is missing mods.toml file
+[18Juli2025 09:33:12.111] [main/WARN] [net.minecraftforge.fml.loading.moddiscovery.ModFileParser/LOADING]: Mod file C:\Users\paulm\.gradle\caches\modules-2\files-2.1\net.minecraftforge\fmlcore\1.20.1-47.3.10\523aa0cd9a773b2b56268d8689b2fb5c1f072941\fmlcore-1.20.1-47.3.10.jar is missing mods.toml file
+[18Juli2025 09:33:12.301] [main/INFO] [net.minecraftforge.fml.loading.moddiscovery.JarInJarDependencyLocator/]: No dependencies to load found. Skipping!
+[18Juli2025 09:33:14.380] [main/INFO] [mixin/]: Compatibility level set to JAVA_17
+[18Juli2025 09:33:14.391] [main/INFO] [cpw.mods.modlauncher.LaunchServiceHandler/MODLAUNCHER]: Launching target 'forgeserveruserdev' with arguments [--gameDir, ., --nogui]
+[18Juli2025 09:33:14.653] [main/INFO] [mixin/]: Remapping refMap architectury-forge-refmap.json using C:\Users\paulm\Desktop\Projects\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
+[18Juli2025 09:33:14.655] [main/INFO] [mixin/]: Remapping refMap architectury-common-refmap.json using C:\Users\paulm\Desktop\Projects\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
+[18Juli2025 09:33:14.656] [main/INFO] [mixin/]: Remapping refMap SDMCore-common-common-refmap.json using C:\Users\paulm\Desktop\Projects\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
+[18Juli2025 09:33:14.657] [main/INFO] [mixin/]: Remapping refMap ftb-library-common-refmap.json using C:\Users\paulm\Desktop\Projects\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
+[18Juli2025 09:33:14.657] [main/INFO] [mixin/]: Remapping refMap sdm_economy-common-refmap.json using C:\Users\paulm\Desktop\Projects\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
+[18Juli2025 09:33:14.659] [main/INFO] [mixin/]: Remapping refMap sdm_ui_lib-common-refmap.json using C:\Users\paulm\Desktop\Projects\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
+[18Juli2025 09:33:14.659] [main/WARN] [mixin/]: Reference map 'sdmshoprework-common-refmap.json' for sdmshoprework-common.mixins.json could not be read. If this is a development environment you can ignore this message
+[18Juli2025 09:33:14.661] [main/INFO] [mixin/]: Remapping refMap mixins.recruits.refmap.json using C:\Users\paulm\Desktop\Projects\MinecolonyTaxAddon - Kopie/build/createSrgToMcp/output.srg
+[18Juli2025 09:33:16.224] [main/WARN] [oshi.driver.windows.perfmon.PerfmonDisabled/]: Invalid registry value type detected for PerfOS counters. Should be REG_DWORD. Ignoring: HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\PerfOS\Performance\Disable Performance Counters.
+[18Juli2025 09:33:16.576] [main/WARN] [mixin/]: Method overwrite conflict for sdm$getCustomData in sdm_economy-common.mixins.json:EntityMixin, previously written by net.sdm.sdm_core.mixin.entity.EntityMixin. Skipping method.
+[18Juli2025 09:33:19.965] [modloading-worker-0/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: [DEBUG] Registering config with path: warntaxmod/minecolonytax.toml
+[18Juli2025 09:33:20.018] [modloading-worker-0/INFO] [net.minecraftforge.common.ForgeMod/FORGEMOD]: Forge mod loading, version 47.3.10, for MC 1.20.1 with MCP 20230612.114412
+[18Juli2025 09:33:20.018] [modloading-worker-0/INFO] [net.minecraftforge.common.MinecraftForge/FORGE]: MinecraftForge v47.3.10 Initialized
+[18Juli2025 09:33:20.031] [modloading-worker-0/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: [DEBUG] Config registered successfully
+[18Juli2025 09:33:20.098] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:recruit_block]
+[18Juli2025 09:33:20.099] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:recruit_shield_block]
+[18Juli2025 09:33:20.099] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:bowman_block]
+[18Juli2025 09:33:20.099] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:crossbowman_block]
+[18Juli2025 09:33:20.099] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:horseman_block]
+[18Juli2025 09:33:20.099] [modloading-worker-0/INFO] [recruits/]: Registering POI for ResourceKey[minecraft:block / recruits:nomad_block]
+[18Juli2025 09:33:20.102] [modloading-worker-0/INFO] [recruits/]: Registering profession for recruit with POI net.minecraftforge.registries.RegistryObject@810c44e9
+[18Juli2025 09:33:20.103] [modloading-worker-0/INFO] [recruits/]: Registering profession for shieldman with POI net.minecraftforge.registries.RegistryObject@73a49efc
+[18Juli2025 09:33:20.103] [modloading-worker-0/INFO] [recruits/]: Registering profession for bowman with POI net.minecraftforge.registries.RegistryObject@ee1298fb
+[18Juli2025 09:33:20.103] [modloading-worker-0/INFO] [recruits/]: Registering profession for crossbowman with POI net.minecraftforge.registries.RegistryObject@278013b
+[18Juli2025 09:33:20.103] [modloading-worker-0/INFO] [recruits/]: Registering profession for horseman with POI net.minecraftforge.registries.RegistryObject@2cde3e08
+[18Juli2025 09:33:20.103] [modloading-worker-0/INFO] [recruits/]: Registering profession for nomad with POI net.minecraftforge.registries.RegistryObject@46c5f19a
+[18Juli2025 09:33:20.113] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id architectury:sync_ids
+[18Juli2025 09:33:20.118] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftblibrary:edit_nbt_response
+[18Juli2025 09:33:20.118] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdm_economy:update_server_data
+[18Juli2025 09:33:20.119] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftbteams:open_gui
+[18Juli2025 09:33:20.128] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftbteams:update_settings
+[18Juli2025 09:33:20.136] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftbteams:send_message
+[18Juli2025 09:33:20.149] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftbteams:create_party
+[18Juli2025 09:33:20.153] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id ftbteams:player_gui_operation
+[18Juli2025 09:33:20.186] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_buy_entry
+[18Juli2025 09:33:20.188] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Warped Netherlands
+[18Juli2025 09:33:20.188] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Stalactite Caves
+[18Juli2025 09:33:20.190] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Space Wars
+[18Juli2025 09:33:20.190] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Shire
+[18Juli2025 09:33:20.190] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Desert Oasis
+[18Juli2025 09:33:20.190] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Pagoda
+[18Juli2025 09:33:20.190] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Minecolonies Original
+[18Juli2025 09:33:20.190] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Nordic Spruce
+[18Juli2025 09:33:20.191] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Medieval Spruce
+[18Juli2025 09:33:20.191] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Medieval Oak
+[18Juli2025 09:33:20.191] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Medieval Dark Oak
+[18Juli2025 09:33:20.191] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Medieval Birch
+[18Juli2025 09:33:20.191] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Lost Mesa City
+[18Juli2025 09:33:20.191] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:create_shop_tab
+[18Juli2025 09:33:20.191] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Jungle Treehouse
+[18Juli2025 09:33:20.191] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Incan
+[18Juli2025 09:33:20.191] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Fortress
+[18Juli2025 09:33:20.191] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Dark Oak Treehouse
+[18Juli2025 09:33:20.191] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Colonial
+[18Juli2025 09:33:20.191] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Cavern
+[18Juli2025 09:33:20.191] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Caledonia
+[18Juli2025 09:33:20.191] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Urban Birch
+[18Juli2025 09:33:20.191] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Ancient Athens
+[18Juli2025 09:33:20.191] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Urban Savanna
+[18Juli2025 09:33:20.193] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Dev
+[18Juli2025 09:33:20.193] [Structurize IO Worker #0/INFO] [structurize/]: Registered structure pack: Player1
+[18Juli2025 09:33:20.194] [Structurize IO Worker #0/WARN] [structurize/]: Failed loading client packs from main folder path: .
+[18Juli2025 09:33:20.194] [Structurize IO Worker #0/WARN] [structurize/]: Finished discovering Server Structure packs
+[18Juli2025 09:33:20.196] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:create_shop_entry
+[18Juli2025 09:33:20.200] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_changes_shop
+[18Juli2025 09:33:20.203] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_change_entries
+[18Juli2025 09:33:20.206] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:senc_change_tab
+[18Juli2025 09:33:20.208] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_edit_tab
+[18Juli2025 09:33:20.212] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_edit_entry
+[18Juli2025 09:33:20.215] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_move_tab
+[18Juli2025 09:33:20.217] [modloading-worker-0/INFO] [dev.architectury.networking.forge.NetworkManagerImpl/]: Registering C2S receiver with id sdmshoprework:send_move_entry
+[18Juli2025 09:33:21.548] [main/WARN] [net.minecraftforge.common.ForgeConfigSpec/CORE]: Configuration file C:\Users\paulm\Desktop\Projects\MinecolonyTaxAddon - Kopie\run\config\minecolonies-common.toml is not correct. Correcting
+[18Juli2025 09:33:21.551] [modloading-worker-0/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Initializing War N Taxes Mod
+[18Juli2025 09:33:21.552] [modloading-worker-0/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: [DEBUG] Config loaded status: false
+[18Juli2025 09:33:21.552] [modloading-worker-0/WARN] [net.machiavelli.minecolonytax.MineColonyTax/]: [DEBUG] Config not loaded yet during setup!
+[18Juli2025 09:33:21.806] [Forge Version Check/INFO] [net.minecraftforge.fml.VersionChecker/]: [forge] Starting version check at https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json
+[18Juli2025 09:33:21.948] [modloading-worker-0/WARN] [minecolonies/]: Register mappings
+[18Juli2025 09:33:22.468] [Forge Version Check/INFO] [net.minecraftforge.fml.VersionChecker/]: [forge] Found status: OUTDATED Current: 47.3.10 Target: 47.4.0
+[18Juli2025 09:33:22.468] [Forge Version Check/INFO] [net.minecraftforge.fml.VersionChecker/]: [recruits] Starting version check at https://raw.githubusercontent.com/talhanation/recruits/main/update.json
+[18Juli2025 09:33:22.623] [Forge Version Check/WARN] [net.minecraftforge.fml.VersionChecker/]: Failed to process update information
+com.google.gson.JsonSyntaxException: com.google.gson.stream.MalformedJsonException: Expected name at line 5 column 4 path $..1.20.1-recommended
+	at com.google.gson.Gson.fromJson(Gson.java:1229) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.Gson.fromJson(Gson.java:1124) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.Gson.fromJson(Gson.java:1034) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.Gson.fromJson(Gson.java:969) ~[gson-2.10.jar%23130!/:?]
+	at net.minecraftforge.fml.VersionChecker$1.process(VersionChecker.java:186) ~[fmlcore-1.20.1-47.3.10.jar%23195!/:?]
+	at java.lang.Iterable.forEach(Iterable.java:75) ~[?:?]
+	at net.minecraftforge.fml.VersionChecker$1.run(VersionChecker.java:117) ~[fmlcore-1.20.1-47.3.10.jar%23195!/:?]
+Caused by: com.google.gson.stream.MalformedJsonException: Expected name at line 5 column 4 path $..1.20.1-recommended
+	at com.google.gson.stream.JsonReader.syntaxError(JsonReader.java:1657) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.stream.JsonReader.doPeek(JsonReader.java:514) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.stream.JsonReader.hasNext(JsonReader.java:422) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.internal.bind.ObjectTypeAdapter.read(ObjectTypeAdapter.java:122) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.internal.bind.TypeAdapterRuntimeTypeWrapper.read(TypeAdapterRuntimeTypeWrapper.java:40) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.internal.bind.MapTypeAdapterFactory$Adapter.read(MapTypeAdapterFactory.java:186) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.internal.bind.MapTypeAdapterFactory$Adapter.read(MapTypeAdapterFactory.java:144) ~[gson-2.10.jar%23130!/:?]
+	at com.google.gson.Gson.fromJson(Gson.java:1214) ~[gson-2.10.jar%23130!/:?]
+	... 6 more
+[18Juli2025 09:33:22.850] [main/INFO] [com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService/]: Environment: authHost='https://authserver.mojang.com', accountsHost='https://api.mojang.com', sessionHost='https://sessionserver.mojang.com', servicesHost='https://api.minecraftservices.com', name='PROD'
+[18Juli2025 09:33:22.939] [main/INFO] [net.minecraftforge.registries.GameData/REGISTRIES]: Injecting existing registry data into this CLIENT instance
+[18Juli2025 09:33:23.565] [main/WARN] [net.minecraft.server.packs.VanillaPackResourcesBuilder/]: Assets URL 'union:/C:/Users/paulm/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1/forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1.jar%23191!/assets/.mcassetsroot' uses unexpected schema
+[18Juli2025 09:33:23.565] [main/WARN] [net.minecraft.server.packs.VanillaPackResourcesBuilder/]: Assets URL 'union:/C:/Users/paulm/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1/forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1.jar%23191!/data/.mcassetsroot' uses unexpected schema
+[18Juli2025 09:33:24.319] [main/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: MineColonyTax: /wnt commands registered.
+[18Juli2025 09:33:24.319] [main/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Loaded Arena Positions
+[18Juli2025 09:33:24.827] [main/INFO] [net.minecraft.world.item.crafting.RecipeManager/]: Loaded 9 recipes
+[18Juli2025 09:33:24.912] [main/INFO] [net.minecraft.advancements.AdvancementList/]: Loaded 1487 advancements
+[18Juli2025 09:33:24.917] [main/INFO] [minecolonies/]: Beginning load of custom recipes for colony workers
+[18Juli2025 09:33:24.923] [main/INFO] [minecolonies/]: Loaded 164 recipes for 16 crafters
+[18Juli2025 09:33:24.923] [main/INFO] [minecolonies/]: Beginning load of research for University.
+[18Juli2025 09:33:24.947] [main/INFO] [minecolonies/]: Loaded 201 recipes for 4 research branches
+[18Juli2025 09:33:24.951] [main/INFO] [minecolonies/]: Loading quests from data
+[18Juli2025 09:33:24.962] [main/INFO] [minecolonies/]: Finished loading quests from data
+[18Juli2025 09:33:24.969] [main/WARN] [minecolonies/]: Read 1500 items with their nbt keys for compatibility.
+[18Juli2025 09:33:25.256] [Server thread/INFO] [net.minecraft.server.dedicated.DedicatedServer/]: Starting minecraft server version 1.20.1
+[18Juli2025 09:33:25.256] [Server thread/INFO] [net.minecraft.server.dedicated.DedicatedServer/]: Loading properties
+[18Juli2025 09:33:25.256] [Server thread/INFO] [net.minecraft.server.dedicated.DedicatedServer/]: Default game type: CREATIVE
+[18Juli2025 09:33:25.256] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Generating keypair
+[18Juli2025 09:33:25.294] [Server thread/INFO] [net.minecraft.server.dedicated.DedicatedServer/]: Starting Minecraft server on *:25565
+[18Juli2025 09:33:25.306] [Server thread/INFO] [net.minecraft.server.network.ServerConnectionListener/]: Using default channel type
+[18Juli2025 09:33:25.461] [Server thread/WARN] [net.minecraft.server.dedicated.DedicatedServer/]: **** SERVER IS RUNNING IN OFFLINE/INSECURE MODE!
+[18Juli2025 09:33:25.461] [Server thread/WARN] [net.minecraft.server.dedicated.DedicatedServer/]: The server will make no attempt to authenticate usernames. Beware.
+[18Juli2025 09:33:25.461] [Server thread/WARN] [net.minecraft.server.dedicated.DedicatedServer/]: While this makes the game possible to play without internet access, it also opens up the ability for hackers to connect with any username they choose.
+[18Juli2025 09:33:25.461] [Server thread/WARN] [net.minecraft.server.dedicated.DedicatedServer/]: To change this, set "online-mode" to "true" in the server.properties file.
+[18Juli2025 09:33:25.475] [Server thread/WARN] [net.minecraftforge.common.ForgeConfigSpec/CORE]: Configuration file .\world\serverconfig\warntaxmod\minecolonytax.toml is not correct. Correcting
+[18Juli2025 09:33:25.475] [Server thread/WARN] [net.minecraftforge.common.ForgeConfigSpec/CORE]: Incorrect key War Settings.RaidTaxPercentages was corrected from [0.1, 0.25, 0.5, 0.7] to its default, [0.1, 0.25, 0.5, 0.7]. 
+[18Juli2025 09:33:25.503] [Server thread/INFO] [FTB Teams/]: loaded team data: 3 known players, 3 teams total
+[18Juli2025 09:33:25.506] [Server thread/INFO] [net.machiavelli.minecolonytax.pvp.PvPMapManager/]: Successfully loaded 2 PvP arenas.
+[18Juli2025 09:33:25.510] [Server thread/INFO] [net.minecraft.server.dedicated.DedicatedServer/]: Preparing level "world"
+[18Juli2025 09:33:26.005] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Preparing start region for dimension minecraft:overworld
+[18Juli2025 09:33:27.176] [Worker-Main-14/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Preparing spawn area: 0%
+[18Juli2025 09:33:27.191] [Worker-Main-10/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Preparing spawn area: 0%
+[18Juli2025 09:33:27.192] [Worker-Main-22/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Preparing spawn area: 0%
+[18Juli2025 09:33:27.506] [Worker-Main-14/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Preparing spawn area: 0%
+[18Juli2025 09:33:27.916] [Server thread/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Time elapsed: 1911 ms
+[18Juli2025 09:33:27.916] [Server thread/INFO] [net.minecraft.server.dedicated.DedicatedServer/]: Done (2.446s)! For help, type "help"
+[18Juli2025 09:33:27.948] [Server thread/INFO] [net.minecraftforge.gametest.ForgeGameTestHooks/]: Enabled Gametest Namespaces: [minecolonytax]
+[18Juli2025 09:33:27.954] [Server thread/INFO] [net.minecraftforge.server.permission.PermissionAPI/]: Successfully initialized permission handler forge:default_handler
+[18Juli2025 09:33:27.955] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Server starting: Initializing Tax System and PvP System
+[18Juli2025 09:33:27.955] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Initializing Tax Manager...
+[18Juli2025 09:33:27.956] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Loaded tax data from file.
+[18Juli2025 09:33:27.957] [Server thread/INFO] [net.machiavelli.minecolonytax.vassalization.VassalManager/]: VassalManager initialized
+[18Juli2025 09:33:27.957] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: Resetting all colony war and raid permissions to prevent post-crash griefing
+[18Juli2025 09:33:27.967] [Server thread/INFO] [net.machiavelli.minecolonytax.MineColonyTax/]: War and raid permissions reset successfully
+[18Juli2025 09:33:28.033] [Server thread/INFO] [minecolonies/]: Finished discovering Ores 19 22
+[18Juli2025 09:33:28.033] [Server thread/INFO] [minecolonies/]: Finished discovering saplings 14
+[18Juli2025 09:33:28.033] [Server thread/INFO] [minecolonies/]: Finished discovering plantables 19
+[18Juli2025 09:33:28.033] [Server thread/INFO] [minecolonies/]: Finished discovering food 60 74
+[18Juli2025 09:33:28.033] [Server thread/INFO] [minecolonies/]: Finished discovering fuel 249
+[18Juli2025 09:33:28.033] [Server thread/INFO] [minecolonies/]: Finished discovering flowers 24
+[18Juli2025 09:33:28.033] [Server thread/INFO] [minecolonies/]: Finished discovering items 1832
+[18Juli2025 09:33:28.033] [Server thread/INFO] [minecolonies/]: Finished discovering lucky oreBlocks 6
+[18Juli2025 09:33:28.033] [Server thread/INFO] [minecolonies/]: Finished discovering recruitment costs
+[18Juli2025 09:33:28.035] [Server thread/INFO] [minecolonies/]: Finished discovering diseases
+[18Juli2025 09:33:28.052] [Server thread/INFO] [minecolonies/]: Finished discovering compostables 169
+[18Juli2025 09:33:28.217] [Server thread/ERROR] [recruits/]: Villager recruits could not check for updates!
+[18Juli2025 09:33:29.175] [Server thread/INFO] [net.machiavelli.minecolonytax.event.ColonyEventListener/]: Colony 'Dev's Colony1': Processed 40 buildings, generated 186 tax (Guards: 19, Max Tax: Not Reached)
+[18Juli2025 09:33:29.175] [Server thread/INFO] [net.machiavelli.minecolonytax.event.ColonyEventListener/]: Colony 'COLONY3': Processed 21 buildings, generated 85 tax (Guards: 11, Max Tax: Not Reached)
+[18Juli2025 10:33:28.218] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Applied guard tower tax boost to colony Dev's Colony1: 52 tax (15 guard towers, 50% boost)
+[18Juli2025 10:33:28.218] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax cycle completed for colony Dev's Colony1 - Buildings: 25, Generated: 104, Maintenance: 231, Final Balance: 2186
+[18Juli2025 10:33:28.219] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Applied guard tower tax boost to colony COLONY3: 20 tax (6 guard towers, 50% boost)
+[18Juli2025 10:33:28.221] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax cycle completed for colony COLONY3 - Buildings: 11, Generated: 41, Maintenance: 104, Final Balance: 773
+[18Juli2025 10:33:28.223] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax generation cycle completed for all colonies
+[18Juli2025 11:33:28.210] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Applied guard tower tax boost to colony Dev's Colony1: 52 tax (15 guard towers, 50% boost)
+[18Juli2025 11:33:28.210] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax cycle completed for colony Dev's Colony1 - Buildings: 25, Generated: 104, Maintenance: 231, Final Balance: 2111
+[18Juli2025 11:33:28.211] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Applied guard tower tax boost to colony COLONY3: 20 tax (6 guard towers, 50% boost)
+[18Juli2025 11:33:28.211] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax cycle completed for colony COLONY3 - Buildings: 11, Generated: 41, Maintenance: 104, Final Balance: 730
+[18Juli2025 11:33:28.212] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax generation cycle completed for all colonies
+[18Juli2025 12:33:26.651] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Applied guard tower tax boost to colony Dev's Colony1: 52 tax (15 guard towers, 50% boost)
+[18Juli2025 12:33:26.652] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax cycle completed for colony Dev's Colony1 - Buildings: 25, Generated: 104, Maintenance: 231, Final Balance: 2036
+[18Juli2025 12:33:26.652] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Applied guard tower tax boost to colony COLONY3: 20 tax (6 guard towers, 50% boost)
+[18Juli2025 12:33:26.652] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax cycle completed for colony COLONY3 - Buildings: 11, Generated: 41, Maintenance: 104, Final Balance: 687
+[18Juli2025 12:33:26.652] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax generation cycle completed for all colonies
+[18Juli2025 13:33:26.649] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Applied guard tower tax boost to colony Dev's Colony1: 52 tax (15 guard towers, 50% boost)
+[18Juli2025 13:33:26.650] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax cycle completed for colony Dev's Colony1 - Buildings: 25, Generated: 104, Maintenance: 231, Final Balance: 1961
+[18Juli2025 13:33:26.650] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Applied guard tower tax boost to colony COLONY3: 20 tax (6 guard towers, 50% boost)
+[18Juli2025 13:33:26.650] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax cycle completed for colony COLONY3 - Buildings: 11, Generated: 41, Maintenance: 104, Final Balance: 644
+[18Juli2025 13:33:26.650] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax generation cycle completed for all colonies
+[18Juli2025 14:33:26.651] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Applied guard tower tax boost to colony Dev's Colony1: 52 tax (15 guard towers, 50% boost)
+[18Juli2025 14:33:26.651] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax cycle completed for colony Dev's Colony1 - Buildings: 25, Generated: 104, Maintenance: 231, Final Balance: 1886
+[18Juli2025 14:33:26.652] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Applied guard tower tax boost to colony COLONY3: 20 tax (6 guard towers, 50% boost)
+[18Juli2025 14:33:26.652] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax cycle completed for colony COLONY3 - Buildings: 11, Generated: 41, Maintenance: 104, Final Balance: 601
+[18Juli2025 14:33:26.653] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax generation cycle completed for all colonies
+[18Juli2025 15:33:26.647] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Applied guard tower tax boost to colony Dev's Colony1: 52 tax (15 guard towers, 50% boost)
+[18Juli2025 15:33:26.647] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax cycle completed for colony Dev's Colony1 - Buildings: 25, Generated: 104, Maintenance: 231, Final Balance: 1811
+[18Juli2025 15:33:26.647] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Applied guard tower tax boost to colony COLONY3: 20 tax (6 guard towers, 50% boost)
+[18Juli2025 15:33:26.647] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax cycle completed for colony COLONY3 - Buildings: 11, Generated: 41, Maintenance: 104, Final Balance: 558
+[18Juli2025 15:33:26.649] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax generation cycle completed for all colonies
+[18Juli2025 16:33:26.647] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Applied guard tower tax boost to colony Dev's Colony1: 52 tax (15 guard towers, 50% boost)
+[18Juli2025 16:33:26.647] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax cycle completed for colony Dev's Colony1 - Buildings: 25, Generated: 104, Maintenance: 231, Final Balance: 1736
+[18Juli2025 16:33:26.648] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Applied guard tower tax boost to colony COLONY3: 20 tax (6 guard towers, 50% boost)
+[18Juli2025 16:33:26.648] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax cycle completed for colony COLONY3 - Buildings: 11, Generated: 41, Maintenance: 104, Final Balance: 515
+[18Juli2025 16:33:26.648] [Server thread/INFO] [net.machiavelli.minecolonytax.TaxManager/]: Tax generation cycle completed for all colonies

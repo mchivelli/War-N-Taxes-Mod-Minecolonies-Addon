@@ -82,7 +82,11 @@ public class WarData {
                 .sum();
         this.remainingAttackerGuards = initialAttackerGuards;
 
-        initializeGuards(colony);
+        // Track defender and attacker guards for proper recognition during the war
+        initializeGuards(colony); // Defender guards
+        if (attackerColony != null) {
+            initializeGuards(attackerColony); // Attacker guards
+        }
     }
 
     private void initializeGuards(IColony colony) {

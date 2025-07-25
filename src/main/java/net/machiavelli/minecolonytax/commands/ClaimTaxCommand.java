@@ -24,6 +24,10 @@ import net.minecraftforge.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import net.sixik.sdmshoprework.SDMShopR; // Import the SDMShop API
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -102,9 +106,24 @@ public class ClaimTaxCommand {
                         long currentBalance = SDMShopR.getMoney(player);
                         SDMShopR.setMoney(player, currentBalance + claimedAmount);
                     } else {
-                        String itemName = TaxConfig.getCurrencyItemName();
-                        String giveCommand = String.format("give %s %s %d", player.getName().getString(), itemName, claimedAmount);
-                        source.getServer().getCommands().performPrefixedCommand(source.getServer().createCommandSourceStack(), giveCommand);
+                        // Use direct inventory manipulation instead of give command for modded items
+                        Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName()));
+                        if (item != null) {
+                            ItemStack itemStack = new ItemStack(item, claimedAmount);
+                            boolean added = player.getInventory().add(itemStack);
+                            if (!added) {
+                                // If inventory is full, drop items near player
+                                player.drop(itemStack, false);
+                                player.sendSystemMessage(Component.translatable("taxmanager.inventory_full", claimedAmount, TaxConfig.getCurrencyItemName()));
+                            } else {
+                                player.sendSystemMessage(Component.translatable("taxmanager.currency_received", claimedAmount, TaxConfig.getCurrencyItemName()));
+                            }
+                        } else {
+                            // Fallback to give command if item not found in registry
+                            String itemName = TaxConfig.getCurrencyItemName();
+                            String giveCommand = String.format("give %s %s %d", player.getName().getString(), itemName, claimedAmount);
+                            source.getServer().getCommands().performPrefixedCommand(source.getServer().createCommandSourceStack(), giveCommand);
+                        }
                     }
                 } else {
                     player.sendSystemMessage(Component.translatable("command.claimtax.no_tax", colony.getName()));

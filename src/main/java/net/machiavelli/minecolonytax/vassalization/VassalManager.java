@@ -22,6 +22,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,7 +35,7 @@ public class VassalManager {
 
     private static final Logger LOGGER = LogManager.getLogger(VassalManager.class);
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final String STORAGE_FILE = "config/vassals.json";
+    private static final String STORAGE_FILE = "config/warntaxmod/vassals.json";
 
     /** key = vassal colonyId */
     private static final Map<Integer, VassalRelation> ACTIVE_VASSALS = new ConcurrentHashMap<>();
