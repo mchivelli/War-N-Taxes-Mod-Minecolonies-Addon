@@ -6,8 +6,12 @@ import com.google.gson.reflect.TypeToken;
 import com.minecolonies.api.IMinecoloniesAPI;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
+import com.minecolonies.api.colony.permissions.ColonyPlayer;
+import com.minecolonies.api.colony.permissions.IPermissions;
+import com.minecolonies.api.colony.permissions.Action;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.TaxManager;
+import net.machiavelli.minecolonytax.WarSystem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -35,7 +39,7 @@ public class VassalManager {
 
     private static final Logger LOGGER = LogManager.getLogger(VassalManager.class);
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final String STORAGE_FILE = "config/warntaxmod/vassals.json";
+    private static final String STORAGE_FILE = "config/warntax/vassals.json";
 
     /** key = vassal colonyId */
     private static final Map<Integer, VassalRelation> ACTIVE_VASSALS = new ConcurrentHashMap<>();
@@ -70,20 +74,28 @@ public class VassalManager {
         VassalProposal proposal = new VassalProposal(targetColony.getID(), overlord.getUUID(), percent);
         PENDING_PROPOSALS.put(targetColony.getID(), proposal);
 
-        // notify target colony owner/officers
-        sendToColonyManagers(targetColony, Component.literal(overlord.getName().getString() +
-                " requests that your colony become a vassal, paying " + percent + "% of its tax income."));
+        try {
+            // notify target colony managers (owner/officers and fallbacks)
+            sendToColonyManagers(targetColony, Component.literal(overlord.getName().getString() +
+                    " requests that your colony become a vassal, paying " + percent + "% of its tax income."));
 
-        Component accept = Component.literal("[Accept]").withStyle(style -> style.withColor(ChatFormatting.GREEN)
-                .withClickEvent(new net.minecraft.network.chat.ClickEvent(net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND,
-                        "/wnt vasalaccept " + targetColony.getID())));
-        Component decline = Component.literal("[Decline]").withStyle(style -> style.withColor(ChatFormatting.RED)
-                .withClickEvent(new net.minecraft.network.chat.ClickEvent(net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND,
-                        "/wnt vasaldecline " + targetColony.getID())));
-        sendToColonyManagers(targetColony, Component.literal(" ").append(accept).append(Component.literal(" ")).append(decline));
+            Component accept = Component.literal("[Accept]").withStyle(style -> style.withColor(ChatFormatting.GREEN)
+                    .withClickEvent(new net.minecraft.network.chat.ClickEvent(net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND,
+                            "/wnt vasalaccept " + targetColony.getID())));
+            Component decline = Component.literal("[Decline]").withStyle(style -> style.withColor(ChatFormatting.RED)
+                    .withClickEvent(new net.minecraft.network.chat.ClickEvent(net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND,
+                            "/wnt vasaldecline " + targetColony.getID())));
+            sendToColonyManagers(targetColony, Component.literal(" ").append(accept).append(Component.literal(" ")).append(decline));
 
-        overlord.sendSystemMessage(Component.literal("Vassalization proposal sent."));
-        return 1;
+            overlord.sendSystemMessage(Component.literal("Vassalization proposal sent."));
+            return 1;
+        } catch (Throwable t) {
+            // Roll back pending state if notifications fail, so users can retry
+            PENDING_PROPOSALS.remove(targetColony.getID());
+            LOGGER.warn("Failed to deliver vassalization request notifications for colony {}: {}", targetColony.getName(), t.toString());
+            overlord.sendSystemMessage(Component.literal("Failed to send vassalization request. Please try again in a moment."));
+            return 0;
+        }
     }
 
     public static int acceptProposal(ServerPlayer executor, int colonyId) {
@@ -270,9 +282,68 @@ public class VassalManager {
     }
 
     private static void sendToColonyManagers(IColony colony, Component message) {
-        colony.getPermissions().getPlayersByRank(colony.getPermissions().getRankOfficer())
-                .forEach(cp -> sendOrQueue(cp.getID(), message));
-        sendOrQueue(colony.getPermissions().getOwner(), message);
+        if (colony == null) return;
+        IPermissions perms = colony.getPermissions();
+
+        // Build robust recipient set with multiple fallbacks
+        java.util.Set<java.util.UUID> recipients = new java.util.HashSet<>();
+
+        // Owner
+        java.util.UUID ownerId = perms.getOwner();
+        if (ownerId != null) recipients.add(ownerId);
+
+        // Officers (if rank exists)
+        try {
+            var officerRank = perms.getRankOfficer();
+            if (officerRank != null) {
+                for (ColonyPlayer cp : perms.getPlayersByRank(officerRank)) {
+                    if (cp != null && cp.getID() != null) recipients.add(cp.getID());
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        // Fallback: anyone with ACCESS_HUTS (managers and trusted members)
+        try {
+            if (SERVER != null && colony.getWorld() != null && colony.getWorld().getServer() != null) {
+                for (ServerPlayer p : colony.getWorld().getServer().getPlayerList().getPlayers()) {
+                    try {
+                        if (perms.hasPermission(p, Action.ACCESS_HUTS)) {
+                            recipients.add(p.getUUID());
+                        }
+                    } catch (Throwable ignoredInner) {}
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        // Fallback: all known colony members from permissions map if still empty
+        if (recipients.isEmpty()) {
+            try {
+                var playersMap = perms.getPlayers();
+                if (playersMap != null) {
+                    recipients.addAll(playersMap.keySet());
+                }
+            } catch (Throwable ignored) {}
+        }
+
+        // FTB Teams extension: also notify members of the owner's FTB party (if installed)
+        try {
+            if (ownerId != null && WarSystem.FTB_TEAMS_INSTALLED && WarSystem.FTB_TEAM_MANAGER != null) {
+                var teamOpt = WarSystem.FTB_TEAM_MANAGER.getTeamForPlayerID(ownerId);
+                if (teamOpt.isPresent()) {
+                    var team = teamOpt.get();
+                    // For party teams, notify direct members
+                    try {
+                        var members = team.getMembers();
+                        if (members != null) recipients.addAll(members);
+                    } catch (Throwable ignoredInner) {}
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        // Finally, deliver message
+        for (java.util.UUID id : recipients) {
+            sendOrQueue(id, message);
+        }
     }
 
     private static void sendOrQueue(UUID playerId, Component msg) {

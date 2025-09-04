@@ -19,6 +19,11 @@ public class ActiveRaidData {
     boolean isActive;
     boolean warningSent;
     long totalTransferred;
+    
+    // Guard kill tracking for revenue calculation
+    int totalGuards;
+    int guardsKilled;
+    boolean guardsInitialized;
 
     public ActiveRaidData(UUID raider, IColony colony, ServerBossEvent bossEvent, TimerTask timerTask) {
         this.raider     = raider;
@@ -26,6 +31,8 @@ public class ActiveRaidData {
         this.bossEvent  = bossEvent;
         this.timerTask  = timerTask;
         this.totalTransferred = 0L;
+        this.guardsKilled = 0;
+        this.guardsInitialized = false;
     }
 
     public ActiveRaidData(UUID raider, IColony colony) {
@@ -41,6 +48,8 @@ public class ActiveRaidData {
         this.isActive = true;
         this.warningSent = false;
         this.totalTransferred   = 0L;
+        this.guardsKilled = 0;
+        this.guardsInitialized = false;
         if (colony != null && colony.getPermissions() != null && colony.getWorld() != null && colony.getWorld().getServer() != null) {
             colony.getPermissions().getPlayers().keySet().forEach(uuid -> {
                 ServerPlayer player = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
@@ -105,5 +114,28 @@ public class ActiveRaidData {
     
     public void setRaiderColony(IColony raiderColony) {
         this.raiderColony = raiderColony;
+    }
+    
+    // Guard kill tracking methods
+    public int getTotalGuards() { return totalGuards; }
+    public int getGuardsKilled() { return guardsKilled; }
+    public boolean areGuardsInitialized() { return guardsInitialized; }
+    
+    public void initializeGuardCount(int totalGuards) {
+        this.totalGuards = totalGuards;
+        this.guardsInitialized = true;
+    }
+    
+    public void incrementGuardsKilled() {
+        this.guardsKilled++;
+    }
+    
+    public double getGuardKillPercentage() {
+        if (totalGuards <= 0) return 0.0;
+        return (double) guardsKilled / totalGuards;
+    }
+    
+    public boolean hasKilledAnyGuards() {
+        return guardsKilled > 0;
     }
 }

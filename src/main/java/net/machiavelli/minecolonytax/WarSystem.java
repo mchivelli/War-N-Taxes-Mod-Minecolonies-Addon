@@ -2207,4 +2207,20 @@ public class WarSystem {
         
         return false;
     }
+
+    /**
+     * Check if a colony is currently involved in any active war
+     */
+    public static boolean isColonyInWar(int colonyId) {
+        for (WarData warData : ACTIVE_WARS.values()) {
+            if (warData.getColony().getID() == colonyId) {
+                return true;
+            }
+            // Also check if it's the attacker's colony
+            if (warData.getAttackerColony() != null && warData.getAttackerColony().getID() == colonyId) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

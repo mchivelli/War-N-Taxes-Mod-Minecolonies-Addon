@@ -19,6 +19,8 @@ import net.minecraftforge.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import net.minecraftforge.common.MinecraftForge;
+import net.machiavelli.minecolonytax.raid.RaidManager;
+import net.machiavelli.minecolonytax.data.WarData;
 
 import java.io.File;
 import java.io.FileReader;
@@ -42,13 +44,16 @@ public class TaxManager {
     private static final Logger LOGGER = LogManager.getLogger(TaxManager.class);
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Map<Integer, Integer> colonyTaxData = new HashMap<>();
-    private static final String TAX_DATA_FILE = "config/warntaxmod/colonyTaxData.json";
+    private static final String TAX_DATA_FILE = "config/warntax/colonyTaxData.json";
+    private static final String TAX_TIMESTAMP_FILE = "config/warntax/lastTaxGeneration.json";
     private static MinecraftServer serverInstance;
     // Set of colony IDs for which tax claims are frozen
     private static final Set<Integer> FROZEN_COLONIES = ConcurrentHashMap.newKeySet();
     private static final Set<Integer> DISABLED_GENERATION = ConcurrentHashMap.newKeySet();
-    // Tick interval for generating taxes (1 hour)
-    private static long ticksPerInterval = 72000L;
+    // Single instance of the tick event handler to prevent multiple registrations
+    private static TickEventHandler tickEventHandler = null;
+    // Last tax generation timestamp (persistent across server restarts)
+    private static long lastTaxGenerationTime = 0L;
 
     // Initialize Tax Manager
     public static void initialize(MinecraftServer server) {
@@ -59,31 +64,72 @@ public class TaxManager {
 
         // Load tax data on server start
         loadTaxData(server);
+        
+        // Load last tax generation timestamp
+        loadLastTaxGenerationTime();
 
-        // Register to handle ticks for generating tax
-        ticksPerInterval = TaxConfig.getTaxIntervalInMinutes() * 1200L; // Calculate interval based on config
-        MinecraftForge.EVENT_BUS.register(new TickEventHandler());
+        // Unregister any existing handler to prevent multiple registrations
+        if (tickEventHandler != null) {
+            MinecraftForge.EVENT_BUS.unregister(tickEventHandler);
+        }
+
+        // Register to handle ticks for generating tax (now timestamp-based)
+        tickEventHandler = new TickEventHandler();
+        MinecraftForge.EVENT_BUS.register(tickEventHandler);
     }
 
     // Save tax data before the server stops
     @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent event) {
-        LOGGER.info("Server stopping. Saving tax data...");
+        LOGGER.info("Server stopping. Saving tax data and timestamp...");
         saveTaxData();  // Save tax data when server stops
+        saveLastTaxGenerationTime();  // CRITICAL: Save timestamp on shutdown
     }
 
-    // Inner class for handling tick events
+    // Inner class for handling tick events (now timestamp-based)
     public static class TickEventHandler {
-        private static int tickCount = 0;  // Keep track of ticks
+        private int tickCount = 0;  // Check every 20 ticks (1 second) for performance
 
         @SubscribeEvent
         public void onServerTick(TickEvent.ServerTickEvent event) {
             if (event.phase == TickEvent.Phase.END) {
                 tickCount++;
-                if (tickCount >= ticksPerInterval) {
-                    TaxManager.generateTaxesForAllColonies();
-                    tickCount = 0;  // Reset the tick counter
+                // Check tax generation every second instead of every tick (performance optimization)
+                if (tickCount >= 20) { // 20 ticks = 1 second
+                    tickCount = 0;
+                    checkForTaxGeneration();
                 }
+            }
+        }
+        
+        private void checkForTaxGeneration() {
+            long currentTime = System.currentTimeMillis();
+            long intervalMs = Math.max(60000L, TaxConfig.getTaxIntervalInMinutes() * 60L * 1000L); // Minimum 1 minute
+            
+            // Handle clock changes/future timestamps (system clock moved backward)
+            if (lastTaxGenerationTime > currentTime + 60000L) { // More than 1 minute in future
+                if (TaxConfig.showTaxGenerationLogs()) {
+                    LOGGER.warn("Last tax generation timestamp is in the future! Clock may have changed. Resetting timestamp.");
+                }
+                lastTaxGenerationTime = currentTime - intervalMs; // Force immediate generation
+                saveLastTaxGenerationTime();
+            }
+            
+            // If this is the first time or enough time has passed, generate taxes
+            if (lastTaxGenerationTime == 0L || (currentTime - lastTaxGenerationTime) >= intervalMs) {
+                if (TaxConfig.showTaxGenerationLogs()) {
+                    if (lastTaxGenerationTime == 0L) {
+                        LOGGER.info("First tax generation triggered (interval: {} minutes)", TaxConfig.getTaxIntervalInMinutes());
+                    } else {
+                        long elapsedMinutes = (currentTime - lastTaxGenerationTime) / (60L * 1000L);
+                        LOGGER.info("Tax generation triggered after {} minutes elapsed (interval: {} minutes)", 
+                                elapsedMinutes, TaxConfig.getTaxIntervalInMinutes());
+                    }
+                }
+                
+                lastTaxGenerationTime = currentTime;
+                saveLastTaxGenerationTime(); // Persist timestamp immediately
+                TaxManager.generateTaxesForAllColonies();
             }
         }
     }
@@ -102,6 +148,31 @@ public class TaxManager {
         if (FROZEN_COLONIES.contains(colonyId)) {
             if (TaxConfig.showTaxGenerationLogs()) {
                 LOGGER.info("Tax claims for colony {} are currently frozen.", colony.getName());
+            }
+            return 0;
+        }
+
+        // Check if the colony is currently being raided - if so, block tax claiming
+        if (RaidManager.getActiveRaidForColony(colonyId) != null) {
+            if (TaxConfig.showTaxGenerationLogs()) {
+                LOGGER.info("Tax claims blocked for colony {} - colony is currently being raided.", colony.getName());
+            }
+            return 0;
+        }
+
+        // Check if the colony is currently in a war (either as defender or attacker) - if so, block tax claiming
+        WarData activeWar = WarSystem.ACTIVE_WARS.get(colonyId);
+        if (activeWar == null) {
+            for (WarData wd : WarSystem.ACTIVE_WARS.values()) {
+                if (wd.getAttackerColony() != null && wd.getAttackerColony().getID() == colonyId) {
+                    activeWar = wd;
+                    break;
+                }
+            }
+        }
+        if (activeWar != null) {
+            if (TaxConfig.showTaxGenerationLogs()) {
+                LOGGER.info("Tax claims blocked for colony {} - colony is currently at war.", colony.getName());
             }
             return 0;
         }
@@ -489,6 +560,81 @@ public class TaxManager {
     /** Check if generation is disabled **/
     public static boolean isGenerationDisabled(int colonyId) {
         return DISABLED_GENERATION.contains(colonyId);
+    }
+
+    // Load last tax generation timestamp from persistent file
+    private static void loadLastTaxGenerationTime() {
+        File timestampFile = new File(TAX_TIMESTAMP_FILE);
+        if (timestampFile.exists()) {
+            try (FileReader reader = new FileReader(timestampFile)) {
+                Type timestampType = new TypeToken<Map<String, Long>>() {}.getType();
+                Map<String, Long> timestampData = GSON.fromJson(reader, timestampType);
+                if (timestampData != null && timestampData.containsKey("lastTaxGeneration")) {
+                    long loadedTimestamp = timestampData.get("lastTaxGeneration");
+                    
+                    // Validate timestamp isn't corrupted or unrealistic
+                    long currentTime = System.currentTimeMillis();
+                    long oneYearAgo = currentTime - (365L * 24L * 60L * 60L * 1000L); // 1 year ago
+                    long oneYearFromNow = currentTime + (365L * 24L * 60L * 60L * 1000L); // 1 year in future
+                    
+                    if (loadedTimestamp < oneYearAgo || loadedTimestamp > oneYearFromNow) {
+                        LOGGER.warn("Loaded timestamp appears corrupted ({}), starting fresh", new java.util.Date(loadedTimestamp));
+                        lastTaxGenerationTime = 0L;
+                    } else {
+                        lastTaxGenerationTime = loadedTimestamp;
+                        if (TaxConfig.showTaxGenerationLogs()) {
+                            long minutesAgo = (currentTime - lastTaxGenerationTime) / (60L * 1000L);
+                            LOGGER.info("Loaded last tax generation timestamp: {} minutes ago ({})", 
+                                    minutesAgo, new java.util.Date(lastTaxGenerationTime));
+                        }
+                    }
+                } else {
+                    LOGGER.warn("Timestamp file exists but is malformed, starting fresh");
+                    lastTaxGenerationTime = 0L;
+                }
+            } catch (Exception e) {
+                LOGGER.warn("Error loading tax generation timestamp, will start fresh: {}", e.getMessage());
+                lastTaxGenerationTime = 0L;
+                // Delete corrupted file
+                try {
+                    timestampFile.delete();
+                } catch (Exception ex) {
+                    LOGGER.debug("Could not delete corrupted timestamp file: {}", ex.getMessage());
+                }
+            }
+        } else {
+            if (TaxConfig.showTaxGenerationLogs()) {
+                LOGGER.info("No existing tax generation timestamp found, starting fresh");
+            }
+            lastTaxGenerationTime = 0L;
+        }
+    }
+
+    // Save last tax generation timestamp to persistent file
+    private static void saveLastTaxGenerationTime() {
+        // Skip saving if timestamp is invalid
+        if (lastTaxGenerationTime <= 0) {
+            if (TaxConfig.showTaxGenerationLogs()) {
+                LOGGER.debug("Skipping save of invalid timestamp: {}", lastTaxGenerationTime);
+            }
+            return;
+        }
+        
+        File timestampFile = new File(TAX_TIMESTAMP_FILE);
+        timestampFile.getParentFile().mkdirs(); // Ensure directory exists
+        
+        try (FileWriter writer = new FileWriter(timestampFile)) {
+            Map<String, Long> timestampData = new HashMap<>();
+            timestampData.put("lastTaxGeneration", lastTaxGenerationTime);
+            timestampData.put("version", 1L); // Version for future compatibility
+            GSON.toJson(timestampData, writer);
+            
+            if (TaxConfig.showTaxGenerationLogs()) {
+                LOGGER.debug("Saved tax generation timestamp: {} ({})", lastTaxGenerationTime, new java.util.Date(lastTaxGenerationTime));
+            }
+        } catch (IOException e) {
+            LOGGER.error("CRITICAL: Failed to save tax generation timestamp! Tax intervals may be affected after restart: {}", e.getMessage());
+        }
     }
 
 }

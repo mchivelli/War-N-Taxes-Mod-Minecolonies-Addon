@@ -94,7 +94,7 @@ public class WntCommands {
                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(
                                         List.of("wagewar", "raid", "claimtax", "checktax", "taxdebt", "joinwar", "leavewar", 
                                                "war", "peace", "warinfo", "wardebug", "warstop", "warstopall", "raidstop", 
-                                               "warhistory", "warstats", "taxgen", "vasalize", "vasalaccept", "vasaldecline", "revoke", "vasals"), builder))
+                                               "warhistory", "warstats", "taxgen", "vasalize", "vasalaccept", "vasaldecline", "revoke", "vasals", "entityraid", "permissions"), builder))
                                 .executes(WntCommands::showSpecificHelp)
                         )
                 )
@@ -318,6 +318,67 @@ public class WntCommands {
                                 )
                         )
                 )
+
+                // Entity Raid commands
+                .then(Commands.literal("entityraid")
+                        .requires(source -> source.hasPermission(2)) // OP level 2
+                        .then(Commands.literal("status")
+                                .executes(ctx -> {
+                                    return net.machiavelli.minecolonytax.commands.EntityRaidCommands.showEntityRaidStatus(ctx);
+                                }))
+                        .then(Commands.literal("config")
+                                .executes(ctx -> {
+                                    return net.machiavelli.minecolonytax.commands.EntityRaidCommands.showEntityRaidConfig(ctx);
+                                }))
+                        .then(Commands.literal("end")
+                                .then(Commands.argument("colonyId", IntegerArgumentType.integer())
+                                        .executes(ctx -> {
+                                            return net.machiavelli.minecolonytax.commands.EntityRaidCommands.endEntityRaid(ctx);
+                                        })))
+                        .then(Commands.literal("test")
+                                .then(Commands.argument("colonyName", StringArgumentType.string())
+                                        .suggests(COLONY_SUGGESTIONS)
+                                        .executes(ctx -> {
+                                            return net.machiavelli.minecolonytax.commands.EntityRaidCommands.testEntityRaid(ctx);
+                                        })))
+                        .then(Commands.literal("reload")
+                                .executes(ctx -> {
+                                    return net.machiavelli.minecolonytax.commands.EntityRaidCommands.reloadEntityRaidConfig(ctx);
+                                }))
+                )
+
+                // General Permissions commands
+                .then(Commands.literal("permissions")
+                        .requires(source -> source.hasPermission(2)) // OP level 2
+                        .then(Commands.literal("status")
+                                .executes(ctx -> {
+                                    return net.machiavelli.minecolonytax.commands.GeneralPermissionsCommands.showPermissionsStatus(ctx);
+                                }))
+                        .then(Commands.literal("config")
+                                .executes(ctx -> {
+                                    return net.machiavelli.minecolonytax.commands.GeneralPermissionsCommands.showPermissionsConfig(ctx);
+                                }))
+                        .then(Commands.literal("apply")
+                                .executes(ctx -> {
+                                    return net.machiavelli.minecolonytax.commands.GeneralPermissionsCommands.applyGeneralPermissions(ctx);
+                                })
+                                .then(Commands.argument("colonyId", IntegerArgumentType.integer())
+                                        .executes(ctx -> {
+                                            return net.machiavelli.minecolonytax.commands.GeneralPermissionsCommands.applyToSpecificColony(ctx);
+                                        })))
+                        .then(Commands.literal("remove")
+                                .executes(ctx -> {
+                                    return net.machiavelli.minecolonytax.commands.GeneralPermissionsCommands.removeGeneralPermissions(ctx);
+                                })
+                                .then(Commands.argument("colonyId", IntegerArgumentType.integer())
+                                        .executes(ctx -> {
+                                            return net.machiavelli.minecolonytax.commands.GeneralPermissionsCommands.removeFromSpecificColony(ctx);
+                                        })))
+                        .then(Commands.literal("reload")
+                                .executes(ctx -> {
+                                    return net.machiavelli.minecolonytax.commands.GeneralPermissionsCommands.reloadGeneralPermissions(ctx);
+                                }))
+                )
         );
     }
 
@@ -372,6 +433,15 @@ public class WntCommands {
             source.sendSuccess(() -> Component.literal("§e/wnt raidstop §7- Stop active raid"), false);
             source.sendSuccess(() -> Component.literal("§e/wnt debugguards [colony] §7- Debug guard/tower counting"), false);
             source.sendSuccess(() -> Component.literal("§e/wnt taxgen disable/enable <colonyId> §7- Control tax generation"), false);
+            source.sendSuccess(() -> Component.literal("§e/wnt entityraid status §7- Show active entity raids"), false);
+            source.sendSuccess(() -> Component.literal("§e/wnt entityraid config §7- Show entity raid configuration"), false);
+            source.sendSuccess(() -> Component.literal("§e/wnt entityraid end <colonyId> §7- End active entity raid"), false);
+            source.sendSuccess(() -> Component.literal("§e/wnt entityraid test <colony> §7- Test entity raid system"), false);
+            source.sendSuccess(() -> Component.literal("§e/wnt entityraid reload §7- Reload entity raid config"), false);
+            source.sendSuccess(() -> Component.literal("§e/wnt permissions status §7- Show general permissions status"), false);
+            source.sendSuccess(() -> Component.literal("§e/wnt permissions config §7- Show permissions configuration"), false);
+            source.sendSuccess(() -> Component.literal("§e/wnt permissions apply/remove §7- Apply/remove general permissions"), false);
+            source.sendSuccess(() -> Component.literal("§e/wnt permissions reload §7- Reload general permissions"), false);
         }
         
         return 1;
@@ -402,7 +472,7 @@ public class WntCommands {
                     source.sendSuccess(() -> Component.literal("§7- Target colony must have at least " + TaxConfig.getMinGuardTowersToBeRaided() + " guard towers"), false);
                 }
                 source.sendSuccess(() -> Component.literal("§7During a raid:"), false);
-                source.sendSuccess(() -> Component.literal("§7- Tax is periodically transferred from the colony to you"), false);
+                source.sendSuccess(() -> Component.literal("§7- Tax is awarded only after a successful raid (not periodically)"), false);
                 source.sendSuccess(() -> Component.literal("§7- If you die, you pay a penalty to your killer"), false);
                 source.sendSuccess(() -> Component.literal("§7- Raid lasts up to " + TaxConfig.MAX_RAID_DURATION_MINUTES.get() + " minutes"), false);
                 break;
@@ -554,6 +624,41 @@ public class WntCommands {
                 if (source.hasPermission(2)) {
                     source.sendSuccess(() -> Component.literal("§c/wnt taxgen disable/enable <colonyId>"), false);
                     source.sendSuccess(() -> Component.literal("§7Control tax generation for specific colonies."), false);
+                } else {
+                    source.sendFailure(Component.literal("§cYou don't have permission to view this command."));
+                }
+                break;
+
+            case "entityraid":
+                if (source.hasPermission(2)) {
+                    source.sendSuccess(() -> Component.literal("§c/wnt entityraid <subcommand>"), false);
+                    source.sendSuccess(() -> Component.literal("§7Manage entity-triggered raids on colonies."), false);
+                    source.sendSuccess(() -> Component.literal("§7Subcommands:"), false);
+                    source.sendSuccess(() -> Component.literal("§7- status: Show active entity raids"), false);
+                    source.sendSuccess(() -> Component.literal("§7- config: Show current configuration"), false);
+                    source.sendSuccess(() -> Component.literal("§7- end <colonyId>: End an active entity raid"), false);
+                    source.sendSuccess(() -> Component.literal("§7- test <colony>: Test the entity raid system"), false);
+                    source.sendSuccess(() -> Component.literal("§7- reload: Reload configuration"), false);
+                    source.sendSuccess(() -> Component.literal("§7Entity raids are triggered when a configurable"), false);
+                    source.sendSuccess(() -> Component.literal("§7number of whitelisted entities gather near colonies."), false);
+                } else {
+                    source.sendFailure(Component.literal("§cYou don't have permission to view this command."));
+                }
+                break;
+
+            case "permissions":
+                if (source.hasPermission(2)) {
+                    source.sendSuccess(() -> Component.literal("§c/wnt permissions <subcommand>"), false);
+                    source.sendSuccess(() -> Component.literal("§7Manage general colony permissions for all players."), false);
+                    source.sendSuccess(() -> Component.literal("§7Subcommands:"), false);
+                    source.sendSuccess(() -> Component.literal("§7- status: Show current permissions status"), false);
+                    source.sendSuccess(() -> Component.literal("§7- config: Show current configuration"), false);
+                    source.sendSuccess(() -> Component.literal("§7- apply [colonyId]: Apply permissions to all/specific colony"), false);
+                    source.sendSuccess(() -> Component.literal("§7- remove [colonyId]: Remove permissions from all/specific colony"), false);
+                    source.sendSuccess(() -> Component.literal("§7- reload: Reload permissions based on current config"), false);
+                    source.sendSuccess(() -> Component.literal("§7General permissions allow ALL players (including non-allies)"), false);
+                    source.sendSuccess(() -> Component.literal("§7to toss items and pickup items within colony boundaries when enabled."), false);
+                    source.sendSuccess(() -> Component.literal("§7Additional actions like block placement can be configured as needed."), false);
                 } else {
                     source.sendFailure(Component.literal("§cYou don't have permission to view this command."));
                 }

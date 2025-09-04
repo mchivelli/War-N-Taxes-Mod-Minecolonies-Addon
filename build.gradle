@@ -87,6 +87,7 @@ minecraft {
         client {
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             property 'forge.enabledGameTestNamespaces', mod_id
+            jvmArgs '-Xmx5G'
         }
         client2 {
             parent runs.client //  Inherits from client (removes need for mainClass)

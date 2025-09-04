@@ -46,7 +46,22 @@ public class PvPEventHandler {
 
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
+        // PvP Arena Commands
         new PvPArenaCommand().register(event.getDispatcher(), battleManager, mapManager);
+        
+        // CRITICAL FIX: Register all WNT and core commands
+        // NOTE: WarCommands should NOT be registered separately - they should be part of WntCommands structure
+        net.machiavelli.minecolonytax.commands.WntCommands.register(event.getDispatcher());
+        // REMOVED: WarCommands registration to prevent duplicate standalone commands
+        // net.machiavelli.minecolonytax.commands.WarCommands.register(event.getDispatcher());
+        net.machiavelli.minecolonytax.commands.GeneralPermissionsCommands.register(event.getDispatcher());
+        net.machiavelli.minecolonytax.commands.EntityRaidCommands.register(event.getDispatcher());
+        net.machiavelli.minecolonytax.commands.ClaimTaxCommand.register(event.getDispatcher());
+        net.machiavelli.minecolonytax.commands.CheckTaxRevenueCommand.register(event.getDispatcher());
+        net.machiavelli.minecolonytax.commands.TaxDebtCommand.register(event.getDispatcher());
+        net.machiavelli.minecolonytax.commands.AdminTaxGenCommand.register(event.getDispatcher());
+        net.machiavelli.minecolonytax.commands.WarStatsCommand.register(event.getDispatcher());
+        net.machiavelli.minecolonytax.commands.WarHistoryCommand.register(event.getDispatcher());
     }
 
     @SubscribeEvent

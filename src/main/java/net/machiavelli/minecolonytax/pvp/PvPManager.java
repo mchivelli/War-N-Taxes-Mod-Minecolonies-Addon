@@ -52,7 +52,7 @@ public class PvPManager {
 
     // Constants
     public static final ScheduledExecutorService BATTLE_END_SCHEDULER = Executors.newScheduledThreadPool(1);
-    public static final File ARENA_DATA_FILE = new File("config/warntaxmod/pvp_arena_data.json");
+    public static final File ARENA_DATA_FILE = new File("config/warntax/pvp_arena_data.json");
     public static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private PvPManager() {

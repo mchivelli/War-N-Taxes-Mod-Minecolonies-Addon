@@ -1,0 +1,164 @@
+---- Minecraft Crash Report ----
+// Hi. I'm Minecraft, and I'm a crashaholic.
+
+Time: 2025-08-10 11:43:43
+Description: Exception ticking world
+
+java.lang.NullPointerException: Cannot invoke "com.minecolonies.api.colony.IColony.getName()" because "colony" is null
+	at net.machiavelli.minecolonytax.raid.EntityRaidDebugLogger.logFilterStep(EntityRaidDebugLogger.java:62) ~[%23196!/:?] {re:classloading}
+	at net.machiavelli.minecolonytax.event.EntityRaidEventHandler.onEntityJoinLevel(EntityRaidEventHandler.java:54) ~[%23196!/:?] {re:classloading}
+	at net.machiavelli.minecolonytax.event.__EntityRaidEventHandler_onEntityJoinLevel_EntityJoinLevelEvent.invoke(.dynamic) ~[%23196!/:?] {re:classloading,pl:eventbus:B}
+	at net.minecraftforge.eventbus.ASMEventHandler.invoke(ASMEventHandler.java:73) ~[eventbus-6.0.5.jar%23114!/:?] {}
+	at net.minecraftforge.eventbus.EventBus.post(EventBus.java:315) ~[eventbus-6.0.5.jar%23114!/:?] {}
+	at net.minecraftforge.eventbus.EventBus.post(EventBus.java:296) ~[eventbus-6.0.5.jar%23114!/:?] {}
+	at net.minecraft.world.level.entity.PersistentEntitySectionManager.addEntity(PersistentEntitySectionManager.java:79) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading}
+	at net.minecraft.world.level.entity.PersistentEntitySectionManager.lambda$processPendingLoads$11(PersistentEntitySectionManager.java:260) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading}
+	at java.util.Collections$2.tryAdvance(Collections.java:4853) ~[?:?] {}
+	at java.util.Collections$2.forEachRemaining(Collections.java:4861) ~[?:?] {}
+	at java.util.stream.ReferencePipeline$Head.forEach(ReferencePipeline.java:762) ~[?:?] {}
+	at net.minecraft.world.level.entity.PersistentEntitySectionManager.processPendingLoads(PersistentEntitySectionManager.java:259) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading}
+	at net.minecraft.world.level.entity.PersistentEntitySectionManager.tick(PersistentEntitySectionManager.java:269) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading}
+	at net.minecraft.server.level.ServerLevel.tick(ServerLevel.java:358) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading,pl:accesstransformer:B,re:mixin,pl:accesstransformer:B}
+	at net.minecraft.server.MinecraftServer.tickChildren(MinecraftServer.java:936) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading,pl:accesstransformer:B}
+	at net.minecraft.server.dedicated.DedicatedServer.tickChildren(DedicatedServer.java:292) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading,pl:accesstransformer:B}
+	at net.minecraft.server.MinecraftServer.tickServer(MinecraftServer.java:857) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading,pl:accesstransformer:B}
+	at net.minecraft.server.MinecraftServer.runServer(MinecraftServer.java:679) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading,pl:accesstransformer:B}
+	at net.minecraft.server.MinecraftServer.lambda$spin$2(MinecraftServer.java:251) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading,pl:accesstransformer:B}
+	at java.lang.Thread.run(Thread.java:840) ~[?:?] {}
+
+
+A detailed walkthrough of the error, its code path and all known details is as follows:
+---------------------------------------------------------------------------------------
+
+-- Head --
+Thread: Server thread
+Suspected Mod: 
+	War N' Taxes: Minecolonies Addon (minecolonytax), Version: 2.2
+		at TRANSFORMER/minecolonytax@2.2/net.machiavelli.minecolonytax.raid.EntityRaidDebugLogger.logFilterStep(EntityRaidDebugLogger.java:62)
+Stacktrace:
+	at net.machiavelli.minecolonytax.raid.EntityRaidDebugLogger.logFilterStep(EntityRaidDebugLogger.java:62) ~[%23196!/:?] {re:classloading}
+	at net.machiavelli.minecolonytax.event.EntityRaidEventHandler.onEntityJoinLevel(EntityRaidEventHandler.java:54) ~[%23196!/:?] {re:classloading}
+	at net.machiavelli.minecolonytax.event.__EntityRaidEventHandler_onEntityJoinLevel_EntityJoinLevelEvent.invoke(.dynamic) ~[%23196!/:?] {re:classloading,pl:eventbus:B}
+	at net.minecraftforge.eventbus.ASMEventHandler.invoke(ASMEventHandler.java:73) ~[eventbus-6.0.5.jar%23114!/:?] {}
+	at net.minecraftforge.eventbus.EventBus.post(EventBus.java:315) ~[eventbus-6.0.5.jar%23114!/:?] {}
+	at net.minecraftforge.eventbus.EventBus.post(EventBus.java:296) ~[eventbus-6.0.5.jar%23114!/:?] {}
+	at net.minecraft.world.level.entity.PersistentEntitySectionManager.addEntity(PersistentEntitySectionManager.java:79) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading}
+	at net.minecraft.world.level.entity.PersistentEntitySectionManager.lambda$processPendingLoads$11(PersistentEntitySectionManager.java:260) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading}
+	at java.util.Collections$2.tryAdvance(Collections.java:4853) ~[?:?] {}
+	at java.util.Collections$2.forEachRemaining(Collections.java:4861) ~[?:?] {}
+	at java.util.stream.ReferencePipeline$Head.forEach(ReferencePipeline.java:762) ~[?:?] {}
+	at net.minecraft.world.level.entity.PersistentEntitySectionManager.processPendingLoads(PersistentEntitySectionManager.java:259) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading}
+	at net.minecraft.world.level.entity.PersistentEntitySectionManager.tick(PersistentEntitySectionManager.java:269) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading}
+	at net.minecraft.server.level.ServerLevel.tick(ServerLevel.java:358) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading,pl:accesstransformer:B,re:mixin,pl:accesstransformer:B}
+-- Affected level --
+Details:
+	All players: 0 total; []
+	Chunk stats: 2209
+	Level dimension: minecraft:overworld
+	Level spawn location: World: (32,65,-192), Section: (at 0,1,0 in 2,4,-12; chunk contains blocks 32,-64,-192 to 47,319,-177), Region: (0,-1; contains chunks 0,-32 to 31,-1, blocks 0,-64,-512 to 511,319,-1)
+	Level time: 2124004 game time, 2170784 day time
+	Level name: world
+	Level game mode: Game mode: creative (ID 1). Hardcore: false. Cheats: false
+	Level weather: Rain time: 13499 (now: false), thunder time: 162858 (now: false)
+	Known server brands: forge
+	Removed feature flags: 
+	Level was modded: true
+	Level storage version: 0x04ABD - Anvil
+Stacktrace:
+	at net.minecraft.server.MinecraftServer.tickChildren(MinecraftServer.java:936) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading,pl:accesstransformer:B}
+	at net.minecraft.server.dedicated.DedicatedServer.tickChildren(DedicatedServer.java:292) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading,pl:accesstransformer:B}
+	at net.minecraft.server.MinecraftServer.tickServer(MinecraftServer.java:857) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading,pl:accesstransformer:B}
+	at net.minecraft.server.MinecraftServer.runServer(MinecraftServer.java:679) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading,pl:accesstransformer:B}
+	at net.minecraft.server.MinecraftServer.lambda$spin$2(MinecraftServer.java:251) ~[forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1.20.1-recomp.jar%23191!/:?] {re:classloading,pl:accesstransformer:B}
+	at java.lang.Thread.run(Thread.java:840) ~[?:?] {}
+
+
+-- System Details --
+Details:
+	Minecraft Version: 1.20.1
+	Minecraft Version ID: 1.20.1
+	Operating System: Windows 11 (amd64) version 10.0
+	Java Version: 17.0.14, Eclipse Adoptium
+	Java VM Version: OpenJDK 64-Bit Server VM (mixed mode, sharing), Eclipse Adoptium
+	Memory: 878828600 bytes (838 MiB) / 2181038080 bytes (2080 MiB) up to 16953376768 bytes (16168 MiB)
+	CPUs: 32
+	Processor Vendor: AuthenticAMD
+	Processor Name: AMD Ryzen 9 7950X 16-Core Processor            
+	Identifier: AuthenticAMD Family 25 Model 97 Stepping 2
+	Microarchitecture: Zen 3
+	Frequency (GHz): 4.50
+	Number of physical packages: 1
+	Number of physical CPUs: 16
+	Number of logical CPUs: 32
+	Graphics card #0 name: Parsec Virtual Display Adapter
+	Graphics card #0 vendor: Parsec Cloud, Inc.
+	Graphics card #0 VRAM (MB): 0.00
+	Graphics card #0 deviceId: unknown
+	Graphics card #0 versionInfo: DriverVersion=0.45.0.0
+	Graphics card #1 name: AMD Radeon(TM) Graphics
+	Graphics card #1 vendor: Advanced Micro Devices, Inc. (0x1002)
+	Graphics card #1 VRAM (MB): 512.00
+	Graphics card #1 deviceId: 0x164e
+	Graphics card #1 versionInfo: DriverVersion=32.0.21025.1024
+	Graphics card #2 name: NVIDIA GeForce RTX 3080
+	Graphics card #2 vendor: NVIDIA (0x10de)
+	Graphics card #2 VRAM (MB): 4095.00
+	Graphics card #2 deviceId: 0x2216
+	Graphics card #2 versionInfo: DriverVersion=32.0.15.7700
+	Memory slot #0 capacity (MB): 32768.00
+	Memory slot #0 clockSpeed (GHz): 5.60
+	Memory slot #0 type: Unknown
+	Memory slot #1 capacity (MB): 32768.00
+	Memory slot #1 clockSpeed (GHz): 5.60
+	Memory slot #1 type: Unknown
+	Virtual memory max (MB): 81034.70
+	Virtual memory used (MB): 56792.99
+	Swap memory total (MB): 16384.00
+	Swap memory used (MB): 192.84
+	JVM Flags: 0 total; 
+	Server Running: true
+	Player Count: 0 / 20; []
+	Data Packs: vanilla, mod:domum_ornamentum, mod:structurize, mod:forge, mod:blockui, mod:multipiston, mod:minecolonies, mod:minecolonytax, mod:jei, mod:architectury (incompatible), mod:sdmcore, mod:ftblibrary (incompatible), mod:sdm_economy (incompatible), mod:sdm_ui_lib (incompatible), mod:sdmshoprework (incompatible), mod:ftbteams (incompatible), mod:recruits (incompatible)
+	Enabled Feature Flags: minecraft:vanilla
+	World Generation: Stable
+	Is Modded: Definitely; Server brand changed to 'forge'
+	Type: Dedicated Server (map_server.txt)
+	ModLauncher: 10.0.9+10.0.9+main.dcd20f30
+	ModLauncher launch target: forgeserveruserdev
+	ModLauncher naming: mcp
+	ModLauncher services: 
+		mixin-0.8.5.jar mixin PLUGINSERVICE 
+		eventbus-6.0.5.jar eventbus PLUGINSERVICE 
+		fmlloader-1.20.1-47.3.10.jar slf4jfixer PLUGINSERVICE 
+		fmlloader-1.20.1-47.3.10.jar object_holder_definalize PLUGINSERVICE 
+		fmlloader-1.20.1-47.3.10.jar runtime_enum_extender PLUGINSERVICE 
+		fmlloader-1.20.1-47.3.10.jar capability_token_subclass PLUGINSERVICE 
+		accesstransformers-8.0.4.jar accesstransformer PLUGINSERVICE 
+		fmlloader-1.20.1-47.3.10.jar runtimedistcleaner PLUGINSERVICE 
+		modlauncher-10.0.9.jar mixin TRANSFORMATIONSERVICE 
+		modlauncher-10.0.9.jar fml TRANSFORMATIONSERVICE 
+	FML Language Providers: 
+		minecraft@1.0
+		lowcodefml@null
+		javafml@null
+	Mod List: 
+		forge-1.20.1-47.3.10_mapped_parchment_2023.09.03-1|Minecraft                     |minecraft                     |1.20.1              |DONE      |Manifest: a1:d4:5e:04:4f:d3:d6:e0:7b:37:97:cf:77:b0:de:ad:4a:47:ce:8c:96:49:5f:0a:cf:8c:ae:b2:6d:4b:8a:3f
+		architectury-api-419699-5137938_mapped_parchment_2|Architectury                  |architectury                  |9.2.14              |DONE      |Manifest: NOSIGNATURE
+		sdm-engine-core-964997-5761090_mapped_parchment_20|SDM Core                      |sdmcore                       |1.20.1-2.1.1        |DONE      |Manifest: NOSIGNATURE
+		ftb-library-forge-404465-5567591_mapped_parchment_|FTB Library                   |ftblibrary                    |2001.2.4            |DONE      |Manifest: NOSIGNATURE
+		main                                              |War N' Taxes: Minecolonies Add|minecolonytax                 |2.2                 |DONE      |Manifest: NOSIGNATURE
+		sdm-economy-1102542-5749819_mapped_parchment_2023.|SDM Economy                   |sdm_economy                   |1.20.1-1.6.1        |DONE      |Manifest: NOSIGNATURE
+		jei-238222-5739402_mapped_parchment_2023.09.03-1.2|Just Enough Items             |jei                           |15.19.5.99          |DONE      |Manifest: NOSIGNATURE
+		domum-ornamentum-527361-5764067_mapped_parchment_2|Domum Ornamentum              |domum_ornamentum              |1.20.1-1.0.282-snaps|DONE      |Manifest: NOSIGNATURE
+		structurize-298744-5676596_mapped_parchment_2023.0|Structurize                   |structurize                   |1.20.1-1.0.755-beta |DONE      |Manifest: NOSIGNATURE
+		ftb-teams-forge-404468-5267190_mapped_parchment_20|FTB Teams                     |ftbteams                      |2001.3.0            |DONE      |Manifest: NOSIGNATURE
+		                                                  |Forge                         |forge                         |47.3.10             |DONE      |Manifest: NOSIGNATURE
+		sdm-ui-lib-1095061-5736797_mapped_parchment_2023.0|SDM UI Lib                    |sdm_ui_lib                    |1.20.1-1.8.1        |DONE      |Manifest: NOSIGNATURE
+		sdm-shop-948942-5777543_mapped_parchment_2023.09.0|SDM Shop Rework               |sdmshoprework                 |1.20.1-6.5.4        |DONE      |Manifest: NOSIGNATURE
+		blockui-522992-5658253_mapped_parchment_2023.09.03|UI Library Mod                |blockui                       |1.20.1-1.0.186-beta |DONE      |Manifest: NOSIGNATURE
+		minecolonies-245506-5761248_mapped_parchment_2023.|MineColonies                  |minecolonies                  |1.20.1-1.1.674-snaps|DONE      |Manifest: NOSIGNATURE
+		multi-piston-303278-5204918_mapped_parchment_2023.|Multi-Piston                  |multipiston                   |1.20-1.2.43-RELEASE |DONE      |Manifest: NOSIGNATURE
+		recruits-523860-6500292_mapped_parchment_2023.09.0|Villager Recruits Mod         |recruits                      |1.13.3              |DONE      |Manifest: NOSIGNATURE
+	Crash Report UUID: 1abf84c0-5810-427f-9331-77a406c8af6f
+	FML: 47.3
+	Forge: net.minecraftforge:47.3.10

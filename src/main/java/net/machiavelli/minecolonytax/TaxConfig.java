@@ -1,17 +1,11 @@
 package net.machiavelli.minecolonytax;
 
-import com.electronwill.nightconfig.core.file.CommentedFileConfig;
 import com.minecolonies.api.colony.requestsystem.data.IDataStoreManager;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.loading.FMLPaths;
 
-import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -87,6 +81,30 @@ public class TaxConfig {
     public static final ForgeConfigSpec.IntValue MIN_GUARDS_TO_BE_RAIDED;
     public static final ForgeConfigSpec.IntValue MIN_GUARD_TOWERS_TO_BE_RAIDED;
     public static final ForgeConfigSpec.BooleanValue ENABLE_RAID_GUARD_PROTECTION;
+
+    // Entity Raid Configuration
+    public static final ForgeConfigSpec.BooleanValue ENABLE_ENTITY_RAIDS;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> ENTITY_RAID_WHITELIST;
+    public static final ForgeConfigSpec.IntValue ENTITY_RAID_THRESHOLD;
+    public static final ForgeConfigSpec.IntValue ENTITY_RAID_DETECTION_RADIUS;
+    public static final ForgeConfigSpec.BooleanValue ENTITY_RAID_MESSAGE_ONLY;
+    public static final ForgeConfigSpec.IntValue ENTITY_RAID_BOUNDARY_TIMER_SECONDS;
+
+    public static final ForgeConfigSpec.IntValue ENTITY_RAID_CHECK_INTERVAL_TICKS;
+    public static final ForgeConfigSpec.IntValue ENTITY_RAID_COOLDOWN_MINUTES;
+
+    // Entity Raid Debug Configuration
+    public static final ForgeConfigSpec.BooleanValue ENABLE_ENTITY_RAID_DEBUG;
+    public static final ForgeConfigSpec.IntValue ENTITY_RAID_DEBUG_LEVEL;
+    public static final ForgeConfigSpec.BooleanValue BYPASS_ALLIANCE_CHECKS;
+
+    // PvP Kill Economy Configuration
+    public static final ForgeConfigSpec.BooleanValue ENABLE_PVP_KILL_ECONOMY;
+    public static final ForgeConfigSpec.DoubleValue PVP_KILL_REWARD_PERCENTAGE;
+
+    // General Colony Permissions Configuration
+    public static final ForgeConfigSpec.BooleanValue ENABLE_GENERAL_ITEM_INTERACTIONS;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> GENERAL_COLONY_ACTIONS;
 
     static {
 
@@ -180,6 +198,79 @@ public class TaxConfig {
 
         RAID_TAX_PERCENTAGES = BUILDER.comment("Tax transfer percentages during raids (comma-separated decimals)")
                 .define("RaidTaxPercentages", List.of(0.1, 0.25, 0.5, 0.7));
+
+        // ========== Entity Raid Settings ==========
+        BUILDER.push("Entity Raid Settings");
+
+        ENABLE_ENTITY_RAIDS = BUILDER.comment("Enable entity-triggered raids. When disabled, entities will not trigger raids even if they meet the criteria. Admin-only feature.")
+                .define("EnableEntityRaids", false);
+
+        ENTITY_RAID_WHITELIST = BUILDER.comment("List of entity types that can trigger raids. Use Minecraft entity resource IDs (e.g., 'minecraft:pillager'). Default: only Pillagers.")
+                .defineList("EntityRaidWhitelist", 
+                        List.of("minecraft:pillager"), 
+                        obj -> obj instanceof String);
+
+        ENTITY_RAID_THRESHOLD = BUILDER.comment("Number of whitelisted entities near a colony required to trigger a raid")
+                .defineInRange("EntityRaidThreshold", 1, 1, 50);
+
+        ENTITY_RAID_DETECTION_RADIUS = BUILDER.comment("Radius in blocks to detect entities around colonies for raid triggering (default: 50 blocks)")
+                .defineInRange("EntityRaidDetectionRadius", 50, 10, 500);
+
+        ENTITY_RAID_MESSAGE_ONLY = BUILDER.comment("If true, entity raids will only send messages to colony and allies without triggering actual raid mechanics. Set to false for full raid functionality.")
+                .define("EntityRaidMessageOnly", false);
+
+        ENTITY_RAID_BOUNDARY_TIMER_SECONDS = BUILDER.comment("Time in seconds entities have to return to colony boundaries after leaving during an entity raid")
+                .defineInRange("EntityRaidBoundaryTimerSeconds", 5, 1, 60);
+
+
+
+        ENTITY_RAID_CHECK_INTERVAL_TICKS = BUILDER.comment("How often (in ticks) to check for entities near colonies. Lower values = more frequent checks but higher performance cost. 20 ticks = 1 second")
+                .defineInRange("EntityRaidCheckIntervalTicks", 20, 10, 200);
+
+        ENTITY_RAID_COOLDOWN_MINUTES = BUILDER.comment("Cooldown period between entity raids for the same colony (minutes)")
+                .defineInRange("EntityRaidCooldownMinutes", 30, 1, 1440);
+
+        // Debug Configuration
+        ENABLE_ENTITY_RAID_DEBUG = BUILDER.comment("Enable detailed debug logging for EntityRaid system. " +
+                "When enabled, provides comprehensive logging of entity detection, filtering, and raid triggering processes.")
+                .define("EnableEntityRaidDebug", false);
+
+        ENTITY_RAID_DEBUG_LEVEL = BUILDER.comment("Debug logging verbosity level for EntityRaid system:\n" +
+                "1 = Basic (raid triggers, major events)\n" +
+                "2 = Detailed (entity filtering, alliance checks)\n" +
+                "3 = Verbose (all detection steps, performance metrics)")
+                .defineInRange("EntityRaidDebugLevel", 1, 1, 3);
+
+        BYPASS_ALLIANCE_CHECKS = BUILDER.comment("TESTING ONLY: Bypass alliance checks to allow your own recruits to trigger raids (set to false for production)")
+                .define("BypassAllianceChecks", false);
+
+        BUILDER.pop();
+
+        // ========== PvP Kill Economy Settings ==========
+        BUILDER.push("PvP Kill Economy");
+
+        ENABLE_PVP_KILL_ECONOMY = BUILDER.comment("Enable PvP kill economy system. When enabled, killing a player transfers a percentage of their balance to the killer. " +
+                "Compatible with SDMShop and SDMEconomy. Disabled by default.")
+                .define("EnablePvPKillEconomy", false);
+
+        PVP_KILL_REWARD_PERCENTAGE = BUILDER.comment("Percentage of victim's balance transferred to killer on PvP kill (0.0 - 1.0). " +
+                "For example: 0.1 = 10% of victim's money goes to killer. Uses SDMShop balance or colony funds based on configuration.")
+                .defineInRange("PvPKillRewardPercentage", 0.1, 0.0, 1.0);
+
+        BUILDER.pop();
+
+        // ========== General Colony Permissions ==========
+        BUILDER.push("General Colony Permissions");
+
+        ENABLE_GENERAL_ITEM_INTERACTIONS = BUILDER.comment("Enable general item interactions for all players in colonies. When enabled, allows non-allies to toss items and pickup items within colony boundaries.")
+                .define("EnableGeneralItemInteractions", true);
+
+        GENERAL_COLONY_ACTIONS = BUILDER.comment("Actions allowed for all players in colonies when general interactions are enabled. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.")
+                .defineList("GeneralColonyActions",
+                        List.of("TOSS_ITEM", "PICKUP_ITEM"),
+                        obj -> obj instanceof String);
+
+        BUILDER.pop();
 
         WAR_DURATION_MINUTES = BUILDER.comment("War duration (minutes)")
                 .defineInRange("WarDurationMinutes", 120, 1, 1440);
@@ -562,24 +653,6 @@ public class TaxConfig {
         CONFIG = BUILDER.build();
     }
 
-    /**
-     * Loads the configuration file.
-     */
-    public static void loadConfig(ForgeConfigSpec config, String path) {
-        final Path configPath = FMLPaths.CONFIGDIR.get().resolve(path);
-
-        // Create the parent directory if it doesn't exist
-        try {
-            java.nio.file.Files.createDirectories(configPath.getParent());
-        } catch (java.io.IOException e) {
-            throw new RuntimeException("Failed to create config directory", e);
-        }
-
-        final CommentedFileConfig file = CommentedFileConfig.builder(configPath).sync().autosave().writingMode(com.electronwill.nightconfig.core.io.WritingMode.REPLACE).build();
-        file.load();
-        config.setConfig(file);
-    }
-
 
     public static boolean isSDMShopConversionEnabled() {
         return ENABLE_SDM_SHOP_CONVERSION.get();
@@ -735,5 +808,78 @@ public class TaxConfig {
 
     public static boolean showColonyInitializationLogs() {
         return SHOW_COLONY_INITIALIZATION_LOGS.get();
+    }
+
+    // Entity Raid Configuration Getters
+    public static boolean isEntityRaidsEnabled() {
+        return ENABLE_ENTITY_RAIDS.get();
+    }
+
+    public static List<? extends String> getEntityRaidWhitelist() {
+        return ENTITY_RAID_WHITELIST.get();
+    }
+
+    public static int getEntityRaidThreshold() {
+        return ENTITY_RAID_THRESHOLD.get();
+    }
+
+    public static int getEntityRaidDetectionRadius() {
+        return ENTITY_RAID_DETECTION_RADIUS.get();
+    }
+
+    public static boolean isEntityRaidMessageOnly() {
+        return ENTITY_RAID_MESSAGE_ONLY.get();
+    }
+
+    public static int getEntityRaidBoundaryTimerSeconds() {
+        return ENTITY_RAID_BOUNDARY_TIMER_SECONDS.get();
+    }
+
+
+
+    public static int getEntityRaidCheckIntervalTicks() {
+        return ENTITY_RAID_CHECK_INTERVAL_TICKS.get();
+    }
+
+    public static int getEntityRaidCooldownMinutes() {
+        return ENTITY_RAID_COOLDOWN_MINUTES.get();
+    }
+
+    // Entity Raid Debug Configuration Getters
+    public static boolean isEntityRaidDebugEnabled() {
+        return ENABLE_ENTITY_RAID_DEBUG.get();
+    }
+
+    public static int getEntityRaidDebugLevel() {
+        return ENTITY_RAID_DEBUG_LEVEL.get();
+    }
+
+    public static boolean shouldBypassAllianceChecks() {
+        return BYPASS_ALLIANCE_CHECKS.get();
+    }
+
+    // General Colony Permissions Configuration Getters
+    public static boolean isGeneralItemInteractionsEnabled() {
+        return ENABLE_GENERAL_ITEM_INTERACTIONS.get();
+    }
+
+    public static List<? extends String> getGeneralColonyActions() {
+        return GENERAL_COLONY_ACTIONS.get();
+    }
+
+    public static Set<com.minecolonies.api.colony.permissions.Action> getGeneralColonyActionSet() {
+        List<? extends String> actionsStr = GENERAL_COLONY_ACTIONS.get();
+        return actionsStr.stream()
+            .map(s -> {
+                try {
+                    return com.minecolonies.api.colony.permissions.Action.valueOf(s.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    // Log error or handle invalid action string
+                    System.err.println("Invalid general colony action in config: " + s);
+                    return null;
+                }
+            })
+            .filter(java.util.Objects::nonNull)
+            .collect(java.util.stream.Collectors.toSet());
     }
 }

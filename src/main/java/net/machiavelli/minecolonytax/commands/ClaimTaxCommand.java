@@ -13,12 +13,14 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.machiavelli.minecolonytax.MineColonyTax;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.TaxConfig;
+import net.machiavelli.minecolonytax.raid.RaidManager;
+import net.machiavelli.minecolonytax.WarSystem;
+import net.machiavelli.minecolonytax.data.WarData;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
@@ -96,6 +98,28 @@ public class ClaimTaxCommand {
 
             if (playerRank != null && playerRank.isColonyManager()) {
                 foundColonies = true;
+
+                // Check if colony is currently being raided before attempting to claim
+                if (RaidManager.getActiveRaidForColony(colony.getID()) != null) {
+                    player.sendSystemMessage(Component.literal("Cannot claim tax for colony " + colony.getName() + " - colony is currently being raided!").withStyle(net.minecraft.ChatFormatting.RED));
+                    continue;
+                }
+
+                // Check if colony is currently involved in a war (defender or attacker) before attempting to claim
+                WarData war = WarSystem.ACTIVE_WARS.get(colony.getID()); // defender-side lookup
+                if (war == null) {
+                    for (WarData wd : WarSystem.ACTIVE_WARS.values()) {
+                        if (wd.getAttackerColony() != null && wd.getAttackerColony().getID() == colony.getID()) {
+                            war = wd; // attacker-side involvement
+                            break;
+                        }
+                    }
+                }
+                if (war != null) {
+                    String phase = war.isJoinPhaseActive() ? "join phase" : "active war";
+                    player.sendSystemMessage(Component.literal("Cannot claim tax for colony " + colony.getName() + " - colony is currently at war (" + phase + ")!").withStyle(net.minecraft.ChatFormatting.RED));
+                    continue;
+                }
 
                 int claimedAmount = TaxManager.claimTax(colony, amount);
                 if (claimedAmount > 0) {

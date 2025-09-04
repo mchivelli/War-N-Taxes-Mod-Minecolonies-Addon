@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class HistoryManager
 {
     private static final Logger LOGGER = LogManager.getLogger();
-    private static final File HISTORY_FILE = new File("config/warntaxmod/colony_history.json");
+    private static final File HISTORY_FILE = new File("config/warntax/colony_history.json");
     private static final Gson GSON = new GsonBuilder()
             .setPrettyPrinting()
             .create();

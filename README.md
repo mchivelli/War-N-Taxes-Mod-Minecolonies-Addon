@@ -5,6 +5,8 @@ A comprehensive Forge mod extension for MineColonies that adds:
 - **🏛️ Automated tax collection & management** with debt tracking
 - **⚔️ Advanced war system** with declarations, join phases, lives, and strategic combat
 - **🏴‍☠️ Dynamic raid mechanics** with penalties and grace periods
+- **🤖 Entity-triggered raids** with configurable thresholds and automatic detection
+- **🔓 Universal colony permissions** allowing all players to drop and pickup items
 - **🕊️ Peace proposal system** for diplomatic resolution
 - **📊 Comprehensive statistics tracking** for players and colonies
 - **🎮 Unified command interface** with `/wnt` prefix and intelligent suggestions
@@ -75,6 +77,24 @@ A comprehensive Forge mod extension for MineColonies that adds:
 | `/wnt taxgen disable <colonyId>` | Disable tax generation | Level 2 (OP) |
 | `/wnt taxgen enable <colonyId>` | Enable tax generation | Level 2 (OP) |
 
+### 🤖 Entity Raid Commands
+| Command | Description | Permission |
+|---------|-------------|-----------|
+| `/wnt entityraid status` | Show active entity raids | Level 2 (OP) |
+| `/wnt entityraid config` | Display entity raid configuration | Level 2 (OP) |
+| `/wnt entityraid end <colonyId>` | End active entity raid | Level 2 (OP) |
+| `/wnt entityraid test "<colony>"` | Test entity raid system | Level 2 (OP) |
+| `/wnt entityraid reload` | Reload entity raid configuration | Level 2 (OP) |
+
+### 🔓 Permission Management Commands
+| Command | Description | Permission |
+|---------|-------------|-----------|
+| `/wnt permissions status` | Show general permissions status | Level 2 (OP) |
+| `/wnt permissions config` | Display permissions configuration | Level 2 (OP) |
+| `/wnt permissions apply [colonyId]` | Apply permissions to all/specific colony | Level 2 (OP) |
+| `/wnt permissions remove [colonyId]` | Remove permissions from all/specific colony | Level 2 (OP) |
+| `/wnt permissions reload` | Reload permissions based on config | Level 2 (OP) |
+
 ---
 
 ## 🎯 Smart Features
@@ -124,6 +144,25 @@ Settings in `config/minecolonytax.toml`:
 | `RaidGracePeriodMinutes` | `1` | Cooldown between raids |
 | `MaxRaidDurationMinutes` | `20` | Maximum raid duration |
 | `RaidOwnerMustBeOffline` | `true` | Target owner offline requirement |
+
+### 🤖 Entity Raid Settings
+| Option | Default | Description |
+|--------|---------|-------------|
+| `EnableEntityRaids` | `false` | Enable entity-triggered raids |
+| `EntityRaidWhitelist` | `["minecraft:zombie", "minecraft:skeleton", ...]` | Entities that can trigger raids |
+| `EntityRaidThreshold` | `5` | Number of entities required to trigger raid |
+| `EntityRaidDetectionRadius` | `100` | Detection radius around colonies (blocks) |
+| `EntityRaidMessageOnly` | `true` | Only send messages, don't trigger actual raids |
+| `EntityRaidBoundaryTimerSeconds` | `5` | Time for entities to return to boundaries |
+
+| `EntityRaidCheckIntervalTicks` | `20` | How often to check for entities (1 sec = 20 ticks) |
+| `EntityRaidCooldownMinutes` | `30` | Cooldown between entity raids per colony |
+
+### 🔓 General Colony Permissions
+| Option | Default | Description |
+|--------|---------|-------------|
+| `EnableGeneralItemInteractions` | `true` | Allow all players to drop and pickup items in colonies |
+| `GeneralColonyActions` | `["TOSS_ITEM", "PICKUP_ITEM"]` | Actions allowed for all players |
 
 ---
 

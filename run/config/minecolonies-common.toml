@@ -1,11 +1,11 @@
 
-#All configuration items related to the core gameplay
+#Alle Konfigurationen zu Kernfunktionen des Spiels
 [gameplay]
-	#Whether to generate supply ships and camps in loot chests. [Default: true]
+	#Ob Nachschub-Schiffe und Camps in Kisten generiert werden sollen. [Standard: true]
 	generatesupplyloot = true
 
-#All configurations related to the request system
+#Alle Konfigurationen beziehen sich auf das Anforderungssystem
 [requestsystem]
-	#Should the request system show debug information in the debug.log? Useful if malfunctioning. [Default: false]
+	#Soll das Anfragesystem Debug-Informationen im debug.log anzeigen? Nützlich bei Fehlfunktionen. [Standard: false]
 	enabledebuglogging = false
 

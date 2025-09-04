@@ -5,7 +5,105 @@ All notable changes to the MineColonyTax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2025-06-20
+## [Unreleased]
+
+---
+
+## [2025-08-19]
+
+### 🛡️ War Tax Protection
+
+- Prevents claiming taxes from colonies during both the join phase and active war phase
+- Consistent checks across backend and command pathways with clear player feedback
+- Ensures no tax can be claimed from colonies involved in wars
+
+### ⚔️ PvP Kill Economy (configurable)
+
+- NEW FEATURE: Reward killers with a configurable percentage of the victim's balance
+- Disabled by default; configure in `config/warntax/minecolonytax.toml`
+- Config keys: `ENABLE_PVP_KILL_ECONOMY` (default: false) and `PVP_KILL_REWARD_PERCENTAGE` (default: 0.10)
+- Integrates with `SDMShopIntegration` when SDMShop is present; otherwise falls back to item-based transfer
+- Ignores self-kills and non-player kills; includes player notifications and detailed logging
+
+---
+
+## [2025-08-18] - Critical Fix Update
+
+### 🚨 **CRITICAL FIX: Tax Intervals Not Working with Server Restarts**
+
+- **Fixed tax generation being based on server uptime instead of real-world time**
+- Tax intervals now use persistent timestamps that survive server restarts
+- Added `config/warntax/lastTaxGeneration.json` to track timing across restarts
+- Improved performance by reducing timing checks from 20/second to 1/second
+- Added validation for corrupted timestamps and system clock changes
+
+**Impact**: Tax intervals now work correctly regardless of server restart schedules. A 6-hour tax interval will generate taxes every 6 real-world hours, even if the server restarts every 12 hours.
+
+---
+
+## [Previous Release] - 2025-08-12
+
+### 🆕 Enhanced Entity Raid System
+
+- **NEW FEATURE**: Added comprehensive Entity-Triggered Raid system for automatic raid initiation based on hostile entity presence
+- **Entity Detection**: Configurable whitelist of entities that can trigger raids (default: zombies, skeletons, creepers, witches, pillagers)
+- **Threshold-Based Triggering**: Raids trigger when a configurable number of whitelisted entities are detected inside colony boundaries (default: 5 entities)
+- **Colony Boundary Enforcement**: Entities must remain within colony boundaries during raids, with configurable grace period for re-entry
+
+#### 🎮 **Dynamic Raid Experience**
+- **Dynamic Bossbar**: Real-time bossbar displaying remaining attacking entities and countdown timer
+- **Smart Grace Period**: 5-second grace timer activates only when ALL entities leave boundary, pauses/resumes if entities return
+- **Fixed Duration Raids**: Raids last exactly 5 minutes regardless of entity movement (configurable)
+- **Entity Count Display**: Bossbar shows "X entities attacking" and updates dynamically as entities are killed/leave
+- **Accurate Timer**: Fixed timer display bug - now shows proper countdown (e.g., "4m 23s left")
+
+#### 💰 **Economic Impact System**
+- **Configurable Tax Deductions**: Automatic tax revenue penalties every minute during active raids
+- **Percentage-Based Penalties**: Uses configured `RaidPenaltyPercentage` (e.g., 25% per minute)
+- **Real-Time Notifications**: Players receive tax deduction alerts during raids
+- **Revenue Protection**: Deductions are capped to prevent complete colony bankruptcy
+
+#### 🛡️ **Advanced Alliance & Diplomacy**
+- **MineColonies Integration**: Respects colony officer/friend ranks - allies won't trigger raids
+- **Recruits Diplomacy Support**: Revolutionary integration with Recruits mod diplomatic system
+- **Team-Based Filtering**: Recruits with ALLY diplomatic status are excluded from triggering raids
+- **Multi-Layer Alliance Detection**: Checks Recruits diplomacy → team membership → ownership hierarchy
+- **Cross-Mod Compatibility**: Works seamlessly whether Recruits mod is present or not
+
+#### ⚙️ **System Improvements**
+- **Cooldown System**: Configurable cooldown periods between entity raids for the same colony (default: 30 minutes)
+- **Chat Deduplication**: Fixed duplicate notification spam to colony members
+- **Performance Optimized**: Configurable check intervals to balance detection accuracy with server performance
+- **Admin Commands**: Complete `/wnt entityraid` command suite for testing, monitoring, and management
+- **Integration Safety**: Entity raids won't trigger if colonies are already under player raids or in wars
+- **Smart Defaults**: Entity raids are **disabled by default** to allow server administrators to enable and configure as needed
+
+### 🔓 General Colony Permissions System
+
+- **NEW FEATURE**: Added General Colony Permissions system for universal item interactions within colonies  
+- **Universal Access**: Allows **all players** (including non-allies, strangers, and enemies) to drop and pickup items in colony boundaries
+- **Configurable Actions**: Default permissions include `TOSS_ITEM` and `PICKUP_ITEM` (block interactions can be added via configuration)
+- **MineColonies Integration**: Leverages native MineColonies permission system by modifying neutral and hostile ranks
+- **Automatic Application**: Permissions automatically applied to all colonies on server startup
+- **Permission Preservation**: Original permissions are safely stored and can be restored when system is disabled
+- **Admin Control Suite**: Complete `/wnt permissions` command system for granular management:
+  - `/wnt permissions status` - View current permissions status across all colonies
+  - `/wnt permissions config` - Display current configuration settings
+  - `/wnt permissions apply/remove` - Apply or remove permissions from all colonies
+  - `/wnt permissions reload` - Refresh permissions based on current configuration
+  - `/wnt permissions apply/remove <colonyId>` - Target specific colonies
+- **Enabled by Default**: System is active by default to provide immediate improved player experience
+- **Colony-Specific Management**: Individual colonies can have permissions applied or removed independently
+- **Safe Restoration**: Complete rollback capability to restore original MineColonies permissions
+- **Performance Efficient**: Minimal overhead with smart caching and batch operations
+
+### 🔧 War System Fixes
+
+- **Fixed War Interaction Permissions**: Resolved issue where allies and officers on the attacker's side could not break blocks or interact with containers during wars
+  - Added `assignWarParticipantRanks` helper method to properly assign hostile ranks to war participants
+  - Updated war initiation logic to assign hostile ranks to all participants (attackers, defenders, and FTB team members)
+  - Fixed join war logic to assign hostile ranks when players join during the join/active phase
+  - Ensures all war participants get proper permissions to interact with opposing colonies during conflicts
 
 ### 🔧 PvP Configuration Overhaul
 
