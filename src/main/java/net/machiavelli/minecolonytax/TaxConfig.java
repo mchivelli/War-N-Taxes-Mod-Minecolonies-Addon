@@ -1,9 +1,6 @@
 package net.machiavelli.minecolonytax;
 
-import com.minecolonies.api.colony.requestsystem.data.IDataStoreManager;
 import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.event.server.ServerStartingEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 import java.util.HashMap;
@@ -105,6 +102,10 @@ public class TaxConfig {
     // General Colony Permissions Configuration
     public static final ForgeConfigSpec.BooleanValue ENABLE_GENERAL_ITEM_INTERACTIONS;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> GENERAL_COLONY_ACTIONS;
+
+    // Guard Resistance During Raids Configuration
+    public static final ForgeConfigSpec.BooleanValue ENABLE_GUARD_RESISTANCE_DURING_RAIDS;
+    public static final ForgeConfigSpec.IntValue GUARD_RESISTANCE_LEVEL;
 
     static {
 
@@ -269,6 +270,13 @@ public class TaxConfig {
                 .defineList("GeneralColonyActions",
                         List.of("TOSS_ITEM", "PICKUP_ITEM"),
                         obj -> obj instanceof String);
+
+        // Guard Resistance During Raids Configuration
+        ENABLE_GUARD_RESISTANCE_DURING_RAIDS = BUILDER.comment("Enable resistance effect for colony guards during raids. When enabled, guards will receive a resistance effect to help defend the colony.")
+                .define("EnableGuardResistanceDuringRaids", true);
+
+        GUARD_RESISTANCE_LEVEL = BUILDER.comment("Level of resistance effect applied to guards during raids (1-255). Higher levels provide better protection. Set to 0 to disable even if the feature is enabled.")
+                .defineInRange("GuardResistanceLevel", 2, 0, 255);
 
         BUILDER.pop();
 
@@ -881,5 +889,14 @@ public class TaxConfig {
             })
             .filter(java.util.Objects::nonNull)
             .collect(java.util.stream.Collectors.toSet());
+    }
+
+    // Guard Resistance During Raids Configuration Getters
+    public static boolean isGuardResistanceDuringRaidsEnabled() {
+        return ENABLE_GUARD_RESISTANCE_DURING_RAIDS.get();
+    }
+
+    public static int getGuardResistanceLevel() {
+        return GUARD_RESISTANCE_LEVEL.get();
     }
 }

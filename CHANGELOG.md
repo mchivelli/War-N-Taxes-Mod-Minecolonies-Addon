@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🛡️ Guard Resistance During Raids and Wars
+
+- **NEW FEATURE**: Colony guards now receive configurable resistance effects during raids and wars to help defend their colonies
+- **Configurable Effect Level**: New `GuardResistanceLevel` config (default: 2) sets the resistance effect intensity (1-255)
+- **Master Toggle**: New `EnableGuardResistanceDuringRaids` config (default: true) to enable/disable the entire system
+- **Automatic Application**: Resistance effects are automatically applied to all guards when a raid or war starts
+- **Smart Detection**: Identifies guards in various military buildings (guard towers, barracks, combat academy, archery)
+- **Automatic Cleanup**: Resistance effects are automatically removed when raids or wars end (successful completion, raider death, war victory, or interruption)
+- **Duration Management**: Effects last for the full duration of any raid or war (up to 2 hours maximum for raids)
+- **Visual Feedback**: Guards display the resistance effect icon, making it clear they're protected
+- **Performance Optimized**: Minimal overhead with efficient guard tracking and cleanup systems
+- **Safe Operation**: Emergency cleanup prevents orphaned effects if server issues occur
+
 ---
 
 ## [2025-08-19]

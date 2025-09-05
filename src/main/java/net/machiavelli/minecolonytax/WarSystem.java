@@ -32,6 +32,7 @@ import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.server.ServerLifecycleHooks;
 import net.machiavelli.minecolonytax.event.WarEventHandler;
+import net.machiavelli.minecolonytax.raid.GuardResistanceHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -371,6 +372,12 @@ public class WarSystem {
             applyGuardGlow(war.getAttackerColony());
         }
         applyWarGlowToParticipants(war);
+        
+        // Apply resistance effects to defending guards during war
+        GuardResistanceHandler.applyResistanceToGuardsForWar(war.getColony());
+        if (war.getAttackerColony() != null) {
+            GuardResistanceHandler.applyResistanceToGuardsForWar(war.getAttackerColony());
+        }
         if (war.getColony().getWorld() != null && war.getColony().getWorld().getServer() != null) {
             String attackerColonyName = war.getAttackerColony() != null ? war.getAttackerColony().getName() : "Attacking Forces";
             String defenderColonyName = war.getColony().getName();
@@ -754,6 +761,14 @@ public class WarSystem {
     public static void endWar(IColony colony) {
         // Get war data before removing it from active wars
         WarData warData = ACTIVE_WARS.get(colony.getID());
+        
+        // Remove resistance effects from guards in both colonies
+        if (warData != null) {
+            GuardResistanceHandler.removeResistanceFromGuardsForWar(warData.getColony());
+            if (warData.getAttackerColony() != null) {
+                GuardResistanceHandler.removeResistanceFromGuardsForWar(warData.getAttackerColony());
+            }
+        }
         
         // Disable war actions for both sides
         setWarInteractionPermissions(colony, false);

@@ -9,7 +9,7 @@ import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.WarSystem;
 import net.machiavelli.minecolonytax.integration.SDMShopIntegration;
-import net.machiavelli.minecolonytax.raid.EntityRaidManager;
+import net.machiavelli.minecolonytax.raid.GuardResistanceHandler;
 import net.machiavelli.minecolonytax.data.HistoryManager;
 import net.machiavelli.minecolonytax.data.PlayerWarDataManager;
 import net.machiavelli.minecolonytax.event.RaidEndEvent;
@@ -167,6 +167,9 @@ public class RaidManager {
             // Enable raid interactions for both colonies involved
             RaidManager.setRaidInteractionPermissions(colony, true);
             RaidManager.setRaidInteractionPermissions(raiderColony, true);
+            
+            // Apply resistance effects to defending guards
+            GuardResistanceHandler.applyResistanceToGuardsForRaid(colony);
             
             startRaidCountdown(raidData);
             // Send styled raid alert to all colony members
@@ -510,6 +513,9 @@ public class RaidManager {
             raidData.getBossEvent().removeAllPlayers();
             raidData.getBossEvent().setVisible(false);
         }
+        
+        // Remove resistance effects from defending guards
+        GuardResistanceHandler.removeResistanceFromGuardsForRaid(raidData.getColony());
         
         // Disable raid interactions for both colonies involved
         RaidManager.setRaidInteractionPermissions(raidData.getColony(), false);

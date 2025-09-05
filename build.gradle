@@ -131,6 +131,7 @@ repositories {
         url "https://cursemaven.com"
     }
     maven { url "https://jitpack.io" }
+    maven { url = "https://maven.saps.dev/minecraft" }
 }
 
 dependencies {
