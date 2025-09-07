@@ -5,6 +5,46 @@ All notable changes to the MineColonyTax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2025-09-07
+
+### 🎨 Enhanced Tax Report Design
+
+- **Redesigned Tax Reports**: Complete visual overhaul with color-coded sections and improved formatting
+- **Color-Coded Information**: Green for revenue, red for maintenance, blue for bonuses, yellow for warnings
+- **Removed Emojis**: Clean, professional appearance without emoji clutter
+- **Better Structure**: Organized layout with clear separators and logical information flow
+- **Multilingual Support**: Updated translations for English, German, Spanish, French, Russian, and Chinese
+- **Status Indicators**: Clear visual feedback for debt, capacity warnings, and healthy finances
+
+### 😊 Happiness-Based Tax Modifiers
+
+- **NEW FEATURE**: Colony tax generation now affected by average citizen happiness (0.0-10.0 scale)
+- **Dynamic Tax Impact**: Happy colonies (7-10 happiness) generate up to 50% bonus tax, unhappy colonies (0-4 happiness) suffer up to 50% tax penalty
+- **Clear Reporting**: Tax reports show exact coin amounts gained/lost due to happiness, not confusing percentages
+- **Smart Calculation**: Uses average happiness of adult citizens only, with graceful fallbacks for missing data
+- **Configurable System**: New config options for enabling/disabling and adjusting min/max multipliers (0.1-2.0 range)
+- **Professional Display**: Happiness impact shown as "+50 coins" or "-30 coins" with color-coded formatting
+
+### 🏛️ Colony Inactivity Tax Pause System
+
+- **NEW FEATURE**: Tax generation automatically pauses for inactive colonies when owners/officers haven't visited
+- **Smart Integration**: Uses MineColonies' built-in activity tracking (`getLastContactInHours()`)
+- **Configurable Threshold**: Default 168 hours (1 week), range 1 hour to 1 year
+- **Master Toggle**: Can be completely enabled/disabled via `EnableColonyInactivityTaxPause` config
+- **Performance Optimized**: Efficient early return for inactive colonies with minimal overhead
+
+### 🛡️ Raid Defense Reward Integration
+
+- **NEW FEATURE**: Unified raid defense reward system directly integrated into main tax balance for seamless experience
+- **Configurable Reward Percentage**: Default 10% of raider's balance transferred as defense reward when raider is killed during raids
+- **Unified Balance Display**: Raid defense rewards now visible in standard `/wnt checktax` command and GUI alongside regular tax revenue
+- **Simplified Claiming**: Single `/wnt claimtax` command now claims both tax revenue and raid defense rewards from unified balance
+- **Enhanced Notifications**: Updated raid completion notifications to direct players to check tax balance for defense rewards
+- **Streamlined Architecture**: Removed separate raid reward storage system for cleaner, more maintainable codebase
+- **Backward Compatible**: Existing tax systems continue to work unchanged while gaining raid reward integration
+
+---
+
 ## [Unreleased]
 
 ### 🛡️ Guard Resistance During Raids and Wars

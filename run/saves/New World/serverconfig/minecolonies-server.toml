@@ -7,7 +7,7 @@
 	#Sollen Spieler in der Lage sein, unendlich viele Vorratslager / -schiffe zu platzieren? [Standard: false]
 	allowinfinitesupplychests = false
 	#Dürfen Spieler ihre Kolonie verlassen, um einfach eine neue zu erstellen? Achtung: das ist buggy! [Standard: false]
-	allowinfinitecolonies = false
+	allowinfinitecolonies = true
 	#Sollten Kolonien in anderen Dimensionen erlaubt sein? [Standard: true]
 	allowotherdimcolonies = true
 	#Maximale Einwohner in einer Kolonie. [Standard: 250, min: 100, max: 500]

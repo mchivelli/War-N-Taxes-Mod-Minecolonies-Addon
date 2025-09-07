@@ -51,9 +51,10 @@ public class ColonyEventListener {
         }
 
         // Periodically scan for whitelisted entities near colonies to meet threshold
+        // Reduced frequency to avoid spam - scan every 10 seconds instead of every second
         if (TaxConfig.ENABLE_ENTITY_RAIDS.get()) {
             entityScanTickCounter++;
-            if (entityScanTickCounter >= 20) { // Every 1 second
+            if (entityScanTickCounter >= 200) { // Every 10 seconds (200 ticks)
                 entityScanTickCounter = 0;
                 scanColoniesForEntityRaids();
             }
@@ -139,7 +140,8 @@ public class ColonyEventListener {
                 int eligibleCount = 0;
                 Entity firstTrigger = null;
 
-                if (TaxConfig.isEntityRaidDebugEnabled()) {
+                // Only log scanning at high debug levels to reduce spam
+                if (TaxConfig.isEntityRaidDebugEnabled() && TaxConfig.getEntityRaidDebugLevel() >= 2) {
                     LOGGER.info("[EntityRaid-SCAN] 🔍 Scanning colony '{}' for whitelisted entities currently INSIDE boundary", 
                         colony.getName());
                 }
@@ -159,8 +161,9 @@ public class ColonyEventListener {
                             }
                             eligibleCount++;
                             if (firstTrigger == null) firstTrigger = e;
-                            if (TaxConfig.isEntityRaidDebugEnabled()) {
-                                LOGGER.info("[EntityRaid-SCAN] ✅ Entity {} is INSIDE boundary and qualifies (count: {})",
+                            // Only log individual entities at maximum debug level to avoid spam
+                            if (TaxConfig.isEntityRaidDebugEnabled() && TaxConfig.getEntityRaidDebugLevel() >= 3) {
+                                LOGGER.debug("[EntityRaid-SCAN] ✅ Entity {} is INSIDE boundary and qualifies (count: {})",
                                     e.getType().getDescriptionId(), eligibleCount);
                             }
                             // Early exit once threshold reached
@@ -183,7 +186,7 @@ public class ColonyEventListener {
                                 colony.getName(), eligibleCount, threshold);
                     }
                     EntityRaidManager.startEntityRaid(colony, firstTrigger);
-                } else if (TaxConfig.isEntityRaidDebugEnabled()) {
+                } else if (TaxConfig.isEntityRaidDebugEnabled() && TaxConfig.getEntityRaidDebugLevel() >= 2) {
                     LOGGER.info("[EntityRaid-SCAN] Colony '{}' count={} (threshold={}), no raid.",
                             colony.getName(), eligibleCount, threshold);
                 }

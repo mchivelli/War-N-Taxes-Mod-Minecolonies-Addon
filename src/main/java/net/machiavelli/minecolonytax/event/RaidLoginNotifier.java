@@ -95,9 +95,10 @@ public class RaidLoginNotifier {
             player.sendSystemMessage(net.minecraft.network.chat.Component.literal("You are being Raided! " + colonyName + " by " + raiderName)
                     .withStyle(net.minecraft.ChatFormatting.RED));
         } else {
-            // "You have been Raided <colony> by <player>"
-            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("You have been Raided " + colonyName + " by " + raiderName)
-                    .withStyle(net.minecraft.ChatFormatting.RED));
+            // Raid completed notification (defense rewards are now integrated into main tax balance)
+            String baseMessage = "You have been Raided " + colonyName + " by " + raiderName + " - Check your tax balance with /wnt checktax for any defense rewards!";
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(baseMessage)
+                    .withStyle(net.minecraft.ChatFormatting.GOLD));
         }
         
         // Send title and subtitle for increased visibility

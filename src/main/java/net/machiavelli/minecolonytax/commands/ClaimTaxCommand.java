@@ -121,31 +121,34 @@ public class ClaimTaxCommand {
                     continue;
                 }
 
-                int claimedAmount = TaxManager.claimTax(colony, amount);
-                if (claimedAmount > 0) {
-                    player.sendSystemMessage(Component.translatable("command.claimtax.success", claimedAmount, colony.getName()));
+                // Claim tax revenue (now includes raid rewards in main balance)
+                int totalClaimed = TaxManager.claimTax(colony, amount);
+
+                if (totalClaimed > 0) {
+                    player.sendSystemMessage(Component.translatable("command.claimtax.success", 
+                        colony.getName(), totalClaimed));
 
                     // Update player's funds using SDMShop API if enabled
                     if (TaxConfig.isSDMShopConversionEnabled()) {
                         long currentBalance = SDMShopR.getMoney(player);
-                        SDMShopR.setMoney(player, currentBalance + claimedAmount);
+                        SDMShopR.setMoney(player, currentBalance + totalClaimed);
                     } else {
                         // Use direct inventory manipulation instead of give command for modded items
                         Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName()));
                         if (item != null) {
-                            ItemStack itemStack = new ItemStack(item, claimedAmount);
+                            ItemStack itemStack = new ItemStack(item, totalClaimed);
                             boolean added = player.getInventory().add(itemStack);
                             if (!added) {
                                 // If inventory is full, drop items near player
                                 player.drop(itemStack, false);
-                                player.sendSystemMessage(Component.translatable("taxmanager.inventory_full", claimedAmount, TaxConfig.getCurrencyItemName()));
+                                player.sendSystemMessage(Component.translatable("taxmanager.inventory_full", totalClaimed, TaxConfig.getCurrencyItemName()));
                             } else {
-                                player.sendSystemMessage(Component.translatable("taxmanager.currency_received", claimedAmount, TaxConfig.getCurrencyItemName()));
+                                player.sendSystemMessage(Component.translatable("taxmanager.currency_received", totalClaimed, TaxConfig.getCurrencyItemName()));
                             }
                         } else {
                             // Fallback to give command if item not found in registry
                             String itemName = TaxConfig.getCurrencyItemName();
-                            String giveCommand = String.format("give %s %s %d", player.getName().getString(), itemName, claimedAmount);
+                            String giveCommand = String.format("give %s %s %d", player.getName().getString(), itemName, totalClaimed);
                             source.getServer().getCommands().performPrefixedCommand(source.getServer().createCommandSourceStack(), giveCommand);
                         }
                     }

@@ -43,7 +43,6 @@ public class TaxManager {
     private static final Map<Integer, Integer> colonyTaxMap = new HashMap<>();
     private static final Logger LOGGER = LogManager.getLogger(TaxManager.class);
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Map<Integer, Integer> colonyTaxData = new HashMap<>();
     private static final String TAX_DATA_FILE = "config/warntax/colonyTaxData.json";
     private static final String TAX_TIMESTAMP_FILE = "config/warntax/lastTaxGeneration.json";
     private static MinecraftServer serverInstance;
@@ -64,6 +63,7 @@ public class TaxManager {
 
         // Load tax data on server start
         loadTaxData(server);
+        
         
         // Load last tax generation timestamp
         loadLastTaxGenerationTime();
@@ -138,9 +138,11 @@ public class TaxManager {
 
         int colonyId = colony.getID();
         int storedTax = colonyTaxMap.getOrDefault(colonyId, 0);
+        
+        LOGGER.info("[TAX DEBUG] Colony {}: Stored tax = {}, Requested amount = {}", colony.getName(), storedTax, amount);
 
         if (storedTax <= 0) {
-            LOGGER.debug("No tax available to claim for colony {}", colony.getName());
+            LOGGER.info("[TAX DEBUG] No tax available to claim for colony {} (stored: {})", colony.getName(), storedTax);
             return 0;  // No tax to claim
         }
 
@@ -238,6 +240,51 @@ public class TaxManager {
         colonyTaxMap.put(id, current + delta);
     }
 
+    /**
+     * Calculate the average happiness of adult citizens in a colony.
+     * @param colony The colony to calculate happiness for
+     * @return Average happiness (0.0 - 10.0), or 5.0 if no adult citizens or happiness unavailable
+     */
+    private static double calculateColonyAverageHappiness(IColony colony) {
+        try {
+            double totalHappiness = 0.0;
+            int adultCitizenCount = 0;
+
+            for (com.minecolonies.api.colony.ICitizenData citizen : colony.getCitizenManager().getCitizens()) {
+                if (citizen != null && !citizen.isChild()) {
+                    try {
+                        // Access happiness handler through the citizen data
+                        com.minecolonies.api.entity.citizen.citizenhandlers.ICitizenHappinessHandler happinessHandler = 
+                            ((com.minecolonies.core.colony.CitizenData) citizen).getCitizenHappinessHandler();
+                        
+                        if (happinessHandler != null) {
+                            double happiness = happinessHandler.getHappiness(colony, citizen);
+                            totalHappiness += happiness;
+                            adultCitizenCount++;
+                        }
+                    } catch (Exception e) {
+                        // If we can't get happiness for this citizen, skip them
+                        if (TaxConfig.showTaxGenerationLogs()) {
+                            LOGGER.debug("Could not get happiness for citizen {} in colony {}: {}", 
+                                citizen.getName(), colony.getName(), e.getMessage());
+                        }
+                    }
+                }
+            }
+
+            if (adultCitizenCount > 0) {
+                return totalHappiness / adultCitizenCount;
+            } else {
+                return 5.0; // Default to neutral happiness if no adult citizens
+            }
+        } catch (Exception e) {
+            if (TaxConfig.showTaxGenerationLogs()) {
+                LOGGER.warn("Error calculating colony happiness for {}: {}", colony.getName(), e.getMessage());
+            }
+            return 5.0; // Default to neutral happiness on error
+        }
+    }
+
     // Generate taxes for all colonies
     public static void generateTaxesForAllColonies() {
         if (serverInstance != null) {
@@ -250,8 +297,23 @@ public class TaxManager {
                         return;
                     }
                     
+                    // Check colony inactivity
+                    if (TaxConfig.isColonyInactivityTaxPauseEnabled()) {
+                        int lastContactHours = colony.getLastContactInHours();
+                        int inactivityThreshold = TaxConfig.getColonyInactivityHoursThreshold();
+                        
+                        if (lastContactHours >= inactivityThreshold) {
+                            if (TaxConfig.showTaxGenerationLogs()) {
+                                LOGGER.info("Skipping tax generation for inactive colony {} - Last contact: {} hours ago (threshold: {} hours)", 
+                                           colony.getName(), lastContactHours, inactivityThreshold);
+                            }
+                            return;
+                        }
+                    }
+                    
                     // Track colony-level statistics
                     int totalGeneratedTax = 0;
+                    int totalBaseTax = 0; // Tax before happiness modifier
                     int totalMaintenance = 0;
                     int buildingCount = 0;
                     int maxLimitHits = 0;
@@ -260,8 +322,9 @@ public class TaxManager {
                     int guardTowerCount = 0;
                     int requiredGuardTowers = TaxConfig.getRequiredGuardTowersForBoost();
                     
-                    // Store initial tax for comparison
-                    int initialTax = colonyTaxMap.getOrDefault(colonyId, 0);
+                    // Calculate colony happiness for tax modifier
+                    double colonyAvgHappiness = calculateColonyAverageHappiness(colony);
+                    double happinessMultiplier = TaxConfig.calculateHappinessTaxMultiplier(colonyAvgHappiness);
 
                     for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
                         if (building.getBuildingLevel() > 0 && building.isBuilt()) {
@@ -272,8 +335,12 @@ public class TaxManager {
                             // Generate Tax Income
                             double baseTax = TaxConfig.getBaseTaxForBuilding(buildingType);
                             double upgradeTax = TaxConfig.getUpgradeTaxForBuilding(buildingType) * buildingLevel;
-                            int generatedTax = (int) (baseTax + upgradeTax);
-                            totalGeneratedTax += generatedTax;
+                            double rawTax = baseTax + upgradeTax;
+                            
+                            // Apply happiness modifier to tax generation
+                            int generatedTax = (int) (rawTax * happinessMultiplier);
+                            totalBaseTax += (int) rawTax; // Track base tax before happiness modifier
+                            totalGeneratedTax += generatedTax; // Track actual modified tax for reporting
                             
                             // Check if we hit max limit for this building's tax
                             int currentTax = colonyTaxMap.getOrDefault(colonyId, 0);
@@ -351,6 +418,14 @@ public class TaxManager {
                         LOGGER.info("Tax cycle completed for colony {} - Buildings: {}, Generated: {}, Maintenance: {}, Final Balance: {}", 
                                    colony.getName(), buildingCount, totalGeneratedTax, totalMaintenance, finalTaxBalance);
                         
+                        // Log happiness impact if enabled
+                        if (TaxConfig.isHappinessTaxModifierEnabled()) {
+                            int happinessTaxImpact = totalGeneratedTax - totalBaseTax;
+                            String impactType = happinessTaxImpact > 0 ? "BONUS" : (happinessTaxImpact < 0 ? "PENALTY" : "NEUTRAL");
+                            LOGGER.info("Colony {} - Happiness: {}/10.0, Tax Impact: {} coins ({})", 
+                                colonyId, String.format("%.1f", colonyAvgHappiness), happinessTaxImpact, impactType);
+                        }
+                        
                         if (maxLimitHits > 0) {
                             LOGGER.info("Colony {} reached tax revenue maximum limit on {} building calculations (Max: {})", 
                                        colony.getName(), maxLimitHits, TaxConfig.getMaxTaxRevenue());
@@ -379,16 +454,40 @@ public class TaxManager {
                             player.sendSystemMessage(Component.translatable(
                                     "message.minecolonytax.tax_report_header",
                                     colony.getName()
-                            ));
+                            ).withStyle(net.minecraft.ChatFormatting.GOLD, net.minecraft.ChatFormatting.BOLD));
                             
-                            // Send tax summary
+                            // Send separator line
                             player.sendSystemMessage(Component.translatable(
-                                    "message.minecolonytax.tax_report_summary",
+                                    "message.minecolonytax.tax_report_separator"
+                            ).withStyle(net.minecraft.ChatFormatting.GRAY));
+                            
+                            // Send tax generation info
+                            player.sendSystemMessage(Component.translatable(
+                                    "message.minecolonytax.tax_report_generation",
                                     buildingCount,
-                                    totalGeneratedTax,
-                                    totalMaintenance,
-                                    finalTaxBalance
-                            ));
+                                    totalGeneratedTax
+                            ).withStyle(net.minecraft.ChatFormatting.GREEN));
+                            
+                            // Send maintenance info
+                            if (totalMaintenance > 0) {
+                                player.sendSystemMessage(Component.translatable(
+                                        "message.minecolonytax.tax_report_maintenance",
+                                        totalMaintenance
+                                ).withStyle(net.minecraft.ChatFormatting.RED));
+                            }
+                            
+                            // Show happiness modifier if applicable
+                            if (TaxConfig.isHappinessTaxModifierEnabled()) {
+                                int happinessTaxImpact = totalGeneratedTax - totalBaseTax;
+                                net.minecraft.ChatFormatting happinessColor = happinessTaxImpact > 0 ? net.minecraft.ChatFormatting.GREEN : 
+                                    (happinessTaxImpact < 0 ? net.minecraft.ChatFormatting.RED : net.minecraft.ChatFormatting.YELLOW);
+                                String impactSign = happinessTaxImpact > 0 ? "+" : "";
+                                player.sendSystemMessage(Component.translatable(
+                                        "message.minecolonytax.tax_report_happiness",
+                                        String.format("%.1f", colonyAvgHappiness),
+                                        impactSign + happinessTaxImpact
+                                ).withStyle(happinessColor));
+                            }
                             
                             // Show guard tower boost if applicable
                             if (guardTowerCount >= requiredGuardTowers) {
@@ -399,7 +498,7 @@ public class TaxManager {
                                         guardTowerCount,
                                         (int)(boostPercentage * 100),
                                         boostAmount
-                                ));
+                                ).withStyle(net.minecraft.ChatFormatting.BLUE));
                             }
                             
                             // Show tribute paid if applicable
@@ -407,30 +506,42 @@ public class TaxManager {
                                 player.sendSystemMessage(Component.translatable(
                                         "message.minecolonytax.tax_report_tribute",
                                         tributePaid
-                                ));
+                                ).withStyle(net.minecraft.ChatFormatting.DARK_PURPLE));
                             }
                             
-                            // Send status indicators
+                            // Send separator line
+                            player.sendSystemMessage(Component.translatable(
+                                    "message.minecolonytax.tax_report_separator"
+                            ).withStyle(net.minecraft.ChatFormatting.GRAY));
+                            
+                            // Send current balance with appropriate color
+                            net.minecraft.ChatFormatting balanceColor;
+                            String statusKey;
                             if (finalTaxBalance < 0) {
-                                player.sendSystemMessage(Component.translatable(
-                                        "message.minecolonytax.tax_report_debt",
-                                        Math.abs(finalTaxBalance)
-                                ));
+                                balanceColor = net.minecraft.ChatFormatting.DARK_RED;
+                                statusKey = "message.minecolonytax.tax_report_status_debt";
                             } else if (finalTaxBalance >= TaxConfig.getMaxTaxRevenue() * 0.9) {
-                                player.sendSystemMessage(Component.translatable(
-                                        "message.minecolonytax.tax_report_near_max",
-                                        TaxConfig.getMaxTaxRevenue()
-                                ));
+                                balanceColor = net.minecraft.ChatFormatting.YELLOW;
+                                statusKey = "message.minecolonytax.tax_report_status_near_max";
                             } else {
-                                player.sendSystemMessage(Component.translatable(
-                                        "message.minecolonytax.tax_report_healthy"
-                                ));
+                                balanceColor = net.minecraft.ChatFormatting.GREEN;
+                                statusKey = "message.minecolonytax.tax_report_status_healthy";
                             }
+                            
+                            player.sendSystemMessage(Component.translatable(
+                                    "message.minecolonytax.tax_report_balance",
+                                    finalTaxBalance
+                            ).withStyle(balanceColor, net.minecraft.ChatFormatting.BOLD));
+                            
+                            player.sendSystemMessage(Component.translatable(
+                                    statusKey,
+                                    finalTaxBalance < 0 ? Math.abs(finalTaxBalance) : TaxConfig.getMaxTaxRevenue()
+                            ).withStyle(balanceColor));
                             
                             // Send footer
                             player.sendSystemMessage(Component.translatable(
                                     "message.minecolonytax.tax_report_footer"
-                            ));
+                            ).withStyle(net.minecraft.ChatFormatting.GRAY));
                         }
                     }
 
@@ -507,6 +618,8 @@ public class TaxManager {
         }
     }
 
+
+
     // --- New method added to freeze tax claims for a colony for a given number of hours ---
     public static void freezeColonyTax(int colonyId, int freezeHours) {
         FROZEN_COLONIES.add(colonyId);
@@ -523,6 +636,7 @@ public class TaxManager {
             }
         }, TimeUnit.HOURS.toMillis(freezeHours));
     }
+
 
     /**
      * Applies a payment to reduce the colony's tax debt or add to its balance.

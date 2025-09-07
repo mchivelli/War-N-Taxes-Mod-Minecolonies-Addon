@@ -5,7 +5,7 @@ DebtLimit = 0
 [General]
 	#Tax generation interval in minutes
 	#Range: 1 ~ 1440
-	TaxIntervalMinutes = 1440
+	TaxIntervalMinutes = 1
 	#Maximum tax revenue a colony can store before it stops generating further taxes
 	#Range: > 1
 	MaxTaxRevenue = 5000
@@ -100,6 +100,9 @@ DebtLimit = 0
 	#Percentage increase in total tax revenue when required Guard Towers are built. This acts as a multiplier on the colony's total generated tax income. For example: 0.5 = 50% increase, so 1000 tax becomes 1500 tax.
 	#Range: 0.0 ~ 2.0
 	GuardTowerTaxBoostPercentage = 0.5
+	#Percentage of killed raider's balance transferred to defending colony for owner/officers to claim (0.0 - 1.0)
+	#Range: 0.0 ~ 1.0
+	RaidDefenseRewardPercentage = 0.15
 
 	["War Settings"."Entity Raid Settings"]
 		#Enable entity-triggered raids. When disabled, entities will not trigger raids even if they meet the criteria. Admin-only feature.
@@ -144,6 +147,19 @@ DebtLimit = 0
 		#Level of resistance effect applied to guards during raids (1-255). Higher levels provide better protection. Set to 0 to disable even if the feature is enabled.
 		#Range: 0 ~ 255
 		GuardResistanceLevel = 2
+		#Enable happiness-based tax modifiers. When enabled, colony citizen happiness affects tax generation rates.
+		EnableHappinessTaxModifier = true
+		#Minimum tax multiplier for unhappy colonies (0.1 - 1.0). Lower values mean unhappy colonies generate less tax.
+		#Range: 0.1 ~ 1.0
+		HappinessTaxMultiplierMin = 0.5
+		#Maximum tax multiplier for very happy colonies (1.0 - 2.0). Higher values mean happy colonies generate more tax.
+		#Range: 1.0 ~ 2.0
+		HappinessTaxMultiplierMax = 1.5
+		#Enable colony inactivity tax pause system. When enabled, colonies that haven't been visited by owners/officers for the specified time will stop generating taxes.
+		EnableColonyInactivityTaxPause = true
+		#Hours of inactivity after which a colony will stop generating taxes. This uses MineColonies' built-in player interaction tracking.
+		#Range: 1 ~ 8760
+		ColonyInactivityHoursThreshold = 168
 
 	["War Settings"."PvP Kill Economy"]
 		#Enable PvP kill economy system. When enabled, killing a player transfers a percentage of their balance to the killer. Compatible with SDMShop and SDMEconomy. Disabled by default.

@@ -44,6 +44,7 @@ public class TaxConfig {
     public static final Map<String, ForgeConfigSpec.DoubleValue> UPGRADE_MAINTENANCE = new HashMap<>();
     public static final ForgeConfigSpec.BooleanValue ALLOW_OFFLINE_RAIDS;
     public static final ForgeConfigSpec.DoubleValue RAID_PENALTY_PERCENTAGE;
+    public static final ForgeConfigSpec.DoubleValue RAID_DEFENSE_REWARD_PERCENTAGE;
     public static final ForgeConfigSpec.DoubleValue WAR_VICTORY_PERCENTAGE;
     public static final ForgeConfigSpec.DoubleValue WAR_DEFEAT_PERCENTAGE;
     public static final ForgeConfigSpec.DoubleValue WAR_STALEMATE_PERCENTAGE;
@@ -107,6 +108,15 @@ public class TaxConfig {
     public static final ForgeConfigSpec.BooleanValue ENABLE_GUARD_RESISTANCE_DURING_RAIDS;
     public static final ForgeConfigSpec.IntValue GUARD_RESISTANCE_LEVEL;
 
+    // Happiness-Based Tax Configuration
+    public static final ForgeConfigSpec.BooleanValue ENABLE_HAPPINESS_TAX_MODIFIER;
+    public static final ForgeConfigSpec.DoubleValue HAPPINESS_TAX_MULTIPLIER_MIN;
+    public static final ForgeConfigSpec.DoubleValue HAPPINESS_TAX_MULTIPLIER_MAX;
+
+    // Colony Inactivity Configuration
+    public static final ForgeConfigSpec.BooleanValue ENABLE_COLONY_INACTIVITY_TAX_PAUSE;
+    public static final ForgeConfigSpec.IntValue COLONY_INACTIVITY_HOURS_THRESHOLD;
+
     static {
 
         // Define general settings
@@ -164,6 +174,9 @@ public class TaxConfig {
 
         RAID_PENALTY_PERCENTAGE = BUILDER.comment("Penalty percentage applied when a raider is killed by a defender during a raid (0.0 - 1.0)")
                 .defineInRange("RaidPenaltyPercentage", 0.25, 0.0, 1.0);
+
+        RAID_DEFENSE_REWARD_PERCENTAGE = BUILDER.comment("Percentage of killed raider's balance transferred to defending colony for owner/officers to claim (0.0 - 1.0)")
+                .defineInRange("RaidDefenseRewardPercentage", 0.15, 0.0, 1.0);
 
         WAR_VICTORY_PERCENTAGE = BUILDER.comment("Percentage of losing players' balance awarded to each winning player. Set to 0.0 to only enable colony transfer (if enabled).\n" +
                 "Uses SDMShop balance or colony funds based on what's configured.")
@@ -277,6 +290,23 @@ public class TaxConfig {
 
         GUARD_RESISTANCE_LEVEL = BUILDER.comment("Level of resistance effect applied to guards during raids (1-255). Higher levels provide better protection. Set to 0 to disable even if the feature is enabled.")
                 .defineInRange("GuardResistanceLevel", 2, 0, 255);
+
+        // Happiness-Based Tax Configuration
+        ENABLE_HAPPINESS_TAX_MODIFIER = BUILDER.comment("Enable happiness-based tax modifiers. When enabled, colony citizen happiness affects tax generation rates.")
+                .define("EnableHappinessTaxModifier", true);
+
+        HAPPINESS_TAX_MULTIPLIER_MIN = BUILDER.comment("Minimum tax multiplier for unhappy colonies (0.1 - 1.0). Lower values mean unhappy colonies generate less tax.")
+                .defineInRange("HappinessTaxMultiplierMin", 0.5, 0.1, 1.0);
+
+        HAPPINESS_TAX_MULTIPLIER_MAX = BUILDER.comment("Maximum tax multiplier for very happy colonies (1.0 - 2.0). Higher values mean happy colonies generate more tax.")
+                .defineInRange("HappinessTaxMultiplierMax", 1.5, 1.0, 2.0);
+
+        // Colony Inactivity Configuration
+        ENABLE_COLONY_INACTIVITY_TAX_PAUSE = BUILDER.comment("Enable colony inactivity tax pause system. When enabled, colonies that haven't been visited by owners/officers for the specified time will stop generating taxes.")
+                .define("EnableColonyInactivityTaxPause", true);
+
+        COLONY_INACTIVITY_HOURS_THRESHOLD = BUILDER.comment("Hours of inactivity after which a colony will stop generating taxes. This uses MineColonies' built-in player interaction tracking.")
+                .defineInRange("ColonyInactivityHoursThreshold", 168, 1, 8760); // Default: 1 week (168 hours), max: 1 year
 
         BUILDER.pop();
 
@@ -898,5 +928,50 @@ public class TaxConfig {
 
     public static int getGuardResistanceLevel() {
         return GUARD_RESISTANCE_LEVEL.get();
+    }
+
+    // Happiness-Based Tax Configuration Getters
+    public static boolean isHappinessTaxModifierEnabled() {
+        return ENABLE_HAPPINESS_TAX_MODIFIER.get();
+    }
+
+    // Colony Inactivity Configuration Getters
+    public static boolean isColonyInactivityTaxPauseEnabled() {
+        return ENABLE_COLONY_INACTIVITY_TAX_PAUSE.get();
+    }
+
+    public static int getColonyInactivityHoursThreshold() {
+        return COLONY_INACTIVITY_HOURS_THRESHOLD.get();
+    }
+
+    public static double getHappinessTaxMultiplierMin() {
+        return HAPPINESS_TAX_MULTIPLIER_MIN.get();
+    }
+
+    public static double getHappinessTaxMultiplierMax() {
+        return HAPPINESS_TAX_MULTIPLIER_MAX.get();
+    }
+
+    /**
+     * Calculate happiness-based tax multiplier for a colony.
+     * @param avgHappiness Average happiness of adult citizens (0.0 - 10.0)
+     * @return Tax multiplier (between min and max configured values)
+     */
+    public static double calculateHappinessTaxMultiplier(double avgHappiness) {
+        if (!isHappinessTaxModifierEnabled()) {
+            return 1.0; // No modifier if feature disabled
+        }
+
+        // Clamp happiness to valid range
+        avgHappiness = Math.max(0.0, Math.min(10.0, avgHappiness));
+        
+        double minMultiplier = getHappinessTaxMultiplierMin();
+        double maxMultiplier = getHappinessTaxMultiplierMax();
+        
+        // Normalize happiness (0-10) to (0-1)
+        double normalizedHappiness = avgHappiness / 10.0;
+        
+        // Linear interpolation between min and max multipliers
+        return minMultiplier + (normalizedHappiness * (maxMultiplier - minMultiplier));
     }
 }

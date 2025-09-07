@@ -5,7 +5,7 @@ DebtLimit = 0
 [General]
 	#Tax generation interval in minutes
 	#Range: 1 ~ 1440
-	TaxIntervalMinutes = 60
+	TaxIntervalMinutes = 5
 	#Maximum tax revenue a colony can store before it stops generating further taxes
 	#Range: > 1
 	MaxTaxRevenue = 5000
@@ -100,6 +100,9 @@ DebtLimit = 0
 	#Percentage increase in total tax revenue when required Guard Towers are built. This acts as a multiplier on the colony's total generated tax income. For example: 0.5 = 50% increase, so 1000 tax becomes 1500 tax.
 	#Range: 0.0 ~ 2.0
 	GuardTowerTaxBoostPercentage = 0.5
+	#Percentage of killed raider's balance transferred to defending colony for owner/officers to claim (0.0 - 1.0)
+	#Range: 0.0 ~ 1.0
+	RaidDefenseRewardPercentage = 0.15
 
 	["War Settings"."Entity Raid Settings"]
 		#Enable entity-triggered raids. When disabled, entities will not trigger raids even if they meet the criteria. Admin-only feature.
@@ -139,6 +142,18 @@ DebtLimit = 0
 		EnableGeneralItemInteractions = true
 		#Actions allowed for all players in colonies when general interactions are enabled. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.
 		GeneralColonyActions = ["TOSS_ITEM", "PICKUP_ITEM"]
+		#Enable resistance effect for colony guards during raids. When enabled, guards will receive a resistance effect to help defend the colony.
+		EnableGuardResistanceDuringRaids = true
+		#Level of resistance effect applied to guards during raids (1-255). Higher levels provide better protection. Set to 0 to disable even if the feature is enabled.
+		#Range: 0 ~ 255
+		GuardResistanceLevel = 2
+
+	["War Settings"."PvP Kill Economy"]
+		#Enable PvP kill economy system. When enabled, killing a player transfers a percentage of their balance to the killer. Compatible with SDMShop and SDMEconomy. Disabled by default.
+		EnablePvPKillEconomy = false
+		#Percentage of victim's balance transferred to killer on PvP kill (0.0 - 1.0). For example: 0.1 = 10% of victim's money goes to killer. Uses SDMShop balance or colony funds based on configuration.
+		#Range: 0.0 ~ 1.0
+		PvPKillRewardPercentage = 0.1
 
 ["PvP Arena Settings"]
 	#Allow players to use commands while in a PvP battle. It's recommended to keep this false to prevent exploits.

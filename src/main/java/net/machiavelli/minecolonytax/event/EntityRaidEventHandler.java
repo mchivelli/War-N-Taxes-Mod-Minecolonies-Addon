@@ -117,8 +117,8 @@ public class EntityRaidEventHandler {
                         colony.getName(), eligibleCount, threshold);
                 }
                 EntityRaidManager.startEntityRaid(colony, firstTrigger);
-            } else if (TaxConfig.isEntityRaidDebugEnabled()) {
-                LOGGER.info("[EntityRaid-Event] Colony '{}' count={} (threshold={}), no raid.",
+            } else if (TaxConfig.isEntityRaidDebugEnabled() && TaxConfig.getEntityRaidDebugLevel() >= 3) {
+                LOGGER.debug("[EntityRaid-Event] Colony '{}' count={} (threshold={}), no raid.",
                     colony.getName(), eligibleCount, threshold);
             }
         });

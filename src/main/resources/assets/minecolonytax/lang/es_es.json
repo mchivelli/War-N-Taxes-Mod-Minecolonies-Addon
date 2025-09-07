@@ -80,10 +80,14 @@
   
   "war.siege.status": "%s está bajo asedio! Fase de unión iniciada. Tiempo restante: %s",
   
-  "message.minecolonytax.tax_report_header": "📊 ═══════ INFORME FISCAL PARA %s ═══════ 📊",
-  "message.minecolonytax.tax_report_summary": "🏢 Edificios: %d | 💰 Generado: +%d | 🔧 Mantenimiento: -%d | 💳 Saldo: %d",
-  "message.minecolonytax.tax_report_debt": "⚠️  ESTADO DEUDA: ¡%d monedas en deuda! Considera reducir gastos.",
-  "message.minecolonytax.tax_report_near_max": "📈 CERCA CAPACIDAD: Aproximándose al almacenamiento máximo de impuestos (%d). ¡Reclama impuestos!",
-  "message.minecolonytax.tax_report_healthy": "✅ ESTADO FINANCIERO: ¡Las finanzas de la colonia están saludables!",
-  "message.minecolonytax.tax_report_footer": "═══════════════════════════════════════════"
+  "message.minecolonytax.tax_report_header": "INFORME FISCAL PARA %s",
+  "message.minecolonytax.tax_report_separator": "══════════════════════════════════",
+  "message.minecolonytax.tax_report_generation": "Ingresos: %d edificios generaron %d monedas",
+  "message.minecolonytax.tax_report_maintenance": "Mantenimiento: -%d monedas deducidas",
+  "message.minecolonytax.tax_report_tribute": "Tributo Vasallo: -%d monedas enviadas al señor",
+  "message.minecolonytax.tax_report_balance": "Saldo Actual: %d monedas",
+  "message.minecolonytax.tax_report_status_debt": "ADVERTENCIA: La colonia tiene %d monedas de deuda! Considera reducir gastos.",
+  "message.minecolonytax.tax_report_status_near_max": "AVISO: Aproximándose al almacenamiento máximo de impuestos (%d monedas). ¡Reclama impuestos!",
+  "message.minecolonytax.tax_report_status_healthy": "ESTADO: Las finanzas de la colonia están estables y saludables.",
+  "message.minecolonytax.tax_report_footer": "══════════════════════════════════"
 }

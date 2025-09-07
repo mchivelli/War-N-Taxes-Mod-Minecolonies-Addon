@@ -42,6 +42,11 @@ public class EntityRaidManager {
     // Centralized per-colony cooldown tracking (last raid trigger timestamp)
     private static final Map<Integer, Long> lastRaidTimeByColony = new ConcurrentHashMap<>();
     
+    // Cache for entity type whitelist checking to avoid repeated string matching
+    private static final Map<net.minecraft.world.entity.EntityType<?>, Boolean> whitelistCache = new ConcurrentHashMap<>();
+    private static long lastWhitelistCacheUpdate = 0L;
+    private static final long WHITELIST_CACHE_DURATION = 30000L; // 30 seconds
+    
     // Configuration constants
     private static final int RAID_DURATION_SECONDS = 300; // 5 minutes
     private static final int RECRUITMENT_COOLDOWN_MS = 30000; // 30 seconds
@@ -244,13 +249,47 @@ public class EntityRaidManager {
     }
     
     /**
-     * Check if an entity is a recruit (placeholder implementation)
+     * Check if an entity is a recruit using cached results for performance
      */
     private static boolean isRecruitEntity(Entity entity) {
         if (entity == null) {
             return false;
         }
         
+        net.minecraft.world.entity.EntityType<?> entityType = entity.getType();
+        
+        // Check cache first - expire cache every 30 seconds in case config changes
+        long now = System.currentTimeMillis();
+        if (now - lastWhitelistCacheUpdate > WHITELIST_CACHE_DURATION) {
+            whitelistCache.clear();
+            lastWhitelistCacheUpdate = now;
+        }
+        
+        // Return cached result if available
+        Boolean cachedResult = whitelistCache.get(entityType);
+        if (cachedResult != null) {
+            return cachedResult;
+        }
+        
+        // Compute result and cache it
+        boolean match = computeWhitelistMatch(entity, entityType);
+        whitelistCache.put(entityType, match);
+        
+        // Only log successful matches to avoid spam - failed matches are too numerous and not useful
+        if (TaxConfig.isEntityRaidDebugEnabled() && match) {
+            ResourceLocation rl = ForgeRegistries.ENTITY_TYPES.getKey(entityType);
+            String registryId = rl != null ? rl.toString() : "";
+            LOGGER.info("[EntityRaid] ✅ WHITELIST MATCH: {} matches pattern in whitelist. registryId={}", 
+                entityType.getDescriptionId(), registryId);
+        }
+        
+        return match;
+    }
+    
+    /**
+     * Compute whitelist match for entity type (separated for clarity)
+     */
+    private static boolean computeWhitelistMatch(Entity entity, net.minecraft.world.entity.EntityType<?> entityType) {
         // Proper detection: match against configured whitelist
         // Supports patterns:
         //  - "*" (all entities)
@@ -258,42 +297,36 @@ public class EntityRaidManager {
         //  - exact registry id (e.g., "minecraft:pillager", "recruits:recruit")
         //  - exact description id (e.g., "entity.minecraft.pillager")
         List<? extends String> whitelist = TaxConfig.getEntityRaidWhitelist();
-        ResourceLocation rl = ForgeRegistries.ENTITY_TYPES.getKey(entity.getType());
+        ResourceLocation rl = ForgeRegistries.ENTITY_TYPES.getKey(entityType);
         String registryId = rl != null ? rl.toString() : "";
         String namespace = rl != null ? rl.getNamespace() : "";
-        String descId = entity.getType().getDescriptionId();
+        String descId = entityType.getDescriptionId();
 
-        boolean match = false;
         for (String pattern : whitelist) {
             if (pattern == null) continue;
             pattern = pattern.trim();
             if (pattern.isEmpty()) continue;
 
             // Global wildcard
-            if (pattern.equals("*")) { match = true; break; }
+            if (pattern.equals("*")) { 
+                return true; 
+            }
 
             // Namespace wildcard, e.g., "recruits:*"
             if (pattern.endsWith(":*")) {
                 String ns = pattern.substring(0, pattern.length() - 2);
-                if (ns.equalsIgnoreCase(namespace)) { match = true; break; }
+                if (ns.equalsIgnoreCase(namespace)) { 
+                    return true; 
+                }
             }
 
             // Exact registryId or descId
             if (pattern.equalsIgnoreCase(registryId) || pattern.equalsIgnoreCase(descId)) {
-                match = true; break;
+                return true;
             }
         }
-
-        if (TaxConfig.isEntityRaidDebugEnabled()) {
-            if (match) {
-                LOGGER.info("[EntityRaid] ✅ WHITELIST MATCH: {} matches pattern in whitelist. registryId={}, descId={}", 
-                    entity.getType().getDescriptionId(), registryId, descId);
-            } else {
-                LOGGER.info("[EntityRaid] ❌ NO WHITELIST MATCH: {} not in whitelist. registryId={}, descId={}, whitelist={}", 
-                    entity.getType().getDescriptionId(), registryId, descId, whitelist);
-            }
-        }
-        return match;
+        
+        return false;
     }
     
     /**
@@ -400,8 +433,9 @@ public class EntityRaidManager {
             net.minecraft.world.scores.Team colonyOwnerTeam = colonyOwner.getTeam();
             
             if (entityTeam == null || colonyOwnerTeam == null) {
-                if (TaxConfig.isEntityRaidDebugEnabled()) {
-                    LOGGER.info("[EntityRaid-RECRUITS] Entity or colony owner not in teams (entity: {}, owner: {})", 
+                // Only log team membership at highest debug level to avoid spam
+                if (TaxConfig.isEntityRaidDebugEnabled() && TaxConfig.getEntityRaidDebugLevel() >= 3) {
+                    LOGGER.debug("[EntityRaid-RECRUITS] Entity or colony owner not in teams (entity: {}, owner: {})", 
                         entityTeam != null ? entityTeam.getName() : "null", 
                         colonyOwnerTeam != null ? colonyOwnerTeam.getName() : "null");
                 }
@@ -697,6 +731,11 @@ public class EntityRaidManager {
         private long graceRemainingMs = -1L;
         private long graceActiveStartMs = -1L;
         
+        // Cache entity count to avoid expensive scanning every tick
+        private int cachedEntityCount = 0;
+        private long lastEntityCountUpdate = 0L;
+        private static final long ENTITY_COUNT_CACHE_MS = 2000L; // Update every 2 seconds instead of every tick
+        
         public ActiveEntityRaid(IColony colony, Entity triggerEntity) {
             this.colony = colony;
             this.triggerEntity = triggerEntity;
@@ -729,8 +768,8 @@ public class EntityRaidManager {
                 lastRevenueDeduction = now;
             }
             
-            // Current whitelisted entity count inside boundary and threshold
-            int currentCount = countWhitelistedEntitiesInside();
+            // Current whitelisted entity count inside boundary and threshold (cached for performance)
+            int currentCount = getCachedEntityCount(now);
             int threshold = Math.max(1, TaxConfig.getEntityRaidThreshold());
 
             // New grace logic: only when ALL entities have left (currentCount == 0)
@@ -825,6 +864,18 @@ public class EntityRaidManager {
 
             // Track for change detection (optional)
             lastEntityCount = currentCount;
+        }
+        
+        /**
+         * Get cached entity count to avoid expensive scanning every tick
+         */
+        private int getCachedEntityCount(long currentTime) {
+            // Update cache if expired or never set
+            if (currentTime - lastEntityCountUpdate > ENTITY_COUNT_CACHE_MS) {
+                cachedEntityCount = countWhitelistedEntitiesInside();
+                lastEntityCountUpdate = currentTime;
+            }
+            return cachedEntityCount;
         }
         
         private int countWhitelistedEntitiesInside() {

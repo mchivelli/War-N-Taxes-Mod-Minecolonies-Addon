@@ -49,6 +49,9 @@ public class PvPEventHandler {
         // PvP Arena Commands
         new PvPArenaCommand().register(event.getDispatcher(), battleManager, mapManager);
         
+        // Colony Activity Commands
+        net.machiavelli.minecolonytax.commands.ColonyActivityCommand.register(event.getDispatcher());
+        
         // CRITICAL FIX: Register all WNT and core commands
         // NOTE: WarCommands should NOT be registered separately - they should be part of WntCommands structure
         net.machiavelli.minecolonytax.commands.WntCommands.register(event.getDispatcher());
@@ -62,6 +65,7 @@ public class PvPEventHandler {
         net.machiavelli.minecolonytax.commands.AdminTaxGenCommand.register(event.getDispatcher());
         net.machiavelli.minecolonytax.commands.WarStatsCommand.register(event.getDispatcher());
         net.machiavelli.minecolonytax.commands.WarHistoryCommand.register(event.getDispatcher());
+        net.machiavelli.minecolonytax.commands.TaxGUICommand.register(event.getDispatcher());
     }
 
     @SubscribeEvent

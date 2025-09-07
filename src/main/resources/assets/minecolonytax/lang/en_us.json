@@ -13,13 +13,16 @@
   "message.minecolonytax.tax_report": "Colony: %s - Generated Tax: %d coins added; Maintenance Deducted: %d coins.",
   "message.minecolonytax.debt_warning": "Colony: %s - Warning: Maintenance (%d coins) exceeded generated tax (%d coins).",
   
-  "message.minecolonytax.tax_report_header": "📊 ═══ TAX REPORT FOR %s ═══ 📊",
-  "message.minecolonytax.tax_report_summary": "🏢 Buildings: %d | 💰 Generated: +%d | 🔧 Maintenance: -%d | 💳 Balance: %d",
-  "message.minecolonytax.tax_report_tribute": "🏰 Vassal Tribute: -%d coins sent to overlord",
-  "message.minecolonytax.tax_report_debt": "⚠️  DEBT STATUS: %d coins in debt! Consider reducing expenses.",
-  "message.minecolonytax.tax_report_near_max": "📈 NEAR CAPACITY: Approaching maximum tax storage (%d). Consider claiming taxes!",
-  "message.minecolonytax.tax_report_healthy": "✅ FINANCIAL STATUS: Colony finances are healthy!",
-  "message.minecolonytax.tax_report_footer": "═══════════════════════════════════",
+  "message.minecolonytax.tax_report_header": "TAX REPORT FOR %s",
+  "message.minecolonytax.tax_report_separator": "══════════════════════════════════",
+  "message.minecolonytax.tax_report_generation": "Revenue: %d buildings generated %d coins",
+  "message.minecolonytax.tax_report_maintenance": "Maintenance: -%d coins deducted",
+  "message.minecolonytax.tax_report_tribute": "Vassal Tribute: -%d coins sent to overlord",
+  "message.minecolonytax.tax_report_balance": "Current Balance: %d coins",
+  "message.minecolonytax.tax_report_status_debt": "WARNING: Colony is %d coins in debt! Consider reducing expenses.",
+  "message.minecolonytax.tax_report_status_near_max": "NOTICE: Approaching maximum tax storage (%d coins). Consider claiming taxes!",
+  "message.minecolonytax.tax_report_status_healthy": "STATUS: Colony finances are stable and healthy.",
+  "message.minecolonytax.tax_report_footer": "══════════════════════════════════",
   
   "war.declare.title": "📜 WAR DECLARED! 📜",
   "war.declare.body": "%s has declared WAR upon %s!",
@@ -143,5 +146,18 @@
   "war.join.phase.now.active": " will now proceed to the join phase!",
   "war.drums.sound": "The drums of war sound! Join phase starting immediately!",
   
-  "war.balance.condition": "Join phase balance condition not met! Teams must be balanced (diff <= 1). Current: Attackers="
+  "war.balance.condition": "Join phase balance condition not met! Teams must be balanced (diff <= 1). Current: Attackers=",
+  
+  "gui.minecolonytax.tax_management.title": "Colony Tax Management",
+  "gui.minecolonytax.refresh": "Refresh",
+  "gui.minecolonytax.claim_all": "Claim All",
+  "gui.minecolonytax.no_colonies": "No colonies found. You must be an owner or officer of at least one colony.",
+  "command.minecolonytax.taxgui.server_message": "Use the Tax Management GUI by pressing 'T' key or typing /taxgui in your client.",
+  "key.category.minecolonytax": "MineColony Tax Addon",
+  "key.minecolonytax.open_tax_gui": "Open Tax Management GUI",
+  "message.minecolonytax.tax_report_happiness": "Citizen Happiness: %s/10.0 (Tax impact: %s coins)",
+  "message.minecolonytax.tax_report_guard_boost": "Guard Tower Boost: %d towers provide +%d%% tax boost (+%d coins)",
+  "message.minecolonytax.colony_inactive": "Colony %s is inactive (last contact: %d hours ago). Tax generation paused until owner/officer returns.",
+  "message.minecolonytax.colony_reactivated": "Colony %s has been reactivated! Tax generation resumed.",
+  "command.minecolonytax.inactivity_status": "Colony %s: Last contact %d hours ago. Inactivity threshold: %d hours. Status: %s"
 }

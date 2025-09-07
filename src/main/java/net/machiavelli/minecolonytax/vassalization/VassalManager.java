@@ -12,6 +12,7 @@ import com.minecolonies.api.colony.permissions.Action;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.WarSystem;
+import net.machiavelli.minecolonytax.gui.data.VassalIncomeData;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -26,7 +27,6 @@ import org.apache.logging.log4j.Logger;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -459,4 +459,152 @@ public class VassalManager {
             return currencyName;
         }
     }
+    
+    /**
+     * Public method to check if a colony is a vassal (for GUI integration)
+     */
+    public static boolean isColonyVassal(int colonyId) {
+        return ACTIVE_VASSALS.containsKey(colonyId);
+    }
+    
+    /**
+     * Public method to get vassal tribute rate (for GUI integration)
+     */
+    public static int getVassalTributeRate(int colonyId) {
+        VassalRelation rel = ACTIVE_VASSALS.get(colonyId);
+        return rel != null ? rel.percent : 0;
+    }
+    
+    /**
+     * Public method to count how many vassals a player has (for GUI integration)
+     */
+    public static int countVassalsForPlayer(UUID playerId) {
+        int count = 0;
+        for (VassalRelation rel : ACTIVE_VASSALS.values()) {
+            if (rel.overlordUUID.equals(playerId)) {
+                count++;
+            }
+        }
+        return count;
+    }
+    
+    /**
+     * Remove a vassal relation (end vassalization)
+     */
+    public static boolean removeVassalRelation(int vassalColonyId) {
+        VassalRelation relation = ACTIVE_VASSALS.remove(vassalColonyId);
+        if (relation != null) {
+            saveData();
+            LOGGER.info("Vassalization ended for colony " + vassalColonyId);
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * End vassalization with notification to overlord (for GUI integration)
+     */
+    public static boolean endVassalizationWithNotification(int vassalColonyId, ServerPlayer player, IColony colony) {
+        VassalRelation relation = ACTIVE_VASSALS.get(vassalColonyId);
+        if (relation == null) {
+            return false;
+        }
+        
+        // Store overlord info before removing relation
+        UUID overlordId = relation.overlordUUID;
+        String playerName = player.getName().getString();
+        String colonyName = colony.getName();
+        
+        // Remove the vassalization
+        boolean success = removeVassalRelation(vassalColonyId);
+        
+        if (success) {
+            // Notify the overlord (online or offline)
+            Component notificationMsg = Component.literal("§c⚠ Vassalization Ended: Colony '" + colonyName + 
+                "' (managed by " + playerName + ") has ended their vassalage to you.");
+            
+            ServerPlayer overlord = SERVER.getPlayerList().getPlayer(overlordId);
+            if (overlord != null) {
+                // Online notification
+                overlord.sendSystemMessage(notificationMsg);
+                overlord.sendSystemMessage(Component.literal("§7You will no longer receive tribute from this colony."));
+            } else {
+                // Offline notification
+                addOfflineMessage(overlordId, notificationMsg);
+                addOfflineMessage(overlordId, Component.literal("§7You will no longer receive tribute from this colony."));
+            }
+            
+            LOGGER.info("Vassalization ended for colony {} with notification sent to overlord {}", 
+                vassalColonyId, overlordId);
+        }
+        
+        return success;
+    }
+    
+    /**
+     * Add offline message for a player
+     */
+    public static void addOfflineMessage(UUID playerId, Component message) {
+        OFFLINE_MESSAGES.computeIfAbsent(playerId, k -> new ArrayList<>()).add(message);
+    }
+    
+    /**
+     * Get vassal income data for a player (for GUI integration)
+     */
+    public static List<VassalIncomeData> getVassalIncomeForPlayer(UUID overlordId) {
+        List<VassalIncomeData> vassalIncomes = new ArrayList<>();
+        for (VassalRelation rel : ACTIVE_VASSALS.values()) {
+            if (rel.overlordUUID.equals(overlordId)) {
+                IColony colony = getColonyById(rel.colonyId);
+                if (colony != null) {
+                    int currentTaxBalance = TaxManager.getStoredTaxForColony(colony);
+                    int tributeOwed = (int) (currentTaxBalance * rel.percent / 100.0);
+                    
+                    vassalIncomes.add(new VassalIncomeData(
+                        rel.colonyId,
+                        colony.getName(),
+                        rel.percent,
+                        tributeOwed,
+                        rel.lastTribute,
+                        rel.lastPayment,
+                        false  // Manual collection disabled - tributes are auto-collected
+                    ));
+                }
+            }
+        }
+        return vassalIncomes;
+    }
+    
+    /**
+     * Claim tribute from a specific vassal colony
+     */
+    public static int claimVassalTribute(UUID overlordId, int vassalColonyId) {
+        VassalRelation rel = ACTIVE_VASSALS.get(vassalColonyId);
+        if (rel == null || !rel.overlordUUID.equals(overlordId)) {
+            return 0;
+        }
+        
+        IColony vassalColony = getColonyById(vassalColonyId);
+        if (vassalColony == null) return 0;
+        
+        int currentTaxBalance = TaxManager.getStoredTaxForColony(vassalColony);
+        int tributeOwed = (int) (currentTaxBalance * rel.percent / 100.0);
+        
+        if (tributeOwed <= 0) return 0;
+        
+        // Transfer tribute from vassal to overlord
+        TaxManager.adjustTax(vassalColony, -tributeOwed);
+        
+        IColony overlordColony = getPrimaryColonyOfPlayer(overlordId);
+        if (overlordColony != null) {
+            TaxManager.adjustTax(overlordColony, tributeOwed);
+        }
+        
+        rel.lastPayment = System.currentTimeMillis();
+        rel.lastTribute = tributeOwed;
+        saveData();
+        
+        return tributeOwed;
+    }
+    
 }

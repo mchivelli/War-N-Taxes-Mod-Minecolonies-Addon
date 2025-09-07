@@ -357,6 +357,9 @@ DebtLimit = 0
 	#Duration of the join phase in minutes
 	#Range: 1 ~ 30
 	JoinPhaseDurationMinutes = 1
+	#Percentage of killed raider's balance transferred to defending colony for owner/officers to claim (0.0 - 1.0)
+	#Range: 0.0 ~ 1.0
+	RaidDefenseRewardPercentage = 0.15
 
 	["War Settings"."Entity Raid Settings"]
 		#Enable entity-triggered raids. When disabled, entities will not trigger raids even if they meet the criteria. Admin-only feature.
@@ -396,6 +399,18 @@ DebtLimit = 0
 		EnableGeneralItemInteractions = true
 		#Actions allowed for all players in colonies when general interactions are enabled. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.
 		GeneralColonyActions = ["TOSS_ITEM", "PICKUP_ITEM"]
+		#Enable resistance effect for colony guards during raids. When enabled, guards will receive a resistance effect to help defend the colony.
+		EnableGuardResistanceDuringRaids = true
+		#Level of resistance effect applied to guards during raids (1-255). Higher levels provide better protection. Set to 0 to disable even if the feature is enabled.
+		#Range: 0 ~ 255
+		GuardResistanceLevel = 2
+
+	["War Settings"."PvP Kill Economy"]
+		#Enable PvP kill economy system. When enabled, killing a player transfers a percentage of their balance to the killer. Compatible with SDMShop and SDMEconomy. Disabled by default.
+		EnablePvPKillEconomy = false
+		#Percentage of victim's balance transferred to killer on PvP kill (0.0 - 1.0). For example: 0.1 = 10% of victim's money goes to killer. Uses SDMShop balance or colony funds based on configuration.
+		#Range: 0.0 ~ 1.0
+		PvPKillRewardPercentage = 0.1
 
 ["Military Maintenance Costs"]
 	#Base maintenance cost per hour for Barracks

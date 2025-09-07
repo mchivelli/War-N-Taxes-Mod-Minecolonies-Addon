@@ -253,17 +253,19 @@ public class RaidManager {
         removeGlowEffectFromRaider(raider);
 
         double penaltyPercentage = TaxConfig.RAID_PENALTY_PERCENTAGE.get();
+        double defenseRewardPercentage = TaxConfig.RAID_DEFENSE_REWARD_PERCENTAGE.get();
         LOGGER.debug("Raid penalty percentage from config: {}", penaltyPercentage);
-
-        String currencyName;
-        if (TaxConfig.isSDMShopConversionEnabled()){
-          currencyName = "$";
+        LOGGER.debug("Raid defense reward percentage from config: {}", defenseRewardPercentage);
+        // Currency name for messages
+        final String currencyName;
+        if (TaxConfig.isSDMShopConversionEnabled()) {
+            currencyName = "coins";
         } else {
-            currencyName = TaxConfig.getCurrencyItemName();
-            if (currencyName.contains(":")) {
-                currencyName = currencyName.substring(currencyName.indexOf(":") + 1);
-        }
-
+            String tempCurrencyName = TaxConfig.getCurrencyItemName();
+            if (tempCurrencyName.contains(":")) {
+                tempCurrencyName = tempCurrencyName.substring(tempCurrencyName.lastIndexOf(":") + 1);
+            }
+            currencyName = tempCurrencyName;
         }
 
         int raidPenalty = 0;
@@ -363,16 +365,79 @@ public class RaidManager {
                         giveCmd
                     );
                 } catch (Exception e) {
-                    LOGGER.error("Failed to give items to killer", e);
+                    LOGGER.error("Failed to execute give command for raid penalty", e);
                 }
             }
         }
+
+        // ========== NEW: RAID DEFENSE REWARD SYSTEM ==========
+        // ===================================================
+        // DEFENSE REWARD CALCULATION
+        // ===================================================
+        int calculatedDefenseReward = 0;
+        if (defenseRewardPercentage > 0) {
+            if (TaxConfig.isSDMShopConversionEnabled()) {
+                if (SDMShopIntegration.isAvailable()) {
+                    long raiderBalance = SDMShopIntegration.getMoney(raider);
+                    calculatedDefenseReward = (int) (raiderBalance * defenseRewardPercentage);
+                    LOGGER.debug("Calculated defense reward from SDMShop balance {}: {}", raiderBalance, calculatedDefenseReward);
+                    
+                    if (calculatedDefenseReward > 0) {
+                        // Remove money from raider and add to defending colony's main tax balance
+                        if (SDMShopIntegration.setMoney(raider, raiderBalance - calculatedDefenseReward)) {
+                            TaxManager.incrementTaxRevenue(raidData.getColony(), calculatedDefenseReward);
+                            LOGGER.info("Transferred {} defense reward from {} to colony {} main tax balance", 
+                                       calculatedDefenseReward, raider.getName().getString(), raidData.getColony().getName());
+                        } else {
+                            LOGGER.error("Failed to deduct defense reward from raider's balance");
+                            calculatedDefenseReward = 0; // Reset if transfer failed
+                        }
+                    }
+                } else {
+                    LOGGER.warn("SDMShop integration enabled but not available for defense reward calculation");
+                }
+            } else {
+                // For item-based currency, calculate reward based on raider's colony tax balance
+                IColony raiderColony = raidData.getRaiderColony();
+                if (raiderColony != null) {
+                    int raiderColonyBalance = TaxManager.getStoredTaxForColony(raiderColony);
+                    if (raiderColonyBalance > 0) {
+                        calculatedDefenseReward = (int) (raiderColonyBalance * defenseRewardPercentage);
+                        calculatedDefenseReward = Math.max(50, calculatedDefenseReward); // Minimum reward
+                        
+                        // Deduct from raider's colony and add to defending colony's main tax balance
+                        TaxManager.adjustTax(raiderColony, -calculatedDefenseReward);
+                        TaxManager.incrementTaxRevenue(raidData.getColony(), calculatedDefenseReward);
+                        
+                        LOGGER.info("Transferred {} defense reward from raider's colony {} to defending colony {} main tax balance", 
+                                   calculatedDefenseReward, raiderColony.getName(), raidData.getColony().getName());
+                    } else {
+                        // If no positive balance, create a base reward from raider colony tax debt
+                        calculatedDefenseReward = (int) (250 * defenseRewardPercentage); // Base amount
+                        calculatedDefenseReward = Math.max(25, calculatedDefenseReward); // Minimum reward
+                        
+                        // Add debt to raider's colony and reward to defending colony
+                        TaxManager.adjustTax(raiderColony, -calculatedDefenseReward);
+                        TaxManager.incrementTaxRevenue(raidData.getColony(), calculatedDefenseReward);
+                        
+                        LOGGER.info("Created {} defense reward debt for raider's colony {} and credited defending colony {} main tax balance", 
+                                   calculatedDefenseReward, raiderColony.getName(), raidData.getColony().getName());
+                    }
+                } else {
+                    LOGGER.warn("Could not calculate defense reward: raider's colony is null");
+                }
+            }
+        }
+        
+        // Final values for use in lambda expressions
+        final int defenseReward = calculatedDefenseReward;
+        // ===================================================
 
         // Update war statistics for the killer
         PlayerWarDataManager.incrementPlayersKilledInWar(killer);
         PlayerWarDataManager.addAmountRaided(killer, raidPenalty);
         
-        Component message = Component.literal("⚔ RAID DEFENDER VICTORY! ⚔")
+        MutableComponent message = Component.literal("⚔ RAID DEFENDER VICTORY! ⚔")
                 .withStyle(style -> style.withColor(ChatFormatting.GOLD).withBold(true))
                 .append(Component.literal("\n"))
                 .append(Component.literal("Raider ").withStyle(ChatFormatting.GOLD))
@@ -382,7 +447,17 @@ public class RaidManager {
                 .append(Component.literal("!\n").withStyle(ChatFormatting.GOLD))
                 .append(Component.literal("Raid ended with ").withStyle(ChatFormatting.GOLD))
                 .append(Component.literal(raidPenalty + " " + currencyName).withStyle(style -> style.withColor(ChatFormatting.YELLOW).withBold(true)))
-                .append(Component.literal(" transferred to the killer.").withStyle(ChatFormatting.GOLD));
+                .append(Component.literal(" transferred to the killer").withStyle(ChatFormatting.GOLD));
+        
+        // Add defense reward information to the message if there was a reward
+        if (defenseReward > 0) {
+            message = message
+                    .append(Component.literal(" and ").withStyle(ChatFormatting.GOLD))
+                    .append(Component.literal(defenseReward + " " + currencyName).withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true)))
+                    .append(Component.literal(" claimable reward added to colony balance").withStyle(ChatFormatting.GOLD));
+        }
+        
+        message = message.append(Component.literal(".").withStyle(ChatFormatting.GOLD));
 
         LOGGER.debug("Broadcasting raid kill message to server");
         raidData.getColony().getWorld().getServer().getPlayerList().broadcastSystemMessage(message, false);
@@ -391,7 +466,14 @@ public class RaidManager {
             ServerPlayer colonyMember = raidData.getColony().getWorld().getServer().getPlayerList().getPlayer(uuid);
             if (colonyMember != null) {
                 String titleCmd = String.format("title %s title {\"text\":\"Raid Ended!\",\"color\":\"green\",\"bold\":true}", colonyMember.getName().getString());
-                String subtitleCmd = String.format("title %s subtitle {\"text\":\"Raider killed by %s\",\"color\":\"gold\"}", colonyMember.getName().getString(), killer.getName().getString());
+                String subtitleCmd;
+                if (defenseReward > 0) {
+                    subtitleCmd = String.format("title %s subtitle {\"text\":\"Raider killed! +%d %s reward available\",\"color\":\"gold\"}", 
+                            colonyMember.getName().getString(), defenseReward, currencyName);
+                } else {
+                    subtitleCmd = String.format("title %s subtitle {\"text\":\"Raider killed by %s\",\"color\":\"gold\"}", 
+                            colonyMember.getName().getString(), killer.getName().getString());
+                }
                 try {
                     raidData.getColony().getWorld().getServer().getCommands().performPrefixedCommand(raidData.getColony().getWorld().getServer().createCommandSourceStack(), titleCmd);
                     raidData.getColony().getWorld().getServer().getCommands().performPrefixedCommand(raidData.getColony().getWorld().getServer().createCommandSourceStack(), subtitleCmd);
