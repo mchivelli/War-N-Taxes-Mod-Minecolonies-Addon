@@ -5,7 +5,7 @@ DebtLimit = 0
 [General]
 	#Tax generation interval in minutes
 	#Range: 1 ~ 1440
-	TaxIntervalMinutes = 5
+	TaxIntervalMinutes = 1
 	#Maximum tax revenue a colony can store before it stops generating further taxes
 	#Range: > 1
 	MaxTaxRevenue = 5000
@@ -155,6 +155,31 @@ DebtLimit = 0
 		#Maximum tax multiplier for very happy colonies (1.0 - 2.0). Higher values mean happy colonies generate more tax.
 		#Range: 1.0 ~ 2.0
 		HappinessTaxMultiplierMax = 1.5
+		#Enable colony inactivity tax pause system. When enabled, colonies that haven't been visited by owners/officers for the specified time will stop generating taxes.
+		EnableColonyInactivityTaxPause = true
+		#Hours of inactivity after which a colony will stop generating taxes. This uses MineColonies' built-in player interaction tracking.
+		#Range: 1 ~ 8760
+		ColonyInactivityHoursThreshold = 168
+		#Enable citizen militia system during raids. When enabled, citizens will temporarily become guards to defend the colony. Set to false to use the old raid system.
+		EnableCitizenMilitia = true
+		#Percentage of eligible citizens to convert to militia guards during raids (0.0 - 1.0). For example: 0.3 = 30% of citizens become militia.
+		#Range: 0.0 ~ 1.0
+		MilitiaConversionPercentage = 1
+		#Minimum level required for a citizen to be eligible for militia conversion. Higher levels = more experienced citizens only.
+		#Range: 1 ~ 99
+		MilitiaMinCitizenLevel = 1
+		#If true, militia guards and regular guards will actively seek out and engage raiders instead of just defending their posts.
+		MilitiaGuardsSeekRaiders = true
+		#If true, raiders steal tax based on guards killed. If false, uses the old time-based tax stealing system.
+		TaxStealPerGuardKilled = true
+		#Percentage of colony tax stolen per guard/militia killed during a raid (0.0 - 1.0). For example: 0.1 = 10% tax stolen per guard killed.
+		#Range: 0.0 ~ 1.0
+		TaxStealPercentagePerGuard = 0.1
+		#Maximum percentage of colony tax that can be stolen during a raid (0.0 - 1.0). This amount is distributed across all guards/militia. For example: 0.5 = 50% max tax stolen when all defenders are killed.
+		#Range: 0.0 ~ 1.0
+		MaxRaidTaxPercentage = 0.5
+		#If true, resistance effects during raids/wars will also be applied to all citizens, not just guards. This makes the entire colony more defensive.
+		ApplyResistanceToCitizens = false
 
 	["War Settings"."PvP Kill Economy"]
 		#Enable PvP kill economy system. When enabled, killing a player transfers a percentage of their balance to the killer. Compatible with SDMShop and SDMEconomy. Disabled by default.

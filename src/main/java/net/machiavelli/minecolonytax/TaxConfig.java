@@ -117,6 +117,16 @@ public class TaxConfig {
     public static final ForgeConfigSpec.BooleanValue ENABLE_COLONY_INACTIVITY_TAX_PAUSE;
     public static final ForgeConfigSpec.IntValue COLONY_INACTIVITY_HOURS_THRESHOLD;
 
+    // Citizen Militia System Configuration
+    public static final ForgeConfigSpec.BooleanValue ENABLE_CITIZEN_MILITIA;
+    public static final ForgeConfigSpec.DoubleValue MILITIA_CONVERSION_PERCENTAGE;
+    public static final ForgeConfigSpec.IntValue MILITIA_MIN_CITIZEN_LEVEL;
+    public static final ForgeConfigSpec.BooleanValue MILITIA_GUARDS_SEEK_RAIDERS;
+    public static final ForgeConfigSpec.BooleanValue TAX_STEAL_PER_GUARD_KILLED;
+    public static final ForgeConfigSpec.DoubleValue TAX_STEAL_PERCENTAGE_PER_GUARD;
+    public static final ForgeConfigSpec.DoubleValue MAX_RAID_TAX_PERCENTAGE;
+    public static final ForgeConfigSpec.BooleanValue APPLY_RESISTANCE_TO_CITIZENS;
+
     static {
 
         // Define general settings
@@ -307,6 +317,31 @@ public class TaxConfig {
 
         COLONY_INACTIVITY_HOURS_THRESHOLD = BUILDER.comment("Hours of inactivity after which a colony will stop generating taxes. This uses MineColonies' built-in player interaction tracking.")
                 .defineInRange("ColonyInactivityHoursThreshold", 168, 1, 8760); // Default: 1 week (168 hours), max: 1 year
+
+        // Citizen Militia System Configuration
+        ENABLE_CITIZEN_MILITIA = BUILDER.comment("Enable citizen militia system during raids. When enabled, citizens will temporarily become guards to defend the colony. Set to false to use the old raid system.")
+                .define("EnableCitizenMilitia", true);
+
+        MILITIA_CONVERSION_PERCENTAGE = BUILDER.comment("Percentage of eligible citizens to convert to militia guards during raids (0.0 - 1.0). For example: 0.3 = 30% of citizens become militia.")
+                .defineInRange("MilitiaConversionPercentage", 0.3, 0.0, 1.0);
+
+        MILITIA_MIN_CITIZEN_LEVEL = BUILDER.comment("Minimum level required for a citizen to be eligible for militia conversion. Higher levels = more experienced citizens only.")
+                .defineInRange("MilitiaMinCitizenLevel", 3, 1, 99);
+
+        MILITIA_GUARDS_SEEK_RAIDERS = BUILDER.comment("If true, militia guards and regular guards will actively seek out and engage raiders instead of just defending their posts.")
+                .define("MilitiaGuardsSeekRaiders", true);
+
+        TAX_STEAL_PER_GUARD_KILLED = BUILDER.comment("If true, raiders steal tax based on guards killed. If false, uses the old time-based tax stealing system.")
+                .define("TaxStealPerGuardKilled", true);
+
+        TAX_STEAL_PERCENTAGE_PER_GUARD = BUILDER.comment("Percentage of colony tax stolen per guard/militia killed during a raid (0.0 - 1.0). For example: 0.1 = 10% tax stolen per guard killed.")
+                .defineInRange("TaxStealPercentagePerGuard", 0.1, 0.0, 1.0);
+
+        MAX_RAID_TAX_PERCENTAGE = BUILDER.comment("Maximum percentage of colony tax that can be stolen during a raid (0.0 - 1.0). This amount is distributed across all guards/militia. For example: 0.5 = 50% max tax stolen when all defenders are killed.")
+                .defineInRange("MaxRaidTaxPercentage", 0.5, 0.0, 1.0);
+
+        APPLY_RESISTANCE_TO_CITIZENS = BUILDER.comment("If true, resistance effects during raids/wars will also be applied to all citizens, not just guards. This makes the entire colony more defensive.")
+                .define("ApplyResistanceToCitizens", false);
 
         BUILDER.pop();
 

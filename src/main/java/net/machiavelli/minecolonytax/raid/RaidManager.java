@@ -10,6 +10,7 @@ import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.WarSystem;
 import net.machiavelli.minecolonytax.integration.SDMShopIntegration;
 import net.machiavelli.minecolonytax.raid.GuardResistanceHandler;
+import net.machiavelli.minecolonytax.militia.CitizenMilitiaManager;
 import net.machiavelli.minecolonytax.data.HistoryManager;
 import net.machiavelli.minecolonytax.data.PlayerWarDataManager;
 import net.machiavelli.minecolonytax.event.RaidEndEvent;
@@ -170,6 +171,14 @@ public class RaidManager {
             
             // Apply resistance effects to defending guards
             GuardResistanceHandler.applyResistanceToGuardsForRaid(colony);
+            
+            // Activate militia system if enabled
+            if (TaxConfig.ENABLE_CITIZEN_MILITIA.get()) {
+                int militiaActivated = CitizenMilitiaManager.getInstance().activateMilitia(colony);
+                sendColonyMessage(colony, Component.literal("⚔ " + militiaActivated + " citizens have joined the militia to defend the colony!")
+                    .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
+                LOGGER.info("Activated {} militia members for colony {} during raid", militiaActivated, colony.getName());
+            }
             
             startRaidCountdown(raidData);
             // Send styled raid alert to all colony members
@@ -564,11 +573,12 @@ public class RaidManager {
             String status = (raiderPlayer == null || !isRaiderInColony(raiderPlayer, raidData.getColony())) ? "Leaving Colony!" : "Active";
             float progress = Math.min((float) raidData.getElapsedSeconds() / getMaxRaidDurationSeconds(), 1.0f);
             int remainingSeconds = Math.max(getMaxRaidDurationSeconds() - raidData.getElapsedSeconds(), 0);
-            int intervalIndex = (raidData.getElapsedSeconds() / getTaxInterval());
-            double percentage = intervalIndex < getTaxPercentages().length ? getTaxPercentages()[intervalIndex] : getTaxPercentages()[getTaxPercentages().length - 1];
-            Component name = Component.literal(String.format("Raid: %s | Tax: %d%% | Time: %02d:%02d/%02d:%02d",
-                    status, (int)(percentage * 100), remainingSeconds / 60, remainingSeconds % 60,
-                    getMaxRaidDurationSeconds() / 60, getMaxRaidDurationSeconds() % 60));
+            // Display militia count if available
+            int militiaCount = CitizenMilitiaManager.getInstance().getMilitiaCount(raidData.getColony().getID());
+            String militiaInfo = militiaCount > 0 ? String.format(" | Militia: %d", militiaCount) : "";
+            
+            Component name = Component.literal(String.format("Raid: %s%s | Time: %02d:%02d",
+                    status, militiaInfo, remainingSeconds / 60, remainingSeconds % 60));
             raidData.getBossEvent().setName(name);
             raidData.getBossEvent().setProgress(progress);
         });
@@ -599,6 +609,12 @@ public class RaidManager {
         // Remove resistance effects from defending guards
         GuardResistanceHandler.removeResistanceFromGuardsForRaid(raidData.getColony());
         
+        // Deactivate militia system if enabled
+        if (TaxConfig.ENABLE_CITIZEN_MILITIA.get()) {
+            CitizenMilitiaManager.getInstance().deactivateMilitia(raidData.getColony());
+            LOGGER.info("Deactivated militia for colony {} after raid ended", raidData.getColony().getName());
+        }
+        
         // Disable raid interactions for both colonies involved
         RaidManager.setRaidInteractionPermissions(raidData.getColony(), false);
         if (raidData.getRaiderColony() != null) {
@@ -622,7 +638,7 @@ public class RaidManager {
         if (raiderPlayer != null) {
             // Only transfer tax revenue if raid completed successfully (not interrupted)
             if (reason.equals("Raid completed successfully")) {
-                performTaxRevenueTransfer(raidData, raiderPlayer);
+                transferTaxRevenue(raidData);
             }
             
             MutableComponent raidEndMsgToRaider = Component.translatable("raid.end.title")
@@ -728,42 +744,66 @@ public class RaidManager {
      * Get the active raid data for a colony (if any)
      */
     public static ActiveRaidData getActiveRaidForColony(int colonyId) {
-        for (ActiveRaidData raidData : activeRaids.values()) {
-            if (raidData.getColony().getID() == colonyId && raidData.isActive()) {
-                return raidData;
+        for (ActiveRaidData raid : activeRaids.values()) {
+            if (raid.getColony().getID() == colonyId) {
+                return raid;
             }
         }
         return null;
     }
     
-    /**
-     * Transfer tax revenue from raided colony to raider after successful raid completion
-     */
-    private void performTaxRevenueTransfer(ActiveRaidData raidData, ServerPlayer raiderPlayer) {
-        // Only transfer revenue if guards have been killed
-        if (!raidData.hasKilledAnyGuards()) {
-            LOGGER.debug("No guards killed during raid, skipping revenue transfer for raid on {}", raidData.getColony().getName());
+    private void transferTaxRevenue(ActiveRaidData raidData) {
+        ServerPlayer raiderPlayer = raidData.getColony().getWorld().getServer().getPlayerList().getPlayer(raidData.getRaider());
+        if (raiderPlayer == null) {
+            LOGGER.debug("Raider is offline, skipping revenue transfer for raid on {}", raidData.getColony().getName());
             return;
         }
         
-        // Calculate final tax percentage based on raid duration and guard kills
-        int raidDuration = raidData.getElapsedSeconds();
-        int intervalsPassed = Math.min(raidDuration / getTaxInterval(), getTaxPercentages().length);
-        double totalBasePercentage = 0;
+        double finalPercentage;
         
-        // Sum up all the percentages that would have been applied during the raid
-        double[] taxPercentages = getTaxPercentages();
-        for (int i = 0; i < intervalsPassed; i++) {
-            totalBasePercentage += taxPercentages[Math.min(i, taxPercentages.length - 1)];
+        // Check if we're using the new guard-kill-based tax stealing system
+        if (TaxConfig.TAX_STEAL_PER_GUARD_KILLED.get()) {
+            // New system: Tax stolen based on guards/militia killed, distributed from max percentage
+            finalPercentage = CitizenMilitiaManager.getInstance().calculateTaxPercentage(raidData.getColony().getID());
+            
+            if (finalPercentage == 0.0) {
+                LOGGER.debug("No guards/militia killed during raid, no tax stolen for raid on {}", raidData.getColony().getName());
+                return;
+            }
+            
+            int guardsKilled = CitizenMilitiaManager.getInstance().getGuardsKilled(raidData.getColony().getID());
+            int totalDefenders = CitizenMilitiaManager.getInstance().getTotalDefenders(raidData.getColony().getID());
+            double maxTaxPercentage = TaxConfig.MAX_RAID_TAX_PERCENTAGE.get();
+            
+            LOGGER.info("Balanced tax calculation - Guards/militia killed: {}/{} defenders, Max tax: {}%, Final rate: {}%", 
+                guardsKilled, totalDefenders, maxTaxPercentage * 100, finalPercentage * 100);
+        } else {
+            // Old system: Time-based tax stealing
+            // Check if any guards were killed during the raid (for the old system)
+            if (raidData.getGuardsKilled() == 0) {
+                LOGGER.debug("No guards killed during raid, skipping revenue transfer for raid on {}", raidData.getColony().getName());
+                return;
+            }
+            
+            // Calculate final tax percentage based on raid duration and guard kills
+            int raidDuration = raidData.getElapsedSeconds();
+            int intervalsPassed = Math.min(raidDuration / getTaxInterval(), getTaxPercentages().length);
+            double totalBasePercentage = 0;
+            
+            // Sum up all the percentages that would have been applied during the raid
+            double[] taxPercentages = getTaxPercentages();
+            for (int i = 0; i < intervalsPassed; i++) {
+                totalBasePercentage += taxPercentages[Math.min(i, taxPercentages.length - 1)];
+            }
+            
+            // Scale revenue based on percentage of guards killed
+            double guardKillPercentage = raidData.getGuardKillPercentage();
+            finalPercentage = totalBasePercentage * guardKillPercentage;
+            
+            LOGGER.info("Time-based tax calculation - Guards killed: {}/{} ({}%), Total base rate: {}%, Final rate: {}%", 
+                raidData.getGuardsKilled(), raidData.getTotalGuards(), 
+                guardKillPercentage * 100, totalBasePercentage * 100, finalPercentage * 100);
         }
-        
-        // Scale revenue based on percentage of guards killed
-        double guardKillPercentage = raidData.getGuardKillPercentage();
-        double finalPercentage = totalBasePercentage * guardKillPercentage;
-        
-        LOGGER.info("Final raid revenue calculation - Guards killed: {}/{} ({}%), Total base rate: {}%, Final rate: {}%", 
-            raidData.getGuardsKilled(), raidData.getTotalGuards(), 
-            guardKillPercentage * 100, totalBasePercentage * 100, finalPercentage * 100);
         
         // Calculate colony balance to take based on their stored tax
         int colonyBalance = TaxManager.getStoredTaxForColony(raidData.getColony());
@@ -899,11 +939,14 @@ public class RaidManager {
      */
     private static void applyGlowEffectToRaider(ServerPlayer raider) {
         if (raider != null) {
-            // Apply GLOW effect with a duration of 70 seconds (longer than tax interval to ensure continuity)
-            // Amplifier 0 = level 1 effect, hideParticles = false, showIcon = true
-            MobEffectInstance glowEffect = new MobEffectInstance(MobEffects.GLOWING, 70 * 20, 0, false, true, true);
-            raider.addEffect(glowEffect);
-            LOGGER.debug("Applied GLOW effect to raider: {}", raider.getName().getString());
+            // Only apply and log if raider doesn't already have the glow effect
+            if (!raider.hasEffect(MobEffects.GLOWING)) {
+                // Apply GLOW effect with a duration of 70 seconds (longer than tax interval to ensure continuity)
+                // Amplifier 0 = level 1 effect, hideParticles = false, showIcon = true
+                MobEffectInstance glowEffect = new MobEffectInstance(MobEffects.GLOWING, 70 * 20, 0, false, true, true);
+                raider.addEffect(glowEffect);
+                LOGGER.debug("Applied GLOW effect to raider: {}", raider.getName().getString());
+            }
         }
     }
     
@@ -922,5 +965,22 @@ public class RaidManager {
                 .filter(raid -> raid.getColony().getID() == colonyId)
                 .findFirst()
                 .orElse(null);
+    }
+    
+    /**
+     * Check if a player is currently raiding the specified colony.
+     * @param playerUUID the player's UUID
+     * @param colony the colony being checked
+     * @return true if the player is currently raiding this colony
+     */
+    public static boolean isPlayerCurrentlyRaiding(UUID playerUUID, com.minecolonies.api.colony.IColony colony) {
+        if (playerUUID == null || colony == null) {
+            return false;
+        }
+        
+        ActiveRaidData raidData = activeRaids.get(playerUUID);
+        return raidData != null && 
+               raidData.isActive() && 
+               raidData.getColony().getID() == colony.getID();
     }
 }

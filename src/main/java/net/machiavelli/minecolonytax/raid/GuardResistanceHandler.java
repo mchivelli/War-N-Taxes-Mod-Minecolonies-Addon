@@ -19,10 +19,10 @@ public class GuardResistanceHandler {
     private static final Logger LOGGER = LogManager.getLogger(GuardResistanceHandler.class);
     
     // Track which guards have resistance effects applied during raids and wars
-    private static final Map<UUID, Set<UUID>> colonyGuardEffects = new HashMap<>();
+    private static final Map<Integer, Set<UUID>> colonyGuardEffects = new HashMap<>();
     
     // Track which guards have resistance effects applied during wars (separate tracking)
-    private static final Map<UUID, Set<UUID>> colonyWarGuardEffects = new HashMap<>();
+    private static final Map<Integer, Set<UUID>> colonyWarGuardEffects = new HashMap<>();
     
     /**
      * Apply resistance effects to all guards in a colony when a raid starts
@@ -40,7 +40,7 @@ public class GuardResistanceHandler {
             return;
         }
         
-        UUID colonyId = UUID.fromString(String.valueOf(colony.getID()));
+        Integer colonyId = colony.getID();
         Set<UUID> affectedGuards = new HashSet<>();
         
         try {
@@ -60,12 +60,26 @@ public class GuardResistanceHandler {
                 }
             }
             
+            // Apply resistance to all citizens if configured
+            if (TaxConfig.APPLY_RESISTANCE_TO_CITIZENS.get()) {
+                colony.getCitizenManager().getCitizens().forEach(citizenData -> {
+                    if (citizenData != null && citizenData.getEntity().isPresent()) {
+                        AbstractEntityCitizen citizen = citizenData.getEntity().get();
+                        if (citizen != null && citizen.isAlive() && !affectedGuards.contains(citizen.getUUID())) {
+                            applyResistanceEffect(citizen, resistanceLevel);
+                            affectedGuards.add(citizen.getUUID());
+                        }
+                    }
+                });
+            }
+            
             // Store the affected guards for cleanup later
             colonyGuardEffects.put(colonyId, affectedGuards);
             
             if (!affectedGuards.isEmpty()) {
-                LOGGER.info("Applied Resistance {} effect to {} guards in colony '{}' during raid", 
-                    resistanceLevel, affectedGuards.size(), colony.getName());
+                String entityType = TaxConfig.APPLY_RESISTANCE_TO_CITIZENS.get() ? "guards and citizens" : "guards";
+                LOGGER.info("Applied Resistance {} effect to {} {} in colony '{}' during raid", 
+                    resistanceLevel, affectedGuards.size(), entityType, colony.getName());
             }
             
         } catch (Exception e) {
@@ -85,7 +99,7 @@ public class GuardResistanceHandler {
             return;
         }
         
-        UUID colonyId = UUID.fromString(String.valueOf(colony.getID()));
+        Integer colonyId = colony.getID();
         Set<UUID> affectedGuards = colonyGuardEffects.get(colonyId);
         
         if (affectedGuards == null || affectedGuards.isEmpty()) {
@@ -211,7 +225,7 @@ public class GuardResistanceHandler {
             return;
         }
         
-        UUID colonyId = UUID.fromString(String.valueOf(colony.getID()));
+        Integer colonyId = colony.getID();
         Set<UUID> affectedGuards = new HashSet<>();
         
         try {
@@ -231,12 +245,26 @@ public class GuardResistanceHandler {
                 }
             }
             
+            // Apply resistance to all citizens if configured
+            if (TaxConfig.APPLY_RESISTANCE_TO_CITIZENS.get()) {
+                colony.getCitizenManager().getCitizens().forEach(citizenData -> {
+                    if (citizenData != null && citizenData.getEntity().isPresent()) {
+                        AbstractEntityCitizen citizen = citizenData.getEntity().get();
+                        if (citizen != null && citizen.isAlive() && !affectedGuards.contains(citizen.getUUID())) {
+                            applyResistanceEffect(citizen, resistanceLevel);
+                            affectedGuards.add(citizen.getUUID());
+                        }
+                    }
+                });
+            }
+            
             // Store the affected guards for cleanup later (use war-specific tracking)
             colonyWarGuardEffects.put(colonyId, affectedGuards);
             
             if (!affectedGuards.isEmpty()) {
-                LOGGER.info("Applied Resistance {} effect to {} guards in colony '{}' during war", 
-                    resistanceLevel, affectedGuards.size(), colony.getName());
+                String entityType = TaxConfig.APPLY_RESISTANCE_TO_CITIZENS.get() ? "guards and citizens" : "guards";
+                LOGGER.info("Applied Resistance {} effect to {} {} in colony '{}' during war", 
+                    resistanceLevel, affectedGuards.size(), entityType, colony.getName());
             }
             
         } catch (Exception e) {
@@ -254,7 +282,7 @@ public class GuardResistanceHandler {
             return;
         }
         
-        UUID colonyId = UUID.fromString(String.valueOf(colony.getID()));
+        Integer colonyId = colony.getID();
         Set<UUID> affectedGuards = colonyWarGuardEffects.get(colonyId);
         
         if (affectedGuards == null || affectedGuards.isEmpty()) {
@@ -310,7 +338,7 @@ public class GuardResistanceHandler {
             return;
         }
         
-        UUID colonyId = UUID.fromString(String.valueOf(colony.getID()));
+        Integer colonyId = colony.getID();
         Set<UUID> affectedGuards = new HashSet<>();
         
         try {
@@ -330,12 +358,26 @@ public class GuardResistanceHandler {
                 }
             }
             
+            // Apply resistance to all citizens if configured
+            if (TaxConfig.APPLY_RESISTANCE_TO_CITIZENS.get()) {
+                colony.getCitizenManager().getCitizens().forEach(citizenData -> {
+                    if (citizenData != null && citizenData.getEntity().isPresent()) {
+                        AbstractEntityCitizen citizen = citizenData.getEntity().get();
+                        if (citizen != null && citizen.isAlive() && !affectedGuards.contains(citizen.getUUID())) {
+                            applyResistanceEffect(citizen, resistanceLevel);
+                            affectedGuards.add(citizen.getUUID());
+                        }
+                    }
+                });
+            }
+            
             // Store the affected guards for cleanup later (use raid-specific tracking)
             colonyGuardEffects.put(colonyId, affectedGuards);
             
             if (!affectedGuards.isEmpty()) {
-                LOGGER.info("Applied Resistance {} effect to {} guards in colony '{}' during raid", 
-                    resistanceLevel, affectedGuards.size(), colony.getName());
+                String entityType = TaxConfig.APPLY_RESISTANCE_TO_CITIZENS.get() ? "guards and citizens" : "guards";
+                LOGGER.info("Applied Resistance {} effect to {} {} in colony '{}' during raid", 
+                    resistanceLevel, affectedGuards.size(), entityType, colony.getName());
             }
             
         } catch (Exception e) {
@@ -353,7 +395,7 @@ public class GuardResistanceHandler {
             return;
         }
         
-        UUID colonyId = UUID.fromString(String.valueOf(colony.getID()));
+        Integer colonyId = colony.getID();
         Set<UUID> affectedGuards = colonyGuardEffects.get(colonyId);
         
         if (affectedGuards == null || affectedGuards.isEmpty()) {
