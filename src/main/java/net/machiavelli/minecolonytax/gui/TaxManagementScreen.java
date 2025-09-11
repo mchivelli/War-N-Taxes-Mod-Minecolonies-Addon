@@ -9,8 +9,10 @@ import net.machiavelli.minecolonytax.network.packets.RequestColonyDataPacket;
 import net.machiavelli.minecolonytax.network.packets.PayTaxDebtPacket;
 import net.machiavelli.minecolonytax.network.packets.EndVassalizationPacket;
 import net.machiavelli.minecolonytax.network.packets.UpdateTaxPermissionPacket;
+import net.machiavelli.minecolonytax.network.packets.UpdatePlayerTaxPermissionPacket;
 import net.machiavelli.minecolonytax.network.packets.RequestOfficerDataPacket;
 import net.machiavelli.minecolonytax.permissions.TaxPermissionManager;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -19,8 +21,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
+import java.awt.Rectangle;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class TaxManagementScreen extends Screen {
     private static final ResourceLocation BACKGROUND_TEXTURE = new ResourceLocation("minecolonytax", "textures/gui/backgroundmenu.png");
@@ -45,6 +50,10 @@ public class TaxManagementScreen extends Screen {
     private Button endVassalButton;
     private boolean showingVassals = false;
     private boolean showingPermissions = false;
+    
+    // Permission GUI elements
+    private Rectangle permissionToggleButton;
+    private Map<Integer, Rectangle> officerToggleButtons;
     
     // Enhanced Colors for Beautiful Design
     private static final int COLOR_WHITE = 0xFFFFFF;
@@ -186,6 +195,11 @@ public class TaxManagementScreen extends Screen {
         showingVassals = false;
         showingPermissions = true;
         scrollOffset = 0;
+        
+        // Request officer data for currently selected colony
+        if (selectedColony != null) {
+            NetworkHandler.sendToServer(new RequestOfficerDataPacket(selectedColony.getColonyId()));
+        }
     }
     
     private void claimAllTaxes() {
@@ -532,6 +546,39 @@ public class TaxManagementScreen extends Screen {
     }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        // Handle scrolling in Officers Tab
+        if (showingPermissions && !officerData.isEmpty()) {
+            int maxOfficersVisible = 8;
+            int maxScrollOffset = Math.max(0, officerData.size() - maxOfficersVisible);
+            
+            if (delta > 0) {
+                // Scroll up
+                scrollOffset = Math.max(0, scrollOffset - 1);
+            } else if (delta < 0) {
+                // Scroll down
+                scrollOffset = Math.min(maxScrollOffset, scrollOffset + 1);
+            }
+            return true;
+        }
+        
+        // Handle scrolling in Vassals Tab
+        if (showingVassals) {
+            if (vassalData.size() > maxVisibleVassals) {
+                vassalScrollOffset = Mth.clamp(vassalScrollOffset - (int) delta, 0, vassalData.size() - maxVisibleVassals);
+                return true;
+            }
+        } else {
+            if (colonies.size() > maxVisibleColonies) {
+                scrollOffset = Mth.clamp(scrollOffset - (int) delta, 0, colonies.size() - maxVisibleColonies);
+                return true;
+            }
+        }
+        
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) { // Left click
             int guiLeft = (this.width - GUI_WIDTH) / 2;
@@ -583,11 +630,44 @@ public class TaxManagementScreen extends Screen {
             } else if (showingPermissions) {
                 // Permission toggle button clicks (if colony owner and colony selected)
                 if (selectedColony != null && selectedColony.isOwner()) {
-                    if (selectedColony.isClaimButtonClicked(mouseX, mouseY)) {
-                        // Toggle permission and send to server
+                    // Check default officer permission toggle
+                    if (permissionToggleButton != null && 
+                        mouseX >= permissionToggleButton.x && mouseX < permissionToggleButton.x + permissionToggleButton.width &&
+                        mouseY >= permissionToggleButton.y && mouseY < permissionToggleButton.y + permissionToggleButton.height) {
+                        // Toggle colony-wide permission and send to server
                         boolean newPermission = TaxPermissionManager.toggleOfficerClaimPermission(selectedColony.getColonyId());
                         NetworkHandler.sendToServer(new UpdateTaxPermissionPacket(selectedColony.getColonyId(), newPermission));
                         return true;
+                    }
+                    
+                    // Check individual officer permission toggles
+                    if (officerToggleButtons != null) {
+                        for (Map.Entry<Integer, Rectangle> entry : officerToggleButtons.entrySet()) {
+                            Rectangle toggleButton = entry.getValue();
+                            if (mouseX >= toggleButton.x && mouseX < toggleButton.x + toggleButton.width &&
+                                mouseY >= toggleButton.y && mouseY < toggleButton.y + toggleButton.height) {
+                                
+                                int displayIndex = entry.getKey();
+                                // Convert display index to actual officer index considering scroll offset
+                                int actualOfficerIndex = displayIndex + scrollOffset;
+                                if (actualOfficerIndex < officerData.size()) {
+                                    OfficerData officer = officerData.get(actualOfficerIndex);
+                                    // Toggle individual player permission
+                                    boolean newPermission = TaxPermissionManager.togglePlayerClaimPermission(
+                                        selectedColony.getColonyId(), 
+                                        officer.getPlayerId(), 
+                                        true // is officer
+                                    );
+                                    // Send individual player permission update to server
+                                    NetworkHandler.sendToServer(new UpdatePlayerTaxPermissionPacket(
+                                        selectedColony.getColonyId(), 
+                                        officer.getPlayerId(), 
+                                        newPermission
+                                    ));
+                                    return true;
+                                }
+                            }
+                        }
                     }
                 }
             } else {
@@ -636,21 +716,6 @@ public class TaxManagementScreen extends Screen {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        if (showingVassals) {
-            if (vassalData.size() > maxVisibleVassals) {
-                vassalScrollOffset = Mth.clamp(vassalScrollOffset - (int) delta, 0, vassalData.size() - maxVisibleVassals);
-                return true;
-            }
-        } else {
-            if (colonies.size() > maxVisibleColonies) {
-                scrollOffset = Mth.clamp(scrollOffset - (int) delta, 0, colonies.size() - maxVisibleColonies);
-                return true;
-            }
-        }
-        return super.mouseScrolled(mouseX, mouseY, delta);
-    }
     
     public void updateColonyData(List<ColonyTaxData> newData) {
         this.colonies.clear();
@@ -700,113 +765,204 @@ public class TaxManagementScreen extends Screen {
     
     
     private void renderPermissionsManagement(GuiGraphics guiGraphics, int guiLeft, int guiTop, int mouseX, int mouseY) {
-        Font font = this.font;
-        int startY = guiTop + 50;
-        
-        // Title for officers section
-        Component officersTitle = Component.literal("Colony Officers & Permissions");
-        guiGraphics.drawCenteredString(font, officersTitle, guiLeft + GUI_WIDTH / 2, startY, COLOR_WHITE);
-        
-        // Check if a colony is selected from the main colonies view
         if (selectedColony == null) {
-            String noSelection = "No colony selected.";
-            String instruction = "Go to Colonies tab and select a colony first.";
-            guiGraphics.drawCenteredString(font, noSelection, guiLeft + GUI_WIDTH / 2, startY + 40, COLOR_RED);
-            guiGraphics.drawCenteredString(font, instruction, guiLeft + GUI_WIDTH / 2, startY + 55, COLOR_LIGHT_GRAY);
+            guiGraphics.drawCenteredString(font, "No colony selected.", guiLeft + GUI_WIDTH / 2, guiTop + 60, COLOR_RED);
             return;
         }
+
+        // Start below tab buttons with safe clearance
+        int currentY = guiTop + 50;
         
-        // Request officer data if we don't have it for this colony
-        if (officerData.isEmpty()) {
-            NetworkHandler.sendToServer(new RequestOfficerDataPacket(selectedColony.getColonyId()));
-            String loading = "Loading officers...";
-            guiGraphics.drawCenteredString(font, loading, guiLeft + GUI_WIDTH / 2, startY + 40, COLOR_YELLOW);
-            return;
-        }
+        // Colony info section - moved lower and made more compact
+        String colonyName = selectedColony.getColonyName();
+        String colonyInfo = String.format("%s (ID: %d)", colonyName, selectedColony.getColonyId());
         
-        // Display selected colony info
-        int infoY = startY + 20;
-        String colonyInfo = "Colony: " + selectedColony.getColonyName();
-        guiGraphics.drawString(font, colonyInfo, guiLeft + 10, infoY, COLOR_WHITE);
-        
-        // Permission toggle for selected colony (if owner)
-        int officersStartY = infoY + 20;
-        if (selectedColony.isOwner()) {
-            boolean officersCanClaim = TaxPermissionManager.canOfficersClaim(selectedColony.getColonyId());
-            String permText = "Tax Claiming: " + (officersCanClaim ? "ALLOWED" : "BLOCKED");
-            int permColor = officersCanClaim ? COLOR_LIGHT_GREEN : COLOR_RED;
-            guiGraphics.drawString(font, permText, guiLeft + 10, officersStartY, permColor);
-            
-            // Toggle button
-            int toggleX = guiLeft + GUI_WIDTH - 60;
-            int toggleY = officersStartY - 2;
-            boolean toggleHovered = mouseX >= toggleX && mouseX < toggleX + 50 &&
-                                   mouseY >= toggleY && mouseY < toggleY + 12;
-            
-            int toggleBg = officersCanClaim ? 
-                (toggleHovered ? COLOR_LIGHT_GREEN : COLOR_GREEN) :
-                (toggleHovered ? 0x800000 : 0x600000);
-            
-            guiGraphics.fill(toggleX, toggleY, toggleX + 50, toggleY + 12, toggleBg);
-            String toggleText = officersCanClaim ? "ALLOW" : "BLOCK";
-            guiGraphics.drawString(font, toggleText, toggleX + 8, toggleY + 2, COLOR_WHITE);
-            
-            // Store toggle button bounds
-            selectedColony.setClaimButtonBounds(toggleX, toggleY, 50, 12);
-            
-            officersStartY += 25;
-        } else {
-            // Show read-only permission status for non-owners
-            boolean officersCanClaim = TaxPermissionManager.canOfficersClaim(selectedColony.getColonyId());
-            String permText = "Tax Claiming: " + (officersCanClaim ? "ALLOWED" : "BLOCKED") + " (Read-only)";
-            int permColor = COLOR_LIGHT_GRAY;
-            guiGraphics.drawString(font, permText, guiLeft + 10, officersStartY, permColor);
-            officersStartY += 20;
-        }
-        
-        // Officers header
-        guiGraphics.drawString(font, "Officers & Members:", guiLeft + 10, officersStartY, COLOR_LIGHT_GRAY);
-        officersStartY += 15;
-        
-        // Officers list
-        if (officerData.isEmpty()) {
-            // Show loading message if no data yet
-            String message = selectedColony != null ? "Loading officers..." : "No officers found for this colony";
-            guiGraphics.drawString(font, message, guiLeft + 10, officersStartY, COLOR_GRAY);
-        } else {
-            int officerY = officersStartY;
-            for (int i = 0; i < Math.min(7, officerData.size()); i++) {
-                OfficerData officer = officerData.get(i);
-                
-                // Officer entry background
-                int entryHeight = 12;
-                boolean entryHovered = mouseX >= guiLeft + 7 && mouseX < guiLeft + GUI_WIDTH - 17 &&
-                                      mouseY >= officerY - 1 && mouseY < officerY + entryHeight - 1;
-                
-                if (entryHovered) {
-                    guiGraphics.fill(guiLeft + 7, officerY - 1, guiLeft + GUI_WIDTH - 17, officerY + entryHeight - 1, 0x333333);
-                }
-                
-                // Officer name and rank
-                String officerText = officer.getPlayerName() + " [" + officer.getRank() + "]";
-                if (officerText.length() > 25) {
-                    officerText = officerText.substring(0, 22) + "...";
-                }
-                
-                guiGraphics.drawString(font, officerText, guiLeft + 10, officerY, officer.getRankColor());
-                
-                // Status (online/offline, can claim)
-                String statusText = officer.getLastSeenText();
-                if (officer.canClaimTax()) {
-                    statusText += " ✓";
-                }
-                
-                int rightX = guiLeft + GUI_WIDTH - 8;
-                guiGraphics.drawString(font, statusText, rightX - font.width(statusText), officerY, officer.getStatusColor());
-                
-                officerY += entryHeight + 2;
+        // Truncate colony name if too long to fit in available space
+        int maxColonyWidth = GUI_WIDTH - 20;
+        if (font.width(colonyInfo) > maxColonyWidth) {
+            String shortName = colonyName;
+            while (font.width(String.format("%s... (ID: %d)", shortName, selectedColony.getColonyId())) > maxColonyWidth && shortName.length() > 3) {
+                shortName = shortName.substring(0, shortName.length() - 1);
             }
+            colonyInfo = String.format("%s... (ID: %d)", shortName, selectedColony.getColonyId());
         }
         
+        guiGraphics.drawString(font, colonyInfo, guiLeft + 10, currentY, COLOR_WHITE);
+        currentY += 18;
+
+        // Default permission section
+        boolean isOwner = selectedColony.isOwner();
+        boolean officersCanClaim = TaxPermissionManager.canOfficersClaim(selectedColony.getColonyId());
+        String permText = "Default: " + (officersCanClaim ? "ALLOW" : "BLOCK");
+        int permColor = officersCanClaim ? COLOR_GREEN : COLOR_RED;
+        
+        guiGraphics.drawString(font, permText, guiLeft + 10, currentY, permColor);
+        
+        if (isOwner) {
+            // Toggle button positioned to not overlap
+            int buttonX = guiLeft + GUI_WIDTH - 45;
+            int buttonY = currentY - 2;
+            int buttonWidth = 35;
+            int buttonHeight = 12;
+
+            // Store button bounds for click detection
+            permissionToggleButton = new Rectangle(buttonX, buttonY, buttonWidth, buttonHeight);
+
+            // Draw button
+            int buttonColor = officersCanClaim ? 0xFF006600 : 0xFF660000;
+            guiGraphics.fill(buttonX, buttonY, buttonX + buttonWidth, buttonY + buttonHeight, buttonColor);
+            guiGraphics.drawCenteredString(font, "EDIT", buttonX + buttonWidth / 2, buttonY + 2, COLOR_WHITE);
+        } else {
+            String ownerOnlyText = "(Owner only)";
+            int textX = guiLeft + GUI_WIDTH - font.width(ownerOnlyText) - 10;
+            guiGraphics.drawString(font, ownerOnlyText, textX, currentY, COLOR_GRAY);
+        }
+        currentY += 18;
+
+        // Help text - only for owners and made shorter
+        if (isOwner) {
+            guiGraphics.drawString(font, "Individual settings override default", guiLeft + 10, currentY, COLOR_GRAY);
+            currentY += 15;
+        }
+
+        // Officers section header
+        guiGraphics.drawString(font, "Officers:", guiLeft + 10, currentY, COLOR_LIGHT_GRAY);
+        currentY += 15;
+
+        // Officers list with scrolling support
+        if (officerData.isEmpty()) {
+            String message = selectedColony != null ? "Loading officers..." : "No officers found";
+            guiGraphics.drawString(font, message, guiLeft + 10, currentY, COLOR_GRAY);
+        } else {
+            renderOfficersList(guiGraphics, guiLeft, currentY, mouseX, mouseY, isOwner);
+        }
+    }
+    
+    private void renderOfficersList(GuiGraphics guiGraphics, int guiLeft, int startY, int mouseX, int mouseY, boolean isOwner) {
+        int maxOfficersVisible = 8; // Increased from 6
+        int officerHeight = 16;
+        int totalOfficers = officerData.size();
+        
+        // Clear previous button mappings to avoid stale data
+        if (officerToggleButtons != null) {
+            officerToggleButtons.clear();
+        }
+        
+        // Calculate visible range based on scroll offset
+        int startIndex = Math.max(0, scrollOffset);
+        int endIndex = Math.min(totalOfficers, startIndex + maxOfficersVisible);
+        
+        // Draw officers
+        for (int i = startIndex; i < endIndex; i++) {
+            OfficerData officer = officerData.get(i);
+            int displayIndex = i - startIndex;
+            int officerY = startY + (displayIndex * (officerHeight + 2));
+            
+            renderOfficerEntry(guiGraphics, guiLeft, officerY, mouseX, mouseY, officer, i, isOwner);
+        }
+        
+        // Draw scroll indicators if needed
+        if (totalOfficers > maxOfficersVisible) {
+            drawScrollIndicators(guiGraphics, guiLeft, startY, maxOfficersVisible * (officerHeight + 2), totalOfficers, maxOfficersVisible);
+        }
+    }
+    
+    private void renderOfficerEntry(GuiGraphics guiGraphics, int guiLeft, int officerY, int mouseX, int mouseY, OfficerData officer, int officerIndex, boolean isOwner) {
+        int entryHeight = 16;
+        
+        // Officer entry background
+        boolean entryHovered = mouseX >= guiLeft + 7 && mouseX < guiLeft + GUI_WIDTH - 17 &&
+                              mouseY >= officerY - 1 && mouseY < officerY + entryHeight - 1;
+        
+        if (entryHovered) {
+            guiGraphics.fill(guiLeft + 7, officerY - 1, guiLeft + GUI_WIDTH - 17, officerY + entryHeight - 1, 0x22333333);
+        }
+        
+        // Officer name and rank - allow longer names since we have space
+        String officerText = officer.getPlayerName() + " [" + officer.getRank() + "]";
+        int maxTextWidth = GUI_WIDTH - 60; // Leave space for toggle button
+        if (font.width(officerText) > maxTextWidth) {
+            // Truncate more intelligently - keep more of the name
+            String playerName = officer.getPlayerName();
+            String rank = officer.getRank();
+            while (font.width(playerName + " [" + rank + "]") > maxTextWidth && playerName.length() > 3) {
+                playerName = playerName.substring(0, playerName.length() - 1);
+            }
+            officerText = playerName + "... [" + rank + "]";
+        }
+        guiGraphics.drawString(font, officerText, guiLeft + 10, officerY, officer.getRankColor());
+        
+        // Owner indicator - owners always can claim
+        if (officer.getRank().equals("Owner")) {
+            String ownerText = "OWNER";
+            int ownerTextX = guiLeft + GUI_WIDTH - font.width(ownerText) - 10;
+            guiGraphics.drawString(font, ownerText, ownerTextX, officerY, COLOR_GREEN);
+        } else if (isOwner) {
+            // Individual permission toggle button for officers (only shown to owners)
+            boolean canClaim = TaxPermissionManager.canPlayerClaimTax(
+                selectedColony.getColonyId(), 
+                officer.getPlayerId(), 
+                false, 
+                true // is officer
+            );
+            
+            // Position toggle button within GUI bounds
+            int toggleX = guiLeft + GUI_WIDTH - 45;  // 45px from right edge
+            int toggleY = officerY - 1;
+            int toggleWidth = 35;
+            int toggleHeight = 12;
+            
+            // Store button bounds for click detection - using display index as identifier
+            if (officerToggleButtons == null) {
+                officerToggleButtons = new java.util.HashMap<>();
+            }
+            // Use display index (i) instead of actual officer index for button mapping
+            int displayIndex = officerIndex - scrollOffset;
+            officerToggleButtons.put(displayIndex, new Rectangle(toggleX, toggleY, toggleWidth, toggleHeight));
+            
+            // Draw toggle button
+            int toggleColor = canClaim ? 0xFF006600 : 0xFF660000;
+            guiGraphics.fill(toggleX, toggleY, toggleX + toggleWidth, toggleY + toggleHeight, toggleColor);
+            String toggleText = canClaim ? "ON" : "OFF";
+            guiGraphics.drawCenteredString(font, toggleText, toggleX + toggleWidth / 2, toggleY + 2, COLOR_WHITE);
+        } else {
+            // Show current permission state for non-owners
+            boolean canClaim = TaxPermissionManager.canPlayerClaimTax(
+                selectedColony.getColonyId(), 
+                officer.getPlayerId(), 
+                false, 
+                true // is officer
+            );
+            String permissionText = canClaim ? "ON" : "OFF";
+            int statusColor = canClaim ? COLOR_GREEN : COLOR_RED;
+            int permTextX = guiLeft + GUI_WIDTH - font.width(permissionText) - 10;
+            guiGraphics.drawString(font, permissionText, permTextX, officerY, statusColor);
+        }
+    }
+    
+    private void drawScrollIndicators(GuiGraphics guiGraphics, int guiLeft, int startY, int listHeight, int totalItems, int visibleItems) {
+        if (totalItems <= visibleItems) return;
+        
+        // Draw scroll bar background
+        int scrollBarX = guiLeft + GUI_WIDTH - 8;
+        int scrollBarY = startY;
+        int scrollBarHeight = listHeight;
+        guiGraphics.fill(scrollBarX, scrollBarY, scrollBarX + 6, scrollBarY + scrollBarHeight, 0x44333333);
+        
+        // Calculate scroll thumb position and size
+        float scrollPercentage = (float) scrollOffset / Math.max(1, totalItems - visibleItems);
+        int thumbHeight = Math.max(10, (scrollBarHeight * visibleItems) / totalItems);
+        int thumbY = scrollBarY + (int)((scrollBarHeight - thumbHeight) * scrollPercentage);
+        
+        // Draw scroll thumb
+        guiGraphics.fill(scrollBarX + 1, thumbY, scrollBarX + 5, thumbY + thumbHeight, 0x88AAAAAA);
+        
+        // Draw scroll arrows if needed
+        if (scrollOffset > 0) {
+            guiGraphics.drawString(font, "↑", scrollBarX, startY - 12, COLOR_WHITE);
+        }
+        if (scrollOffset < totalItems - visibleItems) {
+            guiGraphics.drawString(font, "↓", scrollBarX, startY + listHeight + 2, COLOR_WHITE);
+        }
     }
 }

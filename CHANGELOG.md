@@ -1,9 +1,48 @@
 # Changelog
 
-All notable changes to the MineColonyTax mod will be documented in this file.
+All notable changes to the War N Tax mod will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [3.1.0] - 2025-09-11
+
+### 🗡️ Raider Guard Kill Tax Stealing
+
+- **NEW FEATURE**: Raiders can now steal a percentage of a colony's tax revenue by killing its guards and militia during a raid.
+- **Kill-Based Rewards**: Each guard or militia kill contributes to the total percentage of tax revenue that can be stolen, up to a configurable maximum.
+- **Strict Boundary Enforcement**: Raiders must remain within the colony's boundaries for the entire duration of the raid. Leaving the boundaries, even once, results in **instant disqualification** and the raid immediately ends with no reward.
+- **Comprehensive Instructions**: Raiders now receive a detailed, formatted message upon starting a raid, explaining all rules, objectives, and potential rewards.
+- **Enhanced Boss Bar**: The raid boss bar has been updated to show real-time status, including kill progress, remaining time, and a "DISQUALIFIED" state if the raider leaves the boundaries.
+- **Death Penalty**: If a raider is killed, any potential earnings are transferred to the defending colony as a defense bonus.
+
+### 🤝 War Extortion System Enhancements
+
+- NEW: Interactive extortion prompt with clickable chat buttons for defenders: Accept War / Decline / Pay Extortion.
+- Response Timer: Configurable 5-minute default; if no response, war starts automatically.
+- Payment Flow: SDMShop wallet is used first; automatic fallback to defender colony funds with partial payments supported.
+- Extortion Immunity: Paying extortion grants a configurable cooldown preventing repeated extortion attempts.
+- Commands:
+  - `/wnt wagewar <colony> <percent>` — declare war with optional extortion percentage (1–100).
+  - `/wnt payextortion <colonyId> <percent>` — defenders pay to avoid war.
+- Validation & Permissions: Owner/Officer-only actions, percentage consistency checks, attacker-online verification, and clear error feedback.
+- Stability & UX:
+  - Daemonized timer threads for extortion deadlines (prevents server shutdown hangs).
+  - Pending request cleanup on payment/response to prevent duplicate war starts.
+  - War response handling updated to support extortion-request records safely.
+
+#### Configuration
+- `EnableExtortionSystem` (boolean)
+- `DefaultExtortionPercentage` (double 0.0–1.0; e.g., 0.15 => 15%)
+- `ExtortionResponseTimeMinutes` (int, default 5)
+- `ExtortionImmunityHours` (int, default 24)
+
+Technical references:
+- Commands and payment flow: `src/main/java/net/machiavelli/minecolonytax/commands/WntCommands.java`
+- War flow, timers, immunity, pending requests: `src/main/java/net/machiavelli/minecolonytax/WarSystem.java`
+- Config keys: `src/main/java/net/machiavelli/minecolonytax/TaxConfig.java`
+
+---
 
 ## [3.0.0] - 2025-09-07
 
@@ -43,9 +82,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Streamlined Architecture**: Removed separate raid reward storage system for cleaner, more maintainable codebase
 - **Backward Compatible**: Existing tax systems continue to work unchanged while gaining raid reward integration
 
+### ⚔️ Militia Combat System Overhaul
+
+- **CRITICAL FIX**: Completely rewrote militia combat AI to resolve server crashes and ensure militia actually attack raiding players
+- **Custom Attack Goal**: Created `MilitiaAttackGoal` that bypasses MineColonies citizens' missing `ATTACK_DAMAGE` attribute requirement
+- **Crash Prevention**: Eliminated attribute-related crashes that previously prevented militia from functioning during raids
+- **Active Combat**: Militia now actively pursue and attack raiding players instead of just targeting them without engaging
+- **AI Goal Management**: Militia system clears conflicting AI goals and adds high-priority combat behaviors during raids
+- **Equipment Integration**: Militia automatically receive wooden swords and proper combat equipment during raid activation
+- **Performance Optimization**: Reduced glow effect logging spam by only applying effects when not already present
+- **Stable Operation**: Militia system now operates without server crashes or attribute-related errors
+- **Clean Restoration**: Militia AI and equipment are properly restored to original state when raids end
+
 ---
 
-## [Unreleased]
+## [3.4.5] - 2025-09-06
 
 ### 🛡️ Guard Resistance During Raids and Wars
 

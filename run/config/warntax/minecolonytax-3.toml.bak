@@ -5,7 +5,7 @@ DebtLimit = 0
 [General]
 	#Tax generation interval in minutes
 	#Range: 1 ~ 1440
-	TaxIntervalMinutes = 1
+	TaxIntervalMinutes = 60
 	#Maximum tax revenue a colony can store before it stops generating further taxes
 	#Range: > 1
 	MaxTaxRevenue = 5000
@@ -39,6 +39,9 @@ DebtLimit = 0
 	#Penalty percentage applied when a raider is killed by a defender during a raid (0.0 - 1.0)
 	#Range: 0.0 ~ 1.0
 	RaidPenaltyPercentage = 0.25
+	#Percentage of killed raider's balance transferred to defending colony for owner/officers to claim (0.0 - 1.0)
+	#Range: 0.0 ~ 1.0
+	RaidDefenseRewardPercentage = 0.15
 	#Percentage of losing players' balance awarded to each winning player. Set to 0.0 to only enable colony transfer (if enabled).
 	#Uses SDMShop balance or colony funds based on what's configured.
 	#Range: 0.0 ~ 1.0
@@ -100,15 +103,12 @@ DebtLimit = 0
 	#Percentage increase in total tax revenue when required Guard Towers are built. This acts as a multiplier on the colony's total generated tax income. For example: 0.5 = 50% increase, so 1000 tax becomes 1500 tax.
 	#Range: 0.0 ~ 2.0
 	GuardTowerTaxBoostPercentage = 0.5
-	#Percentage of killed raider's balance transferred to defending colony for owner/officers to claim (0.0 - 1.0)
-	#Range: 0.0 ~ 1.0
-	RaidDefenseRewardPercentage = 0.15
 
 	["War Settings"."Entity Raid Settings"]
 		#Enable entity-triggered raids. When disabled, entities will not trigger raids even if they meet the criteria. Admin-only feature.
-		EnableEntityRaids = true
+		EnableEntityRaids = false
 		#List of entity types that can trigger raids. Use Minecraft entity resource IDs (e.g., 'minecraft:pillager'). Default: only Pillagers.
-		EntityRaidWhitelist = ["minecraft:pillager", "recruits:recruit"]
+		EntityRaidWhitelist = ["minecraft:pillager"]
 		#Number of whitelisted entities near a colony required to trigger a raid
 		#Range: 1 ~ 50
 		EntityRaidThreshold = 1
@@ -127,7 +127,7 @@ DebtLimit = 0
 		#Range: 1 ~ 1440
 		EntityRaidCooldownMinutes = 30
 		#Enable detailed debug logging for EntityRaid system. When enabled, provides comprehensive logging of entity detection, filtering, and raid triggering processes.
-		EnableEntityRaidDebug = true
+		EnableEntityRaidDebug = false
 		#Debug logging verbosity level for EntityRaid system:
 		#1 = Basic (raid triggers, major events)
 		#2 = Detailed (entity filtering, alliance checks)
@@ -136,6 +136,13 @@ DebtLimit = 0
 		EntityRaidDebugLevel = 1
 		#TESTING ONLY: Bypass alliance checks to allow your own recruits to trigger raids (set to false for production)
 		BypassAllianceChecks = false
+
+	["War Settings"."PvP Kill Economy"]
+		#Enable PvP kill economy system. When enabled, killing a player transfers a percentage of their balance to the killer. Compatible with SDMShop and SDMEconomy. Disabled by default.
+		EnablePvPKillEconomy = false
+		#Percentage of victim's balance transferred to killer on PvP kill (0.0 - 1.0). For example: 0.1 = 10% of victim's money goes to killer. Uses SDMShop balance or colony funds based on configuration.
+		#Range: 0.0 ~ 1.0
+		PvPKillRewardPercentage = 0.1
 
 	["War Settings"."General Colony Permissions"]
 		#Enable general item interactions for all players in colonies. When enabled, allows non-allies to toss items and pickup items within colony boundaries.
@@ -160,14 +167,25 @@ DebtLimit = 0
 		#Hours of inactivity after which a colony will stop generating taxes. This uses MineColonies' built-in player interaction tracking.
 		#Range: 1 ~ 8760
 		ColonyInactivityHoursThreshold = 168
+		#Enable extortion system for wars. When enabled, defenders can choose to pay extortion instead of fighting when WarAcceptanceRequired is false.
+		EnableExtortionSystem = true
+		#Default extortion percentage when not specified by attacker (0.0 - 1.0). For example: 0.15 = 15% of defender's balance.
+		#Range: 0.0 ~ 1.0
+		DefaultExtortionPercentage = 0.15
+		#Time limit in minutes for defenders to respond to extortion offers before war automatically starts.
+		#Range: 1 ~ 30
+		ExtortionResponseTimeMinutes = 5
+		#Hours of immunity from new extortion attempts after successfully paying extortion.
+		#Range: 1 ~ 168
+		ExtortionImmunityHours = 24
 		#Enable citizen militia system during raids. When enabled, citizens will temporarily become guards to defend the colony. Set to false to use the old raid system.
 		EnableCitizenMilitia = true
 		#Percentage of eligible citizens to convert to militia guards during raids (0.0 - 1.0). For example: 0.3 = 30% of citizens become militia.
 		#Range: 0.0 ~ 1.0
-		MilitiaConversionPercentage = 1
+		MilitiaConversionPercentage = 0.3
 		#Minimum level required for a citizen to be eligible for militia conversion. Higher levels = more experienced citizens only.
 		#Range: 1 ~ 99
-		MilitiaMinCitizenLevel = 1
+		MilitiaMinCitizenLevel = 3
 		#If true, militia guards and regular guards will actively seek out and engage raiders instead of just defending their posts.
 		MilitiaGuardsSeekRaiders = true
 		#If true, raiders steal tax based on guards killed. If false, uses the old time-based tax stealing system.
@@ -180,13 +198,6 @@ DebtLimit = 0
 		MaxRaidTaxPercentage = 0.5
 		#If true, resistance effects during raids/wars will also be applied to all citizens, not just guards. This makes the entire colony more defensive.
 		ApplyResistanceToCitizens = false
-
-	["War Settings"."PvP Kill Economy"]
-		#Enable PvP kill economy system. When enabled, killing a player transfers a percentage of their balance to the killer. Compatible with SDMShop and SDMEconomy. Disabled by default.
-		EnablePvPKillEconomy = false
-		#Percentage of victim's balance transferred to killer on PvP kill (0.0 - 1.0). For example: 0.1 = 10% of victim's money goes to killer. Uses SDMShop balance or colony funds based on configuration.
-		#Range: 0.0 ~ 1.0
-		PvPKillRewardPercentage = 0.1
 
 ["PvP Arena Settings"]
 	#Allow players to use commands while in a PvP battle. It's recommended to keep this false to prevent exploits.

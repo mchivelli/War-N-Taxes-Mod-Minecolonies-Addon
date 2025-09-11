@@ -46,8 +46,12 @@ import java.util.concurrent.TimeUnit;
 public class WarSystem {
 
     private static final Logger WARSYSTEM_LOGGER = LogManager.getLogger(WarSystem.class);
-    private static final Map<Integer, WarRequest> pendingWarRequests = new ConcurrentHashMap<>();
+    public static final Map<Integer, Object> pendingWarRequests = new ConcurrentHashMap<>();
+    
+    // Track extortion immunity (colonyId -> immunity expiration timestamp)
+    private static final Map<Integer, Long> extortionImmunity = new ConcurrentHashMap<>();
     public record WarRequest(UUID attacker, int colonyId) { }
+    public record WarRequestWithExtortion(UUID attacker, int colonyId, int extortionPercent) { }
 
     private static boolean isOfficerOrFriendly(IColony colony, UUID playerUUID) {
         if (colony == null || playerUUID == null) {
@@ -1745,7 +1749,7 @@ public class WarSystem {
         new Timer().schedule(new TimerTask() {
             @Override
             public void run() {
-                WarRequest removedRequest = pendingWarRequests.remove(targetColony.getID());
+                Object removedRequest = pendingWarRequests.remove(targetColony.getID());
                 if (removedRequest != null) { 
                     if (targetColony.getWorld() != null && targetColony.getWorld().getServer() != null) {
                         ServerPlayer targetOwner = targetColony.getWorld().getServer().getPlayerList().getPlayer(targetColony.getPermissions().getOwner());
@@ -1796,14 +1800,111 @@ public class WarSystem {
         WARSYSTEM_LOGGER.info("[War] Target Colony Owner: {}", targetColony.getPermissions().getOwner());
         return 1;
     }
+    
+    public static int processWageWarRequestWithExtortion(ServerPlayer attacker, IColony targetColony, CommandSourceStack source, int extortionPercent) {
+        Level level = source.getLevel(); 
+
+        int targetGuards = countGuards(targetColony); 
+        if (targetGuards < TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get()) { 
+            source.sendFailure(Component.literal("Target colony must have at least " + TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get() + " guards! (Found: " + targetGuards + ")"));
+            return 0;
+        }
+
+        IColony attackerColony = IColonyManager.getInstance().getColonies(level).stream()
+                .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                .findFirst().orElse(null);
+        if (attackerColony == null) {
+            source.sendFailure(Component.literal("You must own a colony to declare war."));
+            return 0;
+        }
+        int attackerGuards = countGuards(attackerColony);
+        if (attackerGuards < TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get()) { 
+            source.sendFailure(Component.literal("Your colony must have at least " + TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get() + " guards! (Found: " + attackerGuards + ")"));
+            return 0;
+        }
+        if (targetColony.getID() == attackerColony.getID()) {
+            source.sendFailure(Component.literal("Cannot declare war on your own colony!"));
+            return 0;
+        }
+        ServerPlayer owner = level.getServer().getPlayerList().getPlayer(targetColony.getPermissions().getOwner());
+        if (owner == null) {
+            source.sendFailure(Component.literal("Target colony owner is offline!"));
+            return 0;
+        }
+
+        // Check if extortion system is enabled
+        if (!TaxConfig.ENABLE_EXTORTION_SYSTEM.get()) {
+            source.sendFailure(Component.literal("Extortion system is disabled. Use regular war declaration."));
+            return 0;
+        }
+        
+        // Check if target colony has extortion immunity
+        if (hasExtortionImmunity(targetColony.getID())) {
+            long immunityExpiration = extortionImmunity.get(targetColony.getID());
+            long hoursRemaining = (immunityExpiration - System.currentTimeMillis()) / (60 * 60 * 1000L);
+            source.sendFailure(Component.literal("Colony " + targetColony.getName() + " has extortion immunity for " + hoursRemaining + " more hours. Use regular war declaration."));
+            return 0;
+        }
+
+        if (!TaxConfig.WAR_ACCEPTANCE_REQUIRED.get()) {
+            // Auto-accept is enabled, show extortion choice to defender with timer
+            showExtortionChoiceWithTimer(attacker, targetColony, owner, extortionPercent);
+            return 1;
+        } else {
+            // Manual acceptance is required, add extortion to pending request
+            WARSYSTEM_LOGGER.info("Adding pending war request with extortion for colony {} from attacker {}", targetColony.getID(), attacker.getUUID());
+            if (ServerLifecycleHooks.getCurrentServer() != null) {
+                String attackerColonyName = attackerColony != null ? attackerColony.getName() : attacker.getName().getString() + "'s forces";
+                Component warDeclarationMsg = Component.empty()
+                    .append(Component.translatable("war.declare.title").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
+                    .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY))
+                    .append(Component.literal("\n"))
+                    .append(Component.translatable("war.forces.valiant").withStyle(ChatFormatting.YELLOW))
+                    .append(Component.literal(attackerColonyName).withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD))
+                    .append(Component.translatable("war.declare.body", "", targetColony.getName()).withStyle(ChatFormatting.YELLOW))
+                    .append(Component.literal("\n💰 Extortion Demand: " + extortionPercent + "% of your balance").withStyle(ChatFormatting.GOLD))
+                    .append(Component.literal("\n"))
+                    .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY));
+                ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(warDeclarationMsg, false);
+            }
+            pendingWarRequests.put(targetColony.getID(), new WarRequestWithExtortion(attacker.getUUID(), targetColony.getID(), extortionPercent));
+            
+            Component message = Component.literal("⚔️ WAR DECLARATION WITH EXTORTION ⚔️")
+                    .withStyle(Style.EMPTY.withColor(ChatFormatting.DARK_RED).withBold(true))
+                    .append(Component.literal("\n"))
+                    .append(Component.literal(attacker.getName().getString())
+                            .withStyle(Style.EMPTY.withColor(ChatFormatting.GOLD).withBold(true)))
+                    .append(Component.literal(" seeks to wage war against your colony!")
+                            .withStyle(Style.EMPTY.withColor(ChatFormatting.YELLOW)))
+                    .append(Component.literal("\n💰 Extortion Demand: " + extortionPercent + "% of your balance")
+                            .withStyle(Style.EMPTY.withColor(ChatFormatting.GOLD)))
+                    .append(Component.literal("\n\nChoose your response:")
+                            .withStyle(Style.EMPTY.withColor(ChatFormatting.WHITE)))
+                    .append(Component.literal("\n"))
+                    .append(createAcceptButton(targetColony)) 
+                    .append(" ")
+                    .append(createDeclineButton(targetColony))
+                    .append(" ")
+                    .append(createPayExtortionButton(targetColony, extortionPercent)); 
+            owner.sendSystemMessage(message);
+            attacker.sendSystemMessage(Component.literal("War declaration with " + extortionPercent + "% extortion demand sent to " + targetColony.getName()).withStyle(ChatFormatting.YELLOW));
+            return 1;
+        }
+    }
 
     public static int processWarResponse(ServerPlayer executor, int colonyId, boolean accepted, CommandSourceStack source) {
-        WarRequest request = pendingWarRequests.get(colonyId);
-        if (request == null) {
+        Object requestObj = pendingWarRequests.get(colonyId);
+        java.util.UUID attackerUUID = null;
+        if (requestObj instanceof WarRequest wr) {
+            attackerUUID = wr.attacker();
+        } else if (requestObj instanceof WarRequestWithExtortion wre) {
+            attackerUUID = wre.attacker();
+        }
+        if (attackerUUID == null) {
             source.sendFailure(Component.literal("No active war request found for colony ID " + colonyId +
                             ". Only an authorized officer or the colony owner may accept.")
                     .withStyle(s -> s.withColor(ChatFormatting.RED)));
-            WARSYSTEM_LOGGER.warn("No pending war request found for colony ID {} when {} attempted to respond.", colonyId, executor.getName().getString());
+            WARSYSTEM_LOGGER.warn("No pending war or extortion war request found for colony ID {} when {} attempted to respond.", colonyId, executor.getName().getString());
             return 0;
         }
 
@@ -1827,7 +1928,7 @@ public class WarSystem {
         
         final ServerPlayer attacker; // Declared final
         if (source.getServer() != null) {
-            attacker = source.getServer().getPlayerList().getPlayer(request.attacker());
+            attacker = source.getServer().getPlayerList().getPlayer(attackerUUID);
         } else {
             attacker = null; // Ensure attacker is initialized if server is null
         }
@@ -1835,7 +1936,7 @@ public class WarSystem {
         if (attacker == null) {
             source.sendFailure(Component.literal("Attacker is offline!")
                     .withStyle(s -> s.withColor(ChatFormatting.RED)));
-            WARSYSTEM_LOGGER.warn("Attacker {} is offline when {} tried to respond to war request for colony {}.", request.attacker(), executor.getName().getString(), targetColony.getName());
+            WARSYSTEM_LOGGER.warn("Attacker {} is offline when {} tried to respond to war request for colony {}.", attackerUUID, executor.getName().getString(), targetColony.getName());
             return 0;
         }
         pendingWarRequests.remove(colonyId); 
@@ -1894,6 +1995,17 @@ public class WarSystem {
                 .setStyle(Style.EMPTY.withColor(ChatFormatting.RED)
                         .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
                                 String.format("/wnt war decline %d", colony.getID()))));
+    }
+
+    private static Component createStartWarButton(IColony colony) {
+        return Component.literal("[⚔️ START WAR NOW]")
+                .setStyle(Style.EMPTY.withColor(ChatFormatting.DARK_RED)
+                        .withBold(true)
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
+                                String.format("/wnt war accept %d", colony.getID())))
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
+                                Component.literal("Click to start the war immediately")
+                                        .withStyle(ChatFormatting.RED))));
     }
     
     /**
@@ -2237,5 +2349,136 @@ public class WarSystem {
             }
         }
         return false;
+    }
+
+    /**
+     * Check if a colony has extortion immunity
+     */
+    private static boolean hasExtortionImmunity(int colonyId) {
+        Long immunityExpiration = extortionImmunity.get(colonyId);
+        if (immunityExpiration == null) {
+            return false;
+        }
+        
+        long currentTime = System.currentTimeMillis();
+        if (currentTime > immunityExpiration) {
+            extortionImmunity.remove(colonyId); // Cleanup expired immunity
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Grant extortion immunity to a colony
+     */
+    public static void grantExtortionImmunity(int colonyId) {
+        long immunityDuration = TaxConfig.EXTORTION_IMMUNITY_HOURS.get() * 60 * 60 * 1000L; // Convert hours to milliseconds
+        long immunityExpiration = System.currentTimeMillis() + immunityDuration;
+        extortionImmunity.put(colonyId, immunityExpiration);
+        
+        WARSYSTEM_LOGGER.info("Colony {} granted extortion immunity for {} hours", colonyId, TaxConfig.EXTORTION_IMMUNITY_HOURS.get());
+    }
+    
+    /**
+     * Shows the extortion choice prompt to the defender with enhanced clickable buttons and 5-minute timer
+     */
+    private static void showExtortionChoiceWithTimer(ServerPlayer attacker, IColony targetColony, ServerPlayer owner, int extortionPercent) {
+        // Add the extortion request to pending requests during timer period
+        pendingWarRequests.put(targetColony.getID(), new WarRequestWithExtortion(attacker.getUUID(), targetColony.getID(), extortionPercent));
+        
+        // Calculate time limit
+        int timeLimitMinutes = TaxConfig.EXTORTION_RESPONSE_TIME_MINUTES.get();
+        long timeLimitMs = timeLimitMinutes * 60 * 1000L;
+        
+        MutableComponent message = Component.literal("🏛️ URGENT: Colony " + targetColony.getName() + " is under siege! 🏛️")
+                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                .append(Component.literal("\n\n" + attacker.getName().getString() + " has declared war but offers terms:")
+                        .withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal("\n💰 Pay " + extortionPercent + "% of your balance to avoid war")
+                        .withStyle(ChatFormatting.GOLD))
+                .append(Component.literal("\n⚔️ Or let the war begin immediately (auto-accepted)")
+                        .withStyle(ChatFormatting.RED))
+                .append(Component.literal("\n⏰ You have " + timeLimitMinutes + " minutes to decide!")
+                        .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD))
+                .append(Component.literal("\n\nChoose quickly:\n").withStyle(ChatFormatting.WHITE))
+                .append(createStartWarButton(targetColony))
+                .append("  ")
+                .append(createPayExtortionButton(targetColony, extortionPercent));
+
+        owner.sendSystemMessage(message);
+        
+        // Start timer for auto-war start (daemon thread to avoid blocking shutdown)
+        new Timer(true).schedule(new TimerTask() {
+            @Override
+            public void run() {
+                Object pendingRequest = pendingWarRequests.remove(targetColony.getID());
+                if (pendingRequest instanceof WarRequestWithExtortion) {
+                    // Time expired, start war automatically
+                    WARSYSTEM_LOGGER.info("Extortion time limit expired for colony {}. Starting war automatically.", targetColony.getID());
+                    
+                    if (targetColony.getWorld() != null && targetColony.getWorld().getServer() != null) {
+                        ServerPlayer targetOwner = targetColony.getWorld().getServer().getPlayerList().getPlayer(targetColony.getPermissions().getOwner());
+                        if (targetOwner != null) {
+                            targetOwner.sendSystemMessage(
+                                    Component.literal("⏰ Time expired! War begins automatically!")
+                                            .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
+                            );
+                        }
+                        
+                        ServerPlayer attackerPlayer = targetColony.getWorld().getServer().getPlayerList().getPlayer(attacker.getUUID());
+                        if (attackerPlayer != null) {
+                            attackerPlayer.sendSystemMessage(
+                                    Component.literal("⏰ " + targetColony.getName() + " failed to respond in time. War begins!")
+                                            .withStyle(ChatFormatting.GOLD)
+                            );
+                        }
+                        
+                        // Start the war join phase
+                        startJoinPhase(targetColony, attacker, targetOwner);
+                    }
+                }
+            }
+        }, timeLimitMs);
+        
+        attacker.sendSystemMessage(Component.literal("War declaration with " + extortionPercent + "% extortion demand sent to " + targetColony.getName() + ". They have " + timeLimitMinutes + " minutes to respond.")
+                .withStyle(ChatFormatting.YELLOW));
+    }
+    
+    /**
+     * Shows the extortion choice prompt to the defender with enhanced clickable buttons
+     */
+    private static void showExtortionChoice(ServerPlayer attacker, IColony targetColony, ServerPlayer owner, int extortionPercent) {
+        MutableComponent message = Component.literal("🏛️ Colony " + targetColony.getName() + " is under siege! 🏛️\n")
+                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                .append(Component.literal("\n" + attacker.getName().getString() + " has declared war but offers terms:\n")
+                        .withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal("💰 Pay " + extortionPercent + "% of your balance to avoid war\n")
+                        .withStyle(ChatFormatting.GOLD))
+                .append(Component.literal("⚔️ Or accept the war and fight for your colony's honor\n")
+                        .withStyle(ChatFormatting.RED))
+                .append(Component.literal("\nChoose wisely:\n").withStyle(ChatFormatting.WHITE))
+                .append(createAcceptButton(targetColony))
+                .append(" ")
+                .append(createDeclineButton(targetColony))
+                .append(" ")
+                .append(createPayExtortionButton(targetColony, extortionPercent));
+
+        owner.sendSystemMessage(message);
+    }
+
+    /**
+     * Creates a clickable button to pay extortion
+     */
+    private static MutableComponent createPayExtortionButton(IColony colony, int extortionPercent) {
+        return Component.literal("[💰 PAY EXTORTION " + extortionPercent + "%]")
+                .withStyle(style -> style
+                        .withColor(ChatFormatting.GOLD)
+                        .withBold(true)
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/wnt payextortion " + colony.getID() + " " + extortionPercent))
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
+                                Component.literal("Click to pay " + extortionPercent + "% of your balance to avoid war")
+                                        .withStyle(ChatFormatting.YELLOW)))
+                );
     }
 }

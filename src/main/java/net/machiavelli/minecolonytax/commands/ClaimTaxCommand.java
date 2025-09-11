@@ -13,6 +13,7 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.machiavelli.minecolonytax.MineColonyTax;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.TaxConfig;
+import net.machiavelli.minecolonytax.permissions.TaxPermissionManager;
 import net.machiavelli.minecolonytax.raid.RaidManager;
 import net.machiavelli.minecolonytax.WarSystem;
 import net.machiavelli.minecolonytax.data.WarData;
@@ -98,6 +99,15 @@ public class ClaimTaxCommand {
 
             if (playerRank != null && playerRank.isColonyManager()) {
                 foundColonies = true;
+                
+                // Check tax claiming permissions with owner override
+                boolean isOwner = playerRank.equals(colony.getPermissions().getRankOwner());
+                boolean isOfficer = playerRank.equals(colony.getPermissions().getRankOfficer()) || isOwner;
+                
+                if (!TaxPermissionManager.canPlayerClaimTax(colony.getID(), player.getUUID(), isOwner, isOfficer)) {
+                    player.sendSystemMessage(Component.literal("You do not have permission to claim taxes for colony " + colony.getName() + ". Contact a colony owner.").withStyle(net.minecraft.ChatFormatting.RED));
+                    continue;
+                }
 
                 // Check if colony is currently being raided before attempting to claim
                 if (RaidManager.getActiveRaidForColony(colony.getID()) != null) {

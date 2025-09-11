@@ -6,6 +6,7 @@ import net.machiavelli.minecolonytax.network.packets.ColonyDataResponsePacket;
 import net.machiavelli.minecolonytax.network.packets.PayTaxDebtPacket;
 import net.machiavelli.minecolonytax.network.packets.EndVassalizationPacket;
 import net.machiavelli.minecolonytax.network.packets.UpdateTaxPermissionPacket;
+import net.machiavelli.minecolonytax.network.packets.UpdatePlayerTaxPermissionPacket;
 import net.machiavelli.minecolonytax.network.packets.RequestOfficerDataPacket;
 import net.machiavelli.minecolonytax.network.packets.OfficerDataResponsePacket;
 import net.machiavelli.minecolonytax.network.packets.RequestColonyDataPacket;
@@ -75,6 +76,12 @@ public class NetworkHandler {
                 .decoder(UpdateTaxPermissionPacket::new)
                 .encoder(UpdateTaxPermissionPacket::toBytes)
                 .consumerMainThread(UpdateTaxPermissionPacket::handle)
+                .add();
+                
+        CHANNEL.messageBuilder(UpdatePlayerTaxPermissionPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(UpdatePlayerTaxPermissionPacket::new)
+                .encoder(UpdatePlayerTaxPermissionPacket::encode)
+                .consumerMainThread(UpdatePlayerTaxPermissionPacket::handle)
                 .add();
                 
         CHANNEL.messageBuilder(RequestOfficerDataPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)

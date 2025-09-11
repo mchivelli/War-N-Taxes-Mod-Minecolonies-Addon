@@ -117,6 +117,12 @@ public class TaxConfig {
     public static final ForgeConfigSpec.BooleanValue ENABLE_COLONY_INACTIVITY_TAX_PAUSE;
     public static final ForgeConfigSpec.IntValue COLONY_INACTIVITY_HOURS_THRESHOLD;
 
+    // Extortion System Configuration
+    public static final ForgeConfigSpec.BooleanValue ENABLE_EXTORTION_SYSTEM;
+    public static final ForgeConfigSpec.DoubleValue DEFAULT_EXTORTION_PERCENTAGE;
+    public static final ForgeConfigSpec.IntValue EXTORTION_RESPONSE_TIME_MINUTES;
+    public static final ForgeConfigSpec.IntValue EXTORTION_IMMUNITY_HOURS;
+
     // Citizen Militia System Configuration
     public static final ForgeConfigSpec.BooleanValue ENABLE_CITIZEN_MILITIA;
     public static final ForgeConfigSpec.DoubleValue MILITIA_CONVERSION_PERCENTAGE;
@@ -317,6 +323,19 @@ public class TaxConfig {
 
         COLONY_INACTIVITY_HOURS_THRESHOLD = BUILDER.comment("Hours of inactivity after which a colony will stop generating taxes. This uses MineColonies' built-in player interaction tracking.")
                 .defineInRange("ColonyInactivityHoursThreshold", 168, 1, 8760); // Default: 1 week (168 hours), max: 1 year
+
+        // Extortion System Configuration
+        ENABLE_EXTORTION_SYSTEM = BUILDER.comment("Enable extortion system for wars. When enabled, defenders can choose to pay extortion instead of fighting when WarAcceptanceRequired is false.")
+                .define("EnableExtortionSystem", true);
+
+        DEFAULT_EXTORTION_PERCENTAGE = BUILDER.comment("Default extortion percentage when not specified by attacker (0.0 - 1.0). For example: 0.15 = 15% of defender's balance.")
+                .defineInRange("DefaultExtortionPercentage", 0.15, 0.0, 1.0);
+
+        EXTORTION_RESPONSE_TIME_MINUTES = BUILDER.comment("Time limit in minutes for defenders to respond to extortion offers before war automatically starts.")
+                .defineInRange("ExtortionResponseTimeMinutes", 5, 1, 30);
+
+        EXTORTION_IMMUNITY_HOURS = BUILDER.comment("Hours of immunity from new extortion attempts after successfully paying extortion.")
+                .defineInRange("ExtortionImmunityHours", 24, 1, 168);
 
         // Citizen Militia System Configuration
         ENABLE_CITIZEN_MILITIA = BUILDER.comment("Enable citizen militia system during raids. When enabled, citizens will temporarily become guards to defend the colony. Set to false to use the old raid system.")

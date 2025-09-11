@@ -3,6 +3,7 @@ package net.machiavelli.minecolonytax.commands;
 import com.minecolonies.api.IMinecoloniesAPI;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
+import com.minecolonies.api.colony.permissions.Rank;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -10,20 +11,24 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.machiavelli.minecolonytax.TaxConfig;
+import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.WarSystem;
 import net.machiavelli.minecolonytax.data.WarData;
-import net.machiavelli.minecolonytax.util.TranslationUtil;
+import net.machiavelli.minecolonytax.integration.SDMShopIntegration;
 import net.machiavelli.minecolonytax.peace.PeaceProposalManager;
 import net.machiavelli.minecolonytax.raid.RaidManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
-import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.fml.common.Mod;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -34,6 +39,8 @@ import net.machiavelli.minecolonytax.raid.ActiveRaidData;
 
 @Mod.EventBusSubscriber(modid = "minecolonytax", bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class WntCommands {
+
+    private static final Logger LOGGER = LogManager.getLogger(WntCommands.class);
 
     private static RaidManager raidManagerInstance;
     private static PeaceProposalManager peaceProposalManagerInstance;
@@ -104,6 +111,9 @@ public class WntCommands {
                         .then(Commands.argument("colony", StringArgumentType.string())
                                 .suggests(COLONY_SUGGESTIONS)
                                 .executes(WntCommands::handleWageWarCommand)
+                                .then(Commands.argument("extortionPercent", IntegerArgumentType.integer(1, 100))
+                                        .executes(WntCommands::handleWageWarWithExtortionCommand)
+                                )
                         )
                 )
                 
@@ -120,6 +130,14 @@ public class WntCommands {
                 
                 .then(Commands.literal("leavewar")
                         .executes(WntCommands::leaveWarCommand)
+                )
+                
+                .then(Commands.literal("payextortion")
+                        .then(Commands.argument("colonyId", IntegerArgumentType.integer())
+                                .then(Commands.argument("extortionPercent", IntegerArgumentType.integer(1, 100))
+                                        .executes(WntCommands::handlePayExtortionCommand)
+                                )
+                        )
                 )
                 
                 .then(Commands.literal("war")
@@ -691,7 +709,38 @@ public class WntCommands {
             ctx.getSource().sendFailure(Component.literal("A war is already active for this colony!"));
             return 0;
         }
-        return WarSystem.processWageWarRequest(attacker, targetColony, ctx.getSource());
+        
+        // Check if extortion system is enabled, if so use default percentage
+        if (TaxConfig.ENABLE_EXTORTION_SYSTEM.get()) {
+            // Use default extortion percentage from config (convert from 0.0-1.0 to 1-100)
+            int defaultExtortionPercent = (int) Math.round(TaxConfig.DEFAULT_EXTORTION_PERCENTAGE.get() * 100);
+            return WarSystem.processWageWarRequestWithExtortion(attacker, targetColony, ctx.getSource(), defaultExtortionPercent);
+        } else {
+            // Extortion disabled, use regular war declaration
+            return WarSystem.processWageWarRequest(attacker, targetColony, ctx.getSource());
+        }
+    }
+    
+    private static int handleWageWarWithExtortionCommand(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer attacker = ctx.getSource().getPlayerOrException();
+        String colonyName = extractColonyName(StringArgumentType.getString(ctx, "colony"));
+        int extortionPercent = IntegerArgumentType.getInteger(ctx, "extortionPercent");
+        Level level = ctx.getSource().getLevel();
+        IColony targetColony = WarSystem.findColonyByName(colonyName, level);
+
+        if (targetColony == null) {
+            ctx.getSource().sendFailure(Component.literal("Target colony not found!"));
+            return 0;
+        }
+        if (!getRaidManager().getActiveRaids().isEmpty()) {
+             ctx.getSource().sendFailure(Component.literal("A raid is currently active! You cannot declare war."));
+             return 0;
+        }
+        if (WarSystem.ACTIVE_WARS.containsKey(targetColony.getID())) {
+            ctx.getSource().sendFailure(Component.literal("A war is already active for this colony!"));
+            return 0;
+        }
+        return WarSystem.processWageWarRequestWithExtortion(attacker, targetColony, ctx.getSource(), extortionPercent);
     }
     
     private static int handleRaidCommand(CommandContext<CommandSourceStack> context) {
@@ -1385,6 +1434,167 @@ public class WntCommands {
             source.sendSuccess(() -> Component.literal("§c⚠ Warning: Guard tower count mismatch!"), false);
         }
         
+        return 1;
+    }
+
+    private static int handlePayExtortionCommand(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        int colonyId = IntegerArgumentType.getInteger(ctx, "colonyId");
+        int extortionPercent = IntegerArgumentType.getInteger(ctx, "extortionPercent");
+
+        // Find the target colony
+        Level level = ctx.getSource().getLevel();
+        IColony targetColony = IColonyManager.getInstance().getColonyByDimension(colonyId, level.dimension());
+        if (targetColony == null) {
+            ctx.getSource().sendFailure(Component.literal("Colony not found!").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
+        // Check if player has permission to pay for this colony
+        Rank playerRank = targetColony.getPermissions().getRank(player.getUUID());
+        boolean isAuthorized = targetColony.getPermissions().getOwner().equals(player.getUUID()) ||
+                (playerRank != null && playerRank.isColonyManager());
+        
+        if (!isAuthorized) {
+            ctx.getSource().sendFailure(Component.literal("You are not authorized to pay extortion for this colony!").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
+        // Check if there's a pending war request with extortion for this colony
+        Object requestObj = WarSystem.pendingWarRequests.get(colonyId);
+        if (requestObj == null) {
+            ctx.getSource().sendFailure(Component.literal("No pending war request found for this colony!").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
+        WarSystem.WarRequestWithExtortion extortionRequest = null;
+        if (requestObj instanceof WarSystem.WarRequestWithExtortion) {
+            extortionRequest = (WarSystem.WarRequestWithExtortion) requestObj;
+        } else {
+            ctx.getSource().sendFailure(Component.literal("This war request does not have extortion terms!").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
+        if (extortionRequest.extortionPercent() != extortionPercent) {
+            ctx.getSource().sendFailure(Component.literal("Extortion percentage mismatch! Expected: " + extortionRequest.extortionPercent() + "%").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
+        // Determine available funds: prefer SDMShop wallet, fallback to colony tax
+        boolean sdmAvailable = SDMShopIntegration.isAvailable();
+        long playerBalance = sdmAvailable ? SDMShopIntegration.getMoney(player) : 0L;
+        int colonyBalance = TaxManager.getStoredTaxForColony(targetColony);
+        long baseBalance = (playerBalance > 0) ? playerBalance : colonyBalance;
+
+        if (baseBalance <= 0) {
+            ctx.getSource().sendFailure(Component.literal("You have no personal balance or colony funds to pay extortion!").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
+        // Calculate extortion amount against the base balance
+        long extortionAmount = Math.round(baseBalance * (extortionPercent / 100.0));
+        
+        if (extortionAmount <= 0) {
+            ctx.getSource().sendFailure(Component.literal("Calculated extortion amount is too small!").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
+        // Find the attacker
+        ServerPlayer attacker = level.getServer().getPlayerList().getPlayer(extortionRequest.attacker());
+        if (attacker == null) {
+            ctx.getSource().sendFailure(Component.literal("Attacker is offline! Cannot process extortion payment.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
+        // Ensure total available funds can cover the amount
+        if (sdmAvailable) {
+            if ((playerBalance + colonyBalance) < extortionAmount) {
+                ctx.getSource().sendFailure(Component.literal("Insufficient funds to pay extortion! Needed: " + extortionAmount + ", Available: " + (playerBalance + colonyBalance))
+                        .withStyle(ChatFormatting.RED));
+                return 0;
+            }
+        } else {
+            if (colonyBalance < extortionAmount) {
+                ctx.getSource().sendFailure(Component.literal("Colony funds are insufficient to pay extortion! Needed: " + extortionAmount + ", Available: " + colonyBalance)
+                        .withStyle(ChatFormatting.RED));
+                return 0;
+            }
+        }
+
+        // Process the payment with SDMShop-first, then colony fallback
+        long takenFromPlayer = 0L;
+        int takenFromColony = 0;
+
+        if (sdmAvailable && playerBalance > 0) {
+            takenFromPlayer = Math.min(playerBalance, extortionAmount);
+            if (takenFromPlayer > 0 && !SDMShopIntegration.removeMoney(player, takenFromPlayer)) {
+                ctx.getSource().sendFailure(Component.literal("Failed to deduct from your SDMShop balance!").withStyle(ChatFormatting.RED));
+                return 0;
+            }
+        }
+
+        long remaining = extortionAmount - takenFromPlayer;
+        if (remaining > 0) {
+            if (colonyBalance < remaining) {
+                ctx.getSource().sendFailure(Component.literal("Colony funds are insufficient to cover the remaining extortion amount!").withStyle(ChatFormatting.RED));
+                return 0;
+            }
+            takenFromColony = (int) remaining;
+            TaxManager.adjustTax(targetColony, -takenFromColony);
+        }
+
+        // Credit the attacker accordingly
+        if (takenFromPlayer > 0) {
+            SDMShopIntegration.addMoney(attacker, takenFromPlayer);
+        }
+        if (takenFromColony > 0) {
+            IColony attackerColony = IColonyManager.getInstance().getColonies(attacker.level()).stream()
+                    .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                    .findFirst().orElse(null);
+            if (attackerColony != null) {
+                TaxManager.adjustTax(attackerColony, takenFromColony);
+            } else if (sdmAvailable) {
+                // Fallback: if attacker has no colony, deposit to their wallet when SDMShop is available
+                SDMShopIntegration.addMoney(attacker, takenFromColony);
+            }
+        }
+
+        // Grant immunity to prevent repeated extortion
+        WarSystem.grantExtortionImmunity(colonyId);
+
+        // Remove the pending war request
+        WarSystem.pendingWarRequests.remove(colonyId);
+
+        // Notify both parties
+        MutableComponent successMessage = Component.literal("💰 EXTORTION PAID! 💰")
+                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                .append(Component.literal("\n" + targetColony.getName() + " has paid " + String.format("%.2f", extortionAmount) + " coins to avoid war!")
+                        .withStyle(ChatFormatting.GREEN));
+
+        player.sendSystemMessage(successMessage);
+        attacker.sendSystemMessage(Component.literal("💰 " + targetColony.getName() + " has paid you " + String.format("%.2f", extortionAmount) + " coins to avoid war!")
+                .withStyle(ChatFormatting.GOLD));
+
+        // Broadcast to server
+        if (level.getServer() != null) {
+            MutableComponent broadcastMsg = Component.literal("💰 EXTORTION PAID! 💰")
+                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                    .append(Component.literal("\n----------------------------------------").withStyle(ChatFormatting.DARK_GRAY))
+                    .append(Component.literal("\nThe colony of ").withStyle(ChatFormatting.YELLOW))
+                    .append(Component.literal(targetColony.getName()).withStyle(ChatFormatting.BLUE, ChatFormatting.BOLD))
+                    .append(Component.literal(" has paid ").withStyle(ChatFormatting.YELLOW))
+                    .append(Component.literal(String.format("%.2f", extortionAmount) + " coins").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
+                    .append(Component.literal(" to ").withStyle(ChatFormatting.YELLOW))
+                    .append(Component.literal(attacker.getName().getString()).withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD))
+                    .append(Component.literal(" to avoid war! Peace is maintained through commerce.").withStyle(ChatFormatting.GREEN))
+                    .append(Component.literal("\n----------------------------------------").withStyle(ChatFormatting.DARK_GRAY));
+            
+            level.getServer().getPlayerList().broadcastSystemMessage(broadcastMsg, false);
+        }
+
+        LOGGER.info("Extortion payment processed: {} paid {} coins to {} to avoid war on colony {}", 
+                player.getName().getString(), extortionAmount, attacker.getName().getString(), targetColony.getName());
+
         return 1;
     }
 }

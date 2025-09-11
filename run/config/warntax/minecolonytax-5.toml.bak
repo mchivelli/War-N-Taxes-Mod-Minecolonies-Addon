@@ -180,6 +180,17 @@ DebtLimit = 0
 		MaxRaidTaxPercentage = 0.5
 		#If true, resistance effects during raids/wars will also be applied to all citizens, not just guards. This makes the entire colony more defensive.
 		ApplyResistanceToCitizens = false
+		#Enable extortion system for wars. When enabled, defenders can choose to pay extortion instead of fighting when WarAcceptanceRequired is false.
+		EnableExtortionSystem = true
+		#Default extortion percentage when not specified by attacker (0.0 - 1.0). For example: 0.15 = 15% of defender's balance.
+		#Range: 0.0 ~ 1.0
+		DefaultExtortionPercentage = 0.15
+		#Time limit in minutes for defenders to respond to extortion offers before war automatically starts.
+		#Range: 1 ~ 30
+		ExtortionResponseTimeMinutes = 5
+		#Hours of immunity from new extortion attempts after successfully paying extortion.
+		#Range: 1 ~ 168
+		ExtortionImmunityHours = 24
 
 	["War Settings"."PvP Kill Economy"]
 		#Enable PvP kill economy system. When enabled, killing a player transfers a percentage of their balance to the killer. Compatible with SDMShop and SDMEconomy. Disabled by default.

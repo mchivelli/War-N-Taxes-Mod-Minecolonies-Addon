@@ -24,6 +24,11 @@ public class ActiveRaidData {
     int totalGuards;
     int guardsKilled;
     boolean guardsInitialized;
+    
+    // Boundary enforcement tracking
+    private boolean hasLeftBoundaries = false;
+    private long timeLeftBoundaries = 0;
+    private int potentialStolenAmount = 0;
 
     public ActiveRaidData(UUID raider, IColony colony, ServerBossEvent bossEvent, TimerTask timerTask) {
         this.raider     = raider;
@@ -137,5 +142,33 @@ public class ActiveRaidData {
     
     public boolean hasKilledAnyGuards() {
         return guardsKilled > 0;
+    }
+    
+    // Boundary enforcement methods
+    public boolean hasLeftBoundaries() {
+        return hasLeftBoundaries;
+    }
+    
+    public void markLeftBoundaries() {
+        if (!hasLeftBoundaries) {
+            this.hasLeftBoundaries = true;
+            this.timeLeftBoundaries = System.currentTimeMillis();
+        }
+    }
+    
+    public long getTimeLeftBoundaries() {
+        return timeLeftBoundaries;
+    }
+    
+    public boolean isEligibleForRewards() {
+        return !hasLeftBoundaries && hasKilledAnyGuards();
+    }
+    
+    public void setPotentialStolenAmount(int amount) {
+        this.potentialStolenAmount = amount;
+    }
+    
+    public int getPotentialStolenAmount() {
+        return potentialStolenAmount;
     }
 }

@@ -626,7 +626,8 @@ public class TaxManager {
         if (TaxConfig.showTaxGenerationLogs()) {
             LOGGER.info("Colony {} tax is frozen for {} hours.", colonyId, freezeHours);
         }
-        new Timer().schedule(new TimerTask() {
+        // Use a daemon timer so it won't prevent server shutdown
+        new Timer(true).schedule(new TimerTask() {
             @Override
             public void run() {
                 FROZEN_COLONIES.remove(colonyId);

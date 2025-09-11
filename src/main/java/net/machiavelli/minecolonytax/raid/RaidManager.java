@@ -144,9 +144,8 @@ public class RaidManager {
                 return 0;
             }
 
-            // Use the new formatted raid initiation message
-            raider.sendSystemMessage(Component.translatable("raid.initiate.message", colony.getName())
-                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+            // Send comprehensive raid instructions to the raider
+            sendRaidInstructions(raider, colony, targetGuards);
 
             if (colony.getPermissions().getOwner().equals(raiderUUID)) {
                 context.getSource().sendFailure(Component.literal("You cannot raid your own colony!"));
@@ -260,6 +259,21 @@ public class RaidManager {
 
         // Remove GLOW effect from raider immediately when killed
         removeGlowEffectFromRaider(raider);
+
+        // NEW: Handle stolen amount transfer to colony when raider dies
+        int stolenAmountToTransfer = 0;
+        double currentStealPercentage = CitizenMilitiaManager.getInstance().calculateTaxPercentage(raidData.getColony().getID());
+        if (currentStealPercentage > 0) {
+            int colonyBalance = TaxManager.getStoredTaxForColony(raidData.getColony());
+            stolenAmountToTransfer = (int) (colonyBalance * currentStealPercentage);
+            
+            if (stolenAmountToTransfer > 0) {
+                // Transfer the stolen amount back to the colony as a bonus for successful defense
+                TaxManager.incrementTaxRevenue(raidData.getColony(), stolenAmountToTransfer);
+                LOGGER.info("Raider {} was killed after earning {}. Amount transferred to colony {} as defense bonus.", 
+                    raider.getName().getString(), stolenAmountToTransfer, raidData.getColony().getName());
+            }
+        }
 
         double penaltyPercentage = TaxConfig.RAID_PENALTY_PERCENTAGE.get();
         double defenseRewardPercentage = TaxConfig.RAID_DEFENSE_REWARD_PERCENTAGE.get();
@@ -458,6 +472,14 @@ public class RaidManager {
                 .append(Component.literal(raidPenalty + " " + currencyName).withStyle(style -> style.withColor(ChatFormatting.YELLOW).withBold(true)))
                 .append(Component.literal(" transferred to the killer").withStyle(ChatFormatting.GOLD));
         
+        // Add stolen amount recovery information if applicable
+        if (stolenAmountToTransfer > 0) {
+            message = message
+                    .append(Component.literal(" and ").withStyle(ChatFormatting.GOLD))
+                    .append(Component.literal(stolenAmountToTransfer + " " + currencyName).withStyle(style -> style.withColor(ChatFormatting.GREEN).withBold(true)))
+                    .append(Component.literal(" stolen tax recovered to colony").withStyle(ChatFormatting.GOLD));
+        }
+        
         // Add defense reward information to the message if there was a reward
         if (defenseReward > 0) {
             message = message
@@ -519,9 +541,55 @@ public class RaidManager {
                 }
 
                 ServerPlayer raiderPlayer = raidData.getColony().getWorld().getServer().getPlayerList().getPlayer(raidData.getRaider());
-                if (raiderPlayer == null || !isRaiderInColony(raiderPlayer, raidData.getColony())) {
-                    sendColonyMessage(raidData.getColony(), Component.literal("Raid stopped! Raider left the colony.").withStyle(ChatFormatting.RED));
-                    endRaid(raidData, "Raider left colony");
+                if (raiderPlayer == null) {
+                    sendColonyMessage(raidData.getColony(), Component.literal("Raid stopped! Raider disconnected.").withStyle(ChatFormatting.RED));
+                    endRaid(raidData, "Raider disconnected");
+                    this.cancel();
+                    return;
+                }
+                
+                // Check if raider is still in colony boundaries
+                boolean isInColony = isRaiderInColony(raiderPlayer, raidData.getColony());
+                if (!isInColony && !raidData.hasLeftBoundaries()) {
+                    // First time leaving boundaries - mark it and notify
+                    raidData.markLeftBoundaries();
+                    
+                    // Calculate what they would have earned up to this point
+                    double currentStealPercentage = CitizenMilitiaManager.getInstance().calculateTaxPercentage(raidData.getColony().getID());
+                    int colonyBalance = TaxManager.getStoredTaxForColony(raidData.getColony());
+                    int potentialStolen = (int) (colonyBalance * currentStealPercentage);
+                    raidData.setPotentialStolenAmount(potentialStolen);
+                    
+                    // Notify raider they've lost their rewards
+                    Component penaltyMessage = Component.literal("⚠ RAID DISQUALIFIED! ⚠")
+                        .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                        .append(Component.literal("\n"))
+                        .append(Component.literal("You left the colony boundaries!").withStyle(ChatFormatting.YELLOW))
+                        .append(Component.literal("\n").withStyle(ChatFormatting.YELLOW))
+                        .append(Component.literal("Potential earnings forfeited: ").withStyle(ChatFormatting.GOLD))
+                        .append(Component.literal(String.valueOf(potentialStolen)).withStyle(ChatFormatting.RED, ChatFormatting.BOLD))
+                        .append(Component.literal("\n").withStyle(ChatFormatting.GOLD))
+                        .append(Component.literal("RAID ENDING - You gain nothing!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+                    
+                    raiderPlayer.sendSystemMessage(penaltyMessage);
+                    
+                    // Notify colony defenders
+                    Component defenseMessage = Component.literal("🎉 RAIDER FLED! 🎉")
+                        .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)
+                        .append(Component.literal("\n"))
+                        .append(Component.literal("The raider ").withStyle(ChatFormatting.GOLD))
+                        .append(Component.literal(raiderPlayer.getName().getString()).withStyle(ChatFormatting.YELLOW))
+                        .append(Component.literal(" left the colony boundaries and was disqualified!").withStyle(ChatFormatting.GOLD))
+                        .append(Component.literal("\n").withStyle(ChatFormatting.GOLD))
+                        .append(Component.literal("Raid ended - Colony successfully defended!").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+                    
+                    sendColonyMessage(raidData.getColony(), defenseMessage);
+                    
+                    LOGGER.info("Raider {} left colony {} boundaries. Raid ended immediately. Potential earnings of {} forfeited.", 
+                        raiderPlayer.getName().getString(), raidData.getColony().getName(), potentialStolen);
+                    
+                    // End the raid immediately - raider gains nothing
+                    endRaid(raidData, "Raider left colony boundaries and was disqualified");
                     this.cancel();
                     return;
                 }
@@ -570,17 +638,42 @@ public class RaidManager {
         raidData.getColony().getWorld().getServer().execute(() -> {
             if (!raidData.isActive()) return;
             ServerPlayer raiderPlayer = raidData.getColony().getWorld().getServer().getPlayerList().getPlayer(raidData.getRaider());
-            String status = (raiderPlayer == null || !isRaiderInColony(raiderPlayer, raidData.getColony())) ? "Leaving Colony!" : "Active";
+            
+            // Determine raider status
+            String status;
+            if (raiderPlayer == null) {
+                status = "OFFLINE";
+            } else if (raidData.hasLeftBoundaries()) {
+                status = "DISQUALIFIED";
+            } else if (!isRaiderInColony(raiderPlayer, raidData.getColony())) {
+                status = "LEAVING!";
+            } else {
+                status = "ACTIVE";
+            }
+            
             float progress = Math.min((float) raidData.getElapsedSeconds() / getMaxRaidDurationSeconds(), 1.0f);
             int remainingSeconds = Math.max(getMaxRaidDurationSeconds() - raidData.getElapsedSeconds(), 0);
-            // Display militia count if available
-            int militiaCount = CitizenMilitiaManager.getInstance().getMilitiaCount(raidData.getColony().getID());
-            String militiaInfo = militiaCount > 0 ? String.format(" | Militia: %d", militiaCount) : "";
             
-            Component name = Component.literal(String.format("Raid: %s%s | Time: %02d:%02d",
-                    status, militiaInfo, remainingSeconds / 60, remainingSeconds % 60));
+            // Get kill progress
+            int guardsKilled = CitizenMilitiaManager.getInstance().getGuardsKilled(raidData.getColony().getID());
+            int totalDefenders = CitizenMilitiaManager.getInstance().getTotalDefenders(raidData.getColony().getID());
+            double stealPercentage = CitizenMilitiaManager.getInstance().calculateTaxPercentage(raidData.getColony().getID());
+            
+            // Build comprehensive status display
+            Component name = Component.literal(String.format("Raid: %s | Kills: %d/%d (%.1f%%) | Time: %02d:%02d",
+                    status, guardsKilled, totalDefenders, stealPercentage * 100, remainingSeconds / 60, remainingSeconds % 60));
+            
             raidData.getBossEvent().setName(name);
             raidData.getBossEvent().setProgress(progress);
+            
+            // Change boss bar color based on status
+            if (raidData.hasLeftBoundaries()) {
+                raidData.getBossEvent().setColor(net.minecraft.world.BossEvent.BossBarColor.RED);
+            } else if (guardsKilled > 0) {
+                raidData.getBossEvent().setColor(net.minecraft.world.BossEvent.BossBarColor.YELLOW);
+            } else {
+                raidData.getBossEvent().setColor(net.minecraft.world.BossEvent.BossBarColor.WHITE);
+            }
         });
     }
 
@@ -636,9 +729,27 @@ public class RaidManager {
         }
 
         if (raiderPlayer != null) {
-            // Only transfer tax revenue if raid completed successfully (not interrupted)
+            // Only transfer tax revenue if raid completed successfully AND raider is eligible for rewards
             if (reason.equals("Raid completed successfully")) {
-                transferTaxRevenue(raidData);
+                if (raidData.isEligibleForRewards()) {
+                    transferTaxRevenue(raidData);
+                } else {
+                    // Raider left boundaries or didn't kill any guards - no rewards
+                    String denialReason = raidData.hasLeftBoundaries() ? 
+                        "left colony boundaries" : "failed to kill any guards or militia";
+                    
+                    Component denialMessage = Component.literal("🚫 RAID FAILED! 🚫")
+                        .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                        .append(Component.literal("\n"))
+                        .append(Component.literal("No rewards earned - you ").withStyle(ChatFormatting.YELLOW))
+                        .append(Component.literal(denialReason).withStyle(ChatFormatting.RED, ChatFormatting.BOLD))
+                        .append(Component.literal("!").withStyle(ChatFormatting.YELLOW));
+                    
+                    raiderPlayer.sendSystemMessage(denialMessage);
+                    
+                    LOGGER.info("Raider {} completed raid timer but received no rewards - {}", 
+                        raiderPlayer.getName().getString(), denialReason);
+                }
             }
             
             MutableComponent raidEndMsgToRaider = Component.translatable("raid.end.title")
@@ -950,6 +1061,95 @@ public class RaidManager {
         }
     }
     
+    /**
+     * Send comprehensive raid instructions to the raider when starting a raid
+     */
+    private void sendRaidInstructions(ServerPlayer raider, IColony colony, int totalDefenders) {
+        String currencyName = getCurrencyName();
+        int colonyBalance = TaxManager.getStoredTaxForColony(colony);
+        int maxRaidDuration = getMaxRaidDurationSeconds();
+        double maxTaxPercentage = TaxConfig.MAX_RAID_TAX_PERCENTAGE.get();
+        
+        // Get militia count if enabled
+        int militiaCount = 0;
+        if (TaxConfig.ENABLE_CITIZEN_MILITIA.get()) {
+            militiaCount = CitizenMilitiaManager.getInstance().getMilitiaCount(colony.getID());
+        }
+        
+        MutableComponent instructions = Component.literal("⚔ RAID INITIATED ⚔")
+            .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+            .append(Component.literal("\n"))
+            .append(Component.literal("═══════════════════════════════════════").withStyle(ChatFormatting.GRAY))
+            .append(Component.literal("\n"))
+            .append(Component.literal("TARGET: ").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
+            .append(Component.literal(colony.getName()).withStyle(ChatFormatting.WHITE))
+            .append(Component.literal("\n"))
+            .append(Component.literal("OBJECTIVE: ").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD))
+            .append(Component.literal("Kill guards/militia to steal tax revenue").withStyle(ChatFormatting.WHITE))
+            .append(Component.literal("\n"))
+            .append(Component.literal("TIME LIMIT: ").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD))
+            .append(Component.literal(String.format("%d:%02d minutes", maxRaidDuration / 60, maxRaidDuration % 60)).withStyle(ChatFormatting.WHITE))
+            .append(Component.literal("\n\n"))
+            .append(Component.literal("⚡ COLONY STATUS ⚡").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
+            .append(Component.literal("\n"))
+            .append(Component.literal("• Guards: ").withStyle(ChatFormatting.GOLD))
+            .append(Component.literal(String.valueOf(totalDefenders - militiaCount)).withStyle(ChatFormatting.WHITE))
+            .append(Component.literal("\n"))
+            .append(Component.literal("• Militia: ").withStyle(ChatFormatting.GOLD))
+            .append(Component.literal(String.valueOf(militiaCount)).withStyle(ChatFormatting.WHITE))
+            .append(Component.literal("\n"))
+            .append(Component.literal("• Tax Balance: ").withStyle(ChatFormatting.GOLD))
+            .append(Component.literal(colonyBalance + " " + currencyName).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
+            .append(Component.literal("\n"))
+            .append(Component.literal("• Max Steal: ").withStyle(ChatFormatting.GOLD))
+            .append(Component.literal(String.format("%.1f%% (%d %s)", maxTaxPercentage * 100, 
+                (int)(colonyBalance * maxTaxPercentage), currencyName)).withStyle(ChatFormatting.RED, ChatFormatting.BOLD))
+            .append(Component.literal("\n\n"))
+            .append(Component.literal("⚠ CRITICAL RULES ⚠").withStyle(ChatFormatting.RED, ChatFormatting.BOLD))
+            .append(Component.literal("\n"))
+            .append(Component.literal("• STAY IN BOUNDARIES: ").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
+            .append(Component.literal("Leaving colony = INSTANT DISQUALIFICATION").withStyle(ChatFormatting.RED))
+            .append(Component.literal("\n"))
+            .append(Component.literal("• DEATH PENALTY: ").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
+            .append(Component.literal("Death = Colony gets your potential earnings").withStyle(ChatFormatting.RED))
+            .append(Component.literal("\n"))
+            .append(Component.literal("• KILL REQUIREMENT: ").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
+            .append(Component.literal("No kills = No reward").withStyle(ChatFormatting.RED))
+            .append(Component.literal("\n"))
+            .append(Component.literal("═══════════════════════════════════════").withStyle(ChatFormatting.GRAY))
+            .append(Component.literal("\n"))
+            .append(Component.literal("Good luck, raider! Watch the boss bar for your progress.").withStyle(ChatFormatting.GREEN));
+        
+        raider.sendSystemMessage(instructions);
+        
+        // Send title and subtitle for emphasis
+        try {
+            String titleCmd = String.format("title %s title {\"text\":\"RAID STARTED\",\"color\":\"red\",\"bold\":true}", 
+                raider.getName().getString());
+            String subtitleCmd = String.format("title %s subtitle {\"text\":\"Kill %d defenders • Stay in boundaries!\",\"color\":\"yellow\"}", 
+                raider.getName().getString(), totalDefenders);
+            
+            raider.getServer().getCommands().performPrefixedCommand(raider.getServer().createCommandSourceStack(), titleCmd);
+            raider.getServer().getCommands().performPrefixedCommand(raider.getServer().createCommandSourceStack(), subtitleCmd);
+        } catch (Exception e) {
+            LOGGER.error("Failed to send raid start title to raider", e);
+        }
+        
+        LOGGER.info("Sent comprehensive raid instructions to raider {} for colony {}", 
+            raider.getName().getString(), colony.getName());
+    }
+
+    /**
+     * Gets the appropriate currency name based on config settings
+     */
+    private static String getCurrencyName() {
+        if (TaxConfig.isSDMShopConversionEnabled()) {
+            return "$";
+        } else {
+            return "coins";
+        }
+    }
+
     /**
      * Remove GLOW effect from raider when raid ends
      */
