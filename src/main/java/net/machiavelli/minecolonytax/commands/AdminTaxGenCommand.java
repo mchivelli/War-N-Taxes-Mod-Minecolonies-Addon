@@ -2,7 +2,6 @@ package net.machiavelli.minecolonytax.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.context.CommandContext;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;

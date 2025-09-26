@@ -2,7 +2,7 @@ package net.machiavelli.minecolonytax.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import net.machiavelli.minecolonytax.MineColonyTax;
-import net.machiavelli.minecolonytax.commands.TaxGUICommand;
+import net.machiavelli.minecolonytax.client.TaxGUIClientUtils;
 import net.minecraft.client.KeyMapping;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.InputEvent;
@@ -35,7 +35,7 @@ public class KeyBindings {
     @SubscribeEvent
     public static void onKeyInput(InputEvent.Key event) {
         if (OPEN_TAX_GUI_KEY.consumeClick()) {
-            TaxGUICommand.openTaxGUI();
+            TaxGUIClientUtils.openTaxGUI();
         }
     }
 }

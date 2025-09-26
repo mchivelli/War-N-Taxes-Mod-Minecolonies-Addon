@@ -3,8 +3,6 @@ package net.machiavelli.minecolonytax.commands;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import net.machiavelli.minecolonytax.gui.TaxManagementScreen;
-import net.minecraft.client.Minecraft;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -34,26 +32,14 @@ public class TaxGUICommand {
         CommandSourceStack source = context.getSource();
         
         // Check if this is being run on the server side
-        if (source.getEntity() instanceof ServerPlayer) {
-            ServerPlayer player = (ServerPlayer) source.getEntity();
-            
+        if (source.getEntity() instanceof ServerPlayer player) {
             // Send message to player to use the client-side command or keybind
-            player.sendSystemMessage(Component.translatable("command.minecolonytax.taxgui.server_message"));
+            player.sendSystemMessage(Component.literal("Use the T key or /taxgui on the client to open the Tax Management GUI"));
             
             // Note: The actual GUI opening happens on the client side through a keybind or client command
             // This server command just provides feedback to the player
         }
         
         return 1;
-    }
-    
-    /**
-     * Client-side method to open the GUI (called from keybind or client command)
-     */
-    public static void openTaxGUI() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player != null) {
-            mc.setScreen(new TaxManagementScreen());
-        }
     }
 }

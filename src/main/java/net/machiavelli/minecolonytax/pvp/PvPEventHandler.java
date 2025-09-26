@@ -22,6 +22,11 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+import com.minecolonies.api.IMinecoloniesAPI;
+import com.minecolonies.api.colony.IColony;
+import com.minecolonies.api.colony.IColonyManager;
+import net.minecraft.core.BlockPos;
 
 import java.util.Iterator;
 import java.util.List;
@@ -29,6 +34,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
 import java.util.UUID;
+import java.util.Set;
+import java.util.HashSet;
 
 @Mod.EventBusSubscriber
 public class PvPEventHandler {
@@ -38,6 +45,11 @@ public class PvPEventHandler {
     private static final PvPBattleManager battleManager = new PvPBattleManager();
     private static final Map<UUID, Long> lastCommandBlockMessage = new HashMap<>();
     private static final long COMMAND_BLOCK_MESSAGE_COOLDOWN = 5000; // 5 seconds
+    
+    // Track which abandoned colonies players have been notified about
+    private static final Map<UUID, Set<Integer>> notifiedAbandonedColonies = new ConcurrentHashMap<>();
+    private static final long COLONY_NOTIFICATION_COOLDOWN = 60000; // 1 minute cooldown
+    private static final Map<String, Long> lastColonyNotifications = new ConcurrentHashMap<>();
 
     @SubscribeEvent
     public static void onServerStart(ServerAboutToStartEvent event) {
@@ -65,7 +77,11 @@ public class PvPEventHandler {
         net.machiavelli.minecolonytax.commands.AdminTaxGenCommand.register(event.getDispatcher());
         net.machiavelli.minecolonytax.commands.WarStatsCommand.register(event.getDispatcher());
         net.machiavelli.minecolonytax.commands.WarHistoryCommand.register(event.getDispatcher());
-        net.machiavelli.minecolonytax.commands.TaxGUICommand.register(event.getDispatcher());
+        
+        // Only register GUI command on client side to prevent server crashes
+        if (FMLEnvironment.dist.isClient()) {
+            net.machiavelli.minecolonytax.commands.TaxGUICommand.register(event.getDispatcher());
+        }
     }
 
     @SubscribeEvent
@@ -170,6 +186,27 @@ public class PvPEventHandler {
             battleManager.handlePlayerDisconnect(player);
         }
     }
+    
+    @SubscribeEvent
+    public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            // Send any pending colony abandonment notifications
+            net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.sendPendingNotifications(player);
+            
+            // Clear any previous abandoned colony notifications for this player
+            notifiedAbandonedColonies.remove(player.getUUID());
+        }
+    }
+    
+    @SubscribeEvent
+    public static void onPlayerTick(TickEvent.PlayerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END && event.player instanceof ServerPlayer player) {
+            // Check if player entered an abandoned colony (every 20 ticks = 1 second)
+            if (player.tickCount % 20 == 0) {
+                checkForAbandonedColonyEntry(player);
+            }
+        }
+    }
 
     @SubscribeEvent
     public static void onLivingDamage(LivingDamageEvent event) {
@@ -232,6 +269,87 @@ public class PvPEventHandler {
             if (battle != null) {
                 battleManager.handlePlayerDefeat(player, battle, event.getSource());
             }
+        }
+    }
+    
+    /**
+     * Check if a player has entered an abandoned colony and show them claimable status.
+     */
+    private static void checkForAbandonedColonyEntry(ServerPlayer player) {
+        try {
+            IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
+            BlockPos playerPos = player.blockPosition();
+            
+            // Find any colony the player is currently in
+            IColony nearbyColony = colonyManager.getColonyByPosFromWorld(player.level(), playerPos);
+            if (nearbyColony == null) {
+                return; // Player is not in any colony
+            }
+            
+            // Check if this colony is abandoned
+            if (!net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.isColonyAbandoned(nearbyColony)) {
+                return; // Colony is not abandoned
+            }
+            
+            UUID playerId = player.getUUID();
+            int colonyId = nearbyColony.getID();
+            
+            // Check if we've already notified this player about this colony recently
+            Set<Integer> playerNotifiedColonies = notifiedAbandonedColonies.computeIfAbsent(playerId, k -> new HashSet<>());
+            String notificationKey = playerId + ":" + colonyId;
+            long currentTime = System.currentTimeMillis();
+            
+            Long lastNotification = lastColonyNotifications.get(notificationKey);
+            if (lastNotification != null && (currentTime - lastNotification) < COLONY_NOTIFICATION_COOLDOWN) {
+                return; // Already notified recently
+            }
+            
+            if (playerNotifiedColonies.contains(colonyId)) {
+                return; // Already notified about this colony in this session
+            }
+            
+            // Mark as notified
+            playerNotifiedColonies.add(colonyId);
+            lastColonyNotifications.put(notificationKey, currentTime);
+            
+            // Check claiming requirements
+            net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.ClaimingRequirementResult requirements = 
+                    net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.checkClaimingRequirements(player);
+            
+            // Create notification message
+            Component titleMessage = Component.literal("🏰 ABANDONED COLONY DETECTED 🏰")
+                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+            
+            Component colonyInfo = Component.literal("Colony: ")
+                    .withStyle(ChatFormatting.YELLOW)
+                    .append(Component.literal(nearbyColony.getName())
+                            .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
+                    .append(Component.literal(" (ID: " + nearbyColony.getID() + ")")
+                            .withStyle(ChatFormatting.GRAY));
+            
+            Component citizenInfo = Component.literal("Citizens: " + nearbyColony.getCitizenManager().getCurrentCitizenCount() + 
+                                                   ", Guards: " + net.machiavelli.minecolonytax.WarSystem.countGuards(nearbyColony))
+                    .withStyle(ChatFormatting.WHITE);
+            
+            // Send notifications
+            player.sendSystemMessage(titleMessage);
+            player.sendSystemMessage(colonyInfo);
+            player.sendSystemMessage(citizenInfo);
+            
+            if (requirements.canClaim) {
+                player.sendSystemMessage(Component.literal("✓ You can claim this colony!")
+                        .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+                player.sendSystemMessage(Component.literal("Use '/wnt claimcolony " + nearbyColony.getName() + "' to start a claiming raid!")
+                        .withStyle(ChatFormatting.GREEN));
+            } else {
+                player.sendSystemMessage(Component.literal("✗ You cannot claim this colony: " + requirements.message)
+                        .withStyle(ChatFormatting.RED));
+                player.sendSystemMessage(Component.literal("Meet the requirements first to claim abandoned colonies.")
+                        .withStyle(ChatFormatting.YELLOW));
+            }
+            
+        } catch (Exception e) {
+            // Don't spam logs, just silently handle errors
         }
     }
 } 

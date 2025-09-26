@@ -8,6 +8,8 @@ import net.minecraft.world.BossEvent;
 
 import java.util.TimerTask;
 import java.util.UUID;
+import java.util.Set;
+import java.util.HashSet;
 
 public class ActiveRaidData {
     final UUID raider;
@@ -24,6 +26,10 @@ public class ActiveRaidData {
     int totalGuards;
     int guardsKilled;
     boolean guardsInitialized;
+    
+    // Snapshot of original guard citizens at raid start
+    private final Set<Integer> originalGuardIds = new HashSet<>();
+    private final Set<Integer> killedGuardIds = new HashSet<>();
     
     // Boundary enforcement tracking
     private boolean hasLeftBoundaries = false;
@@ -143,6 +149,50 @@ public class ActiveRaidData {
     public boolean hasKilledAnyGuards() {
         return guardsKilled > 0;
     }
+    
+    // Guard snapshot APIs
+    public void snapshotOriginalGuardIds() {
+        if (colony == null || colony.getCitizenManager() == null) {
+            return;
+        }
+        originalGuardIds.clear();
+        colony.getCitizenManager().getCitizens().forEach(c -> {
+            boolean isGuard = false;
+            var job = c.getJob();
+            if (job != null && job.isGuard()) {
+                isGuard = true;
+            } else if (c.getWorkBuilding() != null) {
+                String name = c.getWorkBuilding().getBuildingDisplayName().toLowerCase();
+                if (name.contains("guard") || name.contains("barracks") || name.contains("archery") || name.contains("combat")) {
+                    isGuard = true;
+                }
+            }
+            if (isGuard) {
+                originalGuardIds.add(c.getId());
+            }
+        });
+    }
+    
+    public boolean isOriginalGuard(int citizenId) {
+        return originalGuardIds.contains(citizenId);
+    }
+    
+    public boolean markGuardKilled(int citizenId) {
+        if (!isOriginalGuard(citizenId)) {
+            return false;
+        }
+        if (killedGuardIds.add(citizenId)) {
+            // Keep legacy counter in sync for other systems
+            incrementGuardsKilled();
+            return true;
+        }
+        return false;
+    }
+    
+    public int getOriginalGuardCount() { return originalGuardIds.size(); }
+    public int getKilledGuardCount() { return killedGuardIds.size(); }
+    public Set<Integer> getOriginalGuardIds() { return originalGuardIds; }
+    public Set<Integer> getKilledGuardIds() { return killedGuardIds; }
     
     // Boundary enforcement methods
     public boolean hasLeftBoundaries() {

@@ -1,11 +1,14 @@
 #Optional debt limit for colony debt. If > 0, colony revenue will not deduct more once the debt reaches this limit (i.e. the tax value won't drop below -DebtLimit). Set to 0 to disable.
 #Range: > 0
 DebtLimit = 0
+#Amount of debt added to colony per guard killed when raiding colonies in debt. Only applies when DebtLimit > 0. Raiders get this amount when killing guards in debt colonies. Default: 200.
+#Range: 1 ~ 10000
+TaxStealPerGuard = 200
 
 [General]
 	#Tax generation interval in minutes
 	#Range: 1 ~ 1440
-	TaxIntervalMinutes = 1
+	TaxIntervalMinutes = 60
 	#Maximum tax revenue a colony can store before it stops generating further taxes
 	#Range: > 1
 	MaxTaxRevenue = 5000
@@ -24,7 +27,7 @@ DebtLimit = 0
 	#If false, war will not toggle any interaction permissions
 	EnableWarActions = true
 	#If true, war requests must be manually accepted; if false, wars requests will automatically accept.
-	WarAcceptanceRequired = false
+	WarAcceptanceRequired = true
 	#Grace period between declaring wars (minutes)
 	#Range: 1 ~ 1440
 	AttackerGracePeriodMinutes = 120
@@ -39,6 +42,9 @@ DebtLimit = 0
 	#Penalty percentage applied when a raider is killed by a defender during a raid (0.0 - 1.0)
 	#Range: 0.0 ~ 1.0
 	RaidPenaltyPercentage = 0.25
+	#Percentage of killed raider's balance transferred to defending colony for owner/officers to claim (0.0 - 1.0)
+	#Range: 0.0 ~ 1.0
+	RaidDefenseRewardPercentage = 0.15
 	#Percentage of losing players' balance awarded to each winning player. Set to 0.0 to only enable colony transfer (if enabled).
 	#Uses SDMShop balance or colony funds based on what's configured.
 	#Range: 0.0 ~ 1.0
@@ -55,7 +61,7 @@ DebtLimit = 0
 	#Set to 0 to disable tax freezing.
 	#Range: 0 ~ 168
 	WarTaxFreezeHours = 0
-	#Minimum number of guards required to initiate a raid
+	#Minimum number of guards required to initiate a raid. NOTE: This is only used when 'EnableRaidBuildingRequirements' is disabled. If building requirements are enabled, they take priority over this setting.
 	#Range: 1 ~ 100
 	MinGuardsToRaid = 3
 	#Enable raid guard protection system. When enabled, colonies must meet minimum defense requirements to be eligible for raids, protecting smaller/newer colonies from being overwhelmed.
@@ -74,7 +80,7 @@ DebtLimit = 0
 	#War duration (minutes)
 	#Range: 1 ~ 1440
 	WarDurationMinutes = 120
-	#Minimum guards required to declare war
+	#Minimum guards required to declare war. NOTE: This is only used when 'EnableWarBuildingRequirements' is disabled. If building requirements are enabled, they take priority over this setting.
 	#Range: 1 ~ 100
 	MinGuardsToWageWar = 5
 	#If enabled, war participants will be switched to the 'war' LP permission group during wars.
@@ -94,21 +100,20 @@ DebtLimit = 0
 	WarActions = ["PLACE_BLOCKS", "BREAK_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY", "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN", "HURT_VISITOR", "THROW_POTION"]
 	#Actions permitted during a Raid. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.
 	RaidActions = ["TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY", "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN", "HURT_VISITOR", "THROW_POTION"]
+	#Actions permitted during Abandoned Colony Claiming raids. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.
+	ClaimingActions = ["PLACE_BLOCKS", "BREAK_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY", "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN", "HURT_VISITOR", "THROW_POTION", "OPEN_CONTAINER"]
 	#Number of Guard Towers required to activate a tax boost for all buildings in a colony.
 	#Range: 1 ~ 100
 	RequiredGuardTowersForBoost = 5
 	#Percentage increase in total tax revenue when required Guard Towers are built. This acts as a multiplier on the colony's total generated tax income. For example: 0.5 = 50% increase, so 1000 tax becomes 1500 tax.
 	#Range: 0.0 ~ 2.0
 	GuardTowerTaxBoostPercentage = 0.5
-	#Percentage of killed raider's balance transferred to defending colony for owner/officers to claim (0.0 - 1.0)
-	#Range: 0.0 ~ 1.0
-	RaidDefenseRewardPercentage = 0.15
 
 	["War Settings"."Entity Raid Settings"]
 		#Enable entity-triggered raids. When disabled, entities will not trigger raids even if they meet the criteria. Admin-only feature.
-		EnableEntityRaids = true
+		EnableEntityRaids = false
 		#List of entity types that can trigger raids. Use Minecraft entity resource IDs (e.g., 'minecraft:pillager'). Default: only Pillagers.
-		EntityRaidWhitelist = ["minecraft:pillager", "recruits:recruit"]
+		EntityRaidWhitelist = ["minecraft:pillager"]
 		#Number of whitelisted entities near a colony required to trigger a raid
 		#Range: 1 ~ 50
 		EntityRaidThreshold = 1
@@ -127,7 +132,7 @@ DebtLimit = 0
 		#Range: 1 ~ 1440
 		EntityRaidCooldownMinutes = 30
 		#Enable detailed debug logging for EntityRaid system. When enabled, provides comprehensive logging of entity detection, filtering, and raid triggering processes.
-		EnableEntityRaidDebug = true
+		EnableEntityRaidDebug = false
 		#Debug logging verbosity level for EntityRaid system:
 		#1 = Basic (raid triggers, major events)
 		#2 = Detailed (entity filtering, alliance checks)
@@ -136,6 +141,13 @@ DebtLimit = 0
 		EntityRaidDebugLevel = 1
 		#TESTING ONLY: Bypass alliance checks to allow your own recruits to trigger raids (set to false for production)
 		BypassAllianceChecks = false
+
+	["War Settings"."PvP Kill Economy"]
+		#Enable PvP kill economy system. When enabled, killing a player transfers a percentage of their balance to the killer. Compatible with SDMShop and SDMEconomy. Disabled by default.
+		EnablePvPKillEconomy = false
+		#Percentage of victim's balance transferred to killer on PvP kill (0.0 - 1.0). For example: 0.1 = 10% of victim's money goes to killer. Uses SDMShop balance or colony funds based on configuration.
+		#Range: 0.0 ~ 1.0
+		PvPKillRewardPercentage = 0.1
 
 	["War Settings"."General Colony Permissions"]
 		#Enable general item interactions for all players in colonies. When enabled, allows non-allies to toss items and pickup items within colony boundaries.
@@ -160,14 +172,25 @@ DebtLimit = 0
 		#Hours of inactivity after which a colony will stop generating taxes. This uses MineColonies' built-in player interaction tracking.
 		#Range: 1 ~ 8760
 		ColonyInactivityHoursThreshold = 168
+		#Enable extortion system for wars. When enabled, defenders can choose to pay extortion instead of fighting when WarAcceptanceRequired is false.
+		EnableExtortionSystem = true
+		#Default extortion percentage when not specified by attacker (0.0 - 1.0). For example: 0.15 = 15% of defender's balance.
+		#Range: 0.0 ~ 1.0
+		DefaultExtortionPercentage = 0.15
+		#Time limit in minutes for defenders to respond to extortion offers before war automatically starts.
+		#Range: 1 ~ 30
+		ExtortionResponseTimeMinutes = 5
+		#Hours of immunity from new extortion attempts after successfully paying extortion.
+		#Range: 1 ~ 168
+		ExtortionImmunityHours = 24
 		#Enable citizen militia system during raids. When enabled, citizens will temporarily become guards to defend the colony. Set to false to use the old raid system.
 		EnableCitizenMilitia = true
 		#Percentage of eligible citizens to convert to militia guards during raids (0.0 - 1.0). For example: 0.3 = 30% of citizens become militia.
 		#Range: 0.0 ~ 1.0
-		MilitiaConversionPercentage = 1
+		MilitiaConversionPercentage = 0.3
 		#Minimum level required for a citizen to be eligible for militia conversion. Higher levels = more experienced citizens only.
 		#Range: 1 ~ 99
-		MilitiaMinCitizenLevel = 1
+		MilitiaMinCitizenLevel = 3
 		#If true, militia guards and regular guards will actively seek out and engage raiders instead of just defending their posts.
 		MilitiaGuardsSeekRaiders = true
 		#If true, raiders steal tax based on guards killed. If false, uses the old time-based tax stealing system.
@@ -180,24 +203,48 @@ DebtLimit = 0
 		MaxRaidTaxPercentage = 0.5
 		#If true, resistance effects during raids/wars will also be applied to all citizens, not just guards. This makes the entire colony more defensive.
 		ApplyResistanceToCitizens = false
-		#Enable extortion system for wars. When enabled, defenders can choose to pay extortion instead of fighting when WarAcceptanceRequired is false.
-		EnableExtortionSystem = true
-		#Default extortion percentage when not specified by attacker (0.0 - 1.0). For example: 0.15 = 15% of defender's balance.
-		#Range: 0.0 ~ 1.0
-		DefaultExtortionPercentage = 0.15
-		#Time limit in minutes for defenders to respond to extortion offers before war automatically starts.
-		#Range: 1 ~ 30
-		ExtortionResponseTimeMinutes = 5
-		#Hours of immunity from new extortion attempts after successfully paying extortion.
-		#Range: 1 ~ 168
-		ExtortionImmunityHours = 24
 
-	["War Settings"."PvP Kill Economy"]
-		#Enable PvP kill economy system. When enabled, killing a player transfers a percentage of their balance to the killer. Compatible with SDMShop and SDMEconomy. Disabled by default.
-		EnablePvPKillEconomy = false
-		#Percentage of victim's balance transferred to killer on PvP kill (0.0 - 1.0). For example: 0.1 = 10% of victim's money goes to killer. Uses SDMShop balance or colony funds based on configuration.
-		#Range: 0.0 ~ 1.0
-		PvPKillRewardPercentage = 0.1
+	["War Settings"."Colony Auto-Abandon"]
+		#Enable automatic colony abandonment when owners/officers haven't visited for the configured time. When enabled, colonies will be automatically abandoned and can be claimed by other players.
+		EnableColonyAutoAbandon = true
+		#Days of inactivity after which a colony will be automatically abandoned. This is measured by the last time any owner or officer visited the colony. Default: 14 days (2 weeks)
+		#Range: 1 ~ 365
+		ColonyAutoAbandonDays = 14
+		#If true, owners and officers will be notified before their colony is abandoned. Requires warning days to be configured.
+		NotifyOwnersBeforeAbandon = true
+		#Days before abandonment to warn owners and officers. Warnings are sent when they log in during this period.
+		#Range: 1 ~ 30
+		AbandonWarningDays = 3
+
+	["War Settings"."Abandoned Colony Claiming"]
+		#Enable claiming of abandoned colonies using the /wnt claimcolony command. When enabled, players can claim abandoned colonies, triggering a raid where all citizens become hostile militia.
+		EnableAbandonedColonyClaiming = true
+		#Minimum number of guards required to claim an abandoned colony. This ensures only established colonies can claim others.
+		#Range: 1 ~ 50
+		MinGuardsForClaimingRaid = 3
+		#Duration in minutes for the claiming raid when taking over an abandoned colony. During this time, all citizens will be hostile and attack the claiming player.
+		#Range: 1 ~ 60
+		ClaimingRaidDurationMinutes = 5
+		#If true, spawn mercenaries to defend the colony during claiming if there are fewer than 5 citizens/guards. This ensures abandoned colonies still put up a fight when being claimed.
+		SpawnMercenariesIfLowDefenders = true
+		#Building requirements to claim abandoned colonies. Format: 'building:level,building:level'. Example: 'townhall:2,guardtower:1' means player needs townhall level 2+ and at least one guard tower to claim. Leave empty to disable building requirements.
+		ClaimingBuildingRequirements = "townhall:2"
+
+	["War Settings"."Raid Building Requirements"]
+		#Enable building requirements for initiating raids. When enabled, these requirements take PRIORITY over 'MinGuardsToRaid' setting. Disable this to use the legacy guard count system instead.
+		EnableRaidBuildingRequirements = true
+		#Building requirements to initiate raids. Format: 'building:level:amount,building:level:amount'. Example: 'townhall:1:1,guardtower:1:3' means player needs 1 townhall level 1+ and 3 guard towers level 1+ to raid. NOTE: When this is enabled, it replaces the 'MinGuardsToRaid' requirement entirely. Leave empty to disable building requirements.
+		RaidBuildingRequirements = "townhall:1:1,guardtower:1:3"
+
+	["War Settings"."War Building Requirements"]
+		#Enable building requirements for declaring wars. When enabled, these requirements take PRIORITY over 'MinGuardsToWageWar' setting. Disable this to use the legacy guard count system instead.
+		EnableWarBuildingRequirements = true
+		#Building requirements to declare wars. Format: 'building:level:amount,building:level:amount'. Example: 'townhall:2:1,guardtower:1:3,buildershut:1:1,house:1:1' means player needs 1 townhall level 2+, 3 guard towers level 1+, 1 builders hut level 1+, and 1 residential building level 1+ to declare war. NOTE: When this is enabled, it replaces the 'MinGuardsToWageWar' requirement entirely. Leave empty to disable building requirements.
+		WarBuildingRequirements = "townhall:2:1,guardtower:1:3,buildershut:1:1,house:1:1"
+
+	["War Settings"."Recipe Disabling"]
+		#Disable all Minecolonies building hut recipes. When enabled, players must obtain building huts through SDMShop or Admin Shop instead of crafting them. This affects all buildings that accumulate taxes or maintenance costs. Disabled by default.
+		DisableHutRecipes = true
 
 ["PvP Arena Settings"]
 	#Allow players to use commands while in a PvP battle. It's recommended to keep this false to prevent exploits.

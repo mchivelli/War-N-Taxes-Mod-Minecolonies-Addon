@@ -13,7 +13,6 @@ import net.machiavelli.minecolonytax.raid.GuardResistanceHandler;
 import net.machiavelli.minecolonytax.militia.CitizenMilitiaManager;
 import net.machiavelli.minecolonytax.data.HistoryManager;
 import net.machiavelli.minecolonytax.data.PlayerWarDataManager;
-import net.machiavelli.minecolonytax.event.RaidEndEvent;
 import net.machiavelli.minecolonytax.event.RaidLoginNotifier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -24,7 +23,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.common.MinecraftForge;
+import net.minecraft.server.MinecraftServer;
+import net.minecraftforge.server.ServerLifecycleHooks;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import com.mojang.brigadier.context.CommandContext;
@@ -38,6 +38,7 @@ public class RaidManager {
     private static final Logger LOGGER = LogManager.getLogger(RaidManager.class);
     private static final Map<UUID, ActiveRaidData> activeRaids = new HashMap<>();
     private static final Map<UUID, Long> RAID_GRACE_PERIODS = new HashMap<>();
+    private static final Map<Integer, Integer> lastLoggedGuardCounts = new HashMap<>(); // Track logging per colony
 
 
     private static final Set<Action> RAID_ACTIONS = EnumSet.of(
@@ -84,12 +85,45 @@ public class RaidManager {
                 return 0;
             }
 
-            int raiderGuardCount = WarSystem.countGuards(raiderColony);
-            int minGuardsForRaid = TaxConfig.getMinGuardsToRaid();
-            if (raiderGuardCount < minGuardsForRaid) {
-                context.getSource().sendFailure(Component.literal("Your colony must have at least " + minGuardsForRaid +
-                        " guards to initiate a raid. (Found: " + raiderGuardCount + ")"));
-                return 0;
+            // Check requirements: Building requirements take priority over simple guard count
+            boolean buildingRequirementsEnabled = TaxConfig.isRaidBuildingRequirementsEnabled();
+            String requirementsConfig = TaxConfig.getRaidBuildingRequirements();
+            
+            LOGGER.info("=== RAID REQUIREMENTS DEBUG ===");
+            LOGGER.info("Building requirements enabled: {}", buildingRequirementsEnabled);
+            LOGGER.info("Requirements config: '{}'", requirementsConfig);
+            LOGGER.info("Raider Colony ID: {}, Name: '{}'", raiderColony.getID(), raiderColony.getName());
+            
+            if (buildingRequirementsEnabled) {
+                LOGGER.info("Using NEW building requirements system for raids");
+                // Use new building requirements system (includes guard towers and other buildings)
+                net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager.RequirementResult raidRequirements = 
+                        net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager.checkRaidRequirements(raiderColony);
+                
+                LOGGER.info("Requirements check result: meets={}, message='{}'", raidRequirements.meetsRequirements, raidRequirements.message);
+                
+                if (!raidRequirements.meetsRequirements) {
+                    LOGGER.warn("RAID BLOCKED: Requirements not met - {}", raidRequirements.message);
+                    context.getSource().sendFailure(Component.literal("Cannot initiate raid: " + raidRequirements.message)
+                            .withStyle(ChatFormatting.RED));
+                    return 0;
+                }
+                LOGGER.info("RAID ALLOWED: All building requirements met");
+            } else {
+                LOGGER.info("Using LEGACY guard count system for raids");
+                // Fall back to legacy guard count system
+                int raiderGuardCount = WarSystem.countGuards(raiderColony);
+                int minGuardsForRaid = TaxConfig.getMinGuardsToRaid();
+                
+                LOGGER.info("Guard count check: has={}, needs={}", raiderGuardCount, minGuardsForRaid);
+                
+                if (raiderGuardCount < minGuardsForRaid) {
+                    LOGGER.warn("RAID BLOCKED: Not enough guards - has {} needs {}", raiderGuardCount, minGuardsForRaid);
+                    context.getSource().sendFailure(Component.literal("Your colony must have at least " + minGuardsForRaid +
+                            " guards to initiate a raid. (Found: " + raiderGuardCount + ")"));
+                    return 0;
+                }
+                LOGGER.info("RAID ALLOWED: Guard count requirement met");
             }
 
             UUID raiderUUID = raider.getUUID();
@@ -134,6 +168,16 @@ public class RaidManager {
                 }
             }
 
+            // Check if colony is in debt and debt system is disabled
+            int colonyBalance = TaxManager.getStoredTaxForColony(colony);
+            int debtLimit = TaxConfig.getDebtLimit();
+            if (colonyBalance < 0 && debtLimit == 0) {
+                context.getSource().sendFailure(Component.literal("Cannot raid colony in debt: Debt system is disabled on this server. Colony has no tax to steal!")
+                        .withStyle(ChatFormatting.RED));
+                LOGGER.info("RAID BLOCKED: Colony {} is in debt ({}) and debt system is disabled", colony.getName(), colonyBalance);
+                return 0;
+            }
+
             Long graceEnd = RAID_GRACE_PERIODS.get(raiderUUID);
             if (graceEnd != null && System.currentTimeMillis() < graceEnd) {
                 long remaining = graceEnd - System.currentTimeMillis();
@@ -157,6 +201,8 @@ public class RaidManager {
             
             // Initialize guard count for revenue calculation
             raidData.initializeGuardCount(targetGuards);
+            // Snapshot original guard IDs for robust kill tracking
+            raidData.snapshotOriginalGuardIds();
             
             raidData.setRaiderColony(raiderColony); // Store the raider's colony for later cleanup
             activeRaids.put(raiderUUID, raidData);
@@ -171,13 +217,33 @@ public class RaidManager {
             // Apply resistance effects to defending guards
             GuardResistanceHandler.applyResistanceToGuardsForRaid(colony);
             
+            // Initialize militia system for kill tracking (even if militia is disabled)
+            CitizenMilitiaManager.getInstance().initializeColonyMilitia(colony.getID());
+            
             // Activate militia system if enabled
             if (TaxConfig.ENABLE_CITIZEN_MILITIA.get()) {
                 int militiaActivated = CitizenMilitiaManager.getInstance().activateMilitia(colony);
                 sendColonyMessage(colony, Component.literal("⚔ " + militiaActivated + " citizens have joined the militia to defend the colony!")
                     .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
                 LOGGER.info("Activated {} militia members for colony {} during raid", militiaActivated, colony.getName());
+            } else {
+                // Even if militia is disabled, we need to set the guard count for progress tracking
+                int existingGuards = (int) colony.getCitizenManager().getCitizens().stream()
+                    .filter(c -> c.getJob() != null && c.getJob().isGuard())
+                    .count();
+                CitizenMilitiaManager.getInstance().setTotalDefenders(colony.getID(), existingGuards);
+                CitizenMilitiaManager.getInstance().setTotalGuardsCount(colony.getID(), existingGuards); // FIX: Set guards count too
+                LOGGER.info("Militia disabled - Set total defenders for colony {} to {} guards only", colony.getName(), existingGuards);
             }
+            
+            // Send progress tracking confirmation to raider
+            int finalTotalDefenders = CitizenMilitiaManager.getInstance().getTotalDefenders(colony.getID());
+            raider.sendSystemMessage(Component.literal("🎯 RAID PROGRESS TRACKING INITIALIZED")
+                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)
+                .append(Component.literal("\nTotal Defenders: " + finalTotalDefenders)
+                       .withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal(" (Progress will update as you eliminate defenders)")
+                       .withStyle(ChatFormatting.GRAY)));
             
             startRaidCountdown(raidData);
             // Send styled raid alert to all colony members
@@ -233,13 +299,89 @@ public class RaidManager {
         return activeRaids.get(playerId);
     }
 
+    // New: lookup by colony ID to support ID-based kill tracking when killer is null or differs
+    public static ActiveRaidData getActiveRaidForColony(int colonyId) {
+        for (ActiveRaidData data : activeRaids.values()) {
+            if (data != null && data.getColony() != null && data.getColony().getID() == colonyId && data.isActive()) {
+                return data;
+            }
+        }
+        return null;
+    }
+
     public static void endActiveRaid(ActiveRaidData raidData, String reason) {
-        // This static method might be an issue if endRaid becomes non-static.
-        // For now, assuming endRaid can be called statically or an instance is passed.
-        // Let's make endRaid non-static and call it from here if needed, or this method becomes non-static.
-        // For now, directly calling a new non-static endRaid.
-        // This method seems redundant if endRaid is public.
-        new RaidManager().endRaid(raidData, reason); // Or make endRaid static if it doesn't rely on instance state
+        if (!raidData.isActive()) return;
+        raidData.setActive(false);
+        
+        // Remove GLOW effect from raider when raid ends
+        if (raidData.getColony() != null && raidData.getColony().getWorld() != null && raidData.getColony().getWorld().getServer() != null) {
+            ServerPlayer raiderPlayer = raidData.getColony().getWorld().getServer().getPlayerList().getPlayer(raidData.getRaider());
+            if (raiderPlayer != null) {
+                removeGlowEffectFromRaider(raiderPlayer);
+            }
+        }
+        if (raidData.getBossEvent() != null) {
+            raidData.getBossEvent().removeAllPlayers();
+            raidData.getBossEvent().setVisible(false);
+        }
+        
+        // Remove resistance effects from defending guards
+        GuardResistanceHandler.removeResistanceFromGuardsForRaid(raidData.getColony());
+        
+        // Deactivate militia system if enabled
+        if (TaxConfig.ENABLE_CITIZEN_MILITIA.get()) {
+            CitizenMilitiaManager.getInstance().deactivateMilitia(raidData.getColony());
+            LOGGER.info("Deactivated militia for colony {} after raid ended", raidData.getColony().getName());
+        }
+        
+        // Disable raid interactions for both colonies involved
+        RaidManager.setRaidInteractionPermissions(raidData.getColony(), false);
+        if (raidData.getRaiderColony() != null) {
+            RaidManager.setRaidInteractionPermissions(raidData.getRaiderColony(), false);
+        }
+        // CRITICAL FIX: Transfer tax revenue for successful raids
+        ServerPlayer raiderPlayer = null;
+        if (raidData.getColony() != null && raidData.getColony().getWorld() != null && raidData.getColony().getWorld().getServer() != null) {
+            raiderPlayer = raidData.getColony().getWorld().getServer().getPlayerList().getPlayer(raidData.getRaider());
+        }
+
+        if (raiderPlayer != null) {
+            // Only transfer tax revenue if raid completed successfully AND raider is eligible for rewards
+            LOGGER.info("TAX TRANSFER CHECK - Reason: '{}', Eligible for rewards: {}", reason, raidData.isEligibleForRewards());
+            LOGGER.info("TAX TRANSFER CHECK - Reason match: {}", 
+                reason.equals("Raid completed successfully") || reason.contains("All guards eliminated") || reason.contains("All defenders eliminated"));
+            
+            if (reason.equals("Raid completed successfully") || reason.contains("All guards eliminated") || reason.contains("All defenders eliminated")) {
+                if (raidData.isEligibleForRewards()) {
+                    LOGGER.info("✅ TAX TRANSFER APPROVED - Raider: {}, Colony: {}", raiderPlayer.getName().getString(), raidData.getColony().getName());
+                    transferTaxRevenue(raidData);
+                } else {
+                    // Raider left boundaries or didn't kill any guards - no rewards
+                    String denialReason = raidData.hasLeftBoundaries() ? 
+                        "left colony boundaries" : "failed to kill any guards or militia";
+                    
+                    Component denialMessage = Component.literal("🚫 RAID FAILED! 🚫")
+                        .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                        .append(Component.literal("\n"))
+                        .append(Component.literal("No rewards earned - you ").withStyle(ChatFormatting.YELLOW))
+                        .append(Component.literal(denialReason).withStyle(ChatFormatting.RED, ChatFormatting.BOLD))
+                        .append(Component.literal("!").withStyle(ChatFormatting.YELLOW));
+                    
+                    raiderPlayer.sendSystemMessage(denialMessage);
+                    LOGGER.info("❌ TAX TRANSFER DENIED - Raider {} ineligible: {}", raiderPlayer.getName().getString(), denialReason);
+                }
+            } else {
+                LOGGER.info("❌ TAX TRANSFER SKIPPED - Raid ended without victory: '{}'", reason);
+            }
+        } else {
+            LOGGER.warn("❌ TAX TRANSFER FAILED - Raider player not found online");
+        }
+        
+        RAID_GRACE_PERIODS.put(raidData.getRaider(), System.currentTimeMillis() + getRaidGraceDurationMs());
+        RaidLoginNotifier.recordCompletedRaid(raidData);
+        activeRaids.remove(raidData.getRaider());
+        
+        LOGGER.info("Raid ended: {}", reason);
     }
 
     public static Map<UUID, ActiveRaidData> getActiveRaids() {
@@ -593,14 +735,14 @@ public class RaidManager {
                     this.cancel();
                     return;
                 }
-                if (raidData.getElapsedSeconds() >= getMaxRaidDurationSeconds()) {
+                if (raidData.getElapsedSeconds() >= RaidManager.getMaxRaidDurationSeconds()) {
                     endRaid(raidData, "Raid completed successfully");
                     this.cancel();
                     return;
                 }
 
                 raidData.setElapsedSeconds(raidData.getElapsedSeconds() + 1);
-                updateRaidBossBar(raidData);
+                RaidManager.updateRaidBossBar(raidData);
 
                 if (!raidData.isWarningSent() && isRaiderInColony(raiderPlayer, raidData.getColony())) {
                     raidData.getColony().getPermissions().getPlayers().forEach((uuid, data) -> {
@@ -631,7 +773,7 @@ public class RaidManager {
         new Timer().scheduleAtFixedRate(raidData.getTimerTask(), 1000, 1000);
     }
 
-    private void updateRaidBossBar(ActiveRaidData raidData) {
+    public static void updateRaidBossBar(ActiveRaidData raidData) {
         if (raidData.getColony().getWorld() == null || raidData.getColony().getWorld().getServer() == null) {
             return;
         }
@@ -654,14 +796,58 @@ public class RaidManager {
             float progress = Math.min((float) raidData.getElapsedSeconds() / getMaxRaidDurationSeconds(), 1.0f);
             int remainingSeconds = Math.max(getMaxRaidDurationSeconds() - raidData.getElapsedSeconds(), 0);
             
-            // Get kill progress
-            int guardsKilled = CitizenMilitiaManager.getInstance().getGuardsKilled(raidData.getColony().getID());
-            int totalDefenders = CitizenMilitiaManager.getInstance().getTotalDefenders(raidData.getColony().getID());
+            // Get kill progress - Prefer ID-based snapshot tracking
+            int guardsKilled = raidData.getKilledGuardCount();
+            int originalGuardCount = raidData.getOriginalGuardCount();
+            if (originalGuardCount <= 0) {
+                // Fallback to previous mechanism if snapshot empty
+                guardsKilled = CitizenMilitiaManager.getInstance().getGuardsKilledCount(raidData.getColony().getID());
+                originalGuardCount = CitizenMilitiaManager.getInstance().getTotalGuardsCount(raidData.getColony().getID());
+            }
             double stealPercentage = CitizenMilitiaManager.getInstance().calculateTaxPercentage(raidData.getColony().getID());
             
-            // Build comprehensive status display
-            Component name = Component.literal(String.format("Raid: %s | Kills: %d/%d (%.1f%%) | Time: %02d:%02d",
-                    status, guardsKilled, totalDefenders, stealPercentage * 100, remainingSeconds / 60, remainingSeconds % 60));
+            // CRITICAL FIX: Check for missing guards that died without being detected
+            int actualCurrentGuards = (int) raidData.getColony().getCitizenManager().getCitizens().stream()
+                .filter(c -> c.getJob() != null && c.getJob().isGuard())
+                .count();
+            
+            // If actual count is less than expected, some guards died without detection
+            int expectedGuards = originalGuardCount - guardsKilled;
+            if (actualCurrentGuards < expectedGuards) {
+                int missedGuardDeaths = expectedGuards - actualCurrentGuards;
+                LOGGER.warn("GUARD RECONCILIATION: {} guards died without detection! Updating count...", missedGuardDeaths);
+                
+                // Update the guard kill count to reflect missed deaths
+                for (int i = 0; i < missedGuardDeaths; i++) {
+                    CitizenMilitiaManager.getInstance().recordDefenderDeath(raidData.getColony(), true); // true = guard
+                }
+                
+                // Recalculate with updated count
+                guardsKilled = CitizenMilitiaManager.getInstance().getGuardsKilledCount(raidData.getColony().getID());
+                LOGGER.info("RECONCILIATION COMPLETE: Guards killed updated to {}/{}", guardsKilled, originalGuardCount);
+                
+                // Check for victory after reconciliation
+                if (guardsKilled >= originalGuardCount) {
+                    LOGGER.info("RAID VICTORY after reconciliation! All {} guards eliminated", originalGuardCount);
+                    LOGGER.info("TAX TRANSFER DEBUG: Ending raid with reason 'All guards eliminated - Raiders victorious!'");
+                    RaidManager.endActiveRaid(raidData, "All guards eliminated - Raiders victorious!");
+                    return; // Exit early - raid is over
+                }
+            }
+            
+            // Victory progress: How many of the original guards have been killed
+            double victoryProgress = originalGuardCount > 0 ? (double) guardsKilled / originalGuardCount : 0.0;
+            Component name = Component.literal(String.format("Raid: %s | Guards Killed: %d/%d | Victory: %.1f%% | Tax: %.1f%% | Time: %02d:%02d",
+                    status, guardsKilled, originalGuardCount, victoryProgress * 100, stealPercentage * 100, remainingSeconds / 60, remainingSeconds % 60));
+            
+            // Reduced logging for boss bar updates (only on guard kills or every 30 seconds)
+            int colonyId = raidData.getColony().getID();
+            int lastLogged = lastLoggedGuardCounts.getOrDefault(colonyId, 0);
+            if (guardsKilled > 0 && (remainingSeconds % 30 == 0 || guardsKilled != lastLogged)) {
+                LOGGER.info("RAID PROGRESS: Guards {}/{}, Victory {:.0f}%, Tax {:.0f}%, Time {}:{:02d}", 
+                    guardsKilled, originalGuardCount, victoryProgress * 100, stealPercentage * 100, remainingSeconds / 60, remainingSeconds % 60);
+                lastLoggedGuardCounts.put(colonyId, guardsKilled);
+            }
             
             raidData.getBossEvent().setName(name);
             raidData.getBossEvent().setProgress(progress);
@@ -677,7 +863,7 @@ public class RaidManager {
         });
     }
 
-    private boolean isRaiderInColony(ServerPlayer raider, IColony colony) {
+    private static boolean isRaiderInColony(ServerPlayer raider, IColony colony) {
         if (raider == null || colony == null || colony.getWorld() == null) return false;
         BlockPos raiderPos = raider.blockPosition();
         return colony.isCoordInColony(colony.getWorld(), raiderPos);
@@ -721,7 +907,7 @@ public class RaidManager {
             .append(Component.literal("\n----------------------------------------").withStyle(ChatFormatting.DARK_GRAY))
             .append(Component.literal("\n").append(Component.translatable("raid.end.colony.body", reason).withStyle(ChatFormatting.YELLOW)))
             .append(Component.literal("\n----------------------------------------").withStyle(ChatFormatting.DARK_GRAY));
-        sendColonyMessage(raidData.getColony(), raidEndMsgToColony);
+        sendColonyMessageExcluding(raidData.getColony(), raidEndMsgToColony, raidData.getRaider());
 
         ServerPlayer raiderPlayer = null;
         if (raidData.getColony() != null && raidData.getColony().getWorld() != null && raidData.getColony().getWorld().getServer() != null) {
@@ -730,8 +916,14 @@ public class RaidManager {
 
         if (raiderPlayer != null) {
             // Only transfer tax revenue if raid completed successfully AND raider is eligible for rewards
-            if (reason.equals("Raid completed successfully")) {
-                if (raidData.isEligibleForRewards()) {
+            LOGGER.info("TAX TRANSFER CHECK - Reason: '{}', Eligible for rewards: {}", reason, raidData.isEligibleForRewards());
+            LOGGER.info("TAX TRANSFER CHECK - Reason match: {}", 
+                reason.equals("Raid completed successfully") || reason.contains("All guards eliminated") || reason.contains("All defenders eliminated"));
+            
+            if (reason.equals("Raid completed successfully") || reason.contains("All guards eliminated") || reason.contains("All defenders eliminated")) {
+                // Victory override: if raid ended due to victory, pay out even if boundaries were left earlier
+                if (raidData.isEligibleForRewards() || reason.contains("All guards eliminated") || reason.equals("Raid completed successfully")) {
+                    LOGGER.info("✅ TAX TRANSFER APPROVED - Raider: {}, Colony: {}", raiderPlayer.getName().getString(), raidData.getColony().getName());
                     transferTaxRevenue(raidData);
                 } else {
                     // Raider left boundaries or didn't kill any guards - no rewards
@@ -750,22 +942,13 @@ public class RaidManager {
                     LOGGER.info("Raider {} completed raid timer but received no rewards - {}", 
                         raiderPlayer.getName().getString(), denialReason);
                 }
+            } else {
+                LOGGER.info("❌ TAX TRANSFER SKIPPED - Raid ended without victory: '{}'", reason);
             }
-            
-            MutableComponent raidEndMsgToRaider = Component.translatable("raid.end.title")
-                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                .append(Component.literal("\n----------------------------------------").withStyle(ChatFormatting.DARK_GRAY))
-                .append(Component.literal("\n").append(Component.translatable("raid.end.raider.body", 
-                    raidData.getColony().getName(), reason).withStyle(ChatFormatting.YELLOW)))
-                .append(Component.literal("\n----------------------------------------").withStyle(ChatFormatting.DARK_GRAY));
-            raiderPlayer.sendSystemMessage(raidEndMsgToRaider);
-            PlayerWarDataManager.incrementRaidedColonies(raiderPlayer);
-            PlayerWarDataManager.addAmountRaided(raiderPlayer, raidData.getTotalTransferred());
-            MinecraftForge.EVENT_BUS.post(new RaidEndEvent(raiderPlayer));
+        } else {
+            LOGGER.warn("❌ TAX TRANSFER FAILED - Raider player not found online");
         }
-
-        LOGGER.info("Raid ended: {}", reason);
-
+        
         UUID raiderUUID = raidData.getRaider();
         String raiderNameFinal = raiderUUID.toString();
         if (raiderPlayer != null) {
@@ -821,8 +1004,18 @@ public class RaidManager {
             if (p != null) p.sendSystemMessage(message);
         });
     }
+    
+    private void sendColonyMessageExcluding(IColony colony, Component message, UUID excludePlayer) {
+        if (colony == null || colony.getWorld() == null) return;
+        colony.getPermissions().getPlayers().forEach((uuid, data) -> {
+            if (!uuid.equals(excludePlayer)) { // Exclude specific player
+                ServerPlayer p = (ServerPlayer) colony.getWorld().getPlayerByUUID(uuid);
+                if (p != null) p.sendSystemMessage(message);
+            }
+        });
+    }
 
-    private int getMaxRaidDurationSeconds() {
+    private static int getMaxRaidDurationSeconds() {
         return TaxConfig.MAX_RAID_DURATION_MINUTES.get() * 60;
     }
 
@@ -834,8 +1027,28 @@ public class RaidManager {
         return TaxConfig.RAID_TAX_PERCENTAGES.get().stream().mapToDouble(Double::doubleValue).toArray();
     }
 
-    private long getRaidGraceDurationMs() {
+    private static long getRaidGraceDurationMs() {
         return TimeUnit.MINUTES.toMillis(TaxConfig.RAID_GRACE_PERIOD_MINUTES.get());
+    }
+    
+    /**
+     * Get a ServerPlayer by their UUID from the server
+     * @param playerId The player's UUID
+     * @return The ServerPlayer, or null if not found/online
+     */
+    public static ServerPlayer getServerPlayerById(UUID playerId) {
+        if (playerId == null) return null;
+        
+        try {
+            // Get the server instance
+            MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+            if (server != null) {
+                return server.getPlayerList().getPlayer(playerId);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Failed to get player by UUID {}: {}", playerId, e.getMessage());
+        }
+        return null;
     }
 
     /**
@@ -851,34 +1064,28 @@ public class RaidManager {
         return false;
     }
 
-    /**
-     * Get the active raid data for a colony (if any)
-     */
-    public static ActiveRaidData getActiveRaidForColony(int colonyId) {
-        for (ActiveRaidData raid : activeRaids.values()) {
-            if (raid.getColony().getID() == colonyId) {
-                return raid;
-            }
-        }
-        return null;
-    }
     
-    private void transferTaxRevenue(ActiveRaidData raidData) {
+    private static void transferTaxRevenue(ActiveRaidData raidData) {
         ServerPlayer raiderPlayer = raidData.getColony().getWorld().getServer().getPlayerList().getPlayer(raidData.getRaider());
         if (raiderPlayer == null) {
-            LOGGER.debug("Raider is offline, skipping revenue transfer for raid on {}", raidData.getColony().getName());
+            LOGGER.warn("Raider is offline, skipping revenue transfer for raid on {}", raidData.getColony().getName());
             return;
         }
+        
+        LOGGER.info("Starting tax revenue transfer for raider {} on colony {}", 
+            raiderPlayer.getName().getString(), raidData.getColony().getName());
         
         double finalPercentage;
         
         // Check if we're using the new guard-kill-based tax stealing system
+        LOGGER.info("Tax steal config: TAX_STEAL_PER_GUARD_KILLED = {}", TaxConfig.TAX_STEAL_PER_GUARD_KILLED.get());
         if (TaxConfig.TAX_STEAL_PER_GUARD_KILLED.get()) {
             // New system: Tax stolen based on guards/militia killed, distributed from max percentage
             finalPercentage = CitizenMilitiaManager.getInstance().calculateTaxPercentage(raidData.getColony().getID());
+            LOGGER.info("Calculated tax percentage based on kills: {}%", finalPercentage * 100);
             
             if (finalPercentage == 0.0) {
-                LOGGER.debug("No guards/militia killed during raid, no tax stolen for raid on {}", raidData.getColony().getName());
+                LOGGER.warn("No guards/militia killed during raid, no tax stolen for raid on {}", raidData.getColony().getName());
                 return;
             }
             
@@ -898,11 +1105,12 @@ public class RaidManager {
             
             // Calculate final tax percentage based on raid duration and guard kills
             int raidDuration = raidData.getElapsedSeconds();
-            int intervalsPassed = Math.min(raidDuration / getTaxInterval(), getTaxPercentages().length);
+            int taxInterval = TaxConfig.RAID_TAX_INTERVAL_SECONDS.get();
+            double[] taxPercentages = TaxConfig.RAID_TAX_PERCENTAGES.get().stream().mapToDouble(Double::doubleValue).toArray();
+            int intervalsPassed = Math.min(raidDuration / taxInterval, taxPercentages.length);
             double totalBasePercentage = 0;
             
             // Sum up all the percentages that would have been applied during the raid
-            double[] taxPercentages = getTaxPercentages();
             for (int i = 0; i < intervalsPassed; i++) {
                 totalBasePercentage += taxPercentages[Math.min(i, taxPercentages.length - 1)];
             }
@@ -918,33 +1126,80 @@ public class RaidManager {
         
         // Calculate colony balance to take based on their stored tax
         int colonyBalance = TaxManager.getStoredTaxForColony(raidData.getColony());
-        int amountToDeduct = (int) (colonyBalance * finalPercentage);
         
-        // Create debt if there's no balance, up to debt limit
-        if (amountToDeduct <= 0 && colonyBalance <= 0) {
-            // If no tax stored, create debt up to the limit
+        LOGGER.info("💰 TAX CALCULATION DEBUG: Colony balance={}, Percentage={:.1f}%", 
+            colonyBalance, finalPercentage * 100);
+            
+        int amountToDeduct = 0;
+        
+        // Can only steal from colonies with positive balance!
+        if (colonyBalance > 0) {
+            amountToDeduct = (int) (colonyBalance * finalPercentage);
+            LOGGER.info("💰 POSITIVE BALANCE: Stealing {} from colony {} ({}% of {})", 
+                amountToDeduct, raidData.getColony().getName(), finalPercentage * 100, colonyBalance);
+        } else if (colonyBalance <= 0) {
+            // Colony is in debt - use TaxStealPerGuard system if debt is enabled
             int debtLimit = TaxConfig.getDebtLimit();
-            // Calculate a base amount to take when no funds are available (scaled by raid success)
-            int baseAmount = (int)(100 * finalPercentage); // Base amount scaled by raid effectiveness
-            // Check if we can add more debt
-            int currentDebt = -colonyBalance; // Current debt is negative balance
-            if (currentDebt < debtLimit) {
-                // How much more debt can be added
-                int availableDebt = debtLimit - currentDebt;
-                // Take the smaller of base amount or available debt room
-                amountToDeduct = Math.min(baseAmount, availableDebt);
+            if (debtLimit > 0) {
+                // NEW SYSTEM: Fixed amount per guard killed when raiding debt colonies
+                int guardsKilled = CitizenMilitiaManager.getInstance().getGuardsKilled(raidData.getColony().getID());
+                int taxStealPerGuard = TaxConfig.getTaxStealPerGuard();
+                int baseAmount = guardsKilled * taxStealPerGuard;
                 
-                // Only proceed if we can actually add debt
-                if (amountToDeduct > 0) {
-                    // Creating debt involves reducing the balance further
-                    TaxManager.payTaxDebt(raidData.getColony(), -amountToDeduct);
-                    LOGGER.info("Raid completion: Creating debt of {} for colony {}", amountToDeduct, raidData.getColony().getName());
+                // Check if we can add more debt
+                int currentDebt = Math.abs(colonyBalance); // Current debt (positive value)
+                if (currentDebt < debtLimit) {
+                    // How much more debt can be added
+                    int availableDebt = debtLimit - currentDebt;
+                    // Take the smaller of calculated amount or available debt room
+                    amountToDeduct = Math.min(baseAmount, availableDebt);
+                    
+                    LOGGER.info("💰 DEBT COLONY: Guards killed={}, Per-guard steal={}, Base amount={}, Current debt={}, Debt limit={}, Final debt to add={}", 
+                        guardsKilled, taxStealPerGuard, baseAmount, currentDebt, debtLimit, amountToDeduct);
+                } else {
+                    LOGGER.info("💰 DEBT LIMIT REACHED: Colony {} already at debt limit (debt: {}, limit: {})", 
+                        raidData.getColony().getName(), currentDebt, debtLimit);
                 }
+            } else {
+                LOGGER.info("💰 NO LOOT: Colony {} is in debt ({}) and debt creation is disabled", 
+                    raidData.getColony().getName(), colonyBalance);
             }
-        } else if (amountToDeduct > 0) {
-            // Deduct from existing balance
+        }
+        
+        LOGGER.info("💰 FINAL CALCULATION: Colony balance={}, Final amount to transfer={}", 
+            colonyBalance, amountToDeduct);
+        
+        // Process the transfer if there's anything to transfer
+        if (amountToDeduct > 0) {
+            // Apply the deduction to the colony (either from positive balance or creating more debt)
             TaxManager.payTaxDebt(raidData.getColony(), -amountToDeduct);
-            LOGGER.info("Raid completion: Deducted {} from colony {} balance", amountToDeduct, raidData.getColony().getName());
+            
+            if (colonyBalance > 0) {
+                LOGGER.info("💰 STOLEN: Deducted {} from colony {} positive balance", amountToDeduct, raidData.getColony().getName());
+            } else {
+                LOGGER.info("💰 DEBT CREATED: Added {} debt to colony {}", amountToDeduct, raidData.getColony().getName());
+            }
+        } else {
+            LOGGER.info("💰 NO TRANSFER: No tax to steal from colony {} (balance: {})", 
+                raidData.getColony().getName(), colonyBalance);
+                
+            // Inform the raider why they got no loot (raiderPlayer is already available in this scope)
+            if (colonyBalance <= 0 && TaxConfig.getDebtLimit() == 0) {
+                raiderPlayer.sendSystemMessage(Component.literal("⚠️ No loot obtained: Colony is in debt and debt system is disabled on this server!")
+                    .withStyle(ChatFormatting.YELLOW));
+            } else if (colonyBalance <= 0) {
+                int guardsKilled = CitizenMilitiaManager.getInstance().getGuardsKilled(raidData.getColony().getID());
+                if (guardsKilled == 0) {
+                    raiderPlayer.sendSystemMessage(Component.literal("⚠️ No loot obtained: Colony is in debt - kill guards to earn " + TaxConfig.getTaxStealPerGuard() + " per guard!")
+                        .withStyle(ChatFormatting.YELLOW));
+                } else {
+                    raiderPlayer.sendSystemMessage(Component.literal("⚠️ No loot obtained: Colony has reached its debt limit!")
+                        .withStyle(ChatFormatting.YELLOW));
+                }
+            } else {
+                raiderPlayer.sendSystemMessage(Component.literal("⚠️ No loot obtained: No tax available to steal!")
+                    .withStyle(ChatFormatting.YELLOW));
+            }
         }
         
         // Only proceed with transfer if we have an amount to transfer
@@ -1067,7 +1322,7 @@ public class RaidManager {
     private void sendRaidInstructions(ServerPlayer raider, IColony colony, int totalDefenders) {
         String currencyName = getCurrencyName();
         int colonyBalance = TaxManager.getStoredTaxForColony(colony);
-        int maxRaidDuration = getMaxRaidDurationSeconds();
+        int maxRaidDuration = RaidManager.getMaxRaidDurationSeconds();
         double maxTaxPercentage = TaxConfig.MAX_RAID_TAX_PERCENTAGE.get();
         
         // Get militia count if enabled

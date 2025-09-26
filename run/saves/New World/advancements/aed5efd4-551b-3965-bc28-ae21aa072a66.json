@@ -526,6 +526,8 @@
   },
   "minecraft:husbandry/balanced_diet": {
     "criteria": {
+      "golden_apple": "2025-09-13 18:36:02 +0200",
+      "rotten_flesh": "2025-09-13 18:35:34 +0200",
       "enchanted_golden_apple": "2025-09-07 05:23:28 +0200"
     },
     "done": false

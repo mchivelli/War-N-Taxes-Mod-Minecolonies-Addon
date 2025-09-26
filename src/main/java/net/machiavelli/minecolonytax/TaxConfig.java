@@ -18,6 +18,7 @@ public class TaxConfig {
     public static final ForgeConfigSpec.BooleanValue ENABLE_SDM_SHOP_CONVERSION;
     public static final ForgeConfigSpec.ConfigValue<String> CURRENCY_ITEM_NAME;
     public static final ForgeConfigSpec.IntValue DEBT_LIMIT;
+    public static final ForgeConfigSpec.IntValue TAX_STEAL_PER_GUARD;
     private static final ForgeConfigSpec.IntValue MIN_GUARDS_TO_RAID;
     public static final ForgeConfigSpec.IntValue MAX_TAX_REVENUE;
     public static final ForgeConfigSpec.BooleanValue ENABLE_COLONY_TRANSFER;
@@ -61,6 +62,7 @@ public class TaxConfig {
 
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_WAR_ACTIONS;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_RAID_ACTIONS;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_CLAIMING_ACTIONS;
 
     // PvP Arena Settings
     public static final ForgeConfigSpec.BooleanValue PVP_COMMANDS_IN_BATTLE_ENABLED;
@@ -133,6 +135,30 @@ public class TaxConfig {
     public static final ForgeConfigSpec.DoubleValue MAX_RAID_TAX_PERCENTAGE;
     public static final ForgeConfigSpec.BooleanValue APPLY_RESISTANCE_TO_CITIZENS;
 
+    // Colony Auto-Abandon Configuration
+    public static final ForgeConfigSpec.BooleanValue ENABLE_COLONY_AUTO_ABANDON;
+    public static final ForgeConfigSpec.IntValue COLONY_AUTO_ABANDON_DAYS;
+    public static final ForgeConfigSpec.BooleanValue NOTIFY_OWNERS_BEFORE_ABANDON;
+    public static final ForgeConfigSpec.IntValue ABANDON_WARNING_DAYS;
+    
+    // Abandoned Colony Claiming Configuration
+    public static final ForgeConfigSpec.BooleanValue ENABLE_ABANDONED_COLONY_CLAIMING;
+    public static final ForgeConfigSpec.IntValue MIN_GUARDS_FOR_CLAIMING_RAID;
+    public static final ForgeConfigSpec.IntValue CLAIMING_RAID_DURATION_MINUTES;
+    public static final ForgeConfigSpec.BooleanValue SPAWN_MERCENARIES_IF_LOW_DEFENDERS;
+    public static final ForgeConfigSpec.ConfigValue<String> CLAIMING_BUILDING_REQUIREMENTS;
+    
+    // Raid Building Requirements Configuration
+    public static final ForgeConfigSpec.BooleanValue ENABLE_RAID_BUILDING_REQUIREMENTS;
+    public static final ForgeConfigSpec.ConfigValue<String> RAID_BUILDING_REQUIREMENTS;
+    
+    // War Building Requirements Configuration
+    public static final ForgeConfigSpec.BooleanValue ENABLE_WAR_BUILDING_REQUIREMENTS;
+    public static final ForgeConfigSpec.ConfigValue<String> WAR_BUILDING_REQUIREMENTS;
+
+    // Recipe Disabling Configuration
+    public static final ForgeConfigSpec.BooleanValue DISABLE_HUT_RECIPES;
+
     static {
 
         // Define general settings
@@ -162,6 +188,10 @@ public class TaxConfig {
         DEBT_LIMIT = BUILDER.comment("Optional debt limit for colony debt. " +
                         "If > 0, colony revenue will not deduct more once the debt reaches this limit (i.e. the tax value won't drop below -DebtLimit). Set to 0 to disable.")
                 .defineInRange("DebtLimit", 0, 0, Integer.MAX_VALUE);
+
+        TAX_STEAL_PER_GUARD = BUILDER.comment("Amount of debt added to colony per guard killed when raiding colonies in debt. " +
+                        "Only applies when DebtLimit > 0. Raiders get this amount when killing guards in debt colonies. Default: 200.")
+                .defineInRange("TaxStealPerGuard", 200, 1, 10000);
 
         // ========== War Settings ==========
         BUILDER.push("War Settings");
@@ -210,7 +240,9 @@ public class TaxConfig {
                 "Set to 0 to disable tax freezing.")
                 .defineInRange("WarTaxFreezeHours", 0, 0, 168); // Max 1 week
 
-        MIN_GUARDS_TO_RAID = BUILDER.comment("Minimum number of guards required to initiate a raid")
+        MIN_GUARDS_TO_RAID = BUILDER.comment("Minimum number of guards required to initiate a raid. " +
+                "NOTE: This is only used when 'EnableRaidBuildingRequirements' is disabled. " +
+                "If building requirements are enabled, they take priority over this setting.")
                 .defineInRange("MinGuardsToRaid", 3, 1, 100);
 
         // RaidGuardProtection Configuration - Protects smaller colonies from being raided
@@ -364,10 +396,100 @@ public class TaxConfig {
 
         BUILDER.pop();
 
+        // ========== Colony Auto-Abandon Settings ==========
+        BUILDER.push("Colony Auto-Abandon");
+
+        ENABLE_COLONY_AUTO_ABANDON = BUILDER.comment("Enable automatic colony abandonment when owners/officers haven't visited for the configured time. " +
+                "When enabled, colonies will be automatically abandoned and can be claimed by other players.")
+                .define("EnableColonyAutoAbandon", true);
+
+        COLONY_AUTO_ABANDON_DAYS = BUILDER.comment("Days of inactivity after which a colony will be automatically abandoned. " +
+                "This is measured by the last time any owner or officer visited the colony. Default: 14 days (2 weeks)")
+                .defineInRange("ColonyAutoAbandonDays", 14, 1, 365);
+
+        NOTIFY_OWNERS_BEFORE_ABANDON = BUILDER.comment("If true, owners and officers will be notified before their colony is abandoned. " +
+                "Requires warning days to be configured.")
+                .define("NotifyOwnersBeforeAbandon", true);
+
+        ABANDON_WARNING_DAYS = BUILDER.comment("Days before abandonment to warn owners and officers. " +
+                "Warnings are sent when they log in during this period.")
+                .defineInRange("AbandonWarningDays", 3, 1, 30);
+
+        BUILDER.pop();
+
+        // ========== Abandoned Colony Claiming Settings ==========
+        BUILDER.push("Abandoned Colony Claiming");
+
+        ENABLE_ABANDONED_COLONY_CLAIMING = BUILDER.comment("Enable claiming of abandoned colonies using the /wnt claimcolony command. " +
+                "When enabled, players can claim abandoned colonies, triggering a raid where all citizens become hostile militia.")
+                .define("EnableAbandonedColonyClaiming", true);
+
+        MIN_GUARDS_FOR_CLAIMING_RAID = BUILDER.comment("Minimum number of guards required to claim an abandoned colony. " +
+                "This ensures only established colonies can claim others.")
+                .defineInRange("MinGuardsForClaimingRaid", 3, 1, 50);
+
+        CLAIMING_RAID_DURATION_MINUTES = BUILDER.comment("Duration in minutes for the claiming raid when taking over an abandoned colony. " +
+                "During this time, all citizens will be hostile and attack the claiming player.")
+                .defineInRange("ClaimingRaidDurationMinutes", 5, 1, 60);
+
+        SPAWN_MERCENARIES_IF_LOW_DEFENDERS = BUILDER.comment("If true, spawn mercenaries to defend the colony during claiming if there are fewer than 5 citizens/guards. " +
+                "This ensures abandoned colonies still put up a fight when being claimed.")
+                .define("SpawnMercenariesIfLowDefenders", true);
+
+        CLAIMING_BUILDING_REQUIREMENTS = BUILDER.comment("Building requirements to claim abandoned colonies. Format: 'building:level,building:level'. " +
+                "Example: 'townhall:2,guardtower:1' means player needs townhall level 2+ and at least one guard tower to claim. " +
+                "Leave empty to disable building requirements.")
+                .define("ClaimingBuildingRequirements", "townhall:2");
+
+        BUILDER.pop();
+        
+        // ========== Raid Building Requirements ==========
+        BUILDER.push("Raid Building Requirements");
+
+        ENABLE_RAID_BUILDING_REQUIREMENTS = BUILDER.comment("Enable building requirements for initiating raids. " +
+                "When enabled, these requirements take PRIORITY over 'MinGuardsToRaid' setting. " +
+                "Disable this to use the legacy guard count system instead.")
+                .define("EnableRaidBuildingRequirements", true);
+
+        RAID_BUILDING_REQUIREMENTS = BUILDER.comment("Building requirements to initiate raids. Format: 'building:level:amount,building:level:amount'. " +
+                "Example: 'townhall:1:1,guardtower:1:3' means player needs 1 townhall level 1+ and 3 guard towers level 1+ to raid. " +
+                "NOTE: When this is enabled, it replaces the 'MinGuardsToRaid' requirement entirely. " +
+                "Leave empty to disable building requirements.")
+                .define("RaidBuildingRequirements", "townhall:1:1,guardtower:1:3");
+
+        BUILDER.pop();
+        
+        // ========== War Building Requirements ==========
+        BUILDER.push("War Building Requirements");
+
+        ENABLE_WAR_BUILDING_REQUIREMENTS = BUILDER.comment("Enable building requirements for declaring wars. " +
+                "When enabled, these requirements take PRIORITY over 'MinGuardsToWageWar' setting. " +
+                "Disable this to use the legacy guard count system instead.")
+                .define("EnableWarBuildingRequirements", true);
+
+        WAR_BUILDING_REQUIREMENTS = BUILDER.comment("Building requirements to declare wars. Format: 'building:level:amount,building:level:amount'. " +
+                "Example: 'townhall:2:1,guardtower:1:3,buildershut:1:1,house:1:1' means player needs 1 townhall level 2+, 3 guard towers level 1+, 1 builders hut level 1+, and 1 residential building level 1+ to declare war. " +
+                "NOTE: When this is enabled, it replaces the 'MinGuardsToWageWar' requirement entirely. " +
+                "Leave empty to disable building requirements.")
+                .define("WarBuildingRequirements", "townhall:2:1,guardtower:1:3,buildershut:1:1,house:1:1");
+
+        BUILDER.pop();
+
+        // ========== Recipe Disabling Settings ==========
+        BUILDER.push("Recipe Disabling");
+
+        DISABLE_HUT_RECIPES = BUILDER.comment("Disable all Minecolonies building hut recipes. When enabled, players must obtain building huts through SDMShop or Admin Shop instead of crafting them. " +
+                "This affects all buildings that accumulate taxes or maintenance costs. Disabled by default.")
+                .define("DisableHutRecipes", false);
+
+        BUILDER.pop();
+
         WAR_DURATION_MINUTES = BUILDER.comment("War duration (minutes)")
                 .defineInRange("WarDurationMinutes", 120, 1, 1440);
 
-        MIN_GUARDS_TO_WAGE_WAR = BUILDER.comment("Minimum guards required to declare war")
+        MIN_GUARDS_TO_WAGE_WAR = BUILDER.comment("Minimum guards required to declare war. " +
+                "NOTE: This is only used when 'EnableWarBuildingRequirements' is disabled. " +
+                "If building requirements are enabled, they take priority over this setting.")
                 .defineInRange("MinGuardsToWageWar", 5, 1, 100);
                 
         ENABLE_LP_GROUP_SWITCHING = BUILDER.comment("If enabled, war participants will be switched to the 'war' LP permission group during wars.\n" +
@@ -393,6 +515,11 @@ public class TaxConfig {
         CONFIGURABLE_RAID_ACTIONS = BUILDER.comment("Actions permitted during a Raid. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.")
                 .defineList("RaidActions",
                         List.of("TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY", "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN", "HURT_VISITOR", "THROW_POTION"),
+                        obj -> obj instanceof String);
+
+        CONFIGURABLE_CLAIMING_ACTIONS = BUILDER.comment("Actions permitted during Abandoned Colony Claiming raids. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.")
+                .defineList("ClaimingActions",
+                        List.of("PLACE_BLOCKS", "BREAK_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY", "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN", "HURT_VISITOR", "THROW_POTION", "OPEN_CONTAINER"),
                         obj -> obj instanceof String);
 
         REQUIRED_GUARD_TOWERS_FOR_BOOST = BUILDER.comment("Number of Guard Towers required to activate a tax boost for all buildings in a colony.")
@@ -778,6 +905,10 @@ public class TaxConfig {
         return DEBT_LIMIT.get();
     }
 
+    public static int getTaxStealPerGuard() {
+        return TAX_STEAL_PER_GUARD.get();
+    }
+
     /**
      * Retrieves the upgrade tax for a given building type using its full class name.
      *
@@ -874,6 +1005,22 @@ public class TaxConfig {
                 } catch (IllegalArgumentException e) {
                     // Log error or handle invalid action string
                     System.err.println("Invalid raid action in config: " + s);
+                    return null;
+                }
+            })
+            .filter(java.util.Objects::nonNull)
+            .collect(java.util.stream.Collectors.toSet());
+    }
+
+    public static Set<com.minecolonies.api.colony.permissions.Action> getClaimingActions() {
+        List<? extends String> actionsStr = CONFIGURABLE_CLAIMING_ACTIONS.get();
+        return actionsStr.stream()
+            .map(s -> {
+                try {
+                    return com.minecolonies.api.colony.permissions.Action.valueOf(s.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    // Log error or handle invalid claiming action string
+                    System.err.println("Invalid claiming action in config: " + s);
                     return null;
                 }
             })
@@ -1027,5 +1174,64 @@ public class TaxConfig {
         
         // Linear interpolation between min and max multipliers
         return minMultiplier + (normalizedHappiness * (maxMultiplier - minMultiplier));
+    }
+
+    // Colony Auto-Abandon Configuration Getters
+    public static boolean isColonyAutoAbandonEnabled() {
+        return ENABLE_COLONY_AUTO_ABANDON.get();
+    }
+
+    public static int getColonyAutoAbandonDays() {
+        return COLONY_AUTO_ABANDON_DAYS.get();
+    }
+
+    public static boolean shouldNotifyOwnersBeforeAbandon() {
+        return NOTIFY_OWNERS_BEFORE_ABANDON.get();
+    }
+
+    public static int getAbandonWarningDays() {
+        return ABANDON_WARNING_DAYS.get();
+    }
+
+    // Abandoned Colony Claiming Configuration Getters
+    public static boolean isAbandonedColonyClaimingEnabled() {
+        return ENABLE_ABANDONED_COLONY_CLAIMING.get();
+    }
+
+    public static int getMinGuardsForClaimingRaid() {
+        return MIN_GUARDS_FOR_CLAIMING_RAID.get();
+    }
+
+    public static int getClaimingRaidDurationMinutes() {
+        return CLAIMING_RAID_DURATION_MINUTES.get();
+    }
+
+    public static boolean shouldSpawnMercenariesIfLowDefenders() {
+        return SPAWN_MERCENARIES_IF_LOW_DEFENDERS.get();
+    }
+
+    public static String getClaimingBuildingRequirements() {
+        return CLAIMING_BUILDING_REQUIREMENTS.get();
+    }
+    
+    public static boolean isRaidBuildingRequirementsEnabled() {
+        return ENABLE_RAID_BUILDING_REQUIREMENTS.get();
+    }
+    
+    public static String getRaidBuildingRequirements() {
+        return RAID_BUILDING_REQUIREMENTS.get();
+    }
+    
+    public static boolean isWarBuildingRequirementsEnabled() {
+        return ENABLE_WAR_BUILDING_REQUIREMENTS.get();
+    }
+    
+    public static String getWarBuildingRequirements() {
+        return WAR_BUILDING_REQUIREMENTS.get();
+    }
+    
+    // Recipe Disabling Configuration Getters
+    public static boolean isDisableHutRecipesEnabled() {
+        return DISABLE_HUT_RECIPES.get();
     }
 }

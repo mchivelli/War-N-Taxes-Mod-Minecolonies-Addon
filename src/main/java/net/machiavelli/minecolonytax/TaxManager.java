@@ -84,20 +84,41 @@ public class TaxManager {
         LOGGER.info("Server stopping. Saving tax data and timestamp...");
         saveTaxData();  // Save tax data when server stops
         saveLastTaxGenerationTime();  // CRITICAL: Save timestamp on shutdown
+        
+        // End all claiming raids
+        try {
+            net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.endAllClaimingRaids();
+        } catch (Exception e) {
+            LOGGER.error("Error ending claiming raids on shutdown", e);
+        }
     }
 
     // Inner class for handling tick events (now timestamp-based)
     public static class TickEventHandler {
         private int tickCount = 0;  // Check every 20 ticks (1 second) for performance
+        private int abandonmentTickCount = 0;  // Check abandonment every hour (72000 ticks)
 
         @SubscribeEvent
         public void onServerTick(TickEvent.ServerTickEvent event) {
             if (event.phase == TickEvent.Phase.END) {
                 tickCount++;
+                abandonmentTickCount++;
+                
                 // Check tax generation every second instead of every tick (performance optimization)
                 if (tickCount >= 20) { // 20 ticks = 1 second
                     tickCount = 0;
                     checkForTaxGeneration();
+                }
+                
+                // Check colony abandonment every hour (72000 ticks = 1 hour)
+                if (abandonmentTickCount >= 72000) {
+                    abandonmentTickCount = 0;
+                    checkColonyAbandonment();
+                }
+                
+                // Update claiming raids every second
+                if (tickCount == 0) {
+                    net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.updateClaimingRaids();
                 }
             }
         }
@@ -130,6 +151,16 @@ public class TaxManager {
                 lastTaxGenerationTime = currentTime;
                 saveLastTaxGenerationTime(); // Persist timestamp immediately
                 TaxManager.generateTaxesForAllColonies();
+            }
+        }
+
+        private void checkColonyAbandonment() {
+            if (serverInstance != null) {
+                try {
+                    net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.checkColoniesForAbandonment(serverInstance);
+                } catch (Exception e) {
+                    LOGGER.error("Error during colony abandonment check", e);
+                }
             }
         }
     }

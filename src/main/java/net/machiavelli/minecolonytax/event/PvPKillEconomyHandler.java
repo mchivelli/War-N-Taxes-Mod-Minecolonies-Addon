@@ -2,6 +2,8 @@ package net.machiavelli.minecolonytax.event;
 
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.integration.SDMShopIntegration;
+import net.machiavelli.minecolonytax.raid.RaidManager;
+import net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -47,24 +49,63 @@ public class PvPKillEconomyHandler {
             return;
         }
         
-        // Get configured reward percentage
+        // Check if this is a raid-related death for enhanced penalties
+        boolean isRaidRelated = checkIfRaidRelated(victim, killer);
         double rewardPercentage = TaxConfig.PVP_KILL_REWARD_PERCENTAGE.get();
+        
+        // Apply enhanced penalty for raiders who get killed during raids
+        if (isRaidRelated) {
+            double raidPenaltyMultiplier = TaxConfig.RAID_PENALTY_PERCENTAGE.get();
+            if (raidPenaltyMultiplier > 0) {
+                rewardPercentage = Math.max(rewardPercentage, raidPenaltyMultiplier);
+                LOGGER.info("Applying enhanced raid death penalty: {}% (base: {}%, raid penalty: {}%)", 
+                    rewardPercentage * 100, TaxConfig.PVP_KILL_REWARD_PERCENTAGE.get() * 100, raidPenaltyMultiplier * 100);
+            }
+        }
+        
         if (rewardPercentage <= 0) {
             return;
         }
         
         // Calculate and transfer reward
         if (TaxConfig.isSDMShopConversionEnabled()) {
-            handleSDMShopTransfer(victim, killer, rewardPercentage);
+            handleSDMShopTransfer(victim, killer, rewardPercentage, isRaidRelated);
         } else {
-            handleItemTransfer(victim, killer, rewardPercentage);
+            handleItemTransfer(victim, killer, rewardPercentage, isRaidRelated);
         }
+    }
+    
+    /**
+     * Check if a player death is related to an active raid or claiming raid.
+     */
+    private static boolean checkIfRaidRelated(ServerPlayer victim, ServerPlayer killer) {
+        // Check if victim is a raider in an active raid
+        if (RaidManager.getActiveRaidForPlayer(victim.getUUID()) != null) {
+            LOGGER.debug("Victim {} is an active raider - raid-related death", victim.getName().getString());
+            return true;
+        }
+        
+        // Check if victim is in a claiming raid
+        for (int colonyId : ColonyClaimingRaidManager.getActiveClaimingRaidIds()) {
+            if (ColonyClaimingRaidManager.isPlayerInClaimingRaid(victim.getUUID(), colonyId)) {
+                LOGGER.debug("Victim {} is in an active claiming raid - raid-related death", victim.getName().getString());
+                return true;
+            }
+        }
+        
+        // Check if killer is defending against a raid by the victim
+        if (RaidManager.getActiveRaidForPlayer(killer.getUUID()) != null) {
+            LOGGER.debug("Killer {} killed a raider {} - raid-related death", killer.getName().getString(), victim.getName().getString());
+            return true;
+        }
+        
+        return false;
     }
     
     /**
      * Handles money transfer using SDMShop API
      */
-    private static void handleSDMShopTransfer(ServerPlayer victim, ServerPlayer killer, double percentage) {
+    private static void handleSDMShopTransfer(ServerPlayer victim, ServerPlayer killer, double percentage, boolean isRaidRelated) {
         if (!SDMShopIntegration.isAvailable()) {
             LOGGER.warn("SDMShop integration enabled but SDMShop mod not available for PvP kill reward");
             return;
@@ -84,12 +125,17 @@ public class PvPKillEconomyHandler {
             if (SDMShopIntegration.setMoney(victim, victimBalance - transferAmount) &&
                 SDMShopIntegration.setMoney(killer, killerBalance + transferAmount)) {
                 
-                // Notify both players
-                victim.sendSystemMessage(Component.literal("PvP Death: Lost $" + transferAmount + " to " + killer.getName().getString()).withStyle(net.minecraft.ChatFormatting.RED));
-                killer.sendSystemMessage(Component.literal("PvP Kill: Earned $" + transferAmount + " from " + victim.getName().getString()).withStyle(net.minecraft.ChatFormatting.GREEN));
+                // Notify both players with raid-specific messages
+                String deathType = isRaidRelated ? "Raid Death" : "PvP Death";
+                String killType = isRaidRelated ? "Raid Defense" : "PvP Kill";
                 
-                LOGGER.info("PvP kill economy: {} transferred ${} from {} to {}", 
-                    percentage * 100 + "%", transferAmount, victim.getName().getString(), killer.getName().getString());
+                victim.sendSystemMessage(Component.literal(deathType + ": Lost $" + transferAmount + " to " + killer.getName().getString())
+                        .withStyle(net.minecraft.ChatFormatting.RED));
+                killer.sendSystemMessage(Component.literal(killType + ": Earned $" + transferAmount + " from " + victim.getName().getString())
+                        .withStyle(net.minecraft.ChatFormatting.GREEN));
+                
+                LOGGER.info("{} economy: {} transferred ${} from {} to {}", 
+                    isRaidRelated ? "Raid" : "PvP", percentage * 100 + "%", transferAmount, victim.getName().getString(), killer.getName().getString());
             } else {
                 LOGGER.error("Failed to transfer ${} from {} to {} via SDMShop API", 
                     transferAmount, victim.getName().getString(), killer.getName().getString());
@@ -102,7 +148,7 @@ public class PvPKillEconomyHandler {
     /**
      * Handles item-based transfer when SDMShop is disabled
      */
-    private static void handleItemTransfer(ServerPlayer victim, ServerPlayer killer, double percentage) {
+    private static void handleItemTransfer(ServerPlayer victim, ServerPlayer killer, double percentage, boolean isRaidRelated) {
         try {
             String currencyItemName = TaxConfig.getCurrencyItemName();
             Item currencyItem = ForgeRegistries.ITEMS.getValue(new ResourceLocation(currencyItemName));
@@ -121,7 +167,8 @@ public class PvPKillEconomyHandler {
             }
             
             if (victimCurrencyCount <= 0) {
-                killer.sendSystemMessage(Component.literal("PvP Kill: " + victim.getName().getString() + " had no " + currencyItemName + " to transfer.").withStyle(net.minecraft.ChatFormatting.GRAY));
+                String killType = isRaidRelated ? "Raid Defense" : "PvP Kill";
+                killer.sendSystemMessage(Component.literal(killType + ": " + victim.getName().getString() + " had no " + currencyItemName + " to transfer.").withStyle(net.minecraft.ChatFormatting.GRAY));
                 return;
             }
             
@@ -146,12 +193,15 @@ public class PvPKillEconomyHandler {
                 killer.drop(rewardStack, false);
             }
             
-            // Notify both players
-            victim.sendSystemMessage(Component.literal("PvP Death: Lost " + transferAmount + " " + currencyItemName + " to " + killer.getName().getString()).withStyle(net.minecraft.ChatFormatting.RED));
-            killer.sendSystemMessage(Component.literal("PvP Kill: Earned " + transferAmount + " " + currencyItemName + " from " + victim.getName().getString()).withStyle(net.minecraft.ChatFormatting.GREEN));
+            // Notify both players with raid-specific messages
+            String deathType = isRaidRelated ? "Raid Death" : "PvP Death";
+            String killType = isRaidRelated ? "Raid Defense" : "PvP Kill";
             
-            LOGGER.info("PvP kill economy: {} transferred {} {} from {} to {}", 
-                percentage * 100 + "%", transferAmount, currencyItemName, victim.getName().getString(), killer.getName().getString());
+            victim.sendSystemMessage(Component.literal(deathType + ": Lost " + transferAmount + " " + currencyItemName + " to " + killer.getName().getString()).withStyle(net.minecraft.ChatFormatting.RED));
+            killer.sendSystemMessage(Component.literal(killType + ": Earned " + transferAmount + " " + currencyItemName + " from " + victim.getName().getString()).withStyle(net.minecraft.ChatFormatting.GREEN));
+            
+            LOGGER.info("{} economy: {} transferred {} {} from {} to {}", 
+                isRaidRelated ? "Raid" : "PvP", percentage * 100 + "%", transferAmount, currencyItemName, victim.getName().getString(), killer.getName().getString());
                 
         } catch (Exception e) {
             LOGGER.error("Error in item-based PvP kill transfer: {}", e.getMessage());

@@ -11,7 +11,6 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
-import net.machiavelli.minecolonytax.militia.MilitiaAttackGoal;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,8 +32,14 @@ public class CitizenMilitiaManager {
     // Track guards killed during raids for tax stealing
     private final Map<Integer, Integer> guardsKilledPerColony = new ConcurrentHashMap<>();
     
+    // Track militia killed during raids (separate from guards)
+    private final Map<Integer, Integer> militiaKilledPerColony = new ConcurrentHashMap<>();
+    
     // Track total defenders (guards + militia) per colony for tax calculation
     private final Map<Integer, Integer> totalDefendersPerColony = new ConcurrentHashMap<>();
+    
+    // Track total guards only (for raid victory condition)
+    private final Map<Integer, Integer> totalGuardsPerColony = new ConcurrentHashMap<>();
     
     // Singleton instance
     private static CitizenMilitiaManager instance;
@@ -98,10 +103,14 @@ public class CitizenMilitiaManager {
         // Store tracking data
         colonyMilitiaMembers.put(colonyId, militiaMembers);
         guardsKilledPerColony.put(colonyId, 0);
+        militiaKilledPerColony.put(colonyId, 0);
         totalDefendersPerColony.put(colonyId, totalDefenders);
+        totalGuardsPerColony.put(colonyId, existingGuards); // ONLY GUARDS for victory condition
         
         LOGGER.info("Activated militia for colony {}: {} citizens equipped with weapons", 
             colonyId, converted);
+        LOGGER.info("DEFENDER COUNT DEBUG - Colony {}: {} existing guards + {} militia = {} total defenders", 
+            colonyId, existingGuards, converted, totalDefenders);
         
         return converted;
     }
@@ -318,23 +327,73 @@ public class CitizenMilitiaManager {
     }
     
     /**
+     * Records a defender death during a raid (guard or militia).
+     * @param colony The colony where the defender died
+     * @param isGuard true if guard, false if militia
+     */
+    public void recordDefenderDeath(IColony colony, boolean isGuard) {
+        int colonyId = colony.getID();
+        String defenderType = isGuard ? "guard" : "militia";
+        
+        if (isGuard) {
+            guardsKilledPerColony.compute(colonyId, (k, v) -> v == null ? 1 : v + 1);
+            LOGGER.info("GUARD ELIMINATED - {} killed in colony {}, total guards eliminated: {}", 
+                defenderType.toUpperCase(), colonyId, guardsKilledPerColony.get(colonyId));
+        } else {
+            militiaKilledPerColony.compute(colonyId, (k, v) -> v == null ? 1 : v + 1);
+            LOGGER.info("MILITIA ELIMINATED - {} killed in colony {}, total militia eliminated: {}", 
+                defenderType.toUpperCase(), colonyId, militiaKilledPerColony.get(colonyId));
+        }
+    }
+    
+    /**
      * Records a guard death during a raid.
      * @param colony The colony where the guard died
+     * @deprecated Use recordDefenderDeath(colony, true) instead
      */
+    @Deprecated
     public void recordGuardDeath(IColony colony) {
-        int colonyId = colony.getID();
-        guardsKilledPerColony.compute(colonyId, (k, v) -> v == null ? 1 : v + 1);
-        LOGGER.debug("Guard killed in colony {}, total killed: {}", 
-            colonyId, guardsKilledPerColony.get(colonyId));
+        recordDefenderDeath(colony, true);
+    }
+    
+    /**
+     * Gets the number of defenders killed for a colony (guards + militia).
+     * @param colonyId The colony ID
+     * @return Number of defenders killed
+     */
+    public int getDefendersKilled(int colonyId) {
+        int guardsKilled = guardsKilledPerColony.getOrDefault(colonyId, 0);
+        int militiaKilled = militiaKilledPerColony.getOrDefault(colonyId, 0);
+        return guardsKilled + militiaKilled;
+    }
+    
+    /**
+     * Gets the number of GUARDS ONLY killed for a colony (for raid victory condition).
+     * @param colonyId The colony ID
+     * @return Number of guards killed (militia not included)
+     */
+    public int getGuardsKilledCount(int colonyId) {
+        return guardsKilledPerColony.getOrDefault(colonyId, 0);
+    }
+    
+    /**
+     * Gets the total number of GUARDS ONLY for a colony (for raid victory condition).
+     * @param colonyId The colony ID
+     * @return Total number of guards (militia not included)
+     */
+    public int getTotalGuardsCount(int colonyId) {
+        return totalGuardsPerColony.getOrDefault(colonyId, 0);
     }
     
     /**
      * Gets the number of guards killed for a colony.
      * @param colonyId The colony ID
      * @return Number of guards killed
+     * @deprecated Use getGuardsKilledCount(colonyId) instead for guard-only count
      */
+    @Deprecated
     public int getGuardsKilled(int colonyId) {
-        return guardsKilledPerColony.getOrDefault(colonyId, 0);
+        return getDefendersKilled(colonyId);
     }
     
     /**
@@ -347,29 +406,35 @@ public class CitizenMilitiaManager {
     }
     
     /**
-     * Calculates the tax percentage that should be applied based on guards killed.
-     * This distributes the max tax percentage across all defenders.
+     * Calculates the tax percentage that should be applied based on defenders killed.
+     * This distributes the max tax percentage across all defenders (guards + militia).
      * @param colonyId The colony ID
      * @return Tax percentage (0.0 - 1.0)
      */
     public double calculateTaxPercentage(int colonyId) {
-        int guardsKilled = getGuardsKilled(colonyId);
+        int defendersKilled = getDefendersKilled(colonyId);
         int totalDefenders = getTotalDefenders(colonyId);
         
-        if (totalDefenders == 0 || guardsKilled == 0) {
+        // FIX: Don't return 0 if all defenders are killed - this should return maximum percentage
+        if (totalDefenders == 0) {
+            // If no defenders were ever set, return 0
+            return 0.0;
+        }
+        
+        if (defendersKilled == 0) {
             return 0.0;
         }
         
         double maxTaxPercentage = TaxConfig.MAX_RAID_TAX_PERCENTAGE.get();
         double percentagePerDefender = maxTaxPercentage / totalDefenders;
-        double finalPercentage = guardsKilled * percentagePerDefender;
+        double finalPercentage = defendersKilled * percentagePerDefender;
         
         // Ensure we don't exceed the maximum
         return Math.min(finalPercentage, maxTaxPercentage);
     }
     
     /**
-     * Calculates tax to steal based on guards killed.
+     * Calculates tax to steal based on defenders killed (guards + militia).
      * @param colony The colony being raided
      * @param currentTax The colony's current tax
      * @return Amount of tax to steal
@@ -380,13 +445,13 @@ public class CitizenMilitiaManager {
             return 0;
         }
         
-        int guardsKilled = getGuardsKilled(colony.getID());
+        int defendersKilled = getDefendersKilled(colony.getID());
         double stealPercentage = TaxConfig.TAX_STEAL_PERCENTAGE_PER_GUARD.get();
         
-        int taxToSteal = (int) (currentTax * guardsKilled * stealPercentage);
+        int taxToSteal = (int) (currentTax * defendersKilled * stealPercentage);
         
-        LOGGER.debug("Colony {} - Guards killed: {}, Tax to steal: {} ({}% per guard)", 
-            colony.getID(), guardsKilled, taxToSteal, stealPercentage * 100);
+        LOGGER.debug("Colony {} - Defenders killed: {}, Tax to steal: {} ({}% per defender)", 
+            colony.getID(), defendersKilled, taxToSteal, stealPercentage * 100);
         
         return Math.min(taxToSteal, currentTax);
     }
@@ -410,5 +475,68 @@ public class CitizenMilitiaManager {
     public int getMilitiaCount(int colonyId) {
         Set<Integer> militia = colonyMilitiaMembers.get(colonyId);
         return militia != null ? militia.size() : 0;
+    }
+    
+    /**
+     * Initialize militia system for a colony.
+     * @param colonyId The colony ID
+     */
+    public void initializeColonyMilitia(int colonyId) {
+        colonyMilitiaMembers.putIfAbsent(colonyId, ConcurrentHashMap.newKeySet());
+        guardsKilledPerColony.putIfAbsent(colonyId, 0);
+        totalDefendersPerColony.putIfAbsent(colonyId, 0);
+        LOGGER.debug("Initialized militia system for colony {}", colonyId);
+    }
+    
+    /**
+     * Add a citizen as a militia member.
+     * @param colonyId The colony ID
+     * @param citizenId The citizen ID
+     */
+    public void addMilitiaMember(int colonyId, int citizenId) {
+        colonyMilitiaMembers.computeIfAbsent(colonyId, k -> ConcurrentHashMap.newKeySet()).add(citizenId);
+        LOGGER.debug("Added citizen {} as militia member in colony {}", citizenId, colonyId);
+    }
+    
+    /**
+     * Set the total defender count for a colony.
+     * @param colonyId The colony ID
+     * @param count The total defender count
+     */
+    public void setTotalDefenders(int colonyId, int count) {
+        totalDefendersPerColony.put(colonyId, count);
+        LOGGER.debug("Set total defenders for colony {} to {}", colonyId, count);
+    }
+    
+    /**
+     * Set the total guard count for a colony (for raid victory condition).
+     * @param colonyId The colony ID
+     * @param count The total guard count
+     */
+    public void setTotalGuardsCount(int colonyId, int count) {
+        totalGuardsPerColony.put(colonyId, count);
+        LOGGER.debug("Set total guards for colony {} to {}", colonyId, count);
+    }
+    
+    /**
+     * Clear all militia data for a colony.
+     * @param colonyId The colony ID
+     */
+    public void clearColonyMilitia(int colonyId) {
+        colonyMilitiaMembers.remove(colonyId);
+        guardsKilledPerColony.remove(colonyId);
+        militiaKilledPerColony.remove(colonyId);
+        totalDefendersPerColony.remove(colonyId);
+        totalGuardsPerColony.remove(colonyId);
+        LOGGER.debug("Cleared militia data for colony {}", colonyId);
+    }
+    
+    /**
+     * Get the militia members for a colony (for kill tracking).
+     * @param colonyId The colony ID
+     * @return Set of militia member citizen IDs
+     */
+    public Set<Integer> getMilitiaMembers(int colonyId) {
+        return colonyMilitiaMembers.getOrDefault(colonyId, new HashSet<>());
     }
 }

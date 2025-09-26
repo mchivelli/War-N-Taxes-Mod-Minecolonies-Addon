@@ -165,7 +165,7 @@ public class WarEconomyHandler {
      * Returns the total coin balance in the inventory of a player.
      * Assumes 1 coin = 1 item of the type specified by TaxConfig.getCurrencyItemName().
      */
-    private static long getInventoryCurrencyBalance(ServerPlayer player) {
+    public static long getInventoryCurrencyBalance(ServerPlayer player) {
         long total = 0;
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
@@ -183,7 +183,7 @@ public class WarEconomyHandler {
      * Deducts up to the specified amount of currency items from the player's inventory.
      * Returns the total amount that was actually deducted.
      */
-    private static long deductCurrencyFromInventory(ServerPlayer player, long amount) {
+    public static long deductCurrencyFromInventory(ServerPlayer player, long amount) {
         long remaining = amount;
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);

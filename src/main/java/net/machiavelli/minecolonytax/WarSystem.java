@@ -132,13 +132,21 @@ public class WarSystem {
                         // Assign hostile rank to this attacker on defender's colony
                         assignWarParticipantRanks(uuid, colony, attackerColony, true);
                         
-                        // Send join prompt to eligible players
+                        // Send comprehensive join prompt to eligible players
                         if (colony.getWorld() != null) {
                             MinecraftServer server = colony.getWorld().getServer();
                             if (server != null) {
                                 ServerPlayer p = server.getPlayerList().getPlayer(uuid);
                                 if (p != null && p.isAlive()) {
-                                    p.sendSystemMessage(Component.literal("War has been declared! You are eligible to join as an attacker.").withStyle(ChatFormatting.YELLOW));
+                                    Component warNotification = Component.literal("⚔️ WAR DECLARED ⚔️")
+                                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                                        .append(Component.literal("\nYour colony (" + attackerColony.getName() + ") is attacking " + colony.getName() + "!")
+                                               .withStyle(ChatFormatting.YELLOW))
+                                        .append(Component.literal("\nAs an " + rank.getName() + ", you are eligible to join as an ATTACKER!")
+                                               .withStyle(ChatFormatting.GREEN))
+                                        .append(Component.literal("\nClick below to join the war:")
+                                               .withStyle(ChatFormatting.AQUA));
+                                    p.sendSystemMessage(warNotification);
                                     p.sendSystemMessage(JOIN_MSG);
                                 }
                             }
@@ -162,13 +170,21 @@ public class WarSystem {
                     // Assign hostile rank to this defender on attacker's colony (if it exists)
                     assignWarParticipantRanks(uuid, colony, attackerColony, false);
                     
-                    // Send join prompt to eligible players
+                    // Send comprehensive join prompt to eligible players
                     if (colony.getWorld() != null) {
                         MinecraftServer server = colony.getWorld().getServer();
                         if (server != null) {
                             ServerPlayer p = server.getPlayerList().getPlayer(uuid);
                             if (p != null && p.isAlive()) {
-                                p.sendSystemMessage(Component.literal("Your colony is under attack! You are eligible to join as a defender.").withStyle(ChatFormatting.RED));
+                                Component warNotification = Component.literal("🛡️ COLONY UNDER ATTACK 🛡️")
+                                    .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
+                                    .append(Component.literal("\nYour colony (" + colony.getName() + ") is being attacked!")
+                                           .withStyle(ChatFormatting.RED))
+                                    .append(Component.literal("\nAs an " + rank.getName() + ", you are eligible to join as a DEFENDER!")
+                                           .withStyle(ChatFormatting.GREEN))
+                                    .append(Component.literal("\nClick below to join the defense:")
+                                           .withStyle(ChatFormatting.AQUA));
+                                p.sendSystemMessage(warNotification);
                                 p.sendSystemMessage(JOIN_MSG);
                             }
                         }
@@ -190,11 +206,19 @@ public class WarSystem {
                         // Assign hostile rank to this attacker on defender's colony
                         assignWarParticipantRanks(uuid, colony, attackerColony, true);
                         
-                        // Send join prompt
+                        // Send comprehensive join prompt
                         if (colony.getWorld() != null && colony.getWorld().getServer() != null) {
                             ServerPlayer p = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
                             if (p != null && p.isAlive()) {
-                                p.sendSystemMessage(Component.literal("Your team is at war! You are eligible to join as an attacker.").withStyle(ChatFormatting.YELLOW));
+                                Component teamWarNotification = Component.literal("⚔️ TEAM WAR DECLARED ⚔️")
+                                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                                    .append(Component.literal("\nYour team is attacking " + colony.getName() + "!")
+                                           .withStyle(ChatFormatting.YELLOW))
+                                    .append(Component.literal("\nAs a team member, you are eligible to join as an ATTACKER!")
+                                           .withStyle(ChatFormatting.GREEN))
+                                    .append(Component.literal("\nClick below to join the war:")
+                                           .withStyle(ChatFormatting.AQUA));
+                                p.sendSystemMessage(teamWarNotification);
                                 p.sendSystemMessage(JOIN_MSG);
                             }
                         }
@@ -211,11 +235,19 @@ public class WarSystem {
                         // Assign hostile rank to this defender on attacker's colony (if it exists)
                         assignWarParticipantRanks(uuid, colony, attackerColony, false);
                         
-                        // Send join prompt
+                        // Send comprehensive join prompt
                         if (colony.getWorld() != null && colony.getWorld().getServer() != null) {
                             ServerPlayer p = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
                             if (p != null && p.isAlive()) {
-                                p.sendSystemMessage(Component.literal("Your team's colony is under attack! You are eligible to join as a defender.").withStyle(ChatFormatting.RED));
+                                Component teamDefenseNotification = Component.literal("🛡️ TEAM COLONY UNDER ATTACK 🛡️")
+                                    .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
+                                    .append(Component.literal("\nYour team's colony (" + colony.getName() + ") is being attacked!")
+                                           .withStyle(ChatFormatting.RED))
+                                    .append(Component.literal("\nAs a team member, you are eligible to join as a DEFENDER!")
+                                           .withStyle(ChatFormatting.GREEN))
+                                    .append(Component.literal("\nClick below to join the defense:")
+                                           .withStyle(ChatFormatting.AQUA));
+                                p.sendSystemMessage(teamDefenseNotification);
                                 p.sendSystemMessage(JOIN_MSG);
                             }
                         }
@@ -382,6 +414,10 @@ public class WarSystem {
         if (war.getAttackerColony() != null) {
             GuardResistanceHandler.applyResistanceToGuardsForWar(war.getAttackerColony());
         }
+        
+        // Initialize militia system for guard tracking and citizen conversion in BOTH colonies
+        initializeWarMilitiaSystem(war);
+        activateWarMilitia(war);
         if (war.getColony().getWorld() != null && war.getColony().getWorld().getServer() != null) {
             String attackerColonyName = war.getAttackerColony() != null ? war.getAttackerColony().getName() : "Attacking Forces";
             String defenderColonyName = war.getColony().getName();
@@ -493,6 +529,7 @@ public class WarSystem {
         endWar(war.getColony());
     }
 
+
     /**
      * Applies economic penalties to both sides during a stalemate.
      * 
@@ -579,45 +616,90 @@ public class WarSystem {
         if (TaxConfig.isSDMShopConversionEnabled()) {
             // === SDMShop ENABLED - Use SDMShop balance system ===
             if (winnerTeamID != null && loserTeamID != null) {
-                // Team-based battle
+                // Team-based battle - Select SINGLE winner to receive ALL rewards
                 
-                // Get a representative from winner team to show notification to
-                ServerPlayer winnerRepresentative = null;
-                for (UUID uuid : attackersWon ? war.getAttackerLives().keySet() : war.getDefenderLives().keySet()) {
-                    winnerRepresentative = war.getColony().getWorld().getServer().getPlayerList().getPlayer(uuid);
-                    if (winnerRepresentative != null) break;
-                }
+                // Determine winning participants and colony
+                Map<UUID, Integer> winningParticipants = attackersWon ? war.getAttackerLives() : war.getDefenderLives();
+                IColony winningColony = attackersWon ? war.getAttackerColony() : war.getColony();
+                Map<UUID, Integer> losingParticipants = attackersWon ? war.getDefenderLives() : war.getAttackerLives();
                 
-                // Apply team economic penalties
-                long amountTransferred = 0;
-                // Get all losers' UUIDs
-                List<UUID> losers = new ArrayList<>(attackersWon ? war.getDefenderLives().keySet() : war.getAttackerLives().keySet());
+                // Select single winner (prioritizes owner > officers > participants)
+                UUID singleWinnerUUID = selectSingleWarWinner(winningColony, winningParticipants.keySet());
+                ServerPlayer singleWinner = war.getColony().getWorld().getServer().getPlayerList().getPlayer(singleWinnerUUID);
                 
-                // For each loser, transfer a percentage of their balance to the winner team
-                for (UUID loserUUID : losers) {
+                // Apply team economic penalties - transfer from ALL losers to SINGLE winner
+                long totalCollected = 0;
+                List<String> transactionDetails = new ArrayList<>();
+                
+                // Collect from all losing participants
+                for (UUID loserUUID : losingParticipants.keySet()) {
                     ServerPlayer loser = war.getColony().getWorld().getServer().getPlayerList().getPlayer(loserUUID);
                     if (loser != null) {
-                        if (winnerRepresentative != null) {
-                            // Transfer from loser to winner representative
-                            amountTransferred += WarEconomyHandler.transferBalanceToPlayer(loserUUID, winnerRepresentative.getUUID(), transferPercentage);
-                        } else {
-                            // Just deduct from loser if no winner is online
-                            amountTransferred += WarEconomyHandler.deductTeamBalanceWithReport(loserUUID, transferPercentage);
+                        long loserBalance = net.machiavelli.minecolonytax.integration.SDMShopIntegration.getMoney(loser);
+                        long transferAmount = Math.max(1, (long)(loserBalance * transferPercentage));
+                        
+                        if (transferAmount > 0 && loserBalance >= transferAmount) {
+                            net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(loser, loserBalance - transferAmount);
+                            totalCollected += transferAmount;
+                            
+                            // Notify losing participant
+                            loser.sendSystemMessage(Component.literal("⚔️ WAR DEFEAT PENALTY ⚔️")
+                                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                                .append(Component.literal("\nYou lost $" + transferAmount + " due to war defeat!")
+                                       .withStyle(ChatFormatting.RED)));
+                            
+                            transactionDetails.add(loser.getName().getString() + " lost $" + transferAmount);
                         }
                     }
                 }
                 
-                totalTransferred = amountTransferred;
+                // Award all collected funds to single winner
+                if (totalCollected > 0 && singleWinner != null) {
+                    long currentBalance = net.machiavelli.minecolonytax.integration.SDMShopIntegration.getMoney(singleWinner);
+                    net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(singleWinner, currentBalance + totalCollected);
+                    
+                    // Notify winner
+                    singleWinner.sendSystemMessage(Component.literal("🏆 WAR VICTORY REWARD 🏆")
+                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                        .append(Component.literal("\nYou received $" + totalCollected + " as war reparations!")
+                               .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)));
+                    
+                    // Send transaction summary to all participants only
+                    Component transactionSummary = Component.literal("💰 WAR ECONOMY TRANSACTIONS 💰")
+                        .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)
+                        .append(Component.literal("\n" + String.join("\n", transactionDetails))
+                               .withStyle(ChatFormatting.GRAY))
+                        .append(Component.literal("\nTotal awarded to " + singleWinner.getName().getString() + ": $" + totalCollected)
+                               .withStyle(ChatFormatting.GREEN));
+                    
+                    sendMessageToWarParticipants(war, transactionSummary);
+                }
+                
+                totalTransferred = totalCollected;
             } else {
-                // Individual transfers between colony owners or war initiators
-                UUID winnerUUID = attackersWon ? war.getAttacker() : war.getColony().getPermissions().getOwner();
+                // Individual transfers - ensure single winner selection
+                Map<UUID, Integer> winningParticipants = attackersWon ? war.getAttackerLives() : war.getDefenderLives();
+                IColony winningColony = attackersWon ? war.getAttackerColony() : war.getColony();
                 UUID loserUUID = attackersWon ? war.getColony().getPermissions().getOwner() : war.getAttacker();
                 
-                ServerPlayer winner = war.getColony().getWorld().getServer().getPlayerList().getPlayer(winnerUUID);
+                // Select single winner (prioritizes owner > officers > participants)
+                UUID singleWinnerUUID = selectSingleWarWinner(winningColony, winningParticipants.keySet());
+                
+                ServerPlayer singleWinner = war.getColony().getWorld().getServer().getPlayerList().getPlayer(singleWinnerUUID);
                 ServerPlayer loser = war.getColony().getWorld().getServer().getPlayerList().getPlayer(loserUUID);
                 
-                if (winner != null && loser != null) {
-                    totalTransferred = (long) WarEconomyHandler.transferBalanceToPlayer(loserUUID, winnerUUID, transferPercentage);
+                if (singleWinner != null && loser != null) {
+                    totalTransferred = (long) WarEconomyHandler.transferBalanceToPlayer(loserUUID, singleWinnerUUID, transferPercentage);
+                    
+                    // Send participant-only notification
+                    Component individualTransferMsg = Component.literal("💰 WAR VICTORY TRANSFER 💰")
+                        .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)
+                        .append(Component.literal("\n" + loser.getName().getString() + " lost $" + totalTransferred)
+                               .withStyle(ChatFormatting.RED))
+                        .append(Component.literal("\nAwarded to " + singleWinner.getName().getString())
+                               .withStyle(ChatFormatting.GREEN));
+                    
+                    sendMessageToWarParticipants(war, individualTransferMsg);
                 }
             }
         } else {
@@ -676,28 +758,19 @@ public class WarSystem {
                     
                     totalTransferred = reparationsAmount;
                     
-                    // Announce to both colony owners if they are online
-                    if (loserColony.getPermissions() != null && loserColony.getPermissions().getOwner() != null) {
-                        ServerPlayer loserOwner = loserColony.getWorld().getServer().getPlayerList()
-                            .getPlayer(loserColony.getPermissions().getOwner());
-                        if (loserOwner != null) {
-                            Component message = Component.literal("Your colony has paid " + reparationsAmount + 
-                                    " in war reparations! Colony tax: " + TaxManager.getStoredTaxForColony(loserColony))
-                                    .withStyle(ChatFormatting.RED);
-                            loserOwner.sendSystemMessage(message);
-                        }
-                    }
+                    // Send detailed colony tax transfer notification to participants only
+                    Component colonyTaxTransferMsg = Component.literal("🏛️ COLONY TAX REPARATIONS 🏛️")
+                        .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)
+                        .append(Component.literal("\n" + loserColony.getName() + " colony tax reduced by " + reparationsAmount)
+                               .withStyle(ChatFormatting.RED))
+                        .append(Component.literal("\n" + winnerColony.getName() + " colony tax increased by " + reparationsAmount)
+                               .withStyle(ChatFormatting.GREEN))
+                        .append(Component.literal("\nLoser colony tax: " + TaxManager.getStoredTaxForColony(loserColony))
+                               .withStyle(ChatFormatting.GRAY))
+                        .append(Component.literal("\nWinner colony tax: " + TaxManager.getStoredTaxForColony(winnerColony))
+                               .withStyle(ChatFormatting.GRAY));
                     
-                    if (winnerColony.getPermissions() != null && winnerColony.getPermissions().getOwner() != null) {
-                        ServerPlayer winnerOwner = winnerColony.getWorld().getServer().getPlayerList()
-                            .getPlayer(winnerColony.getPermissions().getOwner());
-                        if (winnerOwner != null) {
-                            Component message = Component.literal("Your colony has received " + reparationsAmount + 
-                                    " in war reparations! Colony tax: " + TaxManager.getStoredTaxForColony(winnerColony))
-                                    .withStyle(ChatFormatting.GREEN);
-                            winnerOwner.sendSystemMessage(message);
-                        }
-                    }
+                    sendMessageToWarParticipants(war, colonyTaxTransferMsg);
                 }
             } else {
                 // Backup to player inventory transfers if colonies are not available
@@ -705,19 +778,34 @@ public class WarSystem {
                 long amountTransferred = 0;
                 List<UUID> losers = new ArrayList<>(attackersWon ? war.getDefenderLives().keySet() : war.getAttackerLives().keySet());
                 
-                // Choose a representative from the winners to receive the funds
-                ServerPlayer winnerRepresentative = null;
-                for (UUID uuid : attackersWon ? war.getAttackerLives().keySet() : war.getDefenderLives().keySet()) {
-                    winnerRepresentative = war.getColony().getWorld().getServer().getPlayerList().getPlayer(uuid);
-                    if (winnerRepresentative != null) break;
-                }
+                // Select single winner using priority system (owner > officers > participants)
+                Map<UUID, Integer> winningParticipants = attackersWon ? war.getAttackerLives() : war.getDefenderLives();
+                IColony winningColony = attackersWon ? war.getAttackerColony() : war.getColony();
+                UUID singleWinnerUUID = selectSingleWarWinner(winningColony, winningParticipants.keySet());
+                ServerPlayer singleWinner = war.getColony().getWorld().getServer().getPlayerList().getPlayer(singleWinnerUUID);
                 
-                if (winnerRepresentative != null) {
+                if (singleWinner != null) {
+                    List<String> transactionDetails = new ArrayList<>();
+                    
                     for (UUID loserUUID : losers) {
                         ServerPlayer loser = war.getColony().getWorld().getServer().getPlayerList().getPlayer(loserUUID);
                         if (loser != null) {
-                            amountTransferred += WarEconomyHandler.transferBalanceToPlayer(loserUUID, winnerRepresentative.getUUID(), transferPercentage);
+                            long transferred = (long) WarEconomyHandler.transferBalanceToPlayer(loserUUID, singleWinner.getUUID(), transferPercentage);
+                            amountTransferred += transferred;
+                            transactionDetails.add(loser.getName().getString() + " lost " + transferred + " coins");
                         }
+                    }
+                    
+                    // Send transaction summary to participants only
+                    if (amountTransferred > 0) {
+                        Component inventoryTransferMsg = Component.literal("💰 WAR INVENTORY TRANSFERS 💰")
+                            .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)
+                            .append(Component.literal("\n" + String.join("\n", transactionDetails))
+                                   .withStyle(ChatFormatting.GRAY))
+                            .append(Component.literal("\nTotal awarded to " + singleWinner.getName().getString() + ": " + amountTransferred + " coins")
+                                   .withStyle(ChatFormatting.GREEN));
+                        
+                        sendMessageToWarParticipants(war, inventoryTransferMsg);
                     }
                 }
                 
@@ -735,16 +823,66 @@ public class WarSystem {
         
         war.setPenaltyReport("War reparations: " + totalTransferred + " transferred from " + loserColonyName + " to " + winnerColonyName);
         
-        // Announce the economic transfer
+        // Send economy summary to participants only (not global broadcast)
         if (totalTransferred > 0) {
-            Component ecoMsg = Component.literal("War Reparations: ").withStyle(ChatFormatting.GOLD)
-                .append(Component.literal(loserColonyName).withStyle(ChatFormatting.RED))
+            Component ecoMsg = Component.literal("🏆 WAR ECONOMIC RESULT 🏆").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                .append(Component.literal("\n" + loserColonyName).withStyle(ChatFormatting.RED))
                 .append(Component.literal(" has paid ").withStyle(ChatFormatting.GOLD))
                 .append(Component.literal(String.valueOf(totalTransferred)).withStyle(ChatFormatting.YELLOW))
                 .append(Component.literal(" in war reparations to ").withStyle(ChatFormatting.GOLD))
                 .append(Component.literal(winnerColonyName).withStyle(ChatFormatting.GREEN));
                 
-            war.getColony().getWorld().getServer().getPlayerList().broadcastSystemMessage(ecoMsg, false);
+            // Send only to war participants, not the whole server
+            sendMessageToWarParticipants(war, ecoMsg);
+        }
+    }
+
+    /**
+     * Selects a single winner from the winning side to receive all rewards.
+     * Prioritizes colony owner, then officers, then any participant.
+     * @param winningColony The winning colony
+     * @param participants Set of winning participants
+     * @return UUID of the selected winner
+     */
+    private static UUID selectSingleWarWinner(IColony winningColony, Set<UUID> participants) {
+        // First priority: Colony owner if they participated
+        UUID owner = winningColony.getPermissions().getOwner();
+        if (participants.contains(owner)) {
+            return owner;
+        }
+        
+        // Second priority: Any officer who participated
+        for (UUID participantUUID : participants) {
+            Rank rank = winningColony.getPermissions().getRank(participantUUID);
+            if (rank != null && rank.isColonyManager()) {
+                return participantUUID;
+            }
+        }
+        
+        // Third priority: Any participant (shouldn't happen if owner/officers exist)
+        if (!participants.isEmpty()) {
+            return participants.iterator().next();
+        }
+        
+        // Fallback: Colony owner even if they didn't participate
+        return owner;
+    }
+    
+    /**
+     * Sends a message to all war participants only.
+     * @param war The war data
+     * @param message The message to send
+     */
+    private static void sendMessageToWarParticipants(WarData war, Component message) {
+        Set<UUID> allParticipants = new HashSet<>();
+        allParticipants.addAll(war.getAttackerLives().keySet());
+        allParticipants.addAll(war.getDefenderLives().keySet());
+        
+        for (UUID participantUUID : allParticipants) {
+            ServerPlayer participant = war.getColony().getWorld().getServer().getPlayerList().getPlayer(participantUUID);
+            if (participant != null) {
+                participant.sendSystemMessage(message);
+            }
         }
     }
 
@@ -772,6 +910,9 @@ public class WarSystem {
             if (warData.getAttackerColony() != null) {
                 GuardResistanceHandler.removeResistanceFromGuardsForWar(warData.getAttackerColony());
             }
+            
+            // Clean up militia system for both colonies
+            cleanupWarMilitiaSystem(warData);
         }
         
         // Disable war actions for both sides
@@ -1698,10 +1839,24 @@ public class WarSystem {
             source.sendFailure(Component.literal("You must own a colony to declare war."));
             return 0;
         }
+        // Check requirements: Building requirements take priority over simple guard count
+        if (TaxConfig.isWarBuildingRequirementsEnabled()) {
+            // Use new building requirements system (includes guard towers and other buildings)
+            net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager.RequirementResult warRequirements = 
+                    net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager.checkWarRequirements(attackerColony);
+            
+            if (!warRequirements.meetsRequirements) {
+                source.sendFailure(Component.literal("Cannot declare war: " + warRequirements.message)
+                        .withStyle(ChatFormatting.RED));
+                return 0;
+            }
+        } else {
+            // Fall back to legacy guard count system
         int attackerGuards = countGuards(attackerColony);
         if (attackerGuards < TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get()) { 
             source.sendFailure(Component.literal("Your colony must have at least " + TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get() + " guards! (Found: " + attackerGuards + ")"));
             return 0;
+            }
         }
         if (targetColony.getID() == attackerColony.getID()) {
             source.sendFailure(Component.literal("Cannot declare war on your own colony!"));
@@ -1817,10 +1972,24 @@ public class WarSystem {
             source.sendFailure(Component.literal("You must own a colony to declare war."));
             return 0;
         }
+        // Check requirements: Building requirements take priority over simple guard count
+        if (TaxConfig.isWarBuildingRequirementsEnabled()) {
+            // Use new building requirements system (includes guard towers and other buildings)
+            net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager.RequirementResult warRequirements = 
+                    net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager.checkWarRequirements(attackerColony);
+            
+            if (!warRequirements.meetsRequirements) {
+                source.sendFailure(Component.literal("Cannot declare war: " + warRequirements.message)
+                        .withStyle(ChatFormatting.RED));
+                return 0;
+            }
+        } else {
+            // Fall back to legacy guard count system
         int attackerGuards = countGuards(attackerColony);
         if (attackerGuards < TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get()) { 
             source.sendFailure(Component.literal("Your colony must have at least " + TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get() + " guards! (Found: " + attackerGuards + ")"));
             return 0;
+            }
         }
         if (targetColony.getID() == attackerColony.getID()) {
             source.sendFailure(Component.literal("Cannot declare war on your own colony!"));
@@ -2286,6 +2455,112 @@ public class WarSystem {
         return (int) colony.getCitizenManager().getCitizens().stream()
                 .filter(c -> c.getJob() != null && c.getJob().isGuard())
                 .count();
+    }
+    
+    /**
+     * Initialize the militia system for both colonies in a war for proper guard/militia tracking.
+     * @param war The war data containing both colonies
+     */
+    private static void initializeWarMilitiaSystem(WarData war) {
+        // Initialize tracking for defending colony
+        net.machiavelli.minecolonytax.militia.CitizenMilitiaManager.getInstance()
+            .initializeColonyMilitia(war.getColony().getID());
+        
+        // Initialize tracking for attacking colony (if available)
+        if (war.getAttackerColony() != null) {
+            net.machiavelli.minecolonytax.militia.CitizenMilitiaManager.getInstance()
+                .initializeColonyMilitia(war.getAttackerColony().getID());
+        }
+        
+        WARSYSTEM_LOGGER.info("Initialized militia tracking system for war between {} and {}", 
+            war.getAttackerColony() != null ? war.getAttackerColony().getName() : "Unknown",
+            war.getColony().getName());
+    }
+    
+    /**
+     * Activate militia for both colonies in a war if militia system is enabled.
+     * @param war The war data containing both colonies
+     */
+    private static void activateWarMilitia(WarData war) {
+        if (!TaxConfig.ENABLE_CITIZEN_MILITIA.get()) {
+            // Even if militia is disabled, we need to set the total defender count for kill tracking
+            setWarDefenderCounts(war);
+            WARSYSTEM_LOGGER.info("Militia disabled - Set defender counts for war without militia activation");
+            return;
+        }
+        
+        // Activate militia for defending colony
+        int defenderMilitia = net.machiavelli.minecolonytax.militia.CitizenMilitiaManager.getInstance()
+            .activateMilitia(war.getColony());
+        
+        if (defenderMilitia > 0) {
+            sendColonyMessage(war.getColony(), Component.literal("⚔ WAR MILITIA ACTIVATED ⚔")
+                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                .append(Component.literal("\n" + defenderMilitia + " citizens have joined the militia to defend against the war!")
+                       .withStyle(ChatFormatting.YELLOW)));
+        }
+        
+        // Activate militia for attacking colony (if available)
+        int attackerMilitia = 0;
+        if (war.getAttackerColony() != null) {
+            attackerMilitia = net.machiavelli.minecolonytax.militia.CitizenMilitiaManager.getInstance()
+                .activateMilitia(war.getAttackerColony());
+            
+            if (attackerMilitia > 0) {
+                sendColonyMessage(war.getAttackerColony(), Component.literal("⚔ WAR MILITIA ACTIVATED ⚔")
+                    .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
+                    .append(Component.literal("\n" + attackerMilitia + " citizens have joined the militia for the war effort!")
+                           .withStyle(ChatFormatting.YELLOW)));
+            }
+        }
+        
+        WARSYSTEM_LOGGER.info("Activated war militia - Defenders: {} militia, Attackers: {} militia", 
+            defenderMilitia, attackerMilitia);
+    }
+    
+    /**
+     * Set defender counts for war when militia is disabled but tracking is still needed.
+     * @param war The war data containing both colonies
+     */
+    private static void setWarDefenderCounts(WarData war) {
+        // Count guards in defending colony
+        int defenderGuards = countGuards(war.getColony());
+        net.machiavelli.minecolonytax.militia.CitizenMilitiaManager.getInstance()
+            .setTotalDefenders(war.getColony().getID(), defenderGuards);
+        
+        // Count guards in attacking colony (if available)
+        if (war.getAttackerColony() != null) {
+            int attackerGuards = countGuards(war.getAttackerColony());
+            net.machiavelli.minecolonytax.militia.CitizenMilitiaManager.getInstance()
+                .setTotalDefenders(war.getAttackerColony().getID(), attackerGuards);
+        }
+        
+        WARSYSTEM_LOGGER.info("Set war defender counts - Defending guards: {}, Attacking guards: {}", 
+            defenderGuards, war.getAttackerColony() != null ? countGuards(war.getAttackerColony()) : 0);
+    }
+    
+    /**
+     * Clean up the militia system for both colonies when a war ends.
+     * @param war The war data containing both colonies
+     */
+    private static void cleanupWarMilitiaSystem(WarData war) {
+        // Deactivate and cleanup militia for defending colony
+        net.machiavelli.minecolonytax.militia.CitizenMilitiaManager.getInstance()
+            .deactivateMilitia(war.getColony());
+        net.machiavelli.minecolonytax.militia.CitizenMilitiaManager.getInstance()
+            .clearColonyMilitia(war.getColony().getID());
+        
+        // Deactivate and cleanup militia for attacking colony (if available)
+        if (war.getAttackerColony() != null) {
+            net.machiavelli.minecolonytax.militia.CitizenMilitiaManager.getInstance()
+                .deactivateMilitia(war.getAttackerColony());
+            net.machiavelli.minecolonytax.militia.CitizenMilitiaManager.getInstance()
+                .clearColonyMilitia(war.getAttackerColony().getID());
+        }
+        
+        WARSYSTEM_LOGGER.info("Cleaned up militia system for war between {} and {}", 
+            war.getAttackerColony() != null ? war.getAttackerColony().getName() : "Unknown",
+            war.getColony().getName());
     }
 
     /**

@@ -5,6 +5,113 @@ All notable changes to the War N Tax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2025-09-19
+
+### 🏛️ Colony Auto-Abandonment & Claiming System
+
+- **NEW FEATURE**: **Automatic Colony Abandonment** - Colonies automatically become abandoned after a configurable period of owner/officer inactivity (default: 2 weeks).
+- **Colony Claiming Raids**: Abandoned colonies can be claimed by eligible players using `/wnt claimcolony <colony>`, triggering a 5-minute raid where:
+  - All citizens become hostile militia with resistance effects
+  - Mercenaries spawn if fewer than 5 citizens/guards exist
+  - Victory conditions: Timer expires OR all defenders eliminated
+  - Successful claimers automatically become Officers of the colony
+- **Offline Notifications**: Players receive notifications when rejoining if their colony was abandoned or claimed while offline.
+- **Admin Commands**: `/wnt forceabandon <colony>` for manual colony abandonment.
+- **Smart Entry Messages**: Players entering abandoned colonies see claimability status and eligibility requirements.
+
+#### Configuration Options:
+- `AutoAbandonmentEnabled` (default: true)
+- `ColonyInactivityDays` (default: 14)
+- `ClaimingRaidDurationMinutes` (default: 5)
+- `ClaimingRequirements` (configurable building/level requirements)
+
+### 🏗️ Advanced Building Requirements System
+
+- **NEW FEATURE**: **Configurable Building Requirements** for raids, wars, and colony claiming.
+- **Smart Format**: `building:level:amount` syntax (e.g., `townhall:2:1,guardtower:1:3`).
+- **Priority System**: Building requirements take precedence over legacy guard count settings when enabled.
+- **Conflict Resolution**: Automatic handling of conflicting configuration values.
+
+#### Default Requirements:
+- **Raids**: Townhall (level 1) + 3 Guard Towers (level 1)
+- **Wars**: Townhall (level 2) + 3 Guard Towers (level 1) + Builder's Hut (level 1) + 1 Residential Hut (level 1)
+- **Colony Claiming**: Configurable (default: owning a colony with 3 guards)
+
+#### Configuration Options:
+- `EnableRaidBuildingRequirements` / `EnableWarBuildingRequirements`
+- `RaidBuildingRequirements` / `WarBuildingRequirements`
+- Legacy settings (`MinGuardsToRaid`, `MinGuardsToWageWar`) used as fallback when building requirements disabled
+
+### ⚔️ Enhanced War Completion & Economy System
+
+- **MAJOR OVERHAUL**: **Single Winner Reward System** - Only ONE player (colony owner/officer) receives ALL war rewards.
+- **Priority-Based Selection**: Rewards distributed in order: Colony Owner > Officers > Any Participant > Fallback to Owner.
+- **Comprehensive Participant Handling**: ALL losing participants have their balance deducted when wars are lost.
+- **Multi-Economy Support**: Full compatibility with SDMShop, inventory-based currency, and colony tax systems.
+- **Participant-Only Messaging**: War economy transactions now only visible to war participants (no server-wide spam).
+- **Colony Transfer Integration**: Automatic colony ownership transfer when enabled and attackers win.
+
+#### Economy Features:
+- **SDMShop Integration**: Direct balance transfers between participants
+- **Inventory Currency**: Physical item transfers with detailed tracking
+- **Colony Tax System**: Tax pool transfers between colonies
+- **Transaction Transparency**: Detailed breakdowns showing who lost/gained what amounts
+
+### 🛡️ Enhanced War Participation System
+
+- **IMPROVED**: **Officer & Friendly War Invitations** - All colony Officers and Friendlies now receive comprehensive war join prompts.
+- **Detailed Notifications**: Rich, formatted messages explaining war status, player roles, and join options.
+- **Multi-Level Support**: Colony-based invitations + FTB Teams integration for broader participation.
+- **Clear Role Communication**: Players informed of their rank and eligibility status.
+
+#### Notification Types:
+- **⚔️ WAR DECLARED**: For attacking colony members
+- **🛡️ COLONY UNDER ATTACK**: For defending colony members  
+- **⚔️ TEAM WAR DECLARED**: For FTB Teams attackers
+- **🛡️ TEAM COLONY UNDER ATTACK**: For FTB Teams defenders
+
+### 🎯 Raid Progress Tracking Fixes
+
+- **FIXED**: **Boss Bar Progress Display** - Raid progress now correctly shows "X/Y Guards" killed instead of "0/Y".
+- **Self-Healing System**: Automatic detection and correction of defender count initialization issues.
+- **Enhanced Debugging**: Comprehensive logging for progress tracking troubleshooting.
+- **Universal Compatibility**: Works with militia enabled/disabled configurations.
+
+### 💰 Kill Counter & Tax Reward Improvements
+
+- **FIXED**: **Claiming Raid Kill Tracking** - Guards and militia kills during claiming raids now properly trigger tax rewards.
+- **Immediate Tax Awards**: Per-kill tax rewards during claiming raids with proper balance integration.
+- **Enhanced Death Penalties**: Improved raider death penalty system with raid-specific messaging.
+- **Economy Integration**: Seamless SDMShop and colony tax system integration for all reward types.
+
+### 📋 New Commands & Features
+
+#### New Commands:
+- `/wnt claimcolony <colony>` - Claim an abandoned colony
+- `/wnt listabandoned` - List all abandoned colonies  
+- `/wnt forceabandon <colony>` - Admin-only colony abandonment
+
+#### Enhanced Commands:
+- `/wnt help raid` / `/wnt help wagewar` - Now show building requirements or legacy guard requirements based on configuration
+- All commands now provide clearer feedback and requirement validation
+
+### 🔧 Technical Improvements
+
+- **New Classes**:
+  - `ColonyAbandonmentManager` - Handles automatic abandonment and notifications
+  - `ColonyClaimingRaidManager` - Manages claiming raid mechanics
+  - `BuildingRequirementsManager` - Centralized building requirement validation
+  - `CitizenMilitiaManager` - Enhanced militia and kill tracking
+- **Enhanced Classes**:
+  - `WarSystem` - Complete war completion overhaul
+  - `RaidManager` - Building requirements integration
+  - `PvPKillEconomyHandler` - Enhanced death penalty system
+  - `WarEconomyHandler` - Public API methods for economy integration
+
+- **MineColonies Hut Recipe Toggle**: Added config-driven recipe disabling for MineColonies building huts. New key `DisableHutRecipes` under `["War Settings"."Recipe Disabling"]` injects/removes a world datapack (`mct_disable_huts`) on world start to disable/restore all hut recipes. Works in singleplayer and servers; no manual datapack management required.
+
+---
+
 ## [3.1.0] - 2025-09-11
 
 ### 🗡️ Raider Guard Kill Tax Stealing

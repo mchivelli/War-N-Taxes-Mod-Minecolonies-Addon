@@ -4,6 +4,8 @@ import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.network.NetworkHandler;
 import net.machiavelli.minecolonytax.vassalization.VassalManager;
+import net.machiavelli.minecolonytax.recipe.ModRecipeSerializers;
+import net.machiavelli.minecolonytax.commands.RecipeDisableTestCommand;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -27,11 +29,18 @@ public class MineColonyTax {
         // Single registration prevents duplicate config files and .bak file proliferation
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, TaxConfig.CONFIG, "warntax/minecolonytax.toml");
         
+        // Register recipe serializers
+        ModRecipeSerializers.RECIPE_SERIALIZERS.register(FMLJavaModLoadingContext.get().getModEventBus());
+        
         // Register event listeners
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
         
         // Register server events (including ServerStartingEvent)
         MinecraftForge.EVENT_BUS.register(this);
+        
+        // Manually register RaidKillTracker to ensure it works
+        MinecraftForge.EVENT_BUS.register(net.machiavelli.minecolonytax.event.RaidKillTracker.class);
+        LOGGER.error("MANUALLY REGISTERED RaidKillTracker event handler!");
         
         LOGGER.info("MineColonyTax mod initialized with COMMON config type - no serverconfig creation");
     }
@@ -42,9 +51,12 @@ public class MineColonyTax {
             LOGGER.info("MineColonyTax setup complete");
         });
     }
-
+    
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
+        // Register commands
+        RecipeDisableTestCommand.register(event.getServer().getCommands().getDispatcher());
+        
         LOGGER.info("Server starting - initializing TaxManager with configured interval of {} minutes", TaxConfig.getTaxIntervalInMinutes());
         TaxManager.initialize(event.getServer());
         LOGGER.info("TaxManager initialization complete");

@@ -1,6 +1,9 @@
 #Optional debt limit for colony debt. If > 0, colony revenue will not deduct more once the debt reaches this limit (i.e. the tax value won't drop below -DebtLimit). Set to 0 to disable.
 #Range: > 0
 DebtLimit = 0
+#Amount of debt added to colony per guard killed when raiding colonies in debt. Only applies when DebtLimit > 0. Raiders get this amount when killing guards in debt colonies. Default: 200.
+#Range: 1 ~ 10000
+TaxStealPerGuard = 200
 
 ["Building Taxes"]
 	#Base tax for Fletcher
@@ -310,7 +313,7 @@ DebtLimit = 0
 	GuardTowerTaxBoostPercentage = 0.5
 	#If true, war requests must be manually accepted; if false, wars requests will automatically accept.
 	WarAcceptanceRequired = true
-	#Minimum number of guards required to initiate a raid
+	#Minimum number of guards required to initiate a raid. NOTE: This is only used when 'EnableRaidBuildingRequirements' is disabled. If building requirements are enabled, they take priority over this setting.
 	#Range: 1 ~ 100
 	MinGuardsToRaid = 3
 	#Enable raid guard protection system. When enabled, colonies must meet minimum defense requirements to be eligible for raids, protecting smaller/newer colonies from being overwhelmed.
@@ -349,7 +352,7 @@ DebtLimit = 0
 	RaidTaxIntervalSeconds = 60
 	#Actions permitted during a War. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.
 	WarActions = ["PLACE_BLOCKS", "BREAK_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY", "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN", "HURT_VISITOR", "THROW_POTION"]
-	#Minimum guards required to declare war
+	#Minimum guards required to declare war. NOTE: This is only used when 'EnableWarBuildingRequirements' is disabled. If building requirements are enabled, they take priority over this setting.
 	#Range: 1 ~ 100
 	MinGuardsToWageWar = 5
 	#Allow players to raid colonies even if the colony owner is offline.
@@ -455,6 +458,44 @@ DebtLimit = 0
 		#Percentage of victim's balance transferred to killer on PvP kill (0.0 - 1.0). For example: 0.1 = 10% of victim's money goes to killer. Uses SDMShop balance or colony funds based on configuration.
 		#Range: 0.0 ~ 1.0
 		PvPKillRewardPercentage = 0.1
+
+	["War Settings"."Colony Auto-Abandon"]
+		#Enable automatic colony abandonment when owners/officers haven't visited for the configured time. When enabled, colonies will be automatically abandoned and can be claimed by other players.
+		EnableColonyAutoAbandon = true
+		#Days of inactivity after which a colony will be automatically abandoned. This is measured by the last time any owner or officer visited the colony. Default: 14 days (2 weeks)
+		#Range: 1 ~ 365
+		ColonyAutoAbandonDays = 14
+		#If true, owners and officers will be notified before their colony is abandoned. Requires warning days to be configured.
+		NotifyOwnersBeforeAbandon = true
+		#Days before abandonment to warn owners and officers. Warnings are sent when they log in during this period.
+		#Range: 1 ~ 30
+		AbandonWarningDays = 3
+
+	["War Settings"."Abandoned Colony Claiming"]
+		#Enable claiming of abandoned colonies using the /wnt claimcolony command. When enabled, players can claim abandoned colonies, triggering a raid where all citizens become hostile militia.
+		EnableAbandonedColonyClaiming = true
+		#Minimum number of guards required to claim an abandoned colony. This ensures only established colonies can claim others.
+		#Range: 1 ~ 50
+		MinGuardsForClaimingRaid = 3
+		#Duration in minutes for the claiming raid when taking over an abandoned colony. During this time, all citizens will be hostile and attack the claiming player.
+		#Range: 1 ~ 60
+		ClaimingRaidDurationMinutes = 5
+		#If true, spawn mercenaries to defend the colony during claiming if there are fewer than 5 citizens/guards. This ensures abandoned colonies still put up a fight when being claimed.
+		SpawnMercenariesIfLowDefenders = true
+		#Building requirements to claim abandoned colonies. Format: 'building:level,building:level'. Example: 'townhall:2,guardtower:1' means player needs townhall level 2+ and at least one guard tower to claim. Leave empty to disable building requirements.
+		ClaimingBuildingRequirements = "townhall:2"
+
+	["War Settings"."Raid Building Requirements"]
+		#Enable building requirements for initiating raids. When enabled, these requirements take PRIORITY over 'MinGuardsToRaid' setting. Disable this to use the legacy guard count system instead.
+		EnableRaidBuildingRequirements = true
+		#Building requirements to initiate raids. Format: 'building:level:amount,building:level:amount'. Example: 'townhall:1:1,guardtower:1:3' means player needs 1 townhall level 1+ and 3 guard towers level 1+ to raid. NOTE: When this is enabled, it replaces the 'MinGuardsToRaid' requirement entirely. Leave empty to disable building requirements.
+		RaidBuildingRequirements = "townhall:1:1,guardtower:1:3"
+
+	["War Settings"."War Building Requirements"]
+		#Enable building requirements for declaring wars. When enabled, these requirements take PRIORITY over 'MinGuardsToWageWar' setting. Disable this to use the legacy guard count system instead.
+		EnableWarBuildingRequirements = true
+		#Building requirements to declare wars. Format: 'building:level:amount,building:level:amount'. Example: 'townhall:2:1,guardtower:1:3,buildershut:1:1,house:1:1' means player needs 1 townhall level 2+, 3 guard towers level 1+, 1 builders hut level 1+, and 1 residential building level 1+ to declare war. NOTE: When this is enabled, it replaces the 'MinGuardsToWageWar' requirement entirely. Leave empty to disable building requirements.
+		WarBuildingRequirements = "townhall:2:1,guardtower:1:3,buildershut:1:1,house:1:1"
 
 ["Military Maintenance Costs"]
 	#Base maintenance cost per hour for Barracks
