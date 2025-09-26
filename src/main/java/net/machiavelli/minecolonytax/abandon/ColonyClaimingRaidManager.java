@@ -108,7 +108,7 @@ public class ColonyClaimingRaidManager {
         // Log if this is a former owner/officer claiming back their colony
         boolean isFormerMember = ColonyAbandonmentManager.wasFormerOwnerOrOfficer(colony.getID(), claimingPlayer.getUUID());
         if (isFormerMember) {
-            LOGGER.info("🔄 RECLAIM ATTEMPT: Former owner/officer {} is attempting to reclaim their abandoned colony {}", 
+            LOGGER.info("RECLAIM ATTEMPT: Former owner/officer {} is attempting to reclaim their abandoned colony {}", 
                 claimingPlayer.getName().getString(), colony.getName());
             claimingPlayer.sendSystemMessage(Component.literal("You are reclaiming your former colony. Requirements bypassed but you must complete the claiming raid!")
                     .withStyle(ChatFormatting.YELLOW));
@@ -144,13 +144,15 @@ public class ColonyClaimingRaidManager {
             colony.getPermissions().setPlayerRank(claimingPlayer.getUUID(), colony.getPermissions().getRankHostile(), colony.getWorld());
             setClaimingInteractionPermissions(colony, true);
             
-            // Notify players
-            MutableComponent startMessage = Component.literal("🏰 COLONY CLAIMING RAID STARTED! 🏰")
+            // Notify players with clear victory conditions
+            MutableComponent startMessage = Component.literal("COLONY CLAIMING RAID STARTED!")
                     .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
                     .append(Component.literal("\n" + claimingPlayer.getName().getString() + " is attempting to claim the abandoned colony of ")
                            .withStyle(ChatFormatting.YELLOW))
                     .append(Component.literal(colony.getName() + "!")
                            .withStyle(ChatFormatting.GOLD))
+                    .append(Component.literal("\nVICTORY CONDITION: Kill ALL " + (citizenCount + mercenaryCount) + " defenders!")
+                           .withStyle(ChatFormatting.RED, ChatFormatting.BOLD))
                     .append(Component.literal("\nDefenders: " + citizenCount + " citizen militia")
                            .withStyle(ChatFormatting.RED));
             
@@ -158,6 +160,9 @@ public class ColonyClaimingRaidManager {
                 startMessage.append(Component.literal(" + " + mercenaryCount + " mercenaries")
                         .withStyle(ChatFormatting.DARK_RED));
             }
+            
+            startMessage.append(Component.literal("\nTimer expiration = DEFENDER VICTORY!")
+                    .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
             
             // Broadcast to all players in the area
             broadcastToNearbyPlayers(colony, startMessage, 200);
@@ -303,18 +308,13 @@ public class ColonyClaimingRaidManager {
         raidData.bossEvent = new ServerBossEvent(bossBarText, BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
         raidData.bossEvent.addPlayer(claimingPlayer);
         
-        // Add other nearby players to boss bar
-        if (claimingPlayer.getServer() != null) {
-            for (ServerPlayer player : claimingPlayer.getServer().getPlayerList().getPlayers()) {
-                if (player.distanceToSqr(claimingPlayer) < 200 * 200) {
-                    raidData.bossEvent.addPlayer(player);
-                }
-            }
-        }
+        // Note: Additional players can be added to boss bar during raid updates if needed
     }
     
     /**
      * Update all active claiming raids.
+     * VICTORY CONDITION: Attackers can ONLY win by killing ALL defenders.
+     * Timer expiration always results in failure.
      */
     public static void updateClaimingRaids() {
         Iterator<Map.Entry<Integer, ClaimingRaidData>> iterator = activeClaimingRaids.entrySet().iterator();
@@ -323,8 +323,9 @@ public class ColonyClaimingRaidManager {
             Map.Entry<Integer, ClaimingRaidData> entry = iterator.next();
             ClaimingRaidData raidData = entry.getValue();
             
+            // CRITICAL: Timer expiration is ALWAYS a failure - attackers must kill all defenders to win
             if (raidData.isExpired()) {
-                endClaimingRaid(raidData, "Time expired");
+                endClaimingRaid(raidData, "Time expired - defenders successfully held the colony!");
                 iterator.remove();
             } else {
                 updateRaidBossBar(raidData);
@@ -335,6 +336,7 @@ public class ColonyClaimingRaidManager {
     
     /**
      * Update the boss bar for a claiming raid.
+     * Shows defender count to emphasize that ALL must be killed to win.
      */
     private static void updateRaidBossBar(ClaimingRaidData raidData) {
         if (raidData.bossEvent == null) return;
@@ -351,15 +353,36 @@ public class ColonyClaimingRaidManager {
         IColony colony = getColonyById(raidData.colonyId);
         String colonyName = colony != null ? colony.getName() : "Unknown";
         
-        Component newText = Component.literal("Claiming " + colonyName + " - Time: " + 
-                                            String.format("%02d:%02d", minutes, seconds))
+        // Count remaining defenders to show progress
+        int aliveDefenderCount = 0;
+        if (colony != null) {
+            // Count living citizens
+            for (Integer citizenId : raidData.hostileCitizens) {
+                ICitizenData citizenData = colony.getCitizenManager().getCivilian(citizenId);
+                if (citizenData != null && citizenData.getEntity().isPresent() && 
+                    citizenData.getEntity().get().isAlive()) {
+                    aliveDefenderCount++;
+                }
+            }
+            
+            // Count living mercenaries
+            for (Entity mercenary : raidData.spawnedMercenaries) {
+                if (mercenary.isAlive()) {
+                    aliveDefenderCount++;
+                }
+            }
+        }
+        
+        Component newText = Component.literal("Claiming " + colonyName + " - Defenders: " + aliveDefenderCount + 
+                                            " - Time: " + String.format("%02d:%02d", minutes, seconds))
                 .withStyle(ChatFormatting.RED, ChatFormatting.BOLD);
         
         raidData.bossEvent.setName(newText);
     }
     
     /**
-     * Check if the raid conditions have been met (claiming player died, all defenders dead, etc.)
+     * Check if the raid conditions have been met.
+     * VICTORY CONDITION: Attackers can ONLY win by killing ALL defenders - no other victory conditions exist!
      */
     private static void checkRaidConditions(ClaimingRaidData raidData) {
         try {
@@ -371,39 +394,44 @@ public class ColonyClaimingRaidManager {
                 return;
             }
             
-            // Check if claiming player is still in the area
+            // Check if claiming player is still in the area - they must stay and fight!
             double distance = claimingPlayer.distanceToSqr(raidData.colonyCenter.getX(), 
                     raidData.colonyCenter.getY(), raidData.colonyCenter.getZ());
             if (distance > 100 * 100) { // 100 block radius
-                endClaimingRaid(raidData, "Claiming player left the area");
+                endClaimingRaid(raidData, "Claiming player left the area - defenders win!");
                 return;
             }
             
-            // Check if all defenders are dead
-            boolean anyDefendersAlive = false;
+            // CRITICAL CHECK: Count all living defenders - attackers must kill EVERY SINGLE ONE
+            int aliveDefenderCount = 0;
             
-            // Check citizens
+            // Count living citizens that were converted to militia
             for (Integer citizenId : raidData.hostileCitizens) {
                 ICitizenData citizenData = colony.getCitizenManager().getCivilian(citizenId);
                 if (citizenData != null && citizenData.getEntity().isPresent() && 
                     citizenData.getEntity().get().isAlive()) {
-                    anyDefendersAlive = true;
-                    break;
+                    aliveDefenderCount++;
                 }
             }
             
-            // Check mercenaries
-            if (!anyDefendersAlive) {
-                for (Entity mercenary : raidData.spawnedMercenaries) {
-                    if (mercenary.isAlive()) {
-                        anyDefendersAlive = true;
-                        break;
-                    }
+            // Count living mercenaries
+            for (Entity mercenary : raidData.spawnedMercenaries) {
+                if (mercenary.isAlive()) {
+                    aliveDefenderCount++;
                 }
             }
             
-            if (!anyDefendersAlive) {
+            // VICTORY CONDITION: All defenders must be dead - no shortcuts, no idle victories!
+            if (aliveDefenderCount == 0) {
+                LOGGER.info("CLAIMING RAID VICTORY: All {} defenders eliminated in colony {} by {}", 
+                    raidData.hostileCitizens.size() + raidData.spawnedMercenaries.size(),
+                    colony.getName(), 
+                    claimingPlayer.getName().getString());
                 completeClaimingRaid(raidData, true);
+            } else {
+                // Log remaining defenders for transparency
+                LOGGER.debug("Claiming raid progress - {} defenders remaining in colony {}", 
+                    aliveDefenderCount, colony.getName());
             }
             
         } catch (Exception e) {
@@ -455,7 +483,7 @@ public class ColonyClaimingRaidManager {
             }
             
             // Notify about failure
-            Component failureMessage = Component.literal("🏰 COLONY CLAIMING RAID FAILED 🏰")
+            Component failureMessage = Component.literal("COLONY CLAIMING RAID FAILED")
                     .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)
                     .append(Component.literal("\nReason: " + reason)
                            .withStyle(ChatFormatting.RED));
@@ -501,7 +529,7 @@ public class ColonyClaimingRaidManager {
             if (isFormerMember) {
                 // Former owners get officer rank initially, but can work toward ownership again
                 newRank = colony.getPermissions().getRankOfficer();
-                LOGGER.info("🔄 RECLAIMED: Former owner/officer {} has reclaimed colony {} and set as Officer", 
+                LOGGER.info("RECLAIMED: Former owner/officer {} has reclaimed colony {} and set as Officer", 
                     claimingPlayer.getName().getString(), colony.getName());
             }
             
@@ -543,7 +571,7 @@ public class ColonyClaimingRaidManager {
             
             if (isFormerMember) {
                 // Former owner/officer reclaimed their colony
-                successMessage = Component.literal("🔄 COLONY RECLAIMED! 🔄")
+                successMessage = Component.literal("COLONY RECLAIMED!")
                         .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)
                         .append(Component.literal("\n" + claimingPlayer.getName().getString() + " has reclaimed their former colony ")
                                .withStyle(ChatFormatting.YELLOW))
@@ -555,7 +583,7 @@ public class ColonyClaimingRaidManager {
                         .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD);
             } else {
                 // New claimer
-                successMessage = Component.literal("🏰 COLONY CLAIMED SUCCESSFULLY! 🏰")
+                successMessage = Component.literal("COLONY CLAIMED SUCCESSFULLY!")
                         .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)
                         .append(Component.literal("\n" + claimingPlayer.getName().getString() + " has successfully claimed the abandoned colony of ")
                                .withStyle(ChatFormatting.YELLOW))

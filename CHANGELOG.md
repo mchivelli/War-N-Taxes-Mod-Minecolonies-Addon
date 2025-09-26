@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Colony Claiming Raids**: Abandoned colonies can be claimed by eligible players using `/wnt claimcolony <colony>`, triggering a 5-minute raid where:
   - All citizens become hostile militia with resistance effects
   - Mercenaries spawn if fewer than 5 citizens/guards exist
-  - Victory conditions: Timer expires OR all defenders eliminated
+  - Victory conditions: Kill ALL defenders to win - timer expiration results in defender victory
   - Successful claimers automatically become Officers of the colony
 - **Offline Notifications**: Players receive notifications when rejoining if their colony was abandoned or claimed while offline.
 - **Admin Commands**: `/wnt forceabandon <colony>` for manual colony abandonment.
