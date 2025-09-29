@@ -145,6 +145,7 @@ public class TaxConfig {
     public static final ForgeConfigSpec.BooleanValue ENABLE_ABANDONED_COLONY_CLAIMING;
     public static final ForgeConfigSpec.IntValue MIN_GUARDS_FOR_CLAIMING_RAID;
     public static final ForgeConfigSpec.IntValue CLAIMING_RAID_DURATION_MINUTES;
+    public static final ForgeConfigSpec.IntValue CLAIMING_GRACE_PERIOD_HOURS;
     public static final ForgeConfigSpec.BooleanValue SPAWN_MERCENARIES_IF_LOW_DEFENDERS;
     public static final ForgeConfigSpec.ConfigValue<String> CLAIMING_BUILDING_REQUIREMENTS;
     
@@ -431,6 +432,10 @@ public class TaxConfig {
         CLAIMING_RAID_DURATION_MINUTES = BUILDER.comment("Duration in minutes for the claiming raid when taking over an abandoned colony. " +
                 "During this time, all citizens will be hostile and attack the claiming player.")
                 .defineInRange("ClaimingRaidDurationMinutes", 5, 1, 60);
+
+        CLAIMING_GRACE_PERIOD_HOURS = BUILDER.comment("Grace period in hours before a player can claim another colony. " +
+                "This prevents players from claiming multiple colonies in quick succession.")
+                .defineInRange("ClaimingGracePeriodHours", 24, 1, 168); // Default 24 hours, max 1 week
 
         SPAWN_MERCENARIES_IF_LOW_DEFENDERS = BUILDER.comment("If true, spawn mercenaries to defend the colony during claiming if there are fewer than 5 citizens/guards. " +
                 "This ensures abandoned colonies still put up a fight when being claimed.")
@@ -1204,6 +1209,10 @@ public class TaxConfig {
 
     public static int getClaimingRaidDurationMinutes() {
         return CLAIMING_RAID_DURATION_MINUTES.get();
+    }
+
+    public static int getClaimingGracePeriodHours() {
+        return CLAIMING_GRACE_PERIOD_HOURS.get();
     }
 
     public static boolean shouldSpawnMercenariesIfLowDefenders() {

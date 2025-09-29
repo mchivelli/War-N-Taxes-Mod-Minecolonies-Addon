@@ -20,6 +20,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
+import java.util.Objects;
+import net.minecraft.world.entity.Entity;
 
 /**
  * Tracks kills of guards and militia during raids for proper tax calculation.
@@ -35,13 +37,25 @@ public class RaidKillTracker {
     public static void onEntityDeath(LivingDeathEvent event) {
         // Process only citizen deaths for efficiency
         
-        // EFFICIENCY: Only process citizen deaths - skip all other entities immediately
-        if (!(event.getEntity() instanceof AbstractEntityCitizen citizen)) {
+        // Handle both citizen and mercenary deaths
+        if (event.getEntity() instanceof AbstractEntityCitizen citizen) {
+            // Handle citizen death
+            handleEntityDeath(citizen, event.getSource());
+        } else if (event.getEntity() instanceof com.minecolonies.core.entity.mobs.EntityMercenary mercenary) {
+            // Handle mercenary death in claiming raids
+            handleMercenaryDeath(mercenary, event.getSource());
+        } else {
+            // Skip all other entity types
             return;
         }
+    }
+    
+    /**
+     * Handle citizen death during raids/wars.
+     */
+    private static void handleEntityDeath(AbstractEntityCitizen citizen, DamageSource damageSource) {
         
-        // Get damage source and potential killer
-        DamageSource damageSource = event.getSource();
+        // Get potential killer
         ServerPlayer killer = damageSource.getEntity() instanceof ServerPlayer player ? player : null;
         
         // Get the citizen's colony
@@ -71,6 +85,16 @@ public class RaidKillTracker {
         
         // EFFICIENCY: Skip processing if no active combat in this colony
         if (!isRegularRaid && !isClaimingRaid && !isWar) {
+            return;
+        }
+        
+        // For claiming raids, we need to handle death tracking differently
+        if (isClaimingRaid) {
+            LOGGER.info("CLAIMING RAID DEATH DETECTED: {} died in colony {} (killer: {})", 
+                citizen.getCitizenData() != null ? citizen.getCitizenData().getName() : "Unknown",
+                colony.getName(), 
+                killer != null ? killer.getName().getString() : "environmental");
+            handleClaimingRaidDeath(citizen, colony, killer);
             return;
         }
         
@@ -361,39 +385,219 @@ public class RaidKillTracker {
         if ("claiming".equals(combatType) && killer != null) {
             int colonyTax = net.machiavelli.minecolonytax.TaxManager.getStoredTaxForColony(colony);
             int originalDefenders = defendersBefore; // Use the original defender count
-            if (colonyTax > 0 && originalDefenders > 0) {
-                double taxPerKill = currentStealPercentage / originalDefenders;
-                int taxAwarded = Math.max(1, (int) (colonyTax * taxPerKill));
-                
+            
+            // Calculate tax reward based on current steal percentage and defender count
+            int taxAwarded = 0;
+            if (originalDefenders > 0) {
+                if (colonyTax > 0) {
+                    // Colony has positive balance - steal percentage of it
+                    double taxPerKill = currentStealPercentage / originalDefenders;
+                    taxAwarded = Math.max(1, (int) (colonyTax * taxPerKill));
+                } else {
+                    // Colony is in debt - use fixed amount per kill if debt system enabled
+                    int debtLimit = net.machiavelli.minecolonytax.TaxConfig.getDebtLimit();
+                    if (debtLimit > 0) {
+                        int taxStealPerGuard = net.machiavelli.minecolonytax.TaxConfig.getTaxStealPerGuard();
+                        taxAwarded = Math.max(10, taxStealPerGuard); // Minimum 10 coins per kill
+                    }
+                }
+            }
+            
+            if (taxAwarded > 0) {
                 try {
+                    // Deduct from colony (either from positive balance or add to debt)
                     net.machiavelli.minecolonytax.TaxManager.payTaxDebt(colony, -taxAwarded);
                     
+                    // Award to killer
                     if (net.machiavelli.minecolonytax.TaxConfig.isSDMShopConversionEnabled()) {
                         if (net.machiavelli.minecolonytax.integration.SDMShopIntegration.isAvailable()) {
                             long currentBalance = net.machiavelli.minecolonytax.integration.SDMShopIntegration.getMoney(killer);
                             net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(killer, currentBalance + taxAwarded);
+                            
+                            Component taxMessage = Component.literal("💰 TAX STOLEN: ")
+                                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                                    .append(Component.literal("+" + taxAwarded + " coins")
+                                           .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
+                                    .append(Component.literal(" (added to your account)")
+                                           .withStyle(ChatFormatting.GREEN));
+                            killer.sendSystemMessage(taxMessage);
                         }
                     } else {
-                        IColony killerColony = com.minecolonies.api.colony.IColonyManager.getInstance()
-                                .getColonies(killer.level()).stream()
-                                .filter(c -> c.getPermissions().getOwner().equals(killer.getUUID()) || 
-                                           c.getPermissions().hasPermission(killer, com.minecolonies.api.colony.permissions.Action.ACCESS_HUTS))
-                                .findFirst().orElse(null);
-                        if (killerColony != null) {
-                            net.machiavelli.minecolonytax.TaxManager.incrementTaxRevenue(killerColony, taxAwarded);
+                        // Give items to killer's inventory
+                        net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
+                            new net.minecraft.resources.ResourceLocation(net.machiavelli.minecolonytax.TaxConfig.getCurrencyItemName()));
+                        if (item != null) {
+                            net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, taxAwarded);
+                            boolean added = killer.getInventory().add(itemStack);
+                            if (!added) {
+                                // If inventory is full, drop items near killer
+                                killer.drop(itemStack, false);
+                            }
+                            
+                            Component taxMessage = Component.literal("💰 TAX STOLEN: ")
+                                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                                    .append(Component.literal("+" + taxAwarded + " " + item.getDescription().getString())
+                                           .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
+                                    .append(Component.literal(added ? " (added to inventory)" : " (dropped nearby)")
+                                           .withStyle(ChatFormatting.GREEN));
+                            killer.sendSystemMessage(taxMessage);
                         }
                     }
                     
-                    Component taxMessage = Component.literal("💰 TAX REWARD: ")
-                            .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                            .append(Component.literal("+" + taxAwarded + " coins")
-                                   .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
-                    killer.sendSystemMessage(taxMessage);
+                    LOGGER.info("CLAIMING RAID TAX: {} stole {} tax from colony {} by killing {}", 
+                        killer.getName().getString(), taxAwarded, colony.getName(), citizenData.getName());
                     
                 } catch (Exception e) {
                     LOGGER.error("Failed to award tax for claiming raid kill", e);
                 }
+            } else {
+                // No tax to steal - inform player
+                Component noTaxMessage = Component.literal("⚠️ No tax to steal from this colony!")
+                        .withStyle(ChatFormatting.YELLOW);
+                killer.sendSystemMessage(noTaxMessage);
             }
+        }
+    }
+    
+    /**
+     * Handle mercenary death during claiming raids.
+     */
+    private static void handleMercenaryDeath(com.minecolonies.core.entity.mobs.EntityMercenary mercenary, DamageSource damageSource) {
+        ServerPlayer killer = damageSource.getEntity() instanceof ServerPlayer player ? player : null;
+        String killerName = killer != null ? killer.getName().getString() : "environmental damage";
+        
+        // Find which colony this mercenary belongs to by checking active claiming raids
+        for (ColonyClaimingRaidManager.ClaimingRaidData raidData : ColonyClaimingRaidManager.getActiveClaimingRaidIds()
+                .stream()
+                .map(ColonyClaimingRaidManager::getClaimingRaid)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toList())) {
+            
+            if (raidData.spawnedMercenaries.contains(mercenary)) {
+                // Remove the mercenary from the raid data
+                raidData.spawnedMercenaries.remove(mercenary);
+                
+                IColony colony = getColonyById(raidData.colonyId);
+                if (colony != null) {
+                    LOGGER.info("CLAIMING RAID - Mercenary killed by {} in colony {}", killerName, colony.getName());
+                    
+                    // Notify the claiming player
+                    if (killer != null && killer.getUUID().equals(raidData.claimingPlayerId)) {
+                        Component killMessage = Component.literal("⚔ MERCENARY ELIMINATED ⚔")
+                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                            .append(Component.literal("\nKilled: Mercenary").withStyle(ChatFormatting.YELLOW));
+                        
+                        killer.sendSystemMessage(killMessage);
+                    }
+                    
+                    // Check if this was the last defender
+                    checkClaimingRaidVictory(raidData, colony, killerName);
+                }
+                break;
+            }
+        }
+    }
+    
+    /**
+     * Check if claiming raid victory conditions are met.
+     */
+    private static void checkClaimingRaidVictory(ColonyClaimingRaidManager.ClaimingRaidData raidData, IColony colony, String killerName) {
+        int remainingCitizens = 0;
+        int remainingMercenaries = 0;
+        
+        // Count remaining hostile citizens
+        for (Integer citizenId : raidData.hostileCitizens) {
+            ICitizenData remainingCitizen = colony.getCitizenManager().getCivilian(citizenId);
+            if (remainingCitizen != null && remainingCitizen.getEntity().isPresent() && 
+                remainingCitizen.getEntity().get().isAlive()) {
+                remainingCitizens++;
+            }
+        }
+        
+        // Count remaining mercenaries
+        for (Entity mercenary : raidData.spawnedMercenaries) {
+            if (mercenary.isAlive()) {
+                remainingMercenaries++;
+            }
+        }
+        
+        int totalRemaining = remainingCitizens + remainingMercenaries;
+        
+        LOGGER.info("CLAIMING RAID PROGRESS - {} defenders remaining ({} citizens, {} mercenaries) in colony {}", 
+            totalRemaining, remainingCitizens, remainingMercenaries, colony.getName());
+        
+        // Check for victory condition
+        if (totalRemaining == 0) {
+            LOGGER.info("CLAIMING RAID VICTORY - All defenders eliminated in colony {} by {}", 
+                colony.getName(), killerName);
+            
+            // Trigger victory immediately
+            ColonyClaimingRaidManager.completeClaimingRaid(raidData, true);
+        }
+    }
+    
+    /**
+     * Get a colony by ID (helper method).
+     */
+    private static IColony getColonyById(int colonyId) {
+        try {
+            return com.minecolonies.api.IMinecoloniesAPI.getInstance().getColonyManager().getColonyByWorld(colonyId, null);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    /**
+     * Handle death during a claiming raid.
+     */
+    private static void handleClaimingRaidDeath(AbstractEntityCitizen citizen, IColony colony, ServerPlayer killer) {
+        ICitizenData citizenData = citizen.getCitizenData();
+        if (citizenData == null) {
+            LOGGER.warn("Claiming raid death - citizen data is null");
+            return;
+        }
+        
+        // Get the claiming raid data
+        ColonyClaimingRaidManager.ClaimingRaidData raidData = ColonyClaimingRaidManager.getClaimingRaid(colony.getID());
+        if (raidData == null) {
+            LOGGER.warn("Claiming raid death detected but no raid data found for colony {}", colony.getID());
+            return;
+        }
+        
+        LOGGER.info("Processing claiming raid death: {} (ID: {}) in colony {}", 
+            citizenData.getName(), citizenData.getId(), colony.getName());
+        
+        String killerName = killer != null ? killer.getName().getString() : "environmental damage";
+        
+        // Check if this citizen was part of the hostile militia
+        boolean wasHostileCitizen = raidData.hostileCitizens.contains(citizenData.getId());
+        
+        if (wasHostileCitizen) {
+            // Remove from hostile citizens set
+            raidData.hostileCitizens.remove(citizenData.getId());
+            
+            LOGGER.info("CLAIMING RAID - Hostile citizen {} killed by {} in colony {}", 
+                citizenData.getName(), killerName, colony.getName());
+            
+            // Notify the claiming player
+            if (killer != null && killer.getUUID().equals(raidData.claimingPlayerId)) {
+                Component killMessage = Component.literal("⚔ DEFENDER ELIMINATED ⚔")
+                    .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                    .append(Component.literal("\nKilled: ").withStyle(ChatFormatting.GOLD))
+                    .append(Component.literal(citizenData.getName()).withStyle(ChatFormatting.YELLOW))
+                    .append(Component.literal(" (militia)").withStyle(ChatFormatting.GRAY));
+                
+                killer.sendSystemMessage(killMessage);
+            }
+            
+            // Check for victory condition
+            checkClaimingRaidVictory(raidData, colony, killerName);
+            
+            // Also force check via the main manager (double-check mechanism)
+            ColonyClaimingRaidManager.forceCheckVictoryCondition(colony.getID());
+        } else {
+            LOGGER.debug("CLAIMING RAID - Non-defender citizen {} died in colony {} (not part of hostile militia)", 
+                citizenData.getName(), colony.getName());
         }
     }
     
@@ -420,4 +624,6 @@ public class RaidKillTracker {
         
         return false;
     }
+    
+
 }

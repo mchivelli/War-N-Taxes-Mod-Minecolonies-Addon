@@ -97,12 +97,26 @@ public class TaxManager {
     public static class TickEventHandler {
         private int tickCount = 0;  // Check every 20 ticks (1 second) for performance
         private int abandonmentTickCount = 0;  // Check abandonment every hour (72000 ticks)
+        private int cleanupTickCount = 0;  // Check [abandoned] cleanup every 30 minutes (36000 ticks)
+        private int nullOwnerCheckCount = 0;  // 🚨 Check null owners every 5 seconds (100 ticks) - AGGRESSIVE!
 
         @SubscribeEvent
         public void onServerTick(TickEvent.ServerTickEvent event) {
             if (event.phase == TickEvent.Phase.END) {
                 tickCount++;
                 abandonmentTickCount++;
+                cleanupTickCount++;
+                nullOwnerCheckCount++;
+                
+                // 🚨 AUTOMATIC: Check for null owners every 5 seconds - AGGRESSIVE PROTECTION!
+                if (nullOwnerCheckCount >= 100) { // 100 ticks = 5 seconds - MUCH MORE FREQUENT!
+                    nullOwnerCheckCount = 0;
+                    try {
+                        net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.emergencyFixAllNullOwners();
+                    } catch (Exception e) {
+                        LOGGER.error("Failed automatic null owner fix", e);
+                    }
+                }
                 
                 // Check tax generation every second instead of every tick (performance optimization)
                 if (tickCount >= 20) { // 20 ticks = 1 second
@@ -116,10 +130,57 @@ public class TaxManager {
                     checkColonyAbandonment();
                 }
                 
+                // Run proactive [abandoned] cleanup every 30 minutes (36000 ticks = 30 minutes)
+                if (cleanupTickCount >= 36000) {
+                    cleanupTickCount = 0;
+                    runPeriodicAbandonedCleanup();
+                }
+                
                 // Update claiming raids every second
                 if (tickCount == 0) {
                     net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.updateClaimingRaids();
                 }
+                
+                // Check for officer changes in abandoned colonies every 5 minutes (6000 ticks)
+                // This detects admin commands that add officers/owners to abandoned colonies
+                if (abandonmentTickCount % 6000 == 0) {
+                    checkForOfficerChangesInAbandonedColonies();
+                }
+            }
+        }
+        
+        /**
+         * Run periodic cleanup of [abandoned] entries to prevent corruption.
+         */
+        private void runPeriodicAbandonedCleanup() {
+            try {
+                LOGGER.debug("Running periodic [abandoned] entries cleanup...");
+                net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.cleanupAllColoniesAbandonedEntries();
+            } catch (Exception e) {
+                LOGGER.error("Error during periodic [abandoned] cleanup", e);
+            }
+        }
+        
+        /**
+         * Check all abandoned colonies for new officers/owners (detects admin commands).
+         */
+        private void checkForOfficerChangesInAbandonedColonies() {
+            try {
+                if (serverInstance == null) return;
+                
+                // Get all colonies and check if any abandoned ones have new officers
+                for (com.minecolonies.api.colony.IColony colony : com.minecolonies.api.IMinecoloniesAPI.getInstance().getColonyManager().getAllColonies()) {
+                    try {
+                        // Only check colonies that are currently marked as abandoned
+                        if (net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.isColonyAbandoned(colony)) {
+                            net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.checkForNewOfficers(colony);
+                        }
+                    } catch (Exception e) {
+                        LOGGER.error("Error checking colony {} for officer changes: {}", colony.getName(), e.getMessage());
+                    }
+                }
+            } catch (Exception e) {
+                LOGGER.error("Error during officer change check", e);
             }
         }
         
@@ -270,6 +331,8 @@ public class TaxManager {
         int current = colonyTaxMap.getOrDefault(id, 0);
         colonyTaxMap.put(id, current + delta);
     }
+
+
 
     /**
      * Calculate the average happiness of adult citizens in a colony.

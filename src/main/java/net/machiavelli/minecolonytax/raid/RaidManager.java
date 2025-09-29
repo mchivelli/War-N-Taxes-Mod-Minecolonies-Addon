@@ -1438,4 +1438,6 @@ public class RaidManager {
                raidData.isActive() && 
                raidData.getColony().getID() == colony.getID();
     }
+    
+
 }

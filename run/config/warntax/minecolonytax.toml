@@ -225,6 +225,9 @@ TaxStealPerGuard = 200
 		#Duration in minutes for the claiming raid when taking over an abandoned colony. During this time, all citizens will be hostile and attack the claiming player.
 		#Range: 1 ~ 60
 		ClaimingRaidDurationMinutes = 5
+		#Grace period in hours before a player can claim another colony. This prevents players from claiming multiple colonies in quick succession.
+		#Range: 1 ~ 168
+		ClaimingGracePeriodHours = 24
 		#If true, spawn mercenaries to defend the colony during claiming if there are fewer than 5 citizens/guards. This ensures abandoned colonies still put up a fight when being claimed.
 		SpawnMercenariesIfLowDefenders = true
 		#Building requirements to claim abandoned colonies. Format: 'building:level,building:level'. Example: 'townhall:2,guardtower:1' means player needs townhall level 2+ and at least one guard tower to claim. Leave empty to disable building requirements.
@@ -244,7 +247,7 @@ TaxStealPerGuard = 200
 
 	["War Settings"."Recipe Disabling"]
 		#Disable all Minecolonies building hut recipes. When enabled, players must obtain building huts through SDMShop or Admin Shop instead of crafting them. This affects all buildings that accumulate taxes or maintenance costs. Disabled by default.
-		DisableHutRecipes = true
+		DisableHutRecipes = false
 
 ["PvP Arena Settings"]
 	#Allow players to use commands while in a PvP battle. It's recommended to keep this false to prevent exploits.

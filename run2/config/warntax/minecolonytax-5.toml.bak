@@ -1,6 +1,9 @@
 #Optional debt limit for colony debt. If > 0, colony revenue will not deduct more once the debt reaches this limit (i.e. the tax value won't drop below -DebtLimit). Set to 0 to disable.
 #Range: > 0
 DebtLimit = 0
+#Amount of debt added to colony per guard killed when raiding colonies in debt. Only applies when DebtLimit > 0. Raiders get this amount when killing guards in debt colonies. Default: 200.
+#Range: 1 ~ 10000
+TaxStealPerGuard = 200
 
 ["Building Taxes"]
 	#Base tax for Fletcher
@@ -360,6 +363,8 @@ DebtLimit = 0
 	#Percentage of killed raider's balance transferred to defending colony for owner/officers to claim (0.0 - 1.0)
 	#Range: 0.0 ~ 1.0
 	RaidDefenseRewardPercentage = 0.15
+	#Actions permitted during Abandoned Colony Claiming raids. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.
+	ClaimingActions = ["PLACE_BLOCKS", "BREAK_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY", "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN", "HURT_VISITOR", "THROW_POTION", "OPEN_CONTAINER"]
 
 	["War Settings"."Entity Raid Settings"]
 		#Enable entity-triggered raids. When disabled, entities will not trigger raids even if they meet the criteria. Admin-only feature.
@@ -477,6 +482,9 @@ DebtLimit = 0
 		#Duration in minutes for the claiming raid when taking over an abandoned colony. During this time, all citizens will be hostile and attack the claiming player.
 		#Range: 1 ~ 60
 		ClaimingRaidDurationMinutes = 5
+		#Grace period in hours before a player can claim another colony. This prevents players from claiming multiple colonies in quick succession.
+		#Range: 1 ~ 168
+		ClaimingGracePeriodHours = 24
 		#If true, spawn mercenaries to defend the colony during claiming if there are fewer than 5 citizens/guards. This ensures abandoned colonies still put up a fight when being claimed.
 		SpawnMercenariesIfLowDefenders = true
 		#Building requirements to claim abandoned colonies. Format: 'building:level,building:level'. Example: 'townhall:2,guardtower:1' means player needs townhall level 2+ and at least one guard tower to claim. Leave empty to disable building requirements.
@@ -493,6 +501,10 @@ DebtLimit = 0
 		EnableWarBuildingRequirements = true
 		#Building requirements to declare wars. Format: 'building:level:amount,building:level:amount'. Example: 'townhall:2:1,guardtower:1:3,buildershut:1:1,house:1:1' means player needs 1 townhall level 2+, 3 guard towers level 1+, 1 builders hut level 1+, and 1 residential building level 1+ to declare war. NOTE: When this is enabled, it replaces the 'MinGuardsToWageWar' requirement entirely. Leave empty to disable building requirements.
 		WarBuildingRequirements = "townhall:2:1,guardtower:1:3,buildershut:1:1,house:1:1"
+
+	["War Settings"."Recipe Disabling"]
+		#Disable all Minecolonies building hut recipes. When enabled, players must obtain building huts through SDMShop or Admin Shop instead of crafting them. This affects all buildings that accumulate taxes or maintenance costs. Disabled by default.
+		DisableHutRecipes = false
 
 ["Military Maintenance Costs"]
 	#Base maintenance cost per hour for Barracks

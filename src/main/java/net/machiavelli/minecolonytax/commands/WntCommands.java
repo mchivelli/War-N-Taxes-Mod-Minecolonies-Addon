@@ -3,6 +3,8 @@ package net.machiavelli.minecolonytax.commands;
 import com.minecolonies.api.IMinecoloniesAPI;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
+import com.minecolonies.api.colony.ICitizenData;
+import java.util.Map;
 import com.minecolonies.api.colony.permissions.Rank;
 import com.minecolonies.api.colony.permissions.ColonyPlayer;
 import com.mojang.brigadier.CommandDispatcher;
@@ -27,6 +29,9 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.fml.common.Mod;
+import net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager;
+import net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager;
+import com.minecolonies.api.colony.permissions.IPermissions;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -426,6 +431,66 @@ public class WntCommands {
                 .then(Commands.literal("listabandoned")
                         .executes(WntCommands::listAbandonedColonies)
                 )
+                .then(Commands.literal("claimstatus")
+                        .executes(WntCommands::checkClaimingStatus)
+                )
+                .then(Commands.literal("claimraidstatus")
+                        .requires(source -> source.hasPermission(2)) // Admin only
+                        .then(Commands.argument("colony", StringArgumentType.string())
+                                .suggests(ABANDONED_COLONY_SUGGESTIONS)
+                                .executes(WntCommands::checkClaimingRaidStatus)
+                        )
+                )
+                .then(Commands.literal("protectcolony")
+                        .requires(source -> source.hasPermission(2)) // Admin only
+                        .then(Commands.argument("colony", StringArgumentType.string())
+                                .suggests(COLONY_SUGGESTIONS)
+                                .executes(WntCommands::protectColonyFromClaiming)
+                        )
+                )
+                .then(Commands.literal("unprotectcolony")
+                        .requires(source -> source.hasPermission(2)) // Admin only
+                        .then(Commands.argument("colony", StringArgumentType.string())
+                                .suggests(COLONY_SUGGESTIONS)
+                                .executes(WntCommands::unprotectColonyFromClaiming)
+                        )
+                )
+                
+                // Admin cleanup and debug commands
+                .then(Commands.literal("cleanupabandonedentries")
+                        .requires(source -> source.hasPermission(2)) // Admin only
+                        .executes(WntCommands::handleCleanupAbandonedEntries)
+                )
+                
+                .then(Commands.literal("debugbossbar")
+                        .requires(source -> source.hasPermission(2)) // Admin only
+                        .then(Commands.argument("colony", StringArgumentType.string())
+                                .suggests(COLONY_SUGGESTIONS)
+                                .executes(WntCommands::handleDebugBossBar)
+                        )
+                )
+                
+                .then(Commands.literal("forcecleanupcolony")
+                        .requires(source -> source.hasPermission(2)) // Admin only
+                        .then(Commands.argument("colony", StringArgumentType.string())
+                                .suggests(COLONY_SUGGESTIONS)
+                                .executes(WntCommands::handleForceCleanupColony)
+                        )
+                )
+                
+                .then(Commands.literal("emergencyfix")
+                        .requires(source -> source.hasPermission(2)) // Admin only
+                        .executes(WntCommands::handleEmergencyFix)
+                )
+                
+                .then(Commands.literal("fixnullowners")
+                        .requires(source -> source.hasPermission(2)) // Admin only
+                        .executes(WntCommands::handleFixNullOwners)
+                )
+                .then(Commands.literal("listprotected")
+                        .requires(source -> source.hasPermission(2)) // Admin only
+                        .executes(WntCommands::listProtectedColonies)
+                )
                 
                 // Admin force abandon command
                 .then(Commands.literal("forceabandon")
@@ -484,6 +549,7 @@ public class WntCommands {
         source.sendSuccess(() -> Component.literal("§6Colony Claiming Commands:"), false);
         source.sendSuccess(() -> Component.literal("§e/wnt claimcolony [colony] §7- Claim an abandoned colony"), false);
         source.sendSuccess(() -> Component.literal("§e/wnt listabandoned §7- List all abandoned colonies"), false);
+        source.sendSuccess(() -> Component.literal("§e/wnt claimstatus §7- Check your claiming eligibility and cooldown"), false);
         source.sendSuccess(() -> Component.literal(""), false);
         
         if (source.hasPermission(2)) {
@@ -494,6 +560,10 @@ public class WntCommands {
             source.sendSuccess(() -> Component.literal("§e/wnt raidstop §7- Stop active raid"), false);
             source.sendSuccess(() -> Component.literal("§e/wnt debugguards [colony] §7- Debug guard/tower counting"), false);
             source.sendSuccess(() -> Component.literal("§e/wnt forceabandon <colony> §7- Force abandon a colony (admin only)"), false);
+            source.sendSuccess(() -> Component.literal("§e/wnt protectcolony <colony> §7- Protect colony from claiming"), false);
+            source.sendSuccess(() -> Component.literal("§e/wnt unprotectcolony <colony> §7- Remove claiming protection"), false);
+            source.sendSuccess(() -> Component.literal("§e/wnt listprotected §7- List all protected colonies"), false);
+            source.sendSuccess(() -> Component.literal("§e/wnt claimraidstatus <colony> §7- Check claiming raid status"), false);
             source.sendSuccess(() -> Component.literal("§e/wnt taxgen disable/enable <colonyId> §7- Control tax generation"), false);
             source.sendSuccess(() -> Component.literal("§e/wnt entityraid status §7- Show active entity raids"), false);
             source.sendSuccess(() -> Component.literal("§e/wnt entityraid config §7- Show entity raid configuration"), false);
@@ -754,6 +824,7 @@ public class WntCommands {
                 source.sendSuccess(() -> Component.literal("§7Requirements:"), false);
                 source.sendSuccess(() -> Component.literal("§7- You must have at least " + TaxConfig.getMinGuardsForClaimingRaid() + " guards"), false);
                 source.sendSuccess(() -> Component.literal("§7- Target colony must be abandoned"), false);
+                source.sendSuccess(() -> Component.literal("§7- " + TaxConfig.getClaimingGracePeriodHours() + "-hour cooldown between claims"), false);
                 source.sendSuccess(() -> Component.literal("§7When claiming:"), false);
                 source.sendSuccess(() -> Component.literal("§7- All citizens become hostile militia"), false);
                 source.sendSuccess(() -> Component.literal("§7- Citizens get resistance effects"), false);
@@ -768,6 +839,12 @@ public class WntCommands {
                 source.sendSuccess(() -> Component.literal("§7Shows colony name, ID, location, and time since abandonment."), false);
                 break;
                 
+            case "claimstatus":
+                source.sendSuccess(() -> Component.literal("§6/wnt claimstatus"), false);
+                source.sendSuccess(() -> Component.literal("§7Check your eligibility to claim colonies."), false);
+                source.sendSuccess(() -> Component.literal("§7Shows requirements status and cooldown time."), false);
+                break;
+                
             case "forceabandon":
                 if (source.hasPermission(2)) {
                     source.sendSuccess(() -> Component.literal("§c/wnt forceabandon <colony>"), false);
@@ -775,6 +852,48 @@ public class WntCommands {
                     source.sendSuccess(() -> Component.literal("§7This removes all owners and officers from the colony."), false);
                     source.sendSuccess(() -> Component.literal("§7The colony will become claimable by other players."), false);
                     source.sendSuccess(() -> Component.literal("§cWarning: This action cannot be undone!"), false);
+                } else {
+                    source.sendFailure(Component.literal("§cYou don't have permission to use this command."));
+                }
+                break;
+                
+            case "protectcolony":
+                if (source.hasPermission(2)) {
+                    source.sendSuccess(() -> Component.literal("§c/wnt protectcolony <colony>"), false);
+                    source.sendSuccess(() -> Component.literal("§7Protect a colony from being claimed (admin only)."), false);
+                    source.sendSuccess(() -> Component.literal("§7Protected colonies cannot be claimed even when abandoned."), false);
+                    source.sendSuccess(() -> Component.literal("§7Useful for spawn towns, admin colonies, or special areas."), false);
+                } else {
+                    source.sendFailure(Component.literal("§cYou don't have permission to use this command."));
+                }
+                break;
+                
+            case "unprotectcolony":
+                if (source.hasPermission(2)) {
+                    source.sendSuccess(() -> Component.literal("§c/wnt unprotectcolony <colony>"), false);
+                    source.sendSuccess(() -> Component.literal("§7Remove claiming protection from a colony (admin only)."), false);
+                    source.sendSuccess(() -> Component.literal("§7The colony will become claimable when abandoned."), false);
+                } else {
+                    source.sendFailure(Component.literal("§cYou don't have permission to use this command."));
+                }
+                break;
+                
+            case "listprotected":
+                if (source.hasPermission(2)) {
+                    source.sendSuccess(() -> Component.literal("§c/wnt listprotected"), false);
+                    source.sendSuccess(() -> Component.literal("§7List all colonies protected from claiming (admin only)."), false);
+                    source.sendSuccess(() -> Component.literal("§7Shows colony name, status, and protecting admin."), false);
+                } else {
+                    source.sendFailure(Component.literal("§cYou don't have permission to use this command."));
+                }
+                break;
+                
+            case "claimraidstatus":
+                if (source.hasPermission(2)) {
+                    source.sendSuccess(() -> Component.literal("§c/wnt claimraidstatus <colony>"), false);
+                    source.sendSuccess(() -> Component.literal("§7Check the status of an active claiming raid (admin only)."), false);
+                    source.sendSuccess(() -> Component.literal("§7Shows defender counts and forces victory condition check."), false);
+                    source.sendSuccess(() -> Component.literal("§7Useful for debugging stuck claiming raids."), false);
                 } else {
                     source.sendFailure(Component.literal("§cYou don't have permission to use this command."));
                 }
@@ -1818,7 +1937,11 @@ public class WntCommands {
             int guardCount = WarSystem.countGuards(colony);
             int lastContactHours = colony.getLastContactInHours();
             
-            Component colonyDetails = Component.literal("Colony: ")
+            // Check if colony is protected
+            boolean isProtected = net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.isColonyProtected(colony.getID());
+            String protectedBy = isProtected ? net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.getProtectedBy(colony.getID()) : null;
+            
+            MutableComponent colonyDetails = Component.literal("Colony: ")
                     .withStyle(ChatFormatting.YELLOW)
                     .append(Component.literal(colony.getName())
                             .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
@@ -1832,9 +1955,15 @@ public class WntCommands {
                     .append(Component.literal("\n  Last contact: " + lastContactHours + " hours ago")
                             .withStyle(ChatFormatting.RED))
                     .append(Component.literal("\n  Status: ")
-                            .withStyle(ChatFormatting.WHITE)
-                            .append(Component.literal("Claimable")
-                                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)));
+                            .withStyle(ChatFormatting.WHITE));
+            
+            if (isProtected) {
+                colonyDetails.append(Component.literal("Protected (by " + protectedBy + ")")
+                        .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+            } else {
+                colonyDetails.append(Component.literal("Claimable")
+                        .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+            }
             
             player.sendSystemMessage(colonyDetails);
             player.sendSystemMessage(Component.literal(""));
@@ -1842,6 +1971,250 @@ public class WntCommands {
         
         player.sendSystemMessage(Component.literal("Use '/wnt claimcolony <colony>' to claim a colony!")
                 .withStyle(ChatFormatting.GREEN));
+        
+        return 1;
+    }
+    
+    private static int checkClaimingStatus(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        
+        // Check claiming requirements
+        net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.ClaimingRequirementResult eligibility = 
+                net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.checkClaimingRequirements(player);
+        
+        player.sendSystemMessage(Component.literal("=== Colony Claiming Status ===")
+                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        
+        if (eligibility.canClaim) {
+            player.sendSystemMessage(Component.literal("✓ You are eligible to claim colonies!")
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+            player.sendSystemMessage(Component.literal("Use '/wnt claimcolony <colony>' to start a claiming raid!")
+                    .withStyle(ChatFormatting.GREEN));
+        } else {
+            player.sendSystemMessage(Component.literal("✗ You cannot claim colonies: " + eligibility.message)
+                    .withStyle(ChatFormatting.RED));
+            
+            // Show remaining cooldown time if that's the issue
+            long remainingGracePeriod = net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager
+                    .getRemainingGracePeriod(player.getUUID());
+            
+            if (remainingGracePeriod > 0) {
+                long remainingHours = remainingGracePeriod / (60 * 60 * 1000);
+                long remainingMinutes = (remainingGracePeriod % (60 * 60 * 1000)) / (60 * 1000);
+                
+                String timeRemaining = remainingHours > 0 ? 
+                    remainingHours + "h " + remainingMinutes + "m" : 
+                    remainingMinutes + "m";
+                
+                player.sendSystemMessage(Component.literal("Cooldown remaining: " + timeRemaining)
+                        .withStyle(ChatFormatting.YELLOW));
+            } else {
+                player.sendSystemMessage(Component.literal("Meet the requirements first, then use '/wnt claimcolony <colony>'")
+                        .withStyle(ChatFormatting.YELLOW));
+            }
+        }
+        
+        return 1;
+    }
+    
+    private static int checkClaimingRaidStatus(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        String colonyName = extractColonyName(StringArgumentType.getString(context, "colony"));
+        
+        // Find the target colony
+        Level level = context.getSource().getLevel();
+        IColony targetColony = WarSystem.findColonyByName(colonyName, level);
+        
+        if (targetColony == null) {
+            source.sendSuccess(() -> Component.literal("Colony '" + colonyName + "' not found!")
+                    .withStyle(ChatFormatting.RED), false);
+            return 0;
+        }
+        
+        // Check if there's an active claiming raid
+        net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.ClaimingRaidData raidData = 
+                net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.getClaimingRaid(targetColony.getID());
+        
+        if (raidData == null) {
+            source.sendSuccess(() -> Component.literal("No active claiming raid for colony " + targetColony.getName())
+                    .withStyle(ChatFormatting.YELLOW), false);
+            return 1;
+        }
+        
+        // Count defenders
+        int aliveCitizensCount = 0;
+        int aliveMercenariesCount = 0;
+        
+        for (Integer citizenId : raidData.hostileCitizens) {
+            ICitizenData citizenData = targetColony.getCitizenManager().getCivilian(citizenId);
+            if (citizenData != null && citizenData.getEntity().isPresent() && 
+                citizenData.getEntity().get().isAlive()) {
+                aliveCitizensCount++;
+            }
+        }
+        
+        for (net.minecraft.world.entity.Entity mercenary : raidData.spawnedMercenaries) {
+            if (mercenary.isAlive()) {
+                aliveMercenariesCount++;
+            }
+        }
+        
+        final int aliveCitizens = aliveCitizensCount;
+        final int aliveMercenaries = aliveMercenariesCount;
+        final int totalDefenders = aliveCitizens + aliveMercenaries;
+        
+        source.sendSuccess(() -> Component.literal("=== Claiming Raid Status for " + targetColony.getName() + " ===")
+                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+        source.sendSuccess(() -> Component.literal("Claimer: " + raidData.claimingPlayerId)
+                .withStyle(ChatFormatting.YELLOW), false);
+        source.sendSuccess(() -> Component.literal("Defenders remaining: " + totalDefenders)
+                .withStyle(ChatFormatting.WHITE), false);
+        source.sendSuccess(() -> Component.literal("  - Citizens: " + aliveCitizens)
+                .withStyle(ChatFormatting.GRAY), false);
+        source.sendSuccess(() -> Component.literal("  - Mercenaries: " + aliveMercenaries)
+                .withStyle(ChatFormatting.GRAY), false);
+        
+        long remaining = raidData.getRemainingTime();
+        int minutes = (int) (remaining / 60000);
+        int seconds = (int) ((remaining % 60000) / 1000);
+        source.sendSuccess(() -> Component.literal("Time remaining: " + String.format("%02d:%02d", minutes, seconds))
+                .withStyle(ChatFormatting.AQUA), false);
+        
+        // Force check victory condition
+        source.sendSuccess(() -> Component.literal("Forcing victory condition check...")
+                .withStyle(ChatFormatting.GREEN), false);
+        net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.forceCheckVictoryCondition(targetColony.getID());
+        
+        // Force refresh boss bar
+        source.sendSuccess(() -> Component.literal("Forcing boss bar refresh...")
+                .withStyle(ChatFormatting.GREEN), false);
+        net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.forceRefreshBossBar(targetColony.getID());
+        
+        // Debug claiming raid
+        source.sendSuccess(() -> Component.literal("Debug info logged to console...")
+                .withStyle(ChatFormatting.AQUA), false);
+        net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.debugClaimingRaid(targetColony.getID());
+        
+        return 1;
+    }
+    
+    private static int protectColonyFromClaiming(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        String colonyName = extractColonyName(StringArgumentType.getString(context, "colony"));
+        
+        // Find the target colony
+        Level level = context.getSource().getLevel();
+        IColony targetColony = WarSystem.findColonyByName(colonyName, level);
+        
+        if (targetColony == null) {
+            source.sendSuccess(() -> Component.literal("Colony '" + colonyName + "' not found!")
+                    .withStyle(ChatFormatting.RED), false);
+            return 0;
+        }
+        
+        // Check if already protected
+        if (net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.isColonyProtected(targetColony.getID())) {
+            String protectedBy = net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.getProtectedBy(targetColony.getID());
+            source.sendSuccess(() -> Component.literal("Colony " + targetColony.getName() + " is already protected by " + protectedBy)
+                    .withStyle(ChatFormatting.YELLOW), false);
+            return 1;
+        }
+        
+        // Protect the colony
+        String adminName = source.getTextName();
+        net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.protectColony(targetColony.getID(), adminName);
+        
+        source.sendSuccess(() -> Component.literal("Colony " + targetColony.getName() + " is now protected from claiming!")
+                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
+        source.sendSuccess(() -> Component.literal("This colony cannot be claimed even when abandoned.")
+                .withStyle(ChatFormatting.GRAY), false);
+        
+        return 1;
+    }
+    
+    private static int unprotectColonyFromClaiming(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        String colonyName = extractColonyName(StringArgumentType.getString(context, "colony"));
+        
+        // Find the target colony
+        Level level = context.getSource().getLevel();
+        IColony targetColony = WarSystem.findColonyByName(colonyName, level);
+        
+        if (targetColony == null) {
+            source.sendSuccess(() -> Component.literal("Colony '" + colonyName + "' not found!")
+                    .withStyle(ChatFormatting.RED), false);
+            return 0;
+        }
+        
+        // Check if protected
+        if (!net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.isColonyProtected(targetColony.getID())) {
+            source.sendSuccess(() -> Component.literal("Colony " + targetColony.getName() + " is not protected.")
+                    .withStyle(ChatFormatting.YELLOW), false);
+            return 1;
+        }
+        
+        // Unprotect the colony
+        net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.unprotectColony(targetColony.getID());
+        
+        source.sendSuccess(() -> Component.literal("Colony " + targetColony.getName() + " protection removed!")
+                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
+        source.sendSuccess(() -> Component.literal("This colony can now be claimed when abandoned.")
+                .withStyle(ChatFormatting.GRAY), false);
+        
+        return 1;
+    }
+    
+    private static int listProtectedColonies(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        
+        Map<Integer, String> protectedColonies = net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.getProtectedColonies();
+        
+        if (protectedColonies.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("No colonies are currently protected from claiming.")
+                    .withStyle(ChatFormatting.YELLOW), false);
+            return 1;
+        }
+        
+        source.sendSuccess(() -> Component.literal("=== Protected Colonies ===")
+                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+        
+        for (Map.Entry<Integer, String> entry : protectedColonies.entrySet()) {
+            int colonyId = entry.getKey();
+            String protectedBy = entry.getValue();
+            
+            // Try to get colony info
+            IColony colony = null;
+            try {
+                colony = com.minecolonies.api.IMinecoloniesAPI.getInstance().getColonyManager().getColonyByWorld(colonyId, null);
+            } catch (Exception e) {
+                // Colony might not exist anymore
+            }
+            
+            if (colony != null) {
+                final String colonyName = colony.getName();
+                final boolean isAbandoned = net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.isColonyAbandoned(colony);
+                
+                source.sendSuccess(() -> Component.literal("Colony: ")
+                        .withStyle(ChatFormatting.YELLOW)
+                        .append(Component.literal(colonyName)
+                                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
+                        .append(Component.literal(" (ID: " + colonyId + ")")
+                                .withStyle(ChatFormatting.GRAY))
+                        .append(Component.literal("\n  Status: ")
+                                .withStyle(ChatFormatting.WHITE)
+                                .append(Component.literal(isAbandoned ? "Abandoned" : "Active")
+                                        .withStyle(isAbandoned ? ChatFormatting.RED : ChatFormatting.GREEN)))
+                        .append(Component.literal("\n  Protected by: " + protectedBy)
+                                .withStyle(ChatFormatting.AQUA)), false);
+            } else {
+                source.sendSuccess(() -> Component.literal("Colony ID: " + colonyId + " (Not Found)")
+                        .withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal("\n  Protected by: " + protectedBy)
+                                .withStyle(ChatFormatting.AQUA)), false);
+            }
+            
+            source.sendSuccess(() -> Component.literal(""), false);
+        }
         
         return 1;
     }
@@ -1900,5 +2273,278 @@ public class WntCommands {
                     .withStyle(ChatFormatting.RED));
             return 0;
         }
+    }
+    
+    /**
+     * Handle cleanup of [abandoned] entries command.
+     */
+    private static int handleCleanupAbandonedEntries(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        
+        source.sendSuccess(() -> Component.literal("Starting cleanup of [abandoned] entries across all colonies...")
+                .withStyle(ChatFormatting.YELLOW), false);
+        
+        try {
+            // Run the cleanup
+            net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.cleanupAllColoniesAbandonedEntries();
+            
+            source.sendSuccess(() -> Component.literal("Cleanup completed successfully! Check server logs for details.")
+                    .withStyle(ChatFormatting.GREEN), false);
+            
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("Cleanup failed: " + e.getMessage())
+                    .withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        
+        return 1;
+    }
+    
+    /**
+     * Handle debug boss bar command.
+     */
+    private static int handleDebugBossBar(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        String colonyName = extractColonyName(StringArgumentType.getString(context, "colony"));
+        
+        // Find the target colony
+        Level level = source.getLevel();
+        IColony targetColony = WarSystem.findColonyByName(colonyName, level);
+        
+        if (targetColony == null) {
+            source.sendFailure(Component.literal("Colony '" + colonyName + "' not found!")
+                    .withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        
+        // Debug claiming raid status
+        net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.debugClaimingRaid(targetColony.getID());
+        
+        // Try to force refresh boss bar if there's an active raid
+        if (net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.isColonyUnderClaimingRaid(targetColony.getID())) {
+            net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.forceRefreshBossBar(targetColony.getID());
+            source.sendSuccess(() -> Component.literal("Forced boss bar refresh for colony '" + colonyName + "'. Check server logs for debug info.")
+                    .withStyle(ChatFormatting.GREEN), false);
+        } else {
+            source.sendSuccess(() -> Component.literal("No active claiming raid for colony '" + colonyName + "'. Debug info logged.")
+                    .withStyle(ChatFormatting.YELLOW), false);
+        }
+        
+        return 1;
+    }
+    
+    /**
+     * Handle force cleanup of a specific colony.
+     */
+    private static int handleForceCleanupColony(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        String colonyName = extractColonyName(StringArgumentType.getString(context, "colony"));
+        
+        // Find the target colony
+        Level level = source.getLevel();
+        IColony targetColony = WarSystem.findColonyByName(colonyName, level);
+        
+        if (targetColony == null) {
+            source.sendFailure(Component.literal("Colony '" + colonyName + "' not found!")
+                    .withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        
+        source.sendSuccess(() -> Component.literal("Starting force cleanup of [abandoned] entries for colony '" + colonyName + "'...")
+                .withStyle(ChatFormatting.YELLOW), false);
+        
+        try {
+            // Get player count before cleanup
+            int playersBefore = targetColony.getPermissions().getPlayers().size();
+            
+            // Run targeted cleanup
+            java.lang.reflect.Method cleanupMethod = net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.class
+                    .getDeclaredMethod("cleanupAbandonedEntries", com.minecolonies.api.colony.permissions.IPermissions.class);
+            cleanupMethod.setAccessible(true);
+            cleanupMethod.invoke(null, targetColony.getPermissions());
+            
+            int playersAfter = targetColony.getPermissions().getPlayers().size();
+            int removedEntries = playersBefore - playersAfter;
+            
+            if (removedEntries > 0) {
+                source.sendSuccess(() -> Component.literal("Force cleanup completed! Removed " + removedEntries + " problematic entries from colony '" + colonyName + "'.")
+                        .withStyle(ChatFormatting.GREEN), false);
+            } else {
+                source.sendSuccess(() -> Component.literal("Force cleanup completed! No problematic entries found in colony '" + colonyName + "'.")
+                        .withStyle(ChatFormatting.YELLOW), false);
+            }
+            
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("Force cleanup failed: " + e.getMessage())
+                    .withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        
+        return 1;
+    }
+    
+    /**
+     * Handle emergency fix command - fixes ALL the issues at once.
+     */
+    private static int handleEmergencyFix(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        
+        source.sendSuccess(() -> Component.literal("🚨 EMERGENCY FIX STARTED 🚨")
+                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD), false);
+        
+        try {
+            // STEP 0: 🚨 CRITICAL - Fix null owners IMMEDIATELY to prevent crashes
+            source.sendSuccess(() -> Component.literal("🚨 STEP 0: EMERGENCY null owner fixes...")
+                    .withStyle(ChatFormatting.RED), false);
+            ColonyAbandonmentManager.emergencyFixAllNullOwners();
+            
+            // STEP 1: Force cleanup all [abandoned] entries AND fix null owners
+            source.sendSuccess(() -> Component.literal("Step 1: Cleaning up [abandoned] entries AND fixing null owners...")
+                    .withStyle(ChatFormatting.YELLOW), false);
+            ColonyAbandonmentManager.cleanupAllColoniesAbandonedEntries();
+            
+            // STEP 2: Fix all abandoned colonies with system owners
+            source.sendSuccess(() -> Component.literal("Step 2: Fixing abandoned colonies...")
+                    .withStyle(ChatFormatting.YELLOW), false);
+            IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
+            final int[] fixedColonies = {0}; // Use array to allow modification in lambda
+            
+            for (IColony colony : colonyManager.getAllColonies()) {
+                try {
+                    IPermissions permissions = colony.getPermissions();
+                    UUID owner = permissions.getOwner();
+                    
+                    // Check if colony has [abandoned] issues or no owner
+                    boolean needsFix = false;
+                    final String[] issue = {""};
+                    
+                    if (owner == null) {
+                        needsFix = true;
+                        issue[0] = "null owner";
+                    } else {
+                        // Check for problematic player entries
+                        for (ColonyPlayer player : permissions.getPlayers().values()) {
+                            if (player.getName() != null && 
+                                (player.getName().contains("[abandoned]") || 
+                                 player.getName().toLowerCase().contains("abandoned"))) {
+                                needsFix = true;
+                                issue[0] = "has [abandoned] entries";
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (needsFix) {
+                        final String colonyName = colony.getName();
+                        final String fixIssue = issue[0];
+                        source.sendSuccess(() -> Component.literal("  Fixing " + colonyName + " - " + fixIssue)
+                                .withStyle(ChatFormatting.AQUA), false);
+                        
+                        // Apply emergency fix using our new system
+                        ColonyAbandonmentManager.cleanupAbandonedEntries(permissions);
+                        
+                        // If still no valid owner, create system owner
+                        if (permissions.getOwner() == null || 
+                            ColonyAbandonmentManager.isSystemOwner(permissions.getOwner())) {
+                            
+                            UUID systemOwner = ColonyAbandonmentManager.createSystemOwner();
+                            permissions.addPlayer(systemOwner, "[SYSTEM_ABANDONED]", permissions.getRankOwner());
+                            
+                            // CRITICAL FIX: Set actual owner to prevent GUI crashes
+                            try {
+                                java.lang.reflect.Method setOwnerMethod = permissions.getClass().getMethod("setOwner", UUID.class);
+                                setOwnerMethod.invoke(permissions, systemOwner);
+                                source.sendSuccess(() -> Component.literal("    Set system owner as actual owner to prevent GUI crashes")
+                                        .withStyle(ChatFormatting.GREEN), false);
+                            } catch (Exception e) {
+                                try {
+                                    for (java.lang.reflect.Method method : permissions.getClass().getDeclaredMethods()) {
+                                        if (method.getName().equals("setOwner") && method.getParameterCount() == 1) {
+                                            method.setAccessible(true);
+                                            method.invoke(permissions, systemOwner);
+                                            source.sendSuccess(() -> Component.literal("    Set system owner (alt method) to prevent GUI crashes")
+                                                    .withStyle(ChatFormatting.GREEN), false);
+                                            break;
+                                        }
+                                    }
+                                } catch (Exception e2) {
+                                    source.sendFailure(Component.literal("    WARNING: Could not set actual owner - GUI may crash!")
+                                            .withStyle(ChatFormatting.RED));
+                                }
+                            }
+                            
+                            // Set all real players to neutral with no permissions
+                            Rank neutralRank = permissions.getRankNeutral();
+                            for (UUID playerId : permissions.getPlayers().keySet()) {
+                                if (!ColonyAbandonmentManager.isSystemOwner(playerId)) {
+                                    permissions.setPlayerRank(playerId, neutralRank, colony.getWorld());
+                                }
+                            }
+                            
+                            // Disable all griefing permissions for neutral players
+                            permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.BREAK_BLOCKS, false);
+                            permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.PLACE_BLOCKS, false);
+                            permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.RIGHTCLICK_BLOCK, false);
+                            permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.OPEN_CONTAINER, false);
+                        }
+                        
+                        fixedColonies[0]++;
+                    }
+                } catch (Exception e) {
+                    final String colonyName = colony.getName();
+                    source.sendFailure(Component.literal("  Error fixing " + colonyName + ": " + e.getMessage())
+                            .withStyle(ChatFormatting.RED));
+                }
+            }
+            
+            // STEP 3: End any failed claiming raids
+            source.sendSuccess(() -> Component.literal("Step 3: Cleaning up failed claiming raids...")
+                    .withStyle(ChatFormatting.YELLOW), false);
+            ColonyClaimingRaidManager.cleanupAllFailedRaids();
+            
+            source.sendSuccess(() -> Component.literal("✅ EMERGENCY FIX COMPLETE ✅")
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
+            source.sendSuccess(() -> Component.literal("Fixed " + fixedColonies[0] + " colonies")
+                    .withStyle(ChatFormatting.GREEN), false);
+            source.sendSuccess(() -> Component.literal("Try your claiming raids again!")
+                    .withStyle(ChatFormatting.GREEN), false);
+            
+            return 1;
+            
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("❌ EMERGENCY FIX FAILED: " + e.getMessage())
+                    .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+            return 0;
+        }
+    }
+    
+    /**
+     * 🚨 CRITICAL: Handle /wnt fixnullowners command for immediate null owner fixes
+     */
+    private static int handleFixNullOwners(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        
+        source.sendSuccess(() -> Component.literal("🚨 EMERGENCY NULL OWNER FIX STARTED 🚨")
+                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD), false);
+        
+        try {
+            source.sendSuccess(() -> Component.literal("Scanning all colonies for null owners...")
+                    .withStyle(ChatFormatting.YELLOW), false);
+                    
+            ColonyAbandonmentManager.emergencyFixAllNullOwners();
+            
+            source.sendSuccess(() -> Component.literal("✅ NULL OWNER FIX COMPLETED!")
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
+                    
+            source.sendSuccess(() -> Component.literal("All colonies now have valid owners - GUI crashes should be prevented!")
+                    .withStyle(ChatFormatting.GREEN), false);
+                    
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("💥 ERROR during null owner fix: " + e.getMessage())
+                    .withStyle(ChatFormatting.RED));
+            LOGGER.error("Error during /wnt fixnullowners command", e);
+        }
+        
+        return 1;
     }
 }
