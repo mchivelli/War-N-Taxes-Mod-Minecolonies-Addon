@@ -8,15 +8,15 @@ import net.machiavelli.minecolonytax.recipe.ModRecipeSerializers;
 import net.machiavelli.minecolonytax.commands.RecipeDisableTestCommand;
 import net.machiavelli.minecolonytax.raid.GuardResistanceHandler;
 import net.machiavelli.minecolonytax.webapi.WebAPIServer;
-import net.minecraftforge.event.server.ServerStartingEvent;
-import net.minecraftforge.event.server.ServerStoppingEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModLoadingContext;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.common.MinecraftForge;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModLoadingContext;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.neoforged.neoforge.common.NeoForge;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -41,10 +41,10 @@ public class MineColonyTax {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
         
         // Register server events (including ServerStartingEvent)
-        MinecraftForge.EVENT_BUS.register(this);
+        NeoForge.EVENT_BUS.register(this);
         
         // Manually register RaidKillTracker to ensure it works
-        MinecraftForge.EVENT_BUS.register(net.machiavelli.minecolonytax.event.RaidKillTracker.class);
+        NeoForge.EVENT_BUS.register(net.machiavelli.minecolonytax.event.RaidKillTracker.class);
         LOGGER.error("MANUALLY REGISTERED RaidKillTracker event handler!");
         
         LOGGER.info("MineColonyTax mod initialized with COMMON config type - no serverconfig creation");

@@ -1,0 +1,81 @@
+# NeoForge mods.toml file for Minecraft 1.21.1
+# This file contains the metadata for loading mods.
+# The overall format is standard TOML format, v0.5.0.
+# Find more information on toml format here: https://github.com/toml-lang/toml
+
+# The name of the mod loader type to load - for NeoForge @Mod mods it should be javafml
+modLoader="javafml"
+
+# A version range to match for said mod loader
+loaderVersion="${loader_version_range}"
+
+# The license for your mod
+license="MIT"
+
+# The mod ID - must match the @Mod annotation
+modId="${mod_id}"
+
+# The version of the mod
+version="${mod_version}"
+
+# A display name for the mod
+displayName="${mod_name}"
+
+# The description text for the mod
+description='''${mod_description}'''
+
+# The authors of the mod
+authors="${mod_authors}"
+
+# Logo file (in the root of the mod JAR)
+#logoFile="logo.png"
+
+# A URL to refer people to when problems occur with this mod
+#issueTrackerURL="https://github.com/yourrepo/issues"
+
+# A URL for the "homepage" for this mod
+#displayURL="https://yourwebsite.com"
+
+# Dependencies
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="${neo_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Optional dependencies - uncomment and update when 1.21.1 versions are available
+#[[dependencies.${mod_id}]]
+#    modId="minecolonies"
+#    type="required"
+#    versionRange="[1.0,)"
+#    ordering="AFTER"
+#    side="BOTH"
+
+#[[dependencies.${mod_id}]]
+#    modId="sdmshop"
+#    type="required"
+#    versionRange="[1.0,)"
+#    ordering="AFTER"
+#    side="BOTH"
+
+#[[dependencies.${mod_id}]]
+#    modId="ftbteams"
+#    type="required"
+#    versionRange="[1.0,)"
+#    ordering="AFTER"
+#    side="BOTH"
+
+#[[dependencies.${mod_id}]]
+#    modId="recruits"
+#    type="required"
+#    versionRange="[1.0,)"
+#    ordering="AFTER"
+#    side="BOTH"

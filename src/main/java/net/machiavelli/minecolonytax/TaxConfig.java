@@ -1,7 +1,7 @@
 package net.machiavelli.minecolonytax;
 
-import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.neoforge.common.ModConfigSpec;
+import net.neoforged.fml.common.Mod;
 
 import java.util.HashMap;
 import java.util.List;
@@ -11,9 +11,9 @@ import java.util.Set;
 @Mod.EventBusSubscriber
 public class TaxConfig {
 
-    private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
+    private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
-    public static ForgeConfigSpec CONFIG;
+    public static ModConfigSpec CONFIG;
 
     public static final ForgeConfigSpec.BooleanValue ENABLE_SDM_SHOP_CONVERSION;
     public static final ForgeConfigSpec.ConfigValue<String> CURRENCY_ITEM_NAME;
