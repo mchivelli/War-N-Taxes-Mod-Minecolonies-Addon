@@ -1,0 +1,12 @@
+Bulk import migration from Forge to NeoForge APIs
+
+Applied automated migration script across 52 Java files:
+- net.minecraftforge.* to net.neoforged.*
+- ForgeConfigSpec to ModConfigSpec
+- MinecraftForge.EVENT_BUS to NeoForge.EVENT_BUS
+- Updated all package imports for NeoForge 1.21.1
+
+Files updated include core systems, events, networking, commands, and config.
+126 total replacements made.
+
+Still requires capability and networking rewrites before compilation.

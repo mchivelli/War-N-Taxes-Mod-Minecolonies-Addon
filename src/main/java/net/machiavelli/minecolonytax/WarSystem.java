@@ -30,7 +30,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.server.ServerLifecycleHooks;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import net.machiavelli.minecolonytax.event.WarEventHandler;
 import net.machiavelli.minecolonytax.raid.GuardResistanceHandler;
 import org.apache.logging.log4j.LogManager;

@@ -1,9 +1,13 @@
 package net.machiavelli.minecolonytax.data;
 
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraftforge.common.util.INBTSerializable;
+import net.minecraft.core.HolderLookup;
+import net.neoforged.neoforge.common.util.INBTSerializable;
 
+/**
+ * Player war statistics data.
+ * Automatically serialized/deserialized by NeoForge Data Attachments system.
+ */
 public class PlayerWarData implements INBTSerializable<CompoundTag> {
     private int playersKilledInWar;
     private int raidedColonies;
@@ -77,5 +81,19 @@ public class PlayerWarData implements INBTSerializable<CompoundTag> {
         amountRaided = nbt.getLong("amountRaided");
         warsWon = nbt.getInt("warsWon");
         warStalemates = nbt.getInt("warStalemates");
+    }
+
+    /**
+     * Copy data from another PlayerWarData instance.
+     * Used for player cloning (death, respawn, dimension change).
+     * 
+     * @param other The source data to copy from
+     */
+    public void copyFrom(PlayerWarData other) {
+        this.playersKilledInWar = other.playersKilledInWar;
+        this.raidedColonies = other.raidedColonies;
+        this.amountRaided = other.amountRaided;
+        this.warsWon = other.warsWon;
+        this.warStalemates = other.warStalemates;
     }
 } 

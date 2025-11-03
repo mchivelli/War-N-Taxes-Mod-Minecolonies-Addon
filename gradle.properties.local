@@ -1,0 +1,4 @@
+# Local Java configuration for NeoForge 1.21.1
+# This file sets the Java toolchain to Java 21
+org.gradle.java.home=C:/Program Files/Eclipse Adoptium/jdk-21.0.9.10-hotspot
+org.gradle.jvmargs=-Xmx4G -Xms1G

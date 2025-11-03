@@ -2,6 +2,7 @@ package net.machiavelli.minecolonytax;
 
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.TaxManager;
+import net.machiavelli.minecolonytax.attachment.PlayerWarDataAttachment;
 import net.machiavelli.minecolonytax.network.NetworkHandler;
 import net.machiavelli.minecolonytax.vassalization.VassalManager;
 import net.machiavelli.minecolonytax.recipe.ModRecipeSerializers;
@@ -33,6 +34,10 @@ public class MineColonyTax {
         // This ensures config goes ONLY to /config/warntax/ and NOT to world/serverconfig/
         // Single registration prevents duplicate config files and .bak file proliferation
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, TaxConfig.CONFIG, "warntax/minecolonytax.toml");
+        
+        // Register Data Attachments (replaces old Capability system in NeoForge)
+        PlayerWarDataAttachment.ATTACHMENT_TYPES.register(FMLJavaModLoadingContext.get().getModEventBus());
+        LOGGER.info("Registered PlayerWarData attachment type");
         
         // Register recipe serializers
         ModRecipeSerializers.RECIPE_SERIALIZERS.register(FMLJavaModLoadingContext.get().getModEventBus());
