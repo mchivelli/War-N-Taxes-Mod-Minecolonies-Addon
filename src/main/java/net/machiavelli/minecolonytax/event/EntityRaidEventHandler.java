@@ -8,7 +8,7 @@ import net.machiavelli.minecolonytax.MineColonyTax;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.registries.ForgeRegistries;
@@ -19,7 +19,7 @@ import org.apache.logging.log4j.Logger;
  * CRITICAL EVENT HANDLER: Monitors entity spawn/join events to trigger entity raids
  * This was the missing piece causing entity raids to not work at runtime!
  */
-@Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+@Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.GAME)
 public class EntityRaidEventHandler {
 
     private static final Logger LOGGER = LogManager.getLogger(EntityRaidEventHandler.class);

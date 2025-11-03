@@ -12,7 +12,7 @@ import net.minecraft.world.item.crafting.RecipeType;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.registries.ForgeRegistries;
-import net.minecraftforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
  * Runtime disabler that removes MineColonies hut crafting recipes when the config is enabled.
  * This runs after datapacks have loaded (server start and datapack reload) and edits the RecipeManager maps via reflection.
  */
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
+@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.GAME)
 public final class RecipeDisableRuntime {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RecipeDisableRuntime.class);

@@ -12,7 +12,7 @@ import com.minecolonies.api.colony.permissions.IPermissions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.event.tick.TickEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
@@ -101,8 +101,8 @@ public class TaxManager {
         private int nullOwnerCheckCount = 0;  // 🚨 Check null owners every 5 seconds (100 ticks) - AGGRESSIVE!
 
         @SubscribeEvent
-        public void onServerTick(TickEvent.ServerTickEvent event) {
-            if (event.phase == TickEvent.Phase.END) {
+        public void onServerTick(ServerTickEvent.Post event) {
+            {
                 tickCount++;
                 abandonmentTickCount++;
                 cleanupTickCount++;

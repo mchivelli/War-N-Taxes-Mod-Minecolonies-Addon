@@ -1,26 +1,41 @@
 package net.machiavelli.minecolonytax.data;
 
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.core.HolderLookup;
-import net.neoforged.neoforge.common.util.INBTSerializable;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 /**
  * Player war statistics data.
- * Automatically serialized/deserialized by NeoForge Data Attachments system.
+ * Automatically serialized/deserialized by NeoForge Data Attachments system using Codec.
  */
-public class PlayerWarData implements INBTSerializable<CompoundTag> {
+public class PlayerWarData {
+    
+    public static final Codec<PlayerWarData> CODEC = RecordCodecBuilder.create(instance ->
+        instance.group(
+            Codec.INT.fieldOf("playersKilledInWar").forGetter(d -> d.playersKilledInWar),
+            Codec.INT.fieldOf("raidedColonies").forGetter(d -> d.raidedColonies),
+            Codec.LONG.fieldOf("amountRaided").forGetter(d -> d.amountRaided),
+            Codec.INT.fieldOf("warsWon").forGetter(d -> d.warsWon),
+            Codec.INT.fieldOf("warStalemates").forGetter(d -> d.warStalemates)
+        ).apply(instance, PlayerWarData::new)
+    );
+    
     private int playersKilledInWar;
     private int raidedColonies;
     private long amountRaided;
     private int warsWon;
     private int warStalemates;
-
+    
     public PlayerWarData() {
-        this.playersKilledInWar = 0;
-        this.raidedColonies = 0;
-        this.amountRaided = 0;
-        this.warsWon = 0;
-        this.warStalemates = 0;
+        this(0, 0, 0, 0, 0);
+    }
+    
+    private PlayerWarData(int playersKilled, int coloniesRaided, long amountRaided, int warsWon, int warStalemates) {
+        this.playersKilledInWar = playersKilled;
+        this.raidedColonies = coloniesRaided;
+        this.amountRaided = amountRaided;
+        this.warsWon = warsWon;
+        this.warStalemates = warStalemates;
     }
 
     public void incrementPlayersKilledInWar() {
@@ -62,8 +77,11 @@ public class PlayerWarData implements INBTSerializable<CompoundTag> {
     public int getWarStalemates() {
         return warStalemates;
     }
-
-    @Override
+    
+    /**
+     * Serialize to NBT for compatibility with old systems (e.g., Web API cache).
+     * NeoForge attachments use the Codec automatically, so this is just for manual NBT access.
+     */
     public CompoundTag serializeNBT() {
         CompoundTag tag = new CompoundTag();
         tag.putInt("playersKilledInWar", playersKilledInWar);
@@ -73,8 +91,11 @@ public class PlayerWarData implements INBTSerializable<CompoundTag> {
         tag.putInt("warStalemates", warStalemates);
         return tag;
     }
-
-    @Override
+    
+    /**
+     * Deserialize from NBT for compatibility with old systems (e.g., Web API cache).
+     * NeoForge attachments use the Codec automatically, so this is just for manual NBT access.
+     */
     public void deserializeNBT(CompoundTag nbt) {
         playersKilledInWar = nbt.getInt("playersKilledInWar");
         raidedColonies = nbt.getInt("raidedColonies");

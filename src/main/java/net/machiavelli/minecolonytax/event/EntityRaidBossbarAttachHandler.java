@@ -14,7 +14,7 @@ import org.apache.logging.log4j.Logger;
  * Ensures eligible players see the active entity raid bossbar when they
  * log in, respawn, or change dimensions.
  */
-@Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+@Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.GAME)
 public class EntityRaidBossbarAttachHandler {
     private static final Logger LOGGER = LogManager.getLogger(EntityRaidBossbarAttachHandler.class);
 

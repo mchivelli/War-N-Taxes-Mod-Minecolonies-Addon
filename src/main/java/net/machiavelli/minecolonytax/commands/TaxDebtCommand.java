@@ -23,7 +23,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.registries.ForgeRegistries;
-import net.sixik.sdmshoprework.SDMShopR;
+import net.sixik.sdm_economy.SDMEconomy;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -103,15 +103,15 @@ public class TaxDebtCommand {
     }
 
     /**
-     * Deducts currency from the player using SDMShopR if enabled, or from the player's inventory otherwise.
+     * Deducts currency from the player using SDMEconomy if enabled, or from the player's inventory otherwise.
      */
     private static boolean deductCurrency(ServerPlayer player, int amount) {
         if (TaxConfig.isSDMShopConversionEnabled()) {
-            long balance = SDMShopR.getMoney(player);
+            long balance = SDMEconomy.getMoney(player);
             if (balance < amount) {
                 return false;
             }
-            SDMShopR.setMoney(player, balance - amount);
+            SDMEconomy.setMoney(player, balance - amount);
             return true;
         } else {
             return deductCurrencyFromInventory(player, amount);

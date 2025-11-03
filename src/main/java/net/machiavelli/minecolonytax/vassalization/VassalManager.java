@@ -34,7 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Handles vassal relationships and tribute payments.
  */
-@Mod.EventBusSubscriber(modid = "minecolonytax", bus = Mod.EventBusSubscriber.Bus.FORGE)
+@Mod.EventBusSubscriber(modid = "minecolonytax", bus = Mod.EventBusSubscriber.Bus.GAME)
 public class VassalManager {
 
     private static final Logger LOGGER = LogManager.getLogger(VassalManager.class);

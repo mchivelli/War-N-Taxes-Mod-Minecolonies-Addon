@@ -51,27 +51,27 @@ authors="${mod_authors}"
     ordering="NONE"
     side="BOTH"
 
-# Optional dependencies - uncomment and update when 1.21.1 versions are available
-#[[dependencies.${mod_id}]]
-#    modId="minecolonies"
-#    type="required"
-#    versionRange="[1.0,)"
-#    ordering="AFTER"
-#    side="BOTH"
+# Required dependencies for MineColony Tax Addon
+[[dependencies.${mod_id}]]
+    modId="minecolonies"
+    type="required"
+    versionRange="[1.1.759,)"
+    ordering="AFTER"
+    side="BOTH"
 
-#[[dependencies.${mod_id}]]
-#    modId="sdmshop"
-#    type="required"
-#    versionRange="[1.0,)"
-#    ordering="AFTER"
-#    side="BOTH"
+[[dependencies.${mod_id}]]
+    modId="sdmshop"
+    type="required"
+    versionRange="[2.0,)"
+    ordering="AFTER"
+    side="BOTH"
 
-#[[dependencies.${mod_id}]]
-#    modId="ftbteams"
-#    type="required"
-#    versionRange="[1.0,)"
-#    ordering="AFTER"
-#    side="BOTH"
+[[dependencies.${mod_id}]]
+    modId="ftbteams"
+    type="required"
+    versionRange="[2101.3.0,)"
+    ordering="AFTER"
+    side="BOTH"
 
 #[[dependencies.${mod_id}]]
 #    modId="recruits"

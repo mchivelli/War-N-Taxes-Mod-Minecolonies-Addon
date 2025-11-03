@@ -43,7 +43,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import net.machiavelli.minecolonytax.raid.ActiveRaidData;
 
-@Mod.EventBusSubscriber(modid = "minecolonytax", bus = Mod.EventBusSubscriber.Bus.FORGE)
+@Mod.EventBusSubscriber(modid = "minecolonytax", bus = Mod.EventBusSubscriber.Bus.GAME)
 public class WntCommands {
 
     private static final Logger LOGGER = LogManager.getLogger(WntCommands.class);
@@ -1240,8 +1240,8 @@ public class WntCommands {
 
                     // Update player's funds using SDMShop API if enabled
                     if (TaxConfig.isSDMShopConversionEnabled()) {
-                        long currentBalance = net.sixik.sdmshoprework.SDMShopR.getMoney(player);
-                        net.sixik.sdmshoprework.SDMShopR.setMoney(player, currentBalance + claimedAmount);
+                        long currentBalance = net.sixik.SDMEconomyework.SDMEconomy.getMoney(player);
+                        net.sixik.SDMEconomyework.SDMEconomy.setMoney(player, currentBalance + claimedAmount);
                     } else {
                         // Use direct inventory manipulation instead of give command for modded items
                         net.minecraft.world.item.Item item = net.neoforged.neoforge.registries.ForgeRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation(TaxConfig.getCurrencyItemName()));
@@ -1391,11 +1391,11 @@ public class WntCommands {
     
     private static boolean deductCurrency(ServerPlayer player, int amount) {
         if (TaxConfig.isSDMShopConversionEnabled()) {
-            long balance = net.sixik.sdmshoprework.SDMShopR.getMoney(player);
+            long balance = net.sixik.SDMEconomyework.SDMEconomy.getMoney(player);
             if (balance < amount) {
                 return false;
             }
-            net.sixik.sdmshoprework.SDMShopR.setMoney(player, balance - amount);
+            net.sixik.SDMEconomyework.SDMEconomy.setMoney(player, balance - amount);
             return true;
         } else {
             return deductCurrencyFromInventory(player, amount);

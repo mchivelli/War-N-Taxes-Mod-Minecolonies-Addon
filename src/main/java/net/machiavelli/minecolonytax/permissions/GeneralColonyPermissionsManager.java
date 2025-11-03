@@ -7,8 +7,8 @@ import com.minecolonies.api.colony.permissions.IPermissions;
 import com.minecolonies.api.colony.permissions.Rank;
 import net.machiavelli.minecolonytax.MineColonyTax;
 import net.machiavelli.minecolonytax.TaxConfig;
-import net.neoforged.neoforge.event.tick.TickEvent;
-import net.minecraftforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
@@ -22,7 +22,7 @@ import java.util.Set;
  * Manages general colony permissions that allow non-allies to interact with items and blocks
  * within colony boundaries based on configuration settings.
  */
-@Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+@Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.GAME)
 public class GeneralColonyPermissionsManager {
 
     private static final Logger LOGGER = LogManager.getLogger(GeneralColonyPermissionsManager.class);
@@ -55,12 +55,8 @@ public class GeneralColonyPermissionsManager {
      * This avoids directly referencing MineColonies-specific events that may differ between versions.
      */
     @SubscribeEvent
-    public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) {
-            return;
-        }
- 
-        // Run every 200 ticks (~10 seconds)
+    public static void onServerTick(ServerTickEvent.Post event) {
+// Run every 200 ticks (~10 seconds)
         if (++scanTicker < 200) {
             return;
         }

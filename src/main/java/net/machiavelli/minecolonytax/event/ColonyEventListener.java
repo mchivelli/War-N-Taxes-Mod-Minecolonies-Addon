@@ -13,7 +13,7 @@ import net.machiavelli.minecolonytax.raid.ActiveRaidData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 
-import net.neoforged.neoforge.event.tick.TickEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+@Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.GAME)
 public class ColonyEventListener {
 
     private static final Logger LOGGER = LogManager.getLogger(ColonyEventListener.class);
@@ -40,12 +40,8 @@ public class ColonyEventListener {
     private static int entityScanTickCounter = 0;
 
     @SubscribeEvent
-    public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) {
-            return;
-        }
-
-        // Always advance entity raid lifecycle each server tick when enabled
+    public static void onServerTick(ServerTickEvent.Post event) {
+// Always advance entity raid lifecycle each server tick when enabled
         if (TaxConfig.ENABLE_ENTITY_RAIDS.get()) {
             EntityRaidManager.tick();
         }

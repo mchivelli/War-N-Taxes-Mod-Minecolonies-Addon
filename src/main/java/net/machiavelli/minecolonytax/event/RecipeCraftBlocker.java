@@ -18,7 +18,7 @@ import java.util.Set;
  * Hard block crafting of MineColonies hut blocks when DisableHutRecipes = true.
  * This guarantees players cannot obtain the items via crafting even if a recipe slips through.
  */
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
+@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.GAME)
 public final class RecipeCraftBlocker {
 
     private static final Set<Item> HUT_BLOCK_ITEMS = new HashSet<>();

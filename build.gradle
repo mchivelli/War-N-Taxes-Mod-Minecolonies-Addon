@@ -18,6 +18,12 @@ repositories {
             password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")
         }
     }
+    maven {
+        url = "https://www.cursemaven.com"
+        content {
+            includeGroup "curse.maven"
+        }
+    }
 }
 
 base {
@@ -75,14 +81,21 @@ dependencies {
     // NeoForge dependency
     implementation "net.neoforged:neoforge:${neo_version}"
 
-    // MineColonies dependency (commented out until 1.21.1 version is available)
-    // implementation "com.ldtteam:minecolonies:1.21.1-${minecolonies_version}"
+    // MineColonies and its dependencies (1.21.1 NeoForge versions)
+    // Core MineColonies mod
+    implementation "curse.maven:minecolonies-245506:7162708"
     
-    // SDMShop dependency (commented out until 1.21.1 version is available)
-    // implementation fg.deobf("com.guhao:sdmshop:${sdmshop_version}")
+    // MineColonies required dependencies
+    implementation "curse.maven:structurize-298744:7041361"
+    implementation "curse.maven:multi-piston-303278:5783614"
+    implementation "curse.maven:blockui-522992:6367809"
+    implementation "curse.maven:domum-ornamentum-527361:6688449"
     
-    // FTB Teams dependency (commented out until 1.21.1 version is available)
-    // implementation fg.deobf("dev.ftb.mods:ftb-teams-forge:${ftbteams_version}")
+    // SDMShop dependency (1.21.1 NeoForge version)
+    implementation "curse.maven:sdm-shop-948942:7173785"
+    
+    // FTB Teams dependency (1.21.1 NeoForge version)
+    implementation "curse.maven:ftb-teams-forge-404468:7170718"
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

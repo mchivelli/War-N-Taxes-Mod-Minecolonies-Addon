@@ -31,11 +31,11 @@ public class SDMShopIntegration {
             
             // Try different possible SDMShop class names
             String[] possibleClasses = {
-                "net.sixik.sdmshoprework.SDMShopR",
+                "net.sixik.SDMEconomyework.SDMEconomy",
                 "net.sixik.sdmshop.SDMShop", 
                 "net.sixik.sdmshop.api.ShopAPI",
-                "net.sixik.sdmshoprework.api.ShopAPI",
-                "net.sixik.sdmshop.SDMShopRework",
+                "net.sixik.SDMEconomyework.api.ShopAPI",
+                "net.sixik.sdmshop.SDMEconomyework",
                 "net.sixik.sdmeconomy.api.EconomyAPI",
                 "net.sixik.sdmeconomy.SDMEconomy"
             };

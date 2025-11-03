@@ -12,8 +12,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.registries.ForgeRegistries;
-import net.minecraftforge.server.ServerLifecycleHooks;
-import net.sixik.sdmshoprework.SDMShopR;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import net.sixik.sdm_economy.SDMEconomy;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
@@ -34,7 +34,7 @@ public class WarEconomyHandler {
 
     /**
      * Deducts a percentage from each member of a team and reports the total deducted.
-     * If SDMShop conversion is enabled, player funds are modified via SDMShopR.
+     * If SDMShop conversion is enabled, player funds are modified via SDMEconomy.
      * Otherwise, the coin item specified in the config is deducted from the player's inventory.
      *
      * @param teamID   The team (or player UUID if no team exists).
@@ -67,9 +67,9 @@ public class WarEconomyHandler {
             if (loserPlayer != null) {
                 long deducted;
                 if (TaxConfig.isSDMShopConversionEnabled()) {
-                    long balance = SDMShopR.getMoney(loserPlayer);
+                    long balance = SDMEconomy.getMoney(loserPlayer);
                     deducted = (long) (balance * fraction);
-                    SDMShopR.setMoney(loserPlayer, balance - deducted);
+                    SDMEconomy.setMoney(loserPlayer, balance - deducted);
                 } else {
                     long invBalance = getInventoryCurrencyBalance(loserPlayer);
                     deducted = (long) (invBalance * fraction);
@@ -106,9 +106,9 @@ public class WarEconomyHandler {
                 ServerPlayer loserPlayer = ServerLifecycleHooks.getCurrentServer()
                         .getPlayerList().getPlayer(loserUUID);
                 if (loserPlayer != null) {
-                    long balance = SDMShopR.getMoney(loserPlayer);
+                    long balance = SDMEconomy.getMoney(loserPlayer);
                     long lostAmount = (long) (balance * fraction);
-                    SDMShopR.setMoney(loserPlayer, balance - lostAmount);
+                    SDMEconomy.setMoney(loserPlayer, balance - lostAmount);
                     totalTransferred += lostAmount;
                     loserPlayer.sendSystemMessage(
                             Component.literal("You lost " + lostAmount + " coins in reparations to " +
@@ -118,8 +118,8 @@ public class WarEconomyHandler {
                 }
             }
             if (winnerPlayer != null && totalTransferred > 0) {
-                long winnerBalance = SDMShopR.getMoney(winnerPlayer);
-                SDMShopR.setMoney(winnerPlayer, winnerBalance + totalTransferred);
+                long winnerBalance = SDMEconomy.getMoney(winnerPlayer);
+                SDMEconomy.setMoney(winnerPlayer, winnerBalance + totalTransferred);
                 winnerPlayer.sendSystemMessage(
                         Component.literal("You received " + totalTransferred + " coins in war reparations!")
                                 .withStyle(ChatFormatting.GREEN)
@@ -214,7 +214,7 @@ public class WarEconomyHandler {
             for (UUID member : team.getMembers()) {
                 ServerPlayer player = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(member);
                 if (player != null) {
-                    sum += SDMShopR.getMoney(player);
+                    sum += SDMEconomy.getMoney(player);
                 }
             }
         } else {
@@ -245,17 +245,17 @@ public class WarEconomyHandler {
                 ServerPlayer loser = ServerLifecycleHooks.getCurrentServer()
                         .getPlayerList().getPlayer(member);
                 if (loser != null) {
-                    long balance = SDMShopR.getMoney(loser);
+                    long balance = SDMEconomy.getMoney(loser);
                     long take = (long) (balance * ((double) demandedAmount / getTeamTotalBalance(losingTeamID)));
-                    SDMShopR.setMoney(loser, balance - take);
+                    SDMEconomy.setMoney(loser, balance - take);
                     totalTransferred += take;
                     loser.sendSystemMessage(Component.literal("You lost " + take + " coins in reparations!")
                             .withStyle(ChatFormatting.RED));
                 }
             }
             if (winner != null && totalTransferred > 0) {
-                long wb = SDMShopR.getMoney(winner);
-                SDMShopR.setMoney(winner, wb + totalTransferred);
+                long wb = SDMEconomy.getMoney(winner);
+                SDMEconomy.setMoney(winner, wb + totalTransferred);
                 winner.sendSystemMessage(Component.literal("You received " + totalTransferred + " coins in reparations!")
                         .withStyle(ChatFormatting.GREEN));
             }
@@ -355,16 +355,16 @@ public class WarEconomyHandler {
         if (loserPlayer != null && winnerPlayer != null) {
             if (TaxConfig.isSDMShopConversionEnabled()) {
                 // Use SDMShop economy
-                long loserBalance = SDMShopR.getMoney(loserPlayer);
+                long loserBalance = SDMEconomy.getMoney(loserPlayer);
                 long transferAmount = (long)(loserBalance * percentage);
                 
                 if (transferAmount > 0) {
                     // Remove from loser
-                    SDMShopR.setMoney(loserPlayer, loserBalance - transferAmount);
+                    SDMEconomy.setMoney(loserPlayer, loserBalance - transferAmount);
                     
                     // Add to winner
-                    long winnerBalance = SDMShopR.getMoney(winnerPlayer);
-                    SDMShopR.setMoney(winnerPlayer, winnerBalance + transferAmount);
+                    long winnerBalance = SDMEconomy.getMoney(winnerPlayer);
+                    SDMEconomy.setMoney(winnerPlayer, winnerBalance + transferAmount);
                     
                     transferredAmount = transferAmount;
                     

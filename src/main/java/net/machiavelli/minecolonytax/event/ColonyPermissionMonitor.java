@@ -4,7 +4,7 @@ import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.permissions.ColonyPlayer;
 import net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager;
 import net.minecraft.server.MinecraftServer;
-import net.neoforged.neoforge.event.tick.TickEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
@@ -33,12 +33,8 @@ public class ColonyPermissionMonitor {
     private static final int CHECK_INTERVAL = 100; // 5 seconds at 20 TPS
     
     @SubscribeEvent
-    public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) {
-            return;
-        }
-        
-        tickCounter++;
+    public static void onServerTick(ServerTickEvent.Post event) {
+tickCounter++;
         if (tickCounter < CHECK_INTERVAL) {
             return;
         }

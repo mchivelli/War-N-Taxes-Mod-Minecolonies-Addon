@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 /**
  * Client-side recipe removal so the recipe book/JEI no longer show hut recipes when disabled.
  */
-@Mod.EventBusSubscriber(value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
+@Mod.EventBusSubscriber(value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.GAME)
 public final class RecipeDisableClient {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RecipeDisableClient.class);

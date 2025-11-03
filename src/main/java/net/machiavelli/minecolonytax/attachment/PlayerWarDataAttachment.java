@@ -31,11 +31,13 @@ public class PlayerWarDataAttachment {
 
     /**
      * The attachment type for player war data.
-     * This is automatically serialized to player NBT data.
+     * This is automatically serialized to player NBT data using Codec.
      */
     public static final DeferredHolder<AttachmentType<?>, AttachmentType<PlayerWarData>> PLAYER_WAR_DATA = 
         ATTACHMENT_TYPES.register("player_war_data", () -> 
-            AttachmentType.serializable(PlayerWarData::new).build()
+            AttachmentType.builder(PlayerWarData::new)
+                .serialize(PlayerWarData.CODEC)
+                .build()
         );
 
     /**
