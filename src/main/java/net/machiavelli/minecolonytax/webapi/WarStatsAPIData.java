@@ -5,7 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.machiavelli.minecolonytax.MineColonyTax;
-import net.machiavelli.minecolonytax.capability.PlayerWarDataCapability;
+import net.machiavelli.minecolonytax.attachment.PlayerWarDataAttachment;
 import net.machiavelli.minecolonytax.data.PlayerWarData;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -98,26 +98,18 @@ public class WarStatsAPIData {
         // Add online players
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             try {
-                // Use resolve() to get actual capability, not a temporary empty instance
-                var capability = player.getCapability(PlayerWarDataCapability.CAPABILITY);
-                PlayerWarData data = capability.resolve().orElse(null);
-                
-                if (data != null) {
-                    entries.add(new PlayerStatsEntry(
-                        player.getStringUUID(),
-                        player.getName().getString(),
-                        data.getPlayersKilledInWar(),
-                        data.getRaidedColonies(),
-                        data.getAmountRaided(),
-                        data.getWarsWon(),
-                        data.getWarStalemates(),
-                        true // online
-                    ));
-                    onlineUUIDs.add(player.getStringUUID());
-                } else {
-                    MineColonyTax.LOGGER.warn("Capability not loaded for player {} in leaderboard", 
-                        player.getName().getString());
-                }
+                PlayerWarData data = PlayerWarDataAttachment.get(player);
+                entries.add(new PlayerStatsEntry(
+                    player.getStringUUID(),
+                    player.getName().getString(),
+                    data.getPlayersKilledInWar(),
+                    data.getRaidedColonies(),
+                    data.getAmountRaided(),
+                    data.getWarsWon(),
+                    data.getWarStalemates(),
+                    true // online
+                ));
+                onlineUUIDs.add(player.getStringUUID());
             } catch (Exception e) {
                 MineColonyTax.LOGGER.warn("Error reading stats for player {} in leaderboard: {}", 
                     player.getName().getString(), e.getMessage());
@@ -255,23 +247,15 @@ public class WarStatsAPIData {
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             try {
                 // Use get() with resolve() to ensure we have a real attached capability
-                // Don't use getOrCreate() as it can return unattached empty instances
-                var capability = player.getCapability(PlayerWarDataCapability.CAPABILITY);
-                PlayerWarData data = capability.resolve().orElse(null);
+                PlayerWarData data = PlayerWarDataAttachment.get(player);
+                totalWarsWon += data.getWarsWon();
+                totalColoniesRaided += data.getRaidedColonies();
+                totalPlayersKilled += data.getPlayersKilledInWar();
+                totalAmountRaided += data.getAmountRaided();
                 
-                if (data != null) {
-                    totalWarsWon += data.getWarsWon();
-                    totalColoniesRaided += data.getRaidedColonies();
-                    totalPlayersKilled += data.getPlayersKilledInWar();
-                    totalAmountRaided += data.getAmountRaided();
-                    
-                    MineColonyTax.LOGGER.debug("Read stats for {}: wars={}, raids={}, killed={}, amount={}",
-                        player.getName().getString(), data.getWarsWon(), data.getRaidedColonies(),
-                        data.getPlayersKilledInWar(), data.getAmountRaided());
-                } else {
-                    MineColonyTax.LOGGER.warn("Capability not attached or not loaded for player {}", 
-                        player.getName().getString());
-                }
+                MineColonyTax.LOGGER.debug("Read stats for {}: wars={}, raids={}, killed={}, amount={}",
+                    player.getName().getString(), data.getWarsWon(), data.getRaidedColonies(),
+                    data.getPlayersKilledInWar(), data.getAmountRaided());
             } catch (Exception e) {
                 MineColonyTax.LOGGER.warn("Error reading stats for player {}: {}", 
                     player.getName().getString(), e.getMessage());
@@ -294,15 +278,7 @@ public class WarStatsAPIData {
      */
     private JsonObject getPlayerStatsObject(ServerPlayer player) {
         try {
-            // Use resolve() to get the actual attached capability
-            var capability = player.getCapability(PlayerWarDataCapability.CAPABILITY);
-            PlayerWarData data = capability.resolve().orElse(null);
-            
-            if (data == null) {
-                MineColonyTax.LOGGER.warn("Capability not loaded for player {}", 
-                    player.getName().getString());
-                return null;
-            }
+            PlayerWarData data = PlayerWarDataAttachment.get(player);
             
             JsonObject playerObj = new JsonObject();
             playerObj.addProperty("uuid", player.getStringUUID());

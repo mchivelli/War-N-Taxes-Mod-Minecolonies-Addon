@@ -1535,54 +1535,43 @@ public class WntCommands {
     private static int showWarStats(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
         
-        var warDataOptional = net.machiavelli.minecolonytax.capability.PlayerWarDataCapability.get(player);
+        var warData = net.machiavelli.minecolonytax.attachment.PlayerWarDataAttachment.get(player);
         
-        if (warDataOptional.isPresent()) {
-            var warData = warDataOptional.resolve().get();
-            
-            // Debug logging to help troubleshoot data persistence
-            net.machiavelli.minecolonytax.MineColonyTax.LOGGER.info("War stats retrieved for " + player.getName().getString() + 
-                ": PlayersKilled=" + warData.getPlayersKilledInWar() + 
-                ", RaidedColonies=" + warData.getRaidedColonies() + 
-                ", AmountRaided=" + warData.getAmountRaided() + 
-                ", WarsWon=" + warData.getWarsWon() + 
-                ", WarStalemates=" + warData.getWarStalemates());
-            
-            Component message = Component.literal("Your War Statistics")
-                    .withStyle(style -> style.withColor(ChatFormatting.GOLD).withBold(true))
-                    .append(Component.literal("\n- Players killed in wars: ")
-                            .withStyle(ChatFormatting.YELLOW)
-                            .append(Component.literal(String.valueOf(warData.getPlayersKilledInWar()))
-                                    .withStyle(ChatFormatting.WHITE)))
-                    .append(Component.literal("\n- Colonies raided: ")
-                            .withStyle(ChatFormatting.YELLOW)
-                            .append(Component.literal(String.valueOf(warData.getRaidedColonies()))
-                                    .withStyle(ChatFormatting.WHITE)))
-                    .append(Component.literal("\n- Total amount raided: ")
-                            .withStyle(ChatFormatting.YELLOW)
-                            .append(Component.literal(String.valueOf(warData.getAmountRaided()))
-                                    .withStyle(ChatFormatting.WHITE)))
-                    .append(Component.literal("\n- Wars won: ")
-                            .withStyle(ChatFormatting.YELLOW)
-                            .append(Component.literal(String.valueOf(warData.getWarsWon()))
-                                    .withStyle(ChatFormatting.WHITE)))
-                    .append(Component.literal("\n- War stalemates: ")
-                            .withStyle(ChatFormatting.YELLOW)
-                            .append(Component.literal(String.valueOf(warData.getWarStalemates()))
-                                    .withStyle(ChatFormatting.WHITE)));
-            
-            player.sendSystemMessage(message);
-            
-            // Mark that player data should be saved
-            player.getPersistentData().putBoolean("minecolonytax:save_requested", true);
-            net.machiavelli.minecolonytax.MineColonyTax.LOGGER.debug("Marked player data for save after displaying war stats for " + player.getName().getString());
-            
-            return 1;
-        } else {
-            player.sendSystemMessage(Component.literal("No war statistics available."));
-            net.machiavelli.minecolonytax.MineColonyTax.LOGGER.warn("War data capability not found for player " + player.getName().getString());
-            return 0;
-        }
+        // Debug logging to help troubleshoot data persistence
+        net.machiavelli.minecolonytax.MineColonyTax.LOGGER.info("War stats retrieved for " + player.getName().getString() + 
+            ": PlayersKilled=" + warData.getPlayersKilledInWar() + 
+            ", RaidedColonies=" + warData.getRaidedColonies() + 
+            ", AmountRaided=" + warData.getAmountRaided() + 
+            ", WarsWon=" + warData.getWarsWon() + 
+            ", WarStalemates=" + warData.getWarStalemates());
+        
+        Component message = Component.literal("Your War Statistics")
+                .withStyle(style -> style.withColor(ChatFormatting.GOLD).withBold(true))
+                .append(Component.literal("\n- Players killed in wars: ")
+                        .withStyle(ChatFormatting.YELLOW)
+                        .append(Component.literal(String.valueOf(warData.getPlayersKilledInWar()))
+                                .withStyle(ChatFormatting.WHITE)))
+                .append(Component.literal("\n- Colonies raided: ")
+                        .withStyle(ChatFormatting.YELLOW)
+                        .append(Component.literal(String.valueOf(warData.getRaidedColonies()))
+                                .withStyle(ChatFormatting.WHITE)))
+                .append(Component.literal("\n- Total amount raided: ")
+                        .withStyle(ChatFormatting.YELLOW)
+                        .append(Component.literal(String.valueOf(warData.getAmountRaided()))
+                                .withStyle(ChatFormatting.WHITE)))
+                .append(Component.literal("\n- Wars won: ")
+                        .withStyle(ChatFormatting.YELLOW)
+                        .append(Component.literal(String.valueOf(warData.getWarsWon()))
+                                .withStyle(ChatFormatting.WHITE)))
+                .append(Component.literal("\n- War stalemates: ")
+                        .withStyle(ChatFormatting.YELLOW)
+                        .append(Component.literal(String.valueOf(warData.getWarStalemates()))
+                                .withStyle(ChatFormatting.WHITE)));
+        
+        player.sendSystemMessage(message);
+        net.machiavelli.minecolonytax.MineColonyTax.LOGGER.debug("Displayed war stats for " + player.getName().getString());
+        
+        return 1;
     }
 
     // Vassal command handlers
