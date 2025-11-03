@@ -3,6 +3,8 @@ package net.machiavelli.minecolonytax.event;
 import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
+import com.minecolonies.api.colony.permissions.IPermissions;
+import com.minecolonies.api.colony.permissions.Rank;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
 import net.machiavelli.minecolonytax.militia.CitizenMilitiaManager;
 import net.machiavelli.minecolonytax.raid.ActiveRaidData;
@@ -372,11 +374,19 @@ public class RaidKillTracker {
             .append(Component.literal(String.valueOf(remainingDefenders)).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
         
         // Send to colony members
+        IPermissions perms = colony.getPermissions();
         colony.getPermissions().getPlayers().forEach((uuid, data) -> {
             if (killer == null || !uuid.equals(killer.getUUID())) { // Don't send to the raider (if there is one)
-                ServerPlayer defender = (ServerPlayer) colony.getWorld().getPlayerByUUID(uuid);
-                if (defender != null) {
-                    defender.sendSystemMessage(defenseMessage);
+                // Only send to colony allies: Owner, Officers, and Friends
+                // Excludes: Hostile and Neutral players
+                Rank rank = perms.getRank(uuid);
+                if (rank != null && (rank.equals(perms.getRankOwner()) || 
+                                    rank.equals(perms.getRankOfficer()) || 
+                                    rank.equals(perms.getRankFriend()))) {
+                    ServerPlayer defender = (ServerPlayer) colony.getWorld().getPlayerByUUID(uuid);
+                    if (defender != null) {
+                        defender.sendSystemMessage(defenseMessage);
+                    }
                 }
             }
         });

@@ -15,8 +15,12 @@ public class PlayerWarDataManager {
      */
     public static void incrementPlayersKilledInWar(ServerPlayer player) {
         PlayerWarDataCapability.get(player).ifPresent(data -> {
+            int oldValue = data.getPlayersKilledInWar();
             data.incrementPlayersKilledInWar();
-            updateScoreboard(player, "playersKilled", data.getPlayersKilledInWar());
+            int newValue = data.getPlayersKilledInWar();
+            MineColonyTax.LOGGER.info("STAT UPDATE: {} players killed in war: {} -> {}", 
+                player.getName().getString(), oldValue, newValue);
+            updateScoreboard(player, "playersKilled", newValue);
             // Mark data as dirty to ensure it's saved
             markDirty(player);
         });
@@ -29,8 +33,12 @@ public class PlayerWarDataManager {
      */
     public static void incrementRaidedColonies(ServerPlayer player) {
         PlayerWarDataCapability.get(player).ifPresent(data -> {
+            int oldValue = data.getRaidedColonies();
             data.incrementRaidedColonies();
-            updateScoreboard(player, "raidsCompleted", data.getRaidedColonies());
+            int newValue = data.getRaidedColonies();
+            MineColonyTax.LOGGER.info("STAT UPDATE: {} raided colonies: {} -> {}", 
+                player.getName().getString(), oldValue, newValue);
+            updateScoreboard(player, "raidsCompleted", newValue);
             // Mark data as dirty to ensure it's saved
             markDirty(player);
         });
@@ -44,8 +52,12 @@ public class PlayerWarDataManager {
      */
     public static void addAmountRaided(ServerPlayer player, long amount) {
         PlayerWarDataCapability.get(player).ifPresent(data -> {
+            long oldValue = data.getAmountRaided();
             data.addAmountRaided(amount);
-            updateScoreboard(player, "amountRaided", (int)data.getAmountRaided());
+            long newValue = data.getAmountRaided();
+            MineColonyTax.LOGGER.info("STAT UPDATE: {} amount raided: {} -> {} (+{})", 
+                player.getName().getString(), oldValue, newValue, amount);
+            updateScoreboard(player, "amountRaided", (int)newValue);
             // Mark data as dirty to ensure it's saved
             markDirty(player);
         });
@@ -58,8 +70,12 @@ public class PlayerWarDataManager {
      */
     public static void incrementWarsWon(ServerPlayer player) {
         PlayerWarDataCapability.get(player).ifPresent(data -> {
+            int oldValue = data.getWarsWon();
             data.incrementWarsWon();
-            updateScoreboard(player, "warsWon", data.getWarsWon());
+            int newValue = data.getWarsWon();
+            MineColonyTax.LOGGER.info("STAT UPDATE: {} wars won: {} -> {}", 
+                player.getName().getString(), oldValue, newValue);
+            updateScoreboard(player, "warsWon", newValue);
             // Mark data as dirty to ensure it's saved
             markDirty(player);
         });
@@ -72,8 +88,12 @@ public class PlayerWarDataManager {
      */
     public static void incrementWarStalemates(ServerPlayer player) {
         PlayerWarDataCapability.get(player).ifPresent(data -> {
+            int oldValue = data.getWarStalemates();
             data.incrementWarStalemates();
-            updateScoreboard(player, "warStalemates", data.getWarStalemates());
+            int newValue = data.getWarStalemates();
+            MineColonyTax.LOGGER.info("STAT UPDATE: {} war stalemates: {} -> {}", 
+                player.getName().getString(), oldValue, newValue);
+            updateScoreboard(player, "warStalemates", newValue);
             // Mark data as dirty to ensure it's saved
             markDirty(player);
         });

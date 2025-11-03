@@ -108,6 +108,32 @@ TaxStealPerGuard = 200
 	#Percentage increase in total tax revenue when required Guard Towers are built. This acts as a multiplier on the colony's total generated tax income. For example: 0.5 = 50% increase, so 1000 tax becomes 1500 tax.
 	#Range: 0.0 ~ 2.0
 	GuardTowerTaxBoostPercentage = 0.5
+	#Enable the block interaction filter system during raids and wars.
+	#When enabled, this system overrides ALL other protection systems to enforce blacklist/whitelist rules.
+	#BLACKLIST blocks CANNOT be interacted with (highest priority - prevents griefing).
+	#WHITELIST blocks CAN be interacted with (overrides normal restrictions).
+	EnableBlockInteractionFilter = true
+	#List of block IDs that CANNOT be interacted with during raids/wars (highest priority).
+	#Format:
+	#  - Specific block: 'modid:blockname' (e.g., 'minecraft:bedrock', 'minecolonies:blockhuttownhall')
+	#  - Entire mod: '#modid' (e.g., '#refinedstorage', '#mekanism')
+	#These blocks are completely protected and override any whitelist or permission settings.
+	#Default blacklist prevents interaction with critical infrastructure blocks.
+	BlockInteractionBlacklist = ["minecraft:bedrock", "minecraft:command_block", "minecraft:chain_command_block", "minecraft:repeating_command_block", "minecraft:structure_block", "minecraft:jigsaw", "minecolonies:blockhuttownhall"]
+	#List of block IDs that CAN be interacted with during raids/wars.
+	#Format:
+	#  - Specific block: 'modid:blockname' (e.g., 'minecraft:chest', 'ironchest:iron_chest')
+	#  - Entire mod: '#modid' (e.g., '#ironchest', '#sophisticatedstorage')
+	#These blocks can be opened/used even during conflicts.
+	#Common use: Allow looting chests and storage blocks.
+	#Blacklist always takes priority over whitelist!
+	BlockInteractionWhitelist = ["minecraft:chest", "minecraft:barrel", "minecraft:furnace", "minecraft:blast_furnace", "minecraft:smoker", "minecraft:dropper", "minecraft:dispenser", "minecraft:hopper"]
+	#Apply block interaction filter during wars.
+	#If enabled, blacklist/whitelist rules will be enforced during active wars.
+	BlockFilterWars = true
+	#Apply block interaction filter during raids.
+	#If enabled, blacklist/whitelist rules will be enforced during active raids.
+	BlockFilterRaids = true
 
 	["War Settings"."Entity Raid Settings"]
 		#Enable entity-triggered raids. When disabled, entities will not trigger raids even if they meet the criteria. Admin-only feature.
@@ -248,6 +274,25 @@ TaxStealPerGuard = 200
 	["War Settings"."Recipe Disabling"]
 		#Disable all Minecolonies building hut recipes. When enabled, players must obtain building huts through SDMShop or Admin Shop instead of crafting them. This affects all buildings that accumulate taxes or maintenance costs. Disabled by default.
 		DisableHutRecipes = false
+
+	["War Settings"."Web API"]
+		#Enable the Web API server for external data access. When enabled, war statistics and other data can be queried via HTTP REST endpoints. IMPORTANT: Only enable this if you understand the security implications. The API runs SERVER-SIDE ONLY and requires proper port forwarding if accessed from outside your network. Default: false (disabled)
+		EnableWebAPI = false
+		#Port number for the Web API server. Make sure this port is not already in use by another application. Common ports: 8080, 8090, 9000. Avoid ports below 1024 (requires admin privileges). You may need to configure port forwarding on your router for external access. Default: 8090
+		#Range: 1024 ~ 65535
+		WebAPIPort = 8090
+		#API authentication key for secure access. This key must be provided in the 'X-API-Key' header for all requests when authentication is enabled. Generate a strong, random key (recommended: 32+ characters). Example: 'my-super-secret-api-key-12345-abcdef' SECURITY WARNING: Keep this key private! Anyone with this key can access your server data. Default: empty (you must set this to enable authentication)
+		WebAPIKey = ""
+		#Maximum number of API requests allowed per IP address per minute. Prevents abuse and excessive server load from a single source. Set to 0 to disable rate limiting (not recommended for public servers). Default: 60 (1 request per second average)
+		#Range: 0 ~ 1000
+		WebAPIRateLimitRequestsPerMinute = 60
+		#Require API key authentication for all requests. When enabled, requests without a valid 'X-API-Key' header will be rejected with 401 Unauthorized. When disabled, anyone can query the API (use with caution!). SECURITY: Always enable this for public servers. Only disable for local testing. Default: true (authentication required)
+		WebAPIRequireAuthentication = true
+		#Enable offline player data in API responses. When enabled, the API can return statistics for offline players by scanning player data files. This requires periodic file scanning and caching, which uses more memory and disk I/O. Use the 'includeOffline=true' query parameter to request offline data. PERFORMANCE: Only enable if you need offline player stats on your website. Default: false (online players only)
+		WebAPIEnableOfflinePlayers = false
+		#How often to refresh the offline player data cache (in minutes). The server will scan player data files at this interval to update offline player statistics. Lower values = more current data but higher disk I/O. Higher values = less load but stale data. Only used when 'WebAPIEnableOfflinePlayers' is true. Recommended: 5-15 minutes for active servers, 30-60 minutes for larger servers. Default: 10 minutes
+		#Range: 1 ~ 1440
+		WebAPICacheRefreshMinutes = 10
 
 ["PvP Arena Settings"]
 	#Allow players to use commands while in a PvP battle. It's recommended to keep this false to prevent exploits.

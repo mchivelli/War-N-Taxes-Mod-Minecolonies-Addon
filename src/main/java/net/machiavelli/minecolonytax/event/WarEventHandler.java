@@ -1,6 +1,8 @@
 package net.machiavelli.minecolonytax.event;
 
 import com.minecolonies.api.colony.IColony;
+import com.minecolonies.api.colony.permissions.IPermissions;
+import com.minecolonies.api.colony.permissions.Rank;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
 import net.machiavelli.minecolonytax.MineColonyTax;
 import net.machiavelli.minecolonytax.TaxConfig;
@@ -464,10 +466,18 @@ public class WarEventHandler {
 
     // Helper method to broadcast a message to all players in a colony:
     private static void sendColonyMessage(IColony colony, Component message) {
+        IPermissions perms = colony.getPermissions();
         colony.getPermissions().getPlayers().forEach((uuid, data) -> {
-            ServerPlayer p = (ServerPlayer) colony.getWorld().getPlayerByUUID(uuid);
-            if (p != null) {
-                p.sendSystemMessage(message);
+            // Only send to colony allies: Owner, Officers, and Friends
+            // Excludes: Hostile and Neutral players
+            Rank rank = perms.getRank(uuid);
+            if (rank != null && (rank.equals(perms.getRankOwner()) || 
+                                rank.equals(perms.getRankOfficer()) || 
+                                rank.equals(perms.getRankFriend()))) {
+                ServerPlayer p = (ServerPlayer) colony.getWorld().getPlayerByUUID(uuid);
+                if (p != null) {
+                    p.sendSystemMessage(message);
+                }
             }
         });
     }

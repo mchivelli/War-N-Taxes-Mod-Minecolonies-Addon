@@ -241,6 +241,7 @@
     "criteria": {
       "minecraft:skeleton": "2025-05-03 00:11:17 +0200",
       "minecraft:spider": "2025-05-03 00:12:22 +0200",
+      "minecraft:creeper": "2025-10-08 23:03:45 +0200",
       "minecraft:enderman": "2025-09-07 05:32:22 +0200",
       "minecraft:zombie": "2025-05-09 22:38:41 +0200"
     },
@@ -789,6 +790,66 @@
   "minecraft:recipes/misc/leather_horse_armor": {
     "criteria": {
       "has_leather": "2025-09-28 22:21:57 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/decorations/black_bed": {
+    "criteria": {
+      "has_black_wool": "2025-10-08 23:04:56 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/decorations/black_carpet": {
+    "criteria": {
+      "has_black_wool": "2025-10-08 23:04:56 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/decorations/black_banner": {
+    "criteria": {
+      "has_black_wool": "2025-10-08 23:04:56 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/misc/charcoal": {
+    "criteria": {
+      "has_log": "2025-10-08 23:06:07 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/building_blocks/oak_planks": {
+    "criteria": {
+      "has_logs": "2025-10-08 23:06:07 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/building_blocks/oak_wood": {
+    "criteria": {
+      "has_log": "2025-10-08 23:06:07 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/supplycampdeployer": {
+    "criteria": {
+      "has_chest": "2025-10-08 23:06:56 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/blockhutwarehouse": {
+    "criteria": {
+      "has_items": "2025-10-08 23:06:56 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/blockpostbox": {
+    "criteria": {
+      "has_items": "2025-10-08 23:06:56 +0200"
+    },
+    "done": true
+  },
+  "minecolonies:recipes/misc/blockstash": {
+    "criteria": {
+      "has_items": "2025-10-08 23:06:56 +0200"
     },
     "done": true
   },

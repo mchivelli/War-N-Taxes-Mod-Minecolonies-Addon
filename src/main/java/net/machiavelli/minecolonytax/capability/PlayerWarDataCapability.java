@@ -37,10 +37,15 @@ public class PlayerWarDataCapability {
         return player.getCapability(CAPABILITY);
     }
 
-    // Register the capability
-    public static void register(RegisterCapabilitiesEvent event) {
-        MineColonyTax.LOGGER.debug("Registering PlayerWarData capability");
-        event.register(PlayerWarData.class);
+    // Mod event bus subscriber for capability registration
+    @Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+    public static class ModEvents {
+        @SubscribeEvent
+        public static void onRegisterCapabilities(RegisterCapabilitiesEvent event) {
+            MineColonyTax.LOGGER.info("REGISTERING PlayerWarData capability on MOD event bus");
+            event.register(PlayerWarData.class);
+            MineColonyTax.LOGGER.info("PlayerWarData capability registration complete");
+        }
     }
 
     // Attach capabilities to player

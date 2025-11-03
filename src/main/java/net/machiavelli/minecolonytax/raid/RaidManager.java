@@ -41,23 +41,6 @@ public class RaidManager {
     private static final Map<Integer, Integer> lastLoggedGuardCounts = new HashMap<>(); // Track logging per colony
 
 
-    private static final Set<Action> RAID_ACTIONS = EnumSet.of(
-            Action.TOSS_ITEM,
-            Action.PICKUP_ITEM,
-            Action.ATTACK_CITIZEN,
-            Action.GUARDS_ATTACK,
-            Action.FILL_BUCKET,
-            Action.SHOOT_ARROW,
-            Action.RIGHTCLICK_BLOCK,
-            Action.RIGHTCLICK_ENTITY,
-            Action.HURT_CITIZEN,
-            Action.ATTACK_ENTITY,
-            Action.HURT_VISITOR,
-            Action.THROW_POTION
-
-    );
-
-
     public int handleRaid(CommandContext<CommandSourceStack> context) {
         if (!WarSystem.ACTIVE_WARS.isEmpty()) {
             context.getSource().sendFailure(Component.translatable("raid.active.error").withStyle(ChatFormatting.RED));
@@ -348,6 +331,8 @@ public class RaidManager {
         if (raiderPlayer != null) {
             // Only transfer tax revenue if raid completed successfully AND raider is eligible for rewards
             LOGGER.info("TAX TRANSFER CHECK - Reason: '{}', Eligible for rewards: {}", reason, raidData.isEligibleForRewards());
+            LOGGER.info("TAX TRANSFER CHECK - hasLeftBoundaries: {}, guardsKilled (ActiveRaidData): {}, hasKilledAnyGuards: {}", 
+                raidData.hasLeftBoundaries(), raidData.getGuardsKilled(), raidData.hasKilledAnyGuards());
             LOGGER.info("TAX TRANSFER CHECK - Reason match: {}", 
                 reason.equals("Raid completed successfully") || reason.contains("All guards eliminated") || reason.contains("All defenders eliminated"));
             
@@ -369,9 +354,33 @@ public class RaidManager {
                     
                     raiderPlayer.sendSystemMessage(denialMessage);
                     LOGGER.info("❌ TAX TRANSFER DENIED - Raider {} ineligible: {}", raiderPlayer.getName().getString(), denialReason);
+                    
+                    // LOG FAILED RAID TO HISTORY (structured)
+                    net.machiavelli.minecolonytax.data.HistoryManager.getColonyHistory(raidData.getColony().getID())
+                        .addRaidEntry(
+                            raiderPlayer.getUUID(),
+                            raiderPlayer.getName().getString(),
+                            0, // No amount stolen
+                            false, // Not successful
+                            denialReason
+                        );
+                    net.machiavelli.minecolonytax.data.HistoryManager.saveHistory();
                 }
             } else {
                 LOGGER.info("❌ TAX TRANSFER SKIPPED - Raid ended without victory: '{}'", reason);
+                
+                // LOG RAID ENDED EARLY TO HISTORY (if player is online)
+                if (raiderPlayer != null) {
+                    net.machiavelli.minecolonytax.data.HistoryManager.getColonyHistory(raidData.getColony().getID())
+                        .addRaidEntry(
+                            raiderPlayer.getUUID(),
+                            raiderPlayer.getName().getString(),
+                            0, // No amount stolen
+                            false, // Not successful
+                            reason
+                        );
+                    net.machiavelli.minecolonytax.data.HistoryManager.saveHistory();
+                }
             }
         } else {
             LOGGER.warn("❌ TAX TRANSFER FAILED - Raider player not found online");
@@ -635,28 +644,35 @@ public class RaidManager {
         LOGGER.debug("Broadcasting raid kill message to server");
         raidData.getColony().getWorld().getServer().getPlayerList().broadcastSystemMessage(message, false);
 
+        IPermissions raidEndPerms = raidData.getColony().getPermissions();
         raidData.getColony().getPermissions().getPlayers().forEach((uuid, data) -> {
-            ServerPlayer colonyMember = raidData.getColony().getWorld().getServer().getPlayerList().getPlayer(uuid);
-            if (colonyMember != null) {
-                String titleCmd = String.format("title %s title {\"text\":\"Raid Ended!\",\"color\":\"green\",\"bold\":true}", colonyMember.getName().getString());
-                String subtitleCmd;
-                if (defenseReward > 0) {
-                    subtitleCmd = String.format("title %s subtitle {\"text\":\"Raider killed! +%d %s reward available\",\"color\":\"gold\"}", 
-                            colonyMember.getName().getString(), defenseReward, currencyName);
-                } else {
-                    subtitleCmd = String.format("title %s subtitle {\"text\":\"Raider killed by %s\",\"color\":\"gold\"}", 
-                            colonyMember.getName().getString(), killer.getName().getString());
-                }
-                try {
-                    raidData.getColony().getWorld().getServer().getCommands().performPrefixedCommand(raidData.getColony().getWorld().getServer().createCommandSourceStack(), titleCmd);
-                    raidData.getColony().getWorld().getServer().getCommands().performPrefixedCommand(raidData.getColony().getWorld().getServer().createCommandSourceStack(), subtitleCmd);
-                } catch (Exception e) {
-                    LOGGER.error("Failed to send title to colony member", e);
+            // Only send to colony allies: Owner, Officers, and Friends
+            // Excludes: Hostile and Neutral players
+            Rank rank = raidEndPerms.getRank(uuid);
+            if (rank != null && (rank.equals(raidEndPerms.getRankOwner()) || 
+                                rank.equals(raidEndPerms.getRankOfficer()) || 
+                                rank.equals(raidEndPerms.getRankFriend()))) {
+                ServerPlayer colonyMember = raidData.getColony().getWorld().getServer().getPlayerList().getPlayer(uuid);
+                if (colonyMember != null) {
+                    String titleCmd = String.format("title %s title {\"text\":\"Raid Ended!\",\"color\":\"green\",\"bold\":true}", colonyMember.getName().getString());
+                    String subtitleCmd;
+                    if (defenseReward > 0) {
+                        subtitleCmd = String.format("title %s subtitle {\"text\":\"Raider killed! +%d %s reward available\",\"color\":\"gold\"}", 
+                                colonyMember.getName().getString(), defenseReward, currencyName);
+                    } else {
+                        subtitleCmd = String.format("title %s subtitle {\"text\":\"Raider killed by %s\",\"color\":\"gold\"}", 
+                                colonyMember.getName().getString(), killer.getName().getString());
+                    }
+                    try {
+                        raidData.getColony().getWorld().getServer().getCommands().performPrefixedCommand(raidData.getColony().getWorld().getServer().createCommandSourceStack(), titleCmd);
+                        raidData.getColony().getWorld().getServer().getCommands().performPrefixedCommand(raidData.getColony().getWorld().getServer().createCommandSourceStack(), subtitleCmd);
+                    } catch (Exception e) {
+                        LOGGER.error("Failed to send title to colony member", e);
+                    }
                 }
             }
         });
 
-        PlayerWarDataManager.incrementPlayersKilledInWar(killer);
         LOGGER.debug("Ending raid due to raider being killed");
         RaidManager.endActiveRaid(raidData, "Raider killed by " + killer.getName().getString() + ". Penalty: " + raidPenalty + " " + currencyName);
     }
@@ -735,22 +751,33 @@ public class RaidManager {
                     this.cancel();
                     return;
                 }
-                if (raidData.getElapsedSeconds() >= RaidManager.getMaxRaidDurationSeconds()) {
+                
+                // Increment elapsed time FIRST before checking duration
+                raidData.setElapsedSeconds(raidData.getElapsedSeconds() + 1);
+                RaidManager.updateRaidBossBar(raidData);
+                
+                // Check if raid time has expired AFTER incrementing (use > not >= to allow full duration)
+                if (raidData.getElapsedSeconds() > RaidManager.getMaxRaidDurationSeconds()) {
                     endRaid(raidData, "Raid completed successfully");
                     this.cancel();
                     return;
                 }
 
-                raidData.setElapsedSeconds(raidData.getElapsedSeconds() + 1);
-                RaidManager.updateRaidBossBar(raidData);
-
                 if (!raidData.isWarningSent() && isRaiderInColony(raiderPlayer, raidData.getColony())) {
+                    IPermissions warningPerms = raidData.getColony().getPermissions();
                     raidData.getColony().getPermissions().getPlayers().forEach((uuid, data) -> {
                         if (!uuid.equals(raidData.getRaider())) {
-                            ServerPlayer p = (ServerPlayer) raidData.getColony().getWorld().getPlayerByUUID(uuid);
-                            if (p != null) {
-                                p.sendSystemMessage(Component.literal("Warning: Hostile player " + raiderPlayer.getName().getString() + " has entered the colony!")
-                                        .withStyle(ChatFormatting.RED));
+                            // Only send to colony allies: Owner, Officers, and Friends
+                            // Excludes: Hostile and Neutral players
+                            Rank rank = warningPerms.getRank(uuid);
+                            if (rank != null && (rank.equals(warningPerms.getRankOwner()) || 
+                                                rank.equals(warningPerms.getRankOfficer()) || 
+                                                rank.equals(warningPerms.getRankFriend()))) {
+                                ServerPlayer p = (ServerPlayer) raidData.getColony().getWorld().getPlayerByUUID(uuid);
+                                if (p != null) {
+                                    p.sendSystemMessage(Component.literal("Warning: Hostile player " + raiderPlayer.getName().getString() + " has entered the colony!")
+                                            .withStyle(ChatFormatting.RED));
+                                }
                             }
                         }
                     });
@@ -806,33 +833,17 @@ public class RaidManager {
             }
             double stealPercentage = CitizenMilitiaManager.getInstance().calculateTaxPercentage(raidData.getColony().getID());
             
-            // CRITICAL FIX: Check for missing guards that died without being detected
-            int actualCurrentGuards = (int) raidData.getColony().getCitizenManager().getCitizens().stream()
-                .filter(c -> c.getJob() != null && c.getJob().isGuard())
-                .count();
+            // DISABLED: Guard reconciliation system was causing false positives
+            // Guards were being marked as dead when they were actually alive but just not spawned/loaded
+            // Reconciliation is now handled by proper death event tracking in CitizenMilitiaManager
+            // If guards die without event detection, that's less harmful than falsely marking all guards as dead
             
-            // If actual count is less than expected, some guards died without detection
-            int expectedGuards = originalGuardCount - guardsKilled;
-            if (actualCurrentGuards < expectedGuards) {
-                int missedGuardDeaths = expectedGuards - actualCurrentGuards;
-                LOGGER.warn("GUARD RECONCILIATION: {} guards died without detection! Updating count...", missedGuardDeaths);
-                
-                // Update the guard kill count to reflect missed deaths
-                for (int i = 0; i < missedGuardDeaths; i++) {
-                    CitizenMilitiaManager.getInstance().recordDefenderDeath(raidData.getColony(), true); // true = guard
-                }
-                
-                // Recalculate with updated count
-                guardsKilled = CitizenMilitiaManager.getInstance().getGuardsKilledCount(raidData.getColony().getID());
-                LOGGER.info("RECONCILIATION COMPLETE: Guards killed updated to {}/{}", guardsKilled, originalGuardCount);
-                
-                // Check for victory after reconciliation
-                if (guardsKilled >= originalGuardCount) {
-                    LOGGER.info("RAID VICTORY after reconciliation! All {} guards eliminated", originalGuardCount);
-                    LOGGER.info("TAX TRANSFER DEBUG: Ending raid with reason 'All guards eliminated - Raiders victorious!'");
-                    RaidManager.endActiveRaid(raidData, "All guards eliminated - Raiders victorious!");
-                    return; // Exit early - raid is over
-                }
+            // Check for victory based on actual tracked kills (no reconciliation)
+            if (guardsKilled >= originalGuardCount) {
+                LOGGER.info("RAID VICTORY! All {} guards eliminated", originalGuardCount);
+                LOGGER.info("TAX TRANSFER DEBUG: Ending raid with reason 'All guards eliminated - Raiders victorious!'");
+                RaidManager.endActiveRaid(raidData, "All guards eliminated - Raiders victorious!");
+                return; // Exit early - raid is over
             }
             
             // Victory progress: How many of the original guards have been killed
@@ -840,12 +851,15 @@ public class RaidManager {
             Component name = Component.literal(String.format("Raid: %s | Guards Killed: %d/%d | Victory: %.1f%% | Tax: %.1f%% | Time: %02d:%02d",
                     status, guardsKilled, originalGuardCount, victoryProgress * 100, stealPercentage * 100, remainingSeconds / 60, remainingSeconds % 60));
             
-            // Reduced logging for boss bar updates (only on guard kills or every 30 seconds)
+            // Log raid progress every 30 seconds OR when guards are killed
             int colonyId = raidData.getColony().getID();
             int lastLogged = lastLoggedGuardCounts.getOrDefault(colonyId, 0);
-            if (guardsKilled > 0 && (remainingSeconds % 30 == 0 || guardsKilled != lastLogged)) {
-                LOGGER.info("RAID PROGRESS: Guards {}/{}, Victory {:.0f}%, Tax {:.0f}%, Time {}:{:02d}", 
-                    guardsKilled, originalGuardCount, victoryProgress * 100, stealPercentage * 100, remainingSeconds / 60, remainingSeconds % 60);
+            boolean shouldLog = (remainingSeconds % 30 == 0) || (guardsKilled != lastLogged);
+            
+            if (shouldLog) {
+                LOGGER.info("RAID PROGRESS: Guards {}/{}, Victory {:.1f}%, Tax {:.1f}%, Time {}:{}",
+                    guardsKilled, originalGuardCount, victoryProgress * 100, stealPercentage * 100, 
+                    remainingSeconds / 60, String.format("%02d", remainingSeconds % 60));
                 lastLoggedGuardCounts.put(colonyId, guardsKilled);
             }
             
@@ -983,15 +997,21 @@ public class RaidManager {
                 .findFirst().orElse(null);
     }
 
+    /**
+     * Enable or disable raid interaction permissions for a colony.
+     * Uses the configured raid actions from TaxConfig to ensure consistency.
+     * @param colony The colony to modify permissions for
+     * @param allowed Whether to allow (true) or deny (false) the raid actions
+     */
     public static void setRaidInteractionPermissions(IColony colony, boolean allowed)
     {
-
         if (!TaxConfig.ENABLE_WAR_ACTIONS.get())
             return;
 
         IPermissions perms = colony.getPermissions();
         Rank hostile = perms.getRankHostile();
-        for (Action a : RAID_ACTIONS)
+        // Get raid actions from config to ensure they match the config file
+        for (Action a : TaxConfig.getRaidActions())
         {
             perms.setPermission(hostile, a, allowed);
         }
@@ -999,18 +1019,34 @@ public class RaidManager {
 
     private void sendColonyMessage(IColony colony, Component message) {
         if (colony == null || colony.getWorld() == null) return;
+        IPermissions perms = colony.getPermissions();
         colony.getPermissions().getPlayers().forEach((uuid, data) -> {
-            ServerPlayer p = (ServerPlayer) colony.getWorld().getPlayerByUUID(uuid);
-            if (p != null) p.sendSystemMessage(message);
+            // Only send to colony allies: Owner, Officers, and Friends
+            // Excludes: Hostile and Neutral players
+            Rank rank = perms.getRank(uuid);
+            if (rank != null && (rank.equals(perms.getRankOwner()) || 
+                                rank.equals(perms.getRankOfficer()) || 
+                                rank.equals(perms.getRankFriend()))) {
+                ServerPlayer p = (ServerPlayer) colony.getWorld().getPlayerByUUID(uuid);
+                if (p != null) p.sendSystemMessage(message);
+            }
         });
     }
     
     private void sendColonyMessageExcluding(IColony colony, Component message, UUID excludePlayer) {
         if (colony == null || colony.getWorld() == null) return;
+        IPermissions perms = colony.getPermissions();
         colony.getPermissions().getPlayers().forEach((uuid, data) -> {
             if (!uuid.equals(excludePlayer)) { // Exclude specific player
-                ServerPlayer p = (ServerPlayer) colony.getWorld().getPlayerByUUID(uuid);
-                if (p != null) p.sendSystemMessage(message);
+                // Only send to colony allies: Owner, Officers, and Friends
+                // Excludes: Hostile and Neutral players
+                Rank rank = perms.getRank(uuid);
+                if (rank != null && (rank.equals(perms.getRankOwner()) || 
+                                    rank.equals(perms.getRankOfficer()) || 
+                                    rank.equals(perms.getRankFriend()))) {
+                    ServerPlayer p = (ServerPlayer) colony.getWorld().getPlayerByUUID(uuid);
+                    if (p != null) p.sendSystemMessage(message);
+                }
             }
         });
     }
@@ -1250,6 +1286,23 @@ public class RaidManager {
                 // Update total transferred amount for statistics
                 raidData.addToTotalTransferred(amountToDeduct);
                 
+                // TRACK RAID STATISTICS FOR PLAYER
+                PlayerWarDataManager.incrementRaidedColonies(raiderPlayer);
+                PlayerWarDataManager.addAmountRaided(raiderPlayer, amountToDeduct);
+                LOGGER.info("Updated raid statistics for player {} - Raided amount: {}", 
+                    raiderPlayer.getName().getString(), amountToDeduct);
+                
+                // LOG SUCCESSFUL RAID TO HISTORY (structured)
+                net.machiavelli.minecolonytax.data.HistoryManager.getColonyHistory(raidData.getColony().getID())
+                    .addRaidEntry(
+                        raiderPlayer.getUUID(),
+                        raiderPlayer.getName().getString(),
+                        amountToDeduct,
+                        true, // Successful
+                        null // No failure reason
+                    );
+                net.machiavelli.minecolonytax.data.HistoryManager.saveHistory();
+                
                 // Get proper currency name
                 String currencyName;
                 if (TaxConfig.isSDMShopConversionEnabled()) {
@@ -1272,17 +1325,31 @@ public class RaidManager {
                 // Send message to all relevant players without duplication
                 Set<ServerPlayer> playersToNotify = new HashSet<>();
                 
-                // Add target colony members
+                // Add target colony members (only allies: Owner, Officers, Friends)
+                // Excludes: Hostile and Neutral players
+                IPermissions targetPerms = raidData.getColony().getPermissions();
                 raidData.getColony().getPermissions().getPlayers().forEach((uuid, data) -> {
-                    ServerPlayer p = (ServerPlayer) raidData.getColony().getWorld().getPlayerByUUID(uuid);
-                    if (p != null) playersToNotify.add(p);
+                    Rank rank = targetPerms.getRank(uuid);
+                    if (rank != null && (rank.equals(targetPerms.getRankOwner()) || 
+                                        rank.equals(targetPerms.getRankOfficer()) || 
+                                        rank.equals(targetPerms.getRankFriend()))) {
+                        ServerPlayer p = (ServerPlayer) raidData.getColony().getWorld().getPlayerByUUID(uuid);
+                        if (p != null) playersToNotify.add(p);
+                    }
                 });
                 
-                // Add raider's colony members (if different colony)
+                // Add raider's colony members (if different colony, only allies: Owner, Officers, Friends)
+                // Excludes: Hostile and Neutral players
                 if (raidData.getRaiderColony() != null && !raidData.getRaiderColony().equals(raidData.getColony())) {
+                    IPermissions raiderPerms = raidData.getRaiderColony().getPermissions();
                     raidData.getRaiderColony().getPermissions().getPlayers().forEach((uuid, data) -> {
-                        ServerPlayer p = (ServerPlayer) raidData.getRaiderColony().getWorld().getPlayerByUUID(uuid);
-                        if (p != null) playersToNotify.add(p);
+                        Rank rank = raiderPerms.getRank(uuid);
+                        if (rank != null && (rank.equals(raiderPerms.getRankOwner()) || 
+                                            rank.equals(raiderPerms.getRankOfficer()) || 
+                                            rank.equals(raiderPerms.getRankFriend()))) {
+                            ServerPlayer p = (ServerPlayer) raidData.getRaiderColony().getWorld().getPlayerByUUID(uuid);
+                            if (p != null) playersToNotify.add(p);
+                        }
                     });
                 }
                 

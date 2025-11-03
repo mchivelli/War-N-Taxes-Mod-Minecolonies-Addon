@@ -6,6 +6,8 @@ import net.machiavelli.minecolonytax.network.NetworkHandler;
 import net.machiavelli.minecolonytax.vassalization.VassalManager;
 import net.machiavelli.minecolonytax.recipe.ModRecipeSerializers;
 import net.machiavelli.minecolonytax.commands.RecipeDisableTestCommand;
+import net.machiavelli.minecolonytax.raid.GuardResistanceHandler;
+import net.machiavelli.minecolonytax.webapi.WebAPIServer;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -22,6 +24,9 @@ import org.apache.logging.log4j.Logger;
 public class MineColonyTax {
     public static final String MOD_ID = "minecolonytax";
     public static final Logger LOGGER = LogManager.getLogger();
+    
+    // Web API Server instance (SERVER-SIDE ONLY)
+    private static WebAPIServer webAPIServer = null;
 
     public MineColonyTax() {
         // Register configuration - Use COMMON type to prevent world-directory serverconfig creation
@@ -61,6 +66,12 @@ public class MineColonyTax {
         TaxManager.initialize(event.getServer());
         LOGGER.info("TaxManager initialization complete");
         
+        // Restore all colony permissions to config defaults (disable war/raid actions)
+        // This ensures clean state after server restarts/crashes
+        LOGGER.info("Restoring all colony war/raid permissions to config defaults...");
+        WarSystem.restoreAllColonyPermissionsToDefaults();
+        LOGGER.info("Colony permissions restoration complete");
+        
         // 🚨 AUTOMATIC: Immediate null owner fixes - NO DELAYS, NO MANUAL INTERVENTION
         LOGGER.error("🚨 AUTOMATIC NULL OWNER PROTECTION: Fixing ALL null owners immediately on startup...");
         
@@ -97,10 +108,38 @@ public class MineColonyTax {
         
 		// Initialize VassalManager so server reference is available for notifications
 		VassalManager.initialize(event.getServer());
+		
+		// Emergency cleanup of guard resistance effects on startup
+		GuardResistanceHandler.emergencyCleanup();
+		LOGGER.info("Guard resistance effects cleanup completed");
+		
+		// Start Web API Server if enabled (SERVER-SIDE ONLY)
+		if (TaxConfig.isWebAPIEnabled()) {
+			try {
+				webAPIServer = new WebAPIServer(event.getServer());
+				webAPIServer.start();
+				LOGGER.info("Web API Server initialization complete");
+			} catch (Exception e) {
+				LOGGER.error("Failed to start Web API Server: {}", e.getMessage());
+				e.printStackTrace();
+			}
+		} else {
+			LOGGER.debug("Web API Server is disabled in configuration");
+		}
     }
 
 	@SubscribeEvent
 	public void onServerStopping(ServerStoppingEvent event) {
+		// Stop Web API Server
+		if (webAPIServer != null && webAPIServer.isRunning()) {
+			try {
+				webAPIServer.stop();
+				LOGGER.info("Web API Server shutdown complete");
+			} catch (Throwable t) {
+				LOGGER.warn("Error during Web API Server shutdown: {}", t.toString());
+			}
+		}
+		
 		try {
 			VassalManager.shutdown();
 			LOGGER.info("VassalManager shutdown complete");

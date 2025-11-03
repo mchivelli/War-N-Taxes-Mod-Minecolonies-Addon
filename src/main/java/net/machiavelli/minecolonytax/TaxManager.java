@@ -332,14 +332,12 @@ public class TaxManager {
         colonyTaxMap.put(id, current + delta);
     }
 
-
-
     /**
      * Calculate the average happiness of adult citizens in a colony.
      * @param colony The colony to calculate happiness for
      * @return Average happiness (0.0 - 10.0), or 5.0 if no adult citizens or happiness unavailable
      */
-    private static double calculateColonyAverageHappiness(IColony colony) {
+    public static double calculateColonyAverageHappiness(IColony colony) {
         try {
             double totalHappiness = 0.0;
             int adultCitizenCount = 0;

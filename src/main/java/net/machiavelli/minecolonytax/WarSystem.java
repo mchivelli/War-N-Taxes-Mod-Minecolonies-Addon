@@ -309,6 +309,37 @@ public class WarSystem {
             perms.setPermission(hostile, a, allowed);
         }
     }
+    
+    /**
+     * Restore all colonies' war and raid permissions to their config defaults (disabled).
+     * Should be called on server startup to clean up any leftover permissions from crashes/restarts.
+     */
+    public static void restoreAllColonyPermissionsToDefaults() {
+        try {
+            MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+            if (server == null) {
+                WARSYSTEM_LOGGER.warn("Cannot restore colony permissions: Server not available");
+                return;
+            }
+            
+            int coloniesRestored = 0;
+            for (Level level : server.getAllLevels()) {
+                for (IColony colony : IColonyManager.getInstance().getColonies(level)) {
+                    if (colony != null) {
+                        // Disable war actions (set to false)
+                        setWarInteractionPermissions(colony, false);
+                        // Disable raid actions (set to false)
+                        setRaidInteractionPermissions(colony, false);
+                        coloniesRestored++;
+                    }
+                }
+            }
+            
+            WARSYSTEM_LOGGER.info("Restored war/raid permissions to config defaults for {} colonies", coloniesRestored);
+        } catch (Exception e) {
+            WARSYSTEM_LOGGER.error("Failed to restore colony permissions to defaults", e);
+        }
+    }
 
     public static void updateBossBar(WarData war) {
         long now = System.currentTimeMillis();
@@ -349,9 +380,9 @@ public class WarSystem {
 
         if (attackerPlayerCount == 0 || defenderPlayerCount == 0) {
             if (war.getColony().getWorld() != null && war.getColony().getWorld().getServer() != null) {
-                war.getColony().getWorld().getServer().getPlayerList().broadcastSystemMessage(
-                        Component.literal("War cancelled due to lack of participants.")
-                                .withStyle(style -> style.withColor(ChatFormatting.RED).withBold(true)), false);
+                Component cancelMsg = Component.literal("War cancelled due to lack of participants.")
+                        .withStyle(style -> style.withColor(ChatFormatting.RED).withBold(true));
+                broadcastToServer(cancelMsg);
             }
             endWar(war.getColony());
             return;
@@ -359,10 +390,10 @@ public class WarSystem {
 
         if (Math.abs(attackerPlayerCount - defenderPlayerCount) > 1) {
             if (war.getColony().getWorld() != null && war.getColony().getWorld().getServer() != null) {
-                war.getColony().getWorld().getServer().getPlayerList().broadcastSystemMessage(
-                        Component.literal("Join phase ratio condition not met! Teams must be balanced (difference <= 1). Current: Attacker="
-                                + attackerPlayerCount + ", Defender=" + defenderPlayerCount)
-                                .withStyle(style -> style.withColor(ChatFormatting.RED).withBold(true)), false);
+                Component ratioMsg = Component.literal("Join phase ratio condition not met! Teams must be balanced (difference <= 1). Current: Attacker="
+                        + attackerPlayerCount + ", Defender=" + defenderPlayerCount)
+                        .withStyle(style -> style.withColor(ChatFormatting.RED).withBold(true));
+                broadcastToServer(ratioMsg);
             }
             return;
         }
@@ -429,7 +460,7 @@ public class WarSystem {
                 .append(Component.translatable("war.begin.body", attackerColonyName, defenderColonyName).withStyle(ChatFormatting.YELLOW))
                 .append(Component.literal("\n"))
                 .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY));
-            ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(warBeginMsg, false);
+            broadcastToServer(warBeginMsg);
         }
         long warDurationMillis = TaxConfig.WAR_DURATION_MINUTES.get() * 60 * 1000L;
         scheduleTimerWarnings(war, warDurationMillis);
@@ -494,7 +525,7 @@ public class WarSystem {
             .append(Component.translatable("war.defenders.win.body", defenderColonyName, attackerColonyName).withStyle(ChatFormatting.YELLOW))
             .append(Component.literal("\n"))
             .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY));
-        war.getColony().getWorld().getServer().getPlayerList().broadcastSystemMessage(victoryMsg, false);
+        sendNotificationToWarParticipants(war.getColony(), war.getAttackerColony(), victoryMsg);
         for (UUID defenderUUID : war.getDefenderLives().keySet()) {
             ServerPlayer defender = war.getColony().getWorld().getServer().getPlayerList().getPlayer(defenderUUID);
             if (defender != null) {
@@ -512,7 +543,7 @@ public class WarSystem {
                 .append(Component.translatable("war.attackers.win.body", attackerColonyName, defenderColonyName).withStyle(ChatFormatting.YELLOW))
                 .append(Component.literal("\n"))
                 .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY));
-            war.getColony().getWorld().getServer().getPlayerList().broadcastSystemMessage(conquestMsg, false);
+            sendNotificationToWarParticipants(war.getColony(), war.getAttackerColony(), conquestMsg);
             for (UUID attackerUUID : war.getAttackerLives().keySet()) {
                 ServerPlayer attackerPlayer = war.getColony().getWorld().getServer().getPlayerList().getPlayer(attackerUUID); 
                 if (attackerPlayer != null) {
@@ -566,7 +597,7 @@ public class WarSystem {
             // Send message to all participants about the economic penalties
             if (war.getColony().getWorld() != null && war.getColony().getWorld().getServer() != null) {
                 Component ecoMsg = Component.literal("War Stalemate: Both sides have been penalized economically!").withStyle(ChatFormatting.GOLD);
-                war.getColony().getWorld().getServer().getPlayerList().broadcastSystemMessage(ecoMsg, false);
+                sendNotificationToWarParticipants(war.getColony(), war.getAttackerColony(), ecoMsg);
             }
         }
         
@@ -579,7 +610,7 @@ public class WarSystem {
             if (war.getColony().getWorld() != null && war.getColony().getWorld().getServer() != null) {
                 String freezeMsg = "Tax generation frozen for " + freezeHours + " hours due to war stalemate!";
                 Component notification = Component.literal(freezeMsg).withStyle(ChatFormatting.GOLD);
-                war.getColony().getWorld().getServer().getPlayerList().broadcastSystemMessage(notification, false);
+                sendNotificationToWarParticipants(war.getColony(), war.getAttackerColony(), notification);
             }
         }
     }
@@ -894,7 +925,8 @@ public class WarSystem {
             colony.markDirty();
             Component msg = Component.literal(colony.getName() + " conquered by " + newOwner.getName().getString())
                     .withStyle(Style.EMPTY.withColor(ChatFormatting.DARK_RED).withBold(true));
-            colony.getWorld().getServer().getPlayerList().broadcastSystemMessage(msg, false);
+            WarData war = ACTIVE_WARS.get(colony.getID());
+            sendNotificationToWarParticipants(colony, war != null ? war.getAttackerColony() : null, msg);
         } else {
             WARSYSTEM_LOGGER.error("Ownership transfer failed for colony {}", colony.getID());
         }
@@ -1132,7 +1164,7 @@ public class WarSystem {
                 .append(Component.translatable("war.time.expired.defenders.part2").withStyle(ChatFormatting.YELLOW))
                 .append(Component.literal("\n"))
                 .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY));
-            broadcastComponent(defenderVictoryMsg);
+            broadcastComponent(war, defenderVictoryMsg);
             for (UUID defUUID : war.getDefenderLives().keySet()) {
                 ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(defUUID);
                 if (p != null) PlayerWarDataManager.incrementWarsWon(p);
@@ -1150,7 +1182,7 @@ public class WarSystem {
                 .append(Component.translatable("war.time.expired.attackers.part2").withStyle(ChatFormatting.YELLOW))
                 .append(Component.literal("\n"))
                 .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY));
-            broadcastComponent(attackerVictoryMsg);
+            broadcastComponent(war, attackerVictoryMsg);
             for (UUID atkUUID : war.getAttackerLives().keySet()) {
                 ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(atkUUID);
                 if (p != null) PlayerWarDataManager.incrementWarsWon(p);
@@ -1178,7 +1210,7 @@ public class WarSystem {
                 .append(Component.translatable("war.stalemate.timeout.penalties").withStyle(ChatFormatting.AQUA))
                 .append(Component.literal("\n"))
                 .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY));
-            broadcastComponent(stalemateNoLossesMsg);
+            broadcastComponent(war, stalemateNoLossesMsg);
             // Original penalty logic for stalemate:
             war.getAttackerLives().keySet().forEach(uuid -> WarEconomyHandler.deductTeamBalanceWithReport(uuid, 0.25));
             war.getDefenderLives().keySet().forEach(uuid -> WarEconomyHandler.deductTeamBalanceWithReport(uuid, 0.25));
@@ -1212,7 +1244,7 @@ public class WarSystem {
                 .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY));
             WarEconomyHandler.transferTeamBalanceToSinglePlayer(war.getAttackerTeamID(), war.getDefender(), TaxConfig.getWarStalematePercentage());
             if (war.getAttackerColony() != null) TaxManager.deductColonyTax(war.getAttackerColony(), TaxConfig.getWarStalematePercentage());
-            broadcastComponent(strategicMsg);
+            broadcastComponent(war, strategicMsg);
             for (UUID defUUID : war.getDefenderLives().keySet()) {
                 ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(defUUID);
                 if (p != null) PlayerWarDataManager.incrementWarsWon(p);
@@ -1234,7 +1266,7 @@ public class WarSystem {
                 .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY));
             WarEconomyHandler.transferTeamBalanceToSinglePlayer(war.getDefenderTeamID(), war.getAttacker(), TaxConfig.getWarStalematePercentage());
             TaxManager.deductColonyTax(war.getColony(), TaxConfig.getWarStalematePercentage());
-            broadcastComponent(strategicMsg);
+            broadcastComponent(war, strategicMsg);
             for (UUID atkUUID : war.getAttackerLives().keySet()) {
                 ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(atkUUID);
                 if (p != null) PlayerWarDataManager.incrementWarsWon(p);
@@ -1258,16 +1290,15 @@ public class WarSystem {
             war.getDefenderLives().keySet().forEach(uuid -> WarEconomyHandler.deductTeamBalanceWithReport(uuid, TaxConfig.getWarStalematePercentage()));
             TaxManager.deductColonyTax(war.getColony(), TaxConfig.getWarStalematePercentage());
             if (war.getAttackerColony() != null) TaxManager.deductColonyTax(war.getAttackerColony(), TaxConfig.getWarStalematePercentage());
-            broadcastComponent(strategicMsg);
+            broadcastComponent(war, strategicMsg);
         }
         war.setPenaltyReport(reportOutcome);
         endWar(war.getColony());
     }
 
-    // Helper to broadcast component messages
-    private static void broadcastComponent(Component message) {
-        if (ServerLifecycleHooks.getCurrentServer() == null) return;
-        ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(message, false);
+    // Helper to broadcast war results to entire server
+    private static void broadcastComponent(WarData war, Component message) {
+        broadcastToServer(message);
     }
 
     public static void handleGuardKilled(WarData war, boolean isDefenderGuard) {
@@ -1575,12 +1606,6 @@ public class WarSystem {
                 }));
     }
 
-    private static void broadcast(String message, ChatFormatting color) {
-        if (ServerLifecycleHooks.getCurrentServer() == null) return;
-        Component msg = Component.literal(message).withStyle(Style.EMPTY.withColor(color).withBold(true));
-        ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(msg, false);
-    }
-
     public static void onPlayerKilledInWar(ServerPlayer killer, ServerPlayer killed, WarData war) {
         if (killer != null && killed != null && war != null) {
             PlayerWarDataManager.incrementPlayersKilledInWar(killer);
@@ -1617,9 +1642,9 @@ public class WarSystem {
             // Get the time remaining in a readable format
             String timeRemaining = configuredMinutes + " minutes";
             
-            ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(
-                    Component.translatable("war.join.phase.declared", colony.getName(), timeRemaining),
-                    false);
+            // Send join phase announcement only to war participants
+            Component joinPhaseMsg = Component.translatable("war.join.phase.declared", colony.getName(), timeRemaining);
+            sendNotificationToWarParticipants(colony, attackerColony, joinPhaseMsg);
         }
         WARSYSTEM_LOGGER.info("Join phase started for colony {}. Waiting for participants for {} seconds.", colony.getName(), configuredMinutes * 60);
 
@@ -1763,6 +1788,88 @@ public class WarSystem {
             });
     }
 
+    /**
+     * Sends a notification to all war participants from both colonies (attacker and defender),
+     * including officers, friends, and FTB team members if applicable.
+     */
+    // Helper to broadcast to entire server
+    private static void broadcastToServer(Component message) {
+        if (ServerLifecycleHooks.getCurrentServer() == null) return;
+        ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(message, false);
+    }
+    
+    private static void sendNotificationToWarParticipants(IColony defenderColony, IColony attackerColony, Component message) {
+        if (defenderColony == null || defenderColony.getWorld() == null || defenderColony.getWorld().getServer() == null) {
+            return;
+        }
+        
+        Set<UUID> notifiedPlayers = new HashSet<>();
+        MinecraftServer server = defenderColony.getWorld().getServer();
+        
+        // Notify defender colony officers and friends
+        defenderColony.getPermissions().getPlayers().keySet().stream()
+            .filter(uuid -> isOfficerOrFriendly(defenderColony, uuid))
+            .forEach(uuid -> {
+                ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+                if (player != null) {
+                    player.sendSystemMessage(message);
+                    notifiedPlayers.add(uuid);
+                }
+            });
+        
+        // Notify attacker colony officers and friends
+        if (attackerColony != null) {
+            attackerColony.getPermissions().getPlayers().keySet().stream()
+                .filter(uuid -> isOfficerOrFriendly(attackerColony, uuid))
+                .forEach(uuid -> {
+                    if (!notifiedPlayers.contains(uuid)) {
+                        ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+                        if (player != null) {
+                            player.sendSystemMessage(message);
+                            notifiedPlayers.add(uuid);
+                        }
+                    }
+                });
+        }
+        
+        // If FTB Teams is installed, also notify team members
+        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
+            WarData war = ACTIVE_WARS.get(defenderColony.getID());
+            if (war != null) {
+                // Notify attacker team members
+                if (war.getAttackerTeamID() != null) {
+                    Team attackerTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
+                    if (attackerTeam != null && attackerTeam.isPartyTeam()) {
+                        ((PartyTeam) attackerTeam).getMembers().forEach(uuid -> {
+                            if (!notifiedPlayers.contains(uuid)) {
+                                ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+                                if (player != null) {
+                                    player.sendSystemMessage(message);
+                                    notifiedPlayers.add(uuid);
+                                }
+                            }
+                        });
+                    }
+                }
+                
+                // Notify defender team members
+                if (war.getDefenderTeamID() != null) {
+                    Team defenderTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
+                    if (defenderTeam != null && defenderTeam.isPartyTeam()) {
+                        ((PartyTeam) defenderTeam).getMembers().forEach(uuid -> {
+                            if (!notifiedPlayers.contains(uuid)) {
+                                ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+                                if (player != null) {
+                                    player.sendSystemMessage(message);
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+        }
+    }
+
     private static void startWarCountdown(WarData warData) {
         if (warData.getColony().getWorld() == null) {
             WARSYSTEM_LOGGER.error("Cannot start war countdown, world is null for colony {}", warData.getColony().getID());
@@ -1809,9 +1916,17 @@ public class WarSystem {
 
     public static void sendColonyMessage(IColony colony, Component message) {
         if (colony == null || colony.getWorld() == null) return;
+        IPermissions perms = colony.getPermissions();
         colony.getPermissions().getPlayers().forEach((uuid, data) -> {
-            ServerPlayer p = (ServerPlayer) colony.getWorld().getPlayerByUUID(uuid);
-            if (p != null) p.sendSystemMessage(message);
+            // Only send to colony allies: Owner, Officers, and Friends
+            // Excludes: Hostile and Neutral players
+            Rank rank = perms.getRank(uuid);
+            if (rank != null && (rank.equals(perms.getRankOwner()) || 
+                                rank.equals(perms.getRankOfficer()) || 
+                                rank.equals(perms.getRankFriend()))) {
+                ServerPlayer p = (ServerPlayer) colony.getWorld().getPlayerByUUID(uuid);
+                if (p != null) p.sendSystemMessage(message);
+            }
         });
     }
 
@@ -1880,7 +1995,7 @@ public class WarSystem {
                     .append(Component.literal("! (Auto-Accepted)").withStyle(ChatFormatting.YELLOW))
                     .append(Component.literal("\nThe drums of war sound! Join phase starting immediately!").withStyle(ChatFormatting.AQUA))
                     .append(Component.literal("\n----------------------------------------").withStyle(ChatFormatting.DARK_GRAY));
-                ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(autoAcceptMsg, false);
+                broadcastToServer(autoAcceptMsg);
             }
             startJoinPhase(targetColony, attacker, owner);
             return 1;
@@ -1898,7 +2013,7 @@ public class WarSystem {
                 .append(Component.translatable("war.declare.body", "", targetColony.getName()).withStyle(ChatFormatting.YELLOW))
                 .append(Component.literal("\n"))
                 .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY));
-            ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(warDeclarationMsg, false);
+            broadcastToServer(warDeclarationMsg);
         }
         pendingWarRequests.put(targetColony.getID(), new WarRequest(attacker.getUUID(), targetColony.getID()));
         new Timer().schedule(new TimerTask() {
@@ -2034,7 +2149,7 @@ public class WarSystem {
                     .append(Component.literal("\n💰 Extortion Demand: " + extortionPercent + "% of your balance").withStyle(ChatFormatting.GOLD))
                     .append(Component.literal("\n"))
                     .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY));
-                ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(warDeclarationMsg, false);
+                broadcastToServer(warDeclarationMsg);
             }
             pendingWarRequests.put(targetColony.getID(), new WarRequestWithExtortion(attacker.getUUID(), targetColony.getID(), extortionPercent));
             
@@ -2129,7 +2244,7 @@ public class WarSystem {
                     .append(Component.literal(attackerColonyName).withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD))
                     .append(Component.literal(" will now proceed to the join phase!").withStyle(ChatFormatting.AQUA))
                     .append(Component.literal("\n----------------------------------------").withStyle(ChatFormatting.DARK_GRAY));
-                ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(warAcceptedMsg, false);
+                broadcastToServer(warAcceptedMsg);
             }
             startJoinPhase(targetColony, attacker, executor);
         } else {
@@ -2146,7 +2261,7 @@ public class WarSystem {
                     .append(Component.literal(executor.getName().getString()).withStyle(ChatFormatting.BLUE))
                     .append(Component.literal(") has declined the war declaration.").withStyle(ChatFormatting.YELLOW))
                     .append(Component.literal("\n----------------------------------------").withStyle(ChatFormatting.DARK_GRAY));
-                ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(warDeclinedMsg, false);
+                broadcastToServer(warDeclinedMsg);
             }
         }
         return 1;

@@ -1,10 +1,14 @@
 package net.machiavelli.minecolonytax.raid;
 
 import com.minecolonies.api.colony.IColony;
+import com.minecolonies.api.colony.permissions.IPermissions;
+import com.minecolonies.api.colony.permissions.Rank;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.BossEvent;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.TimerTask;
 import java.util.UUID;
@@ -12,6 +16,7 @@ import java.util.Set;
 import java.util.HashSet;
 
 public class ActiveRaidData {
+    private static final Logger LOGGER = LogManager.getLogger();
     final UUID raider;
     final IColony colony;
     private IColony raiderColony; // The colony of the raider (attacker)
@@ -62,12 +67,34 @@ public class ActiveRaidData {
         this.guardsKilled = 0;
         this.guardsInitialized = false;
         if (colony != null && colony.getPermissions() != null && colony.getWorld() != null && colony.getWorld().getServer() != null) {
+            // Add the RAIDER to the boss bar first so they can see the timer
+            ServerPlayer raiderPlayer = colony.getWorld().getServer().getPlayerList().getPlayer(raider);
+            if (raiderPlayer != null) {
+                this.bossEvent.addPlayer(raiderPlayer);
+                LOGGER.info("🎯 BOSS BAR: Added raider {} to boss bar for colony {}", raiderPlayer.getName().getString(), colony.getName());
+            } else {
+                LOGGER.warn("⚠ BOSS BAR: Could not add raider {} to boss bar - player is NULL!", raider);
+            }
+            
+            // Then add colony allies to boss bar: Owner, Officers, and Friends
+            IPermissions perms = colony.getPermissions();
             colony.getPermissions().getPlayers().keySet().forEach(uuid -> {
-                ServerPlayer player = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
-                if (player != null) {
-                    this.bossEvent.addPlayer(player);
+                // Only add colony allies to boss bar: Owner, Officers, and Friends
+                // Excludes: Hostile and Neutral players (and raider already added above)
+                if (!uuid.equals(raider)) { // Don't add raider twice
+                    Rank rank = perms.getRank(uuid);
+                    if (rank != null && (rank.equals(perms.getRankOwner()) || 
+                                        rank.equals(perms.getRankOfficer()) || 
+                                        rank.equals(perms.getRankFriend()))) {
+                        ServerPlayer player = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
+                        if (player != null) {
+                            this.bossEvent.addPlayer(player);
+                        }
+                    }
                 }
             });
+            LOGGER.info("🎯 BOSS BAR: Initialized for colony {} with raider {} (Boss bar visible: {})", 
+                colony.getName(), raiderPlayer != null ? raiderPlayer.getName().getString() : "NULL", this.bossEvent.isVisible());
         }
     }
 

@@ -122,7 +122,7 @@ public class WntCommands {
                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(
                                         List.of("wagewar", "raid", "claimtax", "checktax", "taxdebt", "joinwar", "leavewar", 
                                                "war", "peace", "warinfo", "wardebug", "warstop", "warstopall", "raidstop", 
-                                               "warhistory", "warstats", "taxgen", "vasalize", "vasalaccept", "vasaldecline", "revoke", "vasals", "entityraid", "permissions"), builder))
+                                               "warhistory", "raidhistory", "warstats", "taxgen", "vasalize", "vasalaccept", "vasaldecline", "revoke", "vasals", "entityraid", "permissions"), builder))
                                 .executes(WntCommands::showSpecificHelp)
                         )
                 )
@@ -291,6 +291,14 @@ public class WntCommands {
                         )
                 )
                 
+                .then(Commands.literal("raidhistory")
+                        .executes(ctx -> executeRaidHistory(ctx, null))
+                        .then(Commands.argument("colony", StringArgumentType.word())
+                                .suggests(PLAYER_COLONY_SUGGESTIONS)
+                                .executes(ctx -> executeRaidHistory(ctx, StringArgumentType.getString(ctx, "colony")))
+                        )
+                )
+                
                 .then(Commands.literal("warstats")
                         .executes(WntCommands::showWarStats)
                 )
@@ -355,6 +363,15 @@ public class WntCommands {
                                             return 1;
                                         })
                                 )
+                        )
+                )
+                
+                // Debug Tax command - shows detailed tax breakdown
+                .then(Commands.literal("debugtax")
+                        .requires(src -> src.hasPermission(2))
+                        .then(Commands.argument("colony", StringArgumentType.string())
+                                .suggests(COLONY_SUGGESTIONS)
+                                .executes(ctx -> debugTaxBreakdown(ctx, extractColonyName(StringArgumentType.getString(ctx, "colony"))))
                         )
                 )
 
@@ -535,6 +552,7 @@ public class WntCommands {
         
         source.sendSuccess(() -> Component.literal("§6Info Commands:"), false);
         source.sendSuccess(() -> Component.literal("§e/wnt warhistory [colony] §7- View war history"), false);
+        source.sendSuccess(() -> Component.literal("§e/wnt raidhistory [colony] §7- View raid history"), false);
         source.sendSuccess(() -> Component.literal("§e/wnt warstats §7- View your war statistics"), false);
         source.sendSuccess(() -> Component.literal(""), false);
         
@@ -686,8 +704,15 @@ public class WntCommands {
                 
             case "warhistory":
                 source.sendSuccess(() -> Component.literal("§6/wnt warhistory [colony]"), false);
-                source.sendSuccess(() -> Component.literal("§7View war and raid history."), false);
-                source.sendSuccess(() -> Component.literal("§7Shows outcomes and amounts transferred."), false);
+                source.sendSuccess(() -> Component.literal("§7View war history for a colony."), false);
+                source.sendSuccess(() -> Component.literal("§7Shows war outcomes and results."), false);
+                break;
+                
+            case "raidhistory":
+                source.sendSuccess(() -> Component.literal("§6/wnt raidhistory [colony]"), false);
+                source.sendSuccess(() -> Component.literal("§7View raid history for a colony."), false);
+                source.sendSuccess(() -> Component.literal("§7Shows who raided and amounts stolen."), false);
+                source.sendSuccess(() -> Component.literal("§7Officers can view their colonies, admins can view any."), false);
                 break;
                 
             case "warstats":
@@ -1430,6 +1455,57 @@ public class WntCommands {
         for (String event : history.getEvents()) {
             src.sendSuccess(() -> Component.literal(event), false);
         }
+        return 1;
+    }
+    
+    private static int executeRaidHistory(CommandContext<CommandSourceStack> ctx, String colonyArg) throws CommandSyntaxException {
+        CommandSourceStack src = ctx.getSource();
+        ServerPlayer player;
+        try {
+            player = src.getPlayerOrException();
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("You must be a player to run this command."));
+            return 0;
+        }
+
+        IColony colony = resolveColony(src, player, colonyArg);
+        if (colony == null) {
+            src.sendFailure(Component.literal("Colony not found or you're not a manager of any colony."));
+            return 0;
+        }
+
+        // Permission check: Colony managers/officers OR admins (permission level 2+)
+        var rank = colony.getPermissions().getRank(player.getUUID());
+        boolean isAdmin = src.hasPermission(2);
+        
+        if (!isAdmin && (rank == null || !rank.isColonyManager())) {
+            src.sendFailure(Component.literal("You must be a colony officer or admin to view raid history."));
+            return 0;
+        }
+
+        net.machiavelli.minecolonytax.data.HistoryManager.ColonyHistory history = net.machiavelli.minecolonytax.data.HistoryManager.getColonyHistory(colony.getID());
+        if (history == null || history.getRaidEvents().isEmpty()) {
+            src.sendSuccess(() -> Component.literal("No raid history for colony \"" + colony.getName() + "\""), false);
+            return 1;
+        }
+
+        src.sendSuccess(() -> Component.literal("§6=== Raid History for \"" + colony.getName() + "\" ==="), false);
+        src.sendSuccess(() -> Component.literal(""), false);
+        
+        java.util.List<String> raidEvents = history.getRaidEvents();
+        int eventCount = Math.min(raidEvents.size(), 50); // Show last 50 raids
+        
+        // Show most recent raids first
+        for (int i = raidEvents.size() - 1; i >= raidEvents.size() - eventCount; i--) {
+            String event = raidEvents.get(i);
+            src.sendSuccess(() -> Component.literal(event), false);
+        }
+        
+        if (raidEvents.size() > 50) {
+            src.sendSuccess(() -> Component.literal(""), false);
+            src.sendSuccess(() -> Component.literal("§7(Showing last 50 of " + raidEvents.size() + " raids)"), false);
+        }
+        
         return 1;
     }
     
@@ -2546,5 +2622,183 @@ public class WntCommands {
         }
         
         return 1;
+    }
+    
+    /**
+     * Debug command to show detailed tax breakdown for a colony
+     */
+    private static int debugTaxBreakdown(CommandContext<CommandSourceStack> context, String colonyName) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        CommandSourceStack source = context.getSource();
+        
+        // Find colony by name
+        IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
+        IColony tempColony = null;
+        for (IColony c : colonyManager.getAllColonies()) {
+            if (c.getName().equalsIgnoreCase(colonyName)) {
+                tempColony = c;
+                break;
+            }
+        }
+        
+        if (tempColony == null) {
+            source.sendFailure(Component.literal("Colony not found: " + colonyName).withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        
+        final IColony colony = tempColony; // Make final for lambda capture
+        
+        try {
+            source.sendSuccess(() -> Component.literal("═══════════════════════════════════════")
+                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+            source.sendSuccess(() -> Component.literal("📊 TAX DEBUG BREAKDOWN: " + colony.getName())
+                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+            source.sendSuccess(() -> Component.literal("═══════════════════════════════════════")
+                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+            
+            // Current tax balance
+            int currentBalance = TaxManager.getStoredTaxForColony(colony);
+            source.sendSuccess(() -> Component.literal("Current Balance: " + currentBalance)
+                    .withStyle(currentBalance >= 0 ? ChatFormatting.GREEN : ChatFormatting.RED), false);
+            
+            // Calculate happiness modifier
+            double colonyAvgHappiness = TaxManager.calculateColonyAverageHappiness(colony);
+            double happinessMultiplier = TaxConfig.calculateHappinessTaxMultiplier(colonyAvgHappiness);
+            boolean happinessEnabled = TaxConfig.isHappinessTaxModifierEnabled();
+            
+            source.sendSuccess(() -> Component.literal("\n🎭 Happiness Modifier:")
+                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), false);
+            source.sendSuccess(() -> Component.literal("  Enabled: " + (happinessEnabled ? "YES" : "NO"))
+                    .withStyle(ChatFormatting.WHITE), false);
+            if (happinessEnabled) {
+                source.sendSuccess(() -> Component.literal(String.format("  Avg Happiness: %.2f/10.0", colonyAvgHappiness))
+                        .withStyle(ChatFormatting.WHITE), false);
+                source.sendSuccess(() -> Component.literal(String.format("  Multiplier: %.2fx (%.0f%%)", happinessMultiplier, happinessMultiplier * 100))
+                        .withStyle(happinessMultiplier > 1.0 ? ChatFormatting.GREEN : 
+                                   happinessMultiplier < 1.0 ? ChatFormatting.RED : ChatFormatting.YELLOW), false);
+            }
+            
+            // Count guard towers
+            int guardTowerCount = 0;
+            for (com.minecolonies.api.colony.buildings.IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+                if (building.getBuildingLevel() > 0 && building.isBuilt()) {
+                    String displayName = building.getBuildingDisplayName();
+                    String className = building.getClass().getName().toLowerCase();
+                    String toString = building.toString().toLowerCase();
+                    
+                    if ((displayName != null && "Guard Tower".equalsIgnoreCase(displayName)) ||
+                        className.contains("guardtower") ||
+                        toString.contains("guardtower") ||
+                        toString.contains("guard_tower")) {
+                        guardTowerCount++;
+                    }
+                }
+            }
+            
+            final int finalGuardTowerCount = guardTowerCount;
+            int requiredGuardTowers = TaxConfig.getRequiredGuardTowersForBoost();
+            double guardBoostPercentage = TaxConfig.getGuardTowerTaxBoostPercentage();
+            boolean hasGuardBoost = guardTowerCount >= requiredGuardTowers;
+            
+            source.sendSuccess(() -> Component.literal("\n🏰 Guard Tower Boost:")
+                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), false);
+            source.sendSuccess(() -> Component.literal("  Guard Towers: " + finalGuardTowerCount + " / " + requiredGuardTowers + " required")
+                    .withStyle(hasGuardBoost ? ChatFormatting.GREEN : ChatFormatting.YELLOW), false);
+            source.sendSuccess(() -> Component.literal(String.format("  Boost: %.0f%% %s", guardBoostPercentage * 100, 
+                    hasGuardBoost ? "(ACTIVE)" : "(INACTIVE)"))
+                    .withStyle(hasGuardBoost ? ChatFormatting.GREEN : ChatFormatting.GRAY), false);
+            
+            // Building breakdown
+            source.sendSuccess(() -> Component.literal("\n🏘️ Building Breakdown:")
+                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), false);
+            
+            int totalGeneratedTax = 0;
+            int totalBaseTax = 0;
+            int totalMaintenance = 0;
+            int buildingCount = 0;
+            
+            for (com.minecolonies.api.colony.buildings.IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+                if (building.getBuildingLevel() > 0 && building.isBuilt()) {
+                    buildingCount++;
+                    String buildingType = building.getBuildingDisplayName();
+                    int buildingLevel = building.getBuildingLevel();
+                    
+                    double baseTax = TaxConfig.getBaseTaxForBuilding(buildingType);
+                    double upgradeTax = TaxConfig.getUpgradeTaxForBuilding(buildingType) * buildingLevel;
+                    double rawTax = baseTax + upgradeTax;
+                    int generatedTax = (int) (rawTax * happinessMultiplier);
+                    
+                    double baseMaintenance = TaxConfig.getBaseMaintenanceForBuilding(buildingType);
+                    double upgradeMaintenance = TaxConfig.getUpgradeMaintenanceForBuilding(buildingType) * buildingLevel;
+                    int maintenance = (int) (baseMaintenance + upgradeMaintenance);
+                    
+                    totalBaseTax += (int) rawTax;
+                    totalGeneratedTax += generatedTax;
+                    totalMaintenance += maintenance;
+                    
+                    if (buildingCount <= 15) { // Show first 15 buildings
+                        final String bType = buildingType;
+                        final int bLevel = buildingLevel;
+                        final int bTax = generatedTax;
+                        final int bMaint = maintenance;
+                        final int bNet = generatedTax - maintenance;
+                        
+                        source.sendSuccess(() -> Component.literal(String.format("  %s (L%d): +%d tax, -%d maint = %s%d net",
+                                bType, bLevel, bTax, bMaint, bNet >= 0 ? "+" : "", bNet))
+                                .withStyle(bNet >= 0 ? ChatFormatting.WHITE : ChatFormatting.GRAY), false);
+                    }
+                }
+            }
+            
+            if (buildingCount > 15) {
+                final int remaining = buildingCount - 15;
+                source.sendSuccess(() -> Component.literal("  ... and " + remaining + " more buildings")
+                        .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC), false);
+            }
+            
+            // Summary - make variables final for lambda capture
+            final int finalBuildingCount = buildingCount;
+            final int finalTotalBaseTax = totalBaseTax;
+            final int finalTotalGeneratedTax = totalGeneratedTax;
+            final int finalTotalMaintenance = totalMaintenance;
+            int netIncome = totalGeneratedTax - totalMaintenance;
+            int boostAmount = hasGuardBoost ? (int) (totalGeneratedTax * guardBoostPercentage) : 0;
+            final int finalBoostAmount = boostAmount;
+            int finalNetIncome = netIncome + boostAmount;
+            final int finalFinalNetIncome = finalNetIncome;
+            
+            source.sendSuccess(() -> Component.literal("\n📋 Summary:")
+                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), false);
+            source.sendSuccess(() -> Component.literal("  Total Buildings: " + finalBuildingCount)
+                    .withStyle(ChatFormatting.WHITE), false);
+            source.sendSuccess(() -> Component.literal("  Base Tax (before happiness): " + finalTotalBaseTax)
+                    .withStyle(ChatFormatting.WHITE), false);
+            source.sendSuccess(() -> Component.literal("  Generated Tax (with happiness): " + finalTotalGeneratedTax)
+                    .withStyle(ChatFormatting.GREEN), false);
+            
+            if (hasGuardBoost) {
+                source.sendSuccess(() -> Component.literal("  Guard Tower Boost: +" + finalBoostAmount)
+                        .withStyle(ChatFormatting.GREEN), false);
+            }
+            
+            source.sendSuccess(() -> Component.literal("  Total Maintenance: -" + finalTotalMaintenance)
+                    .withStyle(ChatFormatting.RED), false);
+            source.sendSuccess(() -> Component.literal("  Net Income Per Interval: " + (finalFinalNetIncome >= 0 ? "+" : "") + finalFinalNetIncome)
+                    .withStyle(finalFinalNetIncome >= 0 ? ChatFormatting.GREEN : ChatFormatting.RED, ChatFormatting.BOLD), false);
+            
+            int maxTaxRevenue = TaxConfig.getMaxTaxRevenue();
+            source.sendSuccess(() -> Component.literal("  Max Tax Cap: " + maxTaxRevenue)
+                    .withStyle(ChatFormatting.YELLOW), false);
+            
+            source.sendSuccess(() -> Component.literal("═══════════════════════════════════════")
+                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+            
+            return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("Error generating tax breakdown: " + e.getMessage())
+                    .withStyle(ChatFormatting.RED));
+            LOGGER.error("Error in debugTaxBreakdown", e);
+            return 0;
+        }
     }
 }

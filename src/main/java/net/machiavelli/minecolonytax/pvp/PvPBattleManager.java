@@ -21,7 +21,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraftforge.server.ServerLifecycleHooks;
 import org.apache.logging.log4j.LogManager;
@@ -41,17 +40,61 @@ public class PvPBattleManager {
     private final PvPManager pvpManager = PvPManager.INSTANCE;
 
     public void handlePlayerDefeat(ServerPlayer player, ActiveBattle battle, net.minecraft.world.damagesource.DamageSource source) {
+        UUID playerId = player.getUUID();
+        
+        // Prevent duplicate defeat handling
+        if (pvpManager.defeatedPlayers.containsKey(playerId)) {
+            return;
+        }
+        
+        // Mark player as defeated
+        pvpManager.defeatedPlayers.put(playerId, battle.getBattleId());
+        
         // Track kill statistics
         if (source.getEntity() instanceof ServerPlayer killer) {
-            if (battle.getEnemies(player.getUUID()).contains(killer.getUUID())) {
+            if (battle.getEnemies(playerId).contains(killer.getUUID())) {
                 updatePlayerKill(killer.getUUID());
             }
         }
 
         player.sendSystemMessage(Component.literal("You have been eliminated from the battle!").withStyle(ChatFormatting.RED));
+        player.sendSystemMessage(Component.literal("You will be restored in 5 seconds...").withStyle(ChatFormatting.YELLOW));
+        
         boolean isDuel = battle.getTeams().size() == 2 && battle.getTeams().get(0).size() == 1 && battle.getTeams().get(1).size() == 1;
-        updatePlayerStats(player.getUUID(), false, true, !isDuel);
+        updatePlayerStats(playerId, false, true, !isDuel);
+        
+        // Schedule restoration after 5 seconds
+        PvPManager.BATTLE_END_SCHEDULER.schedule(() -> {
+            MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+            if (server != null) {
+                server.execute(() -> {
+                    restoreDefeatedPlayer(player, battle);
+                });
+            }
+        }, 5, java.util.concurrent.TimeUnit.SECONDS);
+        
         checkForBattleEnd(battle);
+    }
+    
+    private void restoreDefeatedPlayer(ServerPlayer player, ActiveBattle battle) {
+        if (player == null) return;
+        
+        UUID playerId = player.getUUID();
+        
+        // Remove from defeated players tracking
+        pvpManager.defeatedPlayers.remove(playerId);
+        
+        // Get original position and game mode
+        GlobalPos originalPos = battle.getOriginalPositions().get(playerId);
+        GameType originalGameMode = pvpManager.playerOriginalGameModes.getOrDefault(playerId, GameType.SURVIVAL);
+        
+        // Restore player to their original state
+        restorePlayer(player, originalPos, originalGameMode);
+        
+        // Clean up
+        pvpManager.playerOriginalGameModes.remove(playerId);
+        
+        player.sendSystemMessage(Component.literal("You have been restored to your original position.").withStyle(ChatFormatting.GREEN));
     }
 
     public void startTeamBattle(TeamBattle teamBattle) {
@@ -171,19 +214,24 @@ public class PvPBattleManager {
     }
 
     public void handlePlayerDisconnect(ServerPlayer player) {
+        UUID playerId = player.getUUID();
+        
         pvpManager.pendingRequests.values().removeIf(request ->
-                request.getChallengerId().equals(player.getUUID()) || request.getTargetPlayers().contains(player.getUUID()));
+                request.getChallengerId().equals(playerId) || request.getTargetPlayers().contains(playerId));
 
+        // Clean up defeated player tracking
+        pvpManager.defeatedPlayers.remove(playerId);
+        
         ActiveBattle battle = pvpManager.getActiveBattle(player);
         if (battle != null) {
             cancelBattleDueToDisconnect(battle, player);
             return;
         }
 
-        SpectatorData specData = pvpManager.spectatorData.get(player.getUUID());
+        SpectatorData specData = pvpManager.spectatorData.get(playerId);
         if (specData != null) {
             player.setGameMode(specData.originalGameMode());
-            pvpManager.spectatorData.remove(player.getUUID());
+            pvpManager.spectatorData.remove(playerId);
             LOGGER.info("Player {} disconnected as a spectator, resetting gamemode to {}.", player.getName().getString(), specData.originalGameMode());
         }
     }
@@ -620,6 +668,11 @@ public class PvPBattleManager {
         if (server == null) return;
 
         for (UUID playerId : battle.getAllPlayers()) {
+            // Skip players who are already defeated and being restored individually
+            if (pvpManager.defeatedPlayers.containsKey(playerId)) {
+                continue;
+            }
+            
             server.execute(() -> {
                 ServerPlayer player = server.getPlayerList().getPlayer(playerId);
                 if (player != null) {
@@ -663,7 +716,7 @@ public class PvPBattleManager {
 
                     battle.getOriginalPositions().put(playerId, GlobalPos.of(player.level().dimension(), player.blockPosition()));
                     pvpManager.playerOriginalGameModes.put(playerId, player.gameMode.getGameModeForPlayer());
-                    saveInventory(player);
+                    // REMOVED: saveInventory(player); - Caused duplication glitch when items were moved to containers
                     teleportTo(player, spawnPos);
                     applyFreezeEffects(player);
                 }
@@ -825,7 +878,7 @@ public class PvPBattleManager {
         if (originalPos != null) {
             teleportTo(player, originalPos);
         }
-        restoreInventory(player);
+        // REMOVED: restoreInventory(player); - Players keep their actual inventory (fixes duplication glitch)
         player.setHealth(player.getMaxHealth());
         player.getFoodData().setFoodLevel(20);
         player.clearFire();
@@ -834,35 +887,25 @@ public class PvPBattleManager {
         player.removeEffect(MobEffects.GLOWING);
     }
 
+    // DEPRECATED: Inventory save/restore system removed to fix duplication glitch
+    // Players now keep their actual inventory throughout the match
+    @Deprecated
+    @SuppressWarnings("unused")
     private void saveInventory(ServerPlayer player) {
-        ItemStack[] mainInventory = new ItemStack[player.getInventory().getContainerSize()];
-        for(int i = 0; i < mainInventory.length; i++) {
-            mainInventory[i] = player.getInventory().getItem(i).copy();
-        }
-        pvpManager.playerInventories.put(player.getUUID(), mainInventory);
-
-        ItemStack[] armorInventory = new ItemStack[4];
-        for(int i = 0; i < 4; i++) {
-            armorInventory[i] = player.getInventory().armor.get(i).copy();
-        }
-        pvpManager.playerArmor.put(player.getUUID(), armorInventory);
+        // NO-OP: This method is no longer used
+        // Keeping for compatibility but functionality removed
     }
 
+    // DEPRECATED: Inventory save/restore system removed to fix duplication glitch
+    // Players now keep their actual inventory throughout the match
+    @Deprecated
+    @SuppressWarnings("unused")
     private void restoreInventory(ServerPlayer player) {
+        // NO-OP: This method is no longer used
+        // Clean up any legacy data that might exist
         UUID uuid = player.getUUID();
-        ItemStack[] mainInventory = pvpManager.playerInventories.remove(uuid);
-        if (mainInventory != null) {
-            for (int i = 0; i < mainInventory.length; i++) {
-                player.getInventory().setItem(i, mainInventory[i]);
-            }
-        }
-        ItemStack[] armorInventory = pvpManager.playerArmor.remove(uuid);
-        if (armorInventory != null) {
-            for (int i = 0; i < 4; i++) {
-                player.getInventory().armor.set(i, armorInventory[i]);
-            }
-        }
-        player.containerMenu.broadcastChanges();
+        pvpManager.playerInventories.remove(uuid);
+        pvpManager.playerArmor.remove(uuid);
     }
     
     private void applyFreezeEffects(ServerPlayer player) {

@@ -34,7 +34,9 @@ public class PvPManager {
     public final Map<UUID, BattleRequest> pendingRequests = new HashMap<>();
 
     // Player State
+    @Deprecated // No longer used - inventory save/restore removed to fix duplication glitch
     public final Map<UUID, ItemStack[]> playerInventories = new HashMap<>();
+    @Deprecated // No longer used - inventory save/restore removed to fix duplication glitch
     public final Map<UUID, ItemStack[]> playerArmor = new HashMap<>();
     public final Map<UUID, SpectatorData> spectatorData = new HashMap<>();
     public final Map<UUID, GameType> playerOriginalGameModes = new HashMap<>();
@@ -49,6 +51,9 @@ public class PvPManager {
     public final Map<UUID, Long> teamBattleCooldown = new HashMap<>();
     public final Map<String, Integer> teamBattleCountdownNotifiers = new ConcurrentHashMap<>();
     public final Map<UUID, Long> lastFriendlyFireNotifications = new HashMap<>();
+    
+    // Defeated player tracking (UUID -> battle ID)
+    public final Map<UUID, String> defeatedPlayers = new ConcurrentHashMap<>();
 
     // Constants
     public static final ScheduledExecutorService BATTLE_END_SCHEDULER = Executors.newScheduledThreadPool(1);

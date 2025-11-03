@@ -64,6 +64,13 @@ public class TaxConfig {
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_RAID_ACTIONS;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_CLAIMING_ACTIONS;
 
+    // Block Interaction Filter Configuration
+    public static final ForgeConfigSpec.BooleanValue ENABLE_BLOCK_INTERACTION_FILTER;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLOCK_INTERACTION_BLACKLIST;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLOCK_INTERACTION_WHITELIST;
+    public static final ForgeConfigSpec.BooleanValue BLOCK_FILTER_WARS;
+    public static final ForgeConfigSpec.BooleanValue BLOCK_FILTER_RAIDS;
+
     // PvP Arena Settings
     public static final ForgeConfigSpec.BooleanValue PVP_COMMANDS_IN_BATTLE_ENABLED;
     public static final ForgeConfigSpec.IntValue CHALLENGE_COOLDOWN_SECONDS;
@@ -159,6 +166,15 @@ public class TaxConfig {
 
     // Recipe Disabling Configuration
     public static final ForgeConfigSpec.BooleanValue DISABLE_HUT_RECIPES;
+
+    // Web API Configuration
+    public static final ForgeConfigSpec.BooleanValue ENABLE_WEB_API;
+    public static final ForgeConfigSpec.IntValue WEB_API_PORT;
+    public static final ForgeConfigSpec.ConfigValue<String> WEB_API_KEY;
+    public static final ForgeConfigSpec.IntValue WEB_API_RATE_LIMIT_REQUESTS_PER_MINUTE;
+    public static final ForgeConfigSpec.BooleanValue WEB_API_REQUIRE_AUTHENTICATION;
+    public static final ForgeConfigSpec.BooleanValue WEB_API_ENABLE_OFFLINE_PLAYERS;
+    public static final ForgeConfigSpec.IntValue WEB_API_CACHE_REFRESH_MINUTES;
 
     static {
 
@@ -489,6 +505,62 @@ public class TaxConfig {
 
         BUILDER.pop();
 
+        // ========== Web API Settings ==========
+        BUILDER.push("Web API");
+
+        ENABLE_WEB_API = BUILDER.comment("Enable the Web API server for external data access. " +
+                "When enabled, war statistics and other data can be queried via HTTP REST endpoints. " +
+                "IMPORTANT: Only enable this if you understand the security implications. " +
+                "The API runs SERVER-SIDE ONLY and requires proper port forwarding if accessed from outside your network. " +
+                "Default: false (disabled)")
+                .define("EnableWebAPI", false);
+
+        WEB_API_PORT = BUILDER.comment("Port number for the Web API server. " +
+                "Make sure this port is not already in use by another application. " +
+                "Common ports: 8080, 8090, 9000. Avoid ports below 1024 (requires admin privileges). " +
+                "You may need to configure port forwarding on your router for external access. " +
+                "Default: 8090")
+                .defineInRange("WebAPIPort", 8090, 1024, 65535);
+
+        WEB_API_KEY = BUILDER.comment("API authentication key for secure access. " +
+                "This key must be provided in the 'X-API-Key' header for all requests when authentication is enabled. " +
+                "Generate a strong, random key (recommended: 32+ characters). " +
+                "Example: 'my-super-secret-api-key-12345-abcdef' " +
+                "SECURITY WARNING: Keep this key private! Anyone with this key can access your server data. " +
+                "Default: empty (you must set this to enable authentication)")
+                .define("WebAPIKey", "");
+
+        WEB_API_RATE_LIMIT_REQUESTS_PER_MINUTE = BUILDER.comment("Maximum number of API requests allowed per IP address per minute. " +
+                "Prevents abuse and excessive server load from a single source. " +
+                "Set to 0 to disable rate limiting (not recommended for public servers). " +
+                "Default: 60 (1 request per second average)")
+                .defineInRange("WebAPIRateLimitRequestsPerMinute", 60, 0, 1000);
+
+        WEB_API_REQUIRE_AUTHENTICATION = BUILDER.comment("Require API key authentication for all requests. " +
+                "When enabled, requests without a valid 'X-API-Key' header will be rejected with 401 Unauthorized. " +
+                "When disabled, anyone can query the API (use with caution!). " +
+                "SECURITY: Always enable this for public servers. Only disable for local testing. " +
+                "Default: true (authentication required)")
+                .define("WebAPIRequireAuthentication", true);
+
+        WEB_API_ENABLE_OFFLINE_PLAYERS = BUILDER.comment("Enable offline player data in API responses. " +
+                "When enabled, the API can return statistics for offline players by scanning player data files. " +
+                "This requires periodic file scanning and caching, which uses more memory and disk I/O. " +
+                "Use the 'includeOffline=true' query parameter to request offline data. " +
+                "PERFORMANCE: Only enable if you need offline player stats on your website. " +
+                "Default: false (online players only)")
+                .define("WebAPIEnableOfflinePlayers", false);
+
+        WEB_API_CACHE_REFRESH_MINUTES = BUILDER.comment("How often to refresh the offline player data cache (in minutes). " +
+                "The server will scan player data files at this interval to update offline player statistics. " +
+                "Lower values = more current data but higher disk I/O. Higher values = less load but stale data. " +
+                "Only used when 'WebAPIEnableOfflinePlayers' is true. " +
+                "Recommended: 5-15 minutes for active servers, 30-60 minutes for larger servers. " +
+                "Default: 10 minutes")
+                .defineInRange("WebAPICacheRefreshMinutes", 10, 1, 1440);
+
+        BUILDER.pop();
+
         WAR_DURATION_MINUTES = BUILDER.comment("War duration (minutes)")
                 .defineInRange("WarDurationMinutes", 120, 1, 1440);
 
@@ -526,6 +598,58 @@ public class TaxConfig {
                 .defineList("ClaimingActions",
                         List.of("PLACE_BLOCKS", "BREAK_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY", "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN", "HURT_VISITOR", "THROW_POTION", "OPEN_CONTAINER"),
                         obj -> obj instanceof String);
+
+        ENABLE_BLOCK_INTERACTION_FILTER = BUILDER.comment("Enable the block interaction filter system during raids and wars.\n" +
+                "When enabled, this system overrides ALL other protection systems to enforce blacklist/whitelist rules.\n" +
+                "BLACKLIST blocks CANNOT be interacted with (highest priority - prevents griefing).\n" +
+                "WHITELIST blocks CAN be interacted with (overrides normal restrictions).")
+                .define("EnableBlockInteractionFilter", true);
+
+        BLOCK_INTERACTION_BLACKLIST = BUILDER.comment("List of block IDs that CANNOT be interacted with during raids/wars (highest priority).\n" +
+                "Format:\n" +
+                "  - Specific block: 'modid:blockname' (e.g., 'minecraft:bedrock', 'minecolonies:blockhuttownhall')\n" +
+                "  - Entire mod: '#modid' (e.g., '#refinedstorage', '#mekanism')\n" +
+                "These blocks are completely protected and override any whitelist or permission settings.\n" +
+                "Default blacklist prevents interaction with critical infrastructure blocks.")
+                .defineList("BlockInteractionBlacklist",
+                        List.of(
+                            "minecraft:bedrock",
+                            "minecraft:command_block",
+                            "minecraft:chain_command_block",
+                            "minecraft:repeating_command_block",
+                            "minecraft:structure_block",
+                            "minecraft:jigsaw",
+                            "minecolonies:blockhuttownhall"
+                        ),
+                        obj -> obj instanceof String);
+
+        BLOCK_INTERACTION_WHITELIST = BUILDER.comment("List of block IDs that CAN be interacted with during raids/wars.\n" +
+                "Format:\n" +
+                "  - Specific block: 'modid:blockname' (e.g., 'minecraft:chest', 'ironchest:iron_chest')\n" +
+                "  - Entire mod: '#modid' (e.g., '#ironchest', '#sophisticatedstorage')\n" +
+                "These blocks can be opened/used even during conflicts.\n" +
+                "Common use: Allow looting chests and storage blocks.\n" +
+                "Blacklist always takes priority over whitelist!")
+                .defineList("BlockInteractionWhitelist",
+                        List.of(
+                            "minecraft:chest",
+                            "minecraft:barrel",
+                            "minecraft:furnace",
+                            "minecraft:blast_furnace",
+                            "minecraft:smoker",
+                            "minecraft:dropper",
+                            "minecraft:dispenser",
+                            "minecraft:hopper"
+                        ),
+                        obj -> obj instanceof String);
+
+        BLOCK_FILTER_WARS = BUILDER.comment("Apply block interaction filter during wars.\n" +
+                "If enabled, blacklist/whitelist rules will be enforced during active wars.")
+                .define("BlockFilterWars", true);
+
+        BLOCK_FILTER_RAIDS = BUILDER.comment("Apply block interaction filter during raids.\n" +
+                "If enabled, blacklist/whitelist rules will be enforced during active raids.")
+                .define("BlockFilterRaids", true);
 
         REQUIRED_GUARD_TOWERS_FOR_BOOST = BUILDER.comment("Number of Guard Towers required to activate a tax boost for all buildings in a colony.")
                 .defineInRange("RequiredGuardTowersForBoost", 5, 1, 100);
@@ -1242,5 +1366,55 @@ public class TaxConfig {
     // Recipe Disabling Configuration Getters
     public static boolean isDisableHutRecipesEnabled() {
         return DISABLE_HUT_RECIPES.get();
+    }
+    
+    // Web API Configuration Getters
+    public static boolean isWebAPIEnabled() {
+        return ENABLE_WEB_API.get();
+    }
+    
+    public static int getWebAPIPort() {
+        return WEB_API_PORT.get();
+    }
+    
+    public static String getWebAPIKey() {
+        return WEB_API_KEY.get();
+    }
+    
+    public static int getWebAPIRateLimitRequestsPerMinute() {
+        return WEB_API_RATE_LIMIT_REQUESTS_PER_MINUTE.get();
+    }
+    
+    public static boolean isWebAPIAuthenticationRequired() {
+        return WEB_API_REQUIRE_AUTHENTICATION.get();
+    }
+    
+    public static boolean isWebAPIOfflinePlayersEnabled() {
+        return WEB_API_ENABLE_OFFLINE_PLAYERS.get();
+    }
+    
+    public static int getWebAPICacheRefreshMinutes() {
+        return WEB_API_CACHE_REFRESH_MINUTES.get();
+    }
+    
+    // Block Interaction Filter Configuration Getters
+    public static boolean isBlockInteractionFilterEnabled() {
+        return ENABLE_BLOCK_INTERACTION_FILTER.get();
+    }
+    
+    public static Set<String> getBlockInteractionBlacklist() {
+        return Set.copyOf(BLOCK_INTERACTION_BLACKLIST.get());
+    }
+    
+    public static Set<String> getBlockInteractionWhitelist() {
+        return Set.copyOf(BLOCK_INTERACTION_WHITELIST.get());
+    }
+    
+    public static boolean isBlockFilterWarsEnabled() {
+        return BLOCK_FILTER_WARS.get();
+    }
+    
+    public static boolean isBlockFilterRaidsEnabled() {
+        return BLOCK_FILTER_RAIDS.get();
     }
 }
