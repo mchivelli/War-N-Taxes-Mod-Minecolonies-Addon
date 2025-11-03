@@ -15,166 +15,166 @@ public class TaxConfig {
 
     public static ModConfigSpec CONFIG;
 
-    public static final ForgeConfigSpec.BooleanValue ENABLE_SDM_SHOP_CONVERSION;
-    public static final ForgeConfigSpec.ConfigValue<String> CURRENCY_ITEM_NAME;
-    public static final ForgeConfigSpec.IntValue DEBT_LIMIT;
-    public static final ForgeConfigSpec.IntValue TAX_STEAL_PER_GUARD;
-    private static final ForgeConfigSpec.IntValue MIN_GUARDS_TO_RAID;
-    public static final ForgeConfigSpec.IntValue MAX_TAX_REVENUE;
-    public static final ForgeConfigSpec.BooleanValue ENABLE_COLONY_TRANSFER;
+    public static final ModConfigSpec.BooleanValue ENABLE_SDM_SHOP_CONVERSION;
+    public static final ModConfigSpec.ConfigValue<String> CURRENCY_ITEM_NAME;
+    public static final ModConfigSpec.IntValue DEBT_LIMIT;
+    public static final ModConfigSpec.IntValue TAX_STEAL_PER_GUARD;
+    private static final ModConfigSpec.IntValue MIN_GUARDS_TO_RAID;
+    public static final ModConfigSpec.IntValue MAX_TAX_REVENUE;
+    public static final ModConfigSpec.BooleanValue ENABLE_COLONY_TRANSFER;
 
     // Maps for storing building taxes and upgrade taxes
-    public static final Map<String, ForgeConfigSpec.DoubleValue> BUILDING_TAXES = new HashMap<>();
-    public static final Map<String, ForgeConfigSpec.DoubleValue> UPGRADE_TAXES = new HashMap<>();
+    public static final Map<String, ModConfigSpec.DoubleValue> BUILDING_TAXES = new HashMap<>();
+    public static final Map<String, ModConfigSpec.DoubleValue> UPGRADE_TAXES = new HashMap<>();
 
     // Map to link full building class names to short config names
     private static final Map<String, String> CLASS_NAME_TO_SHORT_NAME = new HashMap<>();
 
     // Define the tax interval in minutes
-    public static final ForgeConfigSpec.IntValue TAX_INTERVAL_MINUTES;
+    public static final ModConfigSpec.IntValue TAX_INTERVAL_MINUTES;
 
-    public static final ForgeConfigSpec.IntValue ATTACKER_GRACE_PERIOD_MINUTES;
-    public static final ForgeConfigSpec.IntValue RAID_GRACE_PERIOD_MINUTES;
-    public static final ForgeConfigSpec.IntValue MAX_RAID_DURATION_MINUTES;
-    public static final ForgeConfigSpec.IntValue RAID_TAX_INTERVAL_SECONDS;
-    public static final ForgeConfigSpec.ConfigValue<List<Double>> RAID_TAX_PERCENTAGES;
-    public static final ForgeConfigSpec.IntValue WAR_DURATION_MINUTES;
-    public static final ForgeConfigSpec.IntValue MIN_GUARDS_TO_WAGE_WAR;
-    public static final ForgeConfigSpec.BooleanValue ENABLE_LP_GROUP_SWITCHING;
-    public static final Map<String, ForgeConfigSpec.DoubleValue> BUILDING_MAINTENANCE = new HashMap<>();
-    public static final Map<String, ForgeConfigSpec.DoubleValue> UPGRADE_MAINTENANCE = new HashMap<>();
-    public static final ForgeConfigSpec.BooleanValue ALLOW_OFFLINE_RAIDS;
-    public static final ForgeConfigSpec.DoubleValue RAID_PENALTY_PERCENTAGE;
-    public static final ForgeConfigSpec.DoubleValue RAID_DEFENSE_REWARD_PERCENTAGE;
-    public static final ForgeConfigSpec.DoubleValue WAR_VICTORY_PERCENTAGE;
-    public static final ForgeConfigSpec.DoubleValue WAR_DEFEAT_PERCENTAGE;
-    public static final ForgeConfigSpec.DoubleValue WAR_STALEMATE_PERCENTAGE;
-    public static final ForgeConfigSpec.IntValue WAR_TAX_FREEZE_HOURS;
-    public static final ForgeConfigSpec.IntValue JOIN_PHASE_DURATION_MINUTES;
-    public static final ForgeConfigSpec.BooleanValue WAR_ACCEPTANCE_REQUIRED;
-    public static final ForgeConfigSpec.BooleanValue KEEP_INVENTORY_ON_LAST_LIFE;
+    public static final ModConfigSpec.IntValue ATTACKER_GRACE_PERIOD_MINUTES;
+    public static final ModConfigSpec.IntValue RAID_GRACE_PERIOD_MINUTES;
+    public static final ModConfigSpec.IntValue MAX_RAID_DURATION_MINUTES;
+    public static final ModConfigSpec.IntValue RAID_TAX_INTERVAL_SECONDS;
+    public static final ModConfigSpec.ConfigValue<List<Double>> RAID_TAX_PERCENTAGES;
+    public static final ModConfigSpec.IntValue WAR_DURATION_MINUTES;
+    public static final ModConfigSpec.IntValue MIN_GUARDS_TO_WAGE_WAR;
+    public static final ModConfigSpec.BooleanValue ENABLE_LP_GROUP_SWITCHING;
+    public static final Map<String, ModConfigSpec.DoubleValue> BUILDING_MAINTENANCE = new HashMap<>();
+    public static final Map<String, ModConfigSpec.DoubleValue> UPGRADE_MAINTENANCE = new HashMap<>();
+    public static final ModConfigSpec.BooleanValue ALLOW_OFFLINE_RAIDS;
+    public static final ModConfigSpec.DoubleValue RAID_PENALTY_PERCENTAGE;
+    public static final ModConfigSpec.DoubleValue RAID_DEFENSE_REWARD_PERCENTAGE;
+    public static final ModConfigSpec.DoubleValue WAR_VICTORY_PERCENTAGE;
+    public static final ModConfigSpec.DoubleValue WAR_DEFEAT_PERCENTAGE;
+    public static final ModConfigSpec.DoubleValue WAR_STALEMATE_PERCENTAGE;
+    public static final ModConfigSpec.IntValue WAR_TAX_FREEZE_HOURS;
+    public static final ModConfigSpec.IntValue JOIN_PHASE_DURATION_MINUTES;
+    public static final ModConfigSpec.BooleanValue WAR_ACCEPTANCE_REQUIRED;
+    public static final ModConfigSpec.BooleanValue KEEP_INVENTORY_ON_LAST_LIFE;
 
-    public static final ForgeConfigSpec.IntValue REQUIRED_GUARD_TOWERS_FOR_BOOST;
-    public static final ForgeConfigSpec.DoubleValue GUARD_TOWER_TAX_BOOST_PERCENTAGE;
+    public static final ModConfigSpec.IntValue REQUIRED_GUARD_TOWERS_FOR_BOOST;
+    public static final ModConfigSpec.DoubleValue GUARD_TOWER_TAX_BOOST_PERCENTAGE;
 
-    public static final ForgeConfigSpec.BooleanValue ENABLE_WAR_ACTIONS;
-    public static final ForgeConfigSpec.IntValue PLAYER_LIVES_IN_WAR; // New config
+    public static final ModConfigSpec.BooleanValue ENABLE_WAR_ACTIONS;
+    public static final ModConfigSpec.IntValue PLAYER_LIVES_IN_WAR; // New config
 
-    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_WAR_ACTIONS;
-    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_RAID_ACTIONS;
-    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_CLAIMING_ACTIONS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_WAR_ACTIONS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_RAID_ACTIONS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_CLAIMING_ACTIONS;
 
     // Block Interaction Filter Configuration
-    public static final ForgeConfigSpec.BooleanValue ENABLE_BLOCK_INTERACTION_FILTER;
-    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLOCK_INTERACTION_BLACKLIST;
-    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLOCK_INTERACTION_WHITELIST;
-    public static final ForgeConfigSpec.BooleanValue BLOCK_FILTER_WARS;
-    public static final ForgeConfigSpec.BooleanValue BLOCK_FILTER_RAIDS;
+    public static final ModConfigSpec.BooleanValue ENABLE_BLOCK_INTERACTION_FILTER;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> BLOCK_INTERACTION_BLACKLIST;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> BLOCK_INTERACTION_WHITELIST;
+    public static final ModConfigSpec.BooleanValue BLOCK_FILTER_WARS;
+    public static final ModConfigSpec.BooleanValue BLOCK_FILTER_RAIDS;
 
     // PvP Arena Settings
-    public static final ForgeConfigSpec.BooleanValue PVP_COMMANDS_IN_BATTLE_ENABLED;
-    public static final ForgeConfigSpec.IntValue CHALLENGE_COOLDOWN_SECONDS;
-    public static final ForgeConfigSpec.IntValue TEAM_BATTLE_COOLDOWN_SECONDS;
-    public static final ForgeConfigSpec.IntValue BATTLE_DURATION_SECONDS;
-    public static final ForgeConfigSpec.IntValue TEAM_BATTLE_START_COUNTDOWN_SECONDS;
-    public static final ForgeConfigSpec.IntValue BATTLE_END_COUNTDOWN_SECONDS;
-    public static final ForgeConfigSpec.BooleanValue PVP_DISABLE_FRIENDLY_FIRE;
+    public static final ModConfigSpec.BooleanValue PVP_COMMANDS_IN_BATTLE_ENABLED;
+    public static final ModConfigSpec.IntValue CHALLENGE_COOLDOWN_SECONDS;
+    public static final ModConfigSpec.IntValue TEAM_BATTLE_COOLDOWN_SECONDS;
+    public static final ModConfigSpec.IntValue BATTLE_DURATION_SECONDS;
+    public static final ModConfigSpec.IntValue TEAM_BATTLE_START_COUNTDOWN_SECONDS;
+    public static final ModConfigSpec.IntValue BATTLE_END_COUNTDOWN_SECONDS;
+    public static final ModConfigSpec.BooleanValue PVP_DISABLE_FRIENDLY_FIRE;
 
     // Logging configuration
-    public static final ForgeConfigSpec.BooleanValue SHOW_TAX_GENERATION_LOGS;
-    public static final ForgeConfigSpec.BooleanValue SHOW_COLONY_INITIALIZATION_LOGS;
+    public static final ModConfigSpec.BooleanValue SHOW_TAX_GENERATION_LOGS;
+    public static final ModConfigSpec.BooleanValue SHOW_COLONY_INITIALIZATION_LOGS;
 
     // RaidGuardProtection Configuration
-    public static final ForgeConfigSpec.IntValue MIN_GUARDS_TO_BE_RAIDED;
-    public static final ForgeConfigSpec.IntValue MIN_GUARD_TOWERS_TO_BE_RAIDED;
-    public static final ForgeConfigSpec.BooleanValue ENABLE_RAID_GUARD_PROTECTION;
+    public static final ModConfigSpec.IntValue MIN_GUARDS_TO_BE_RAIDED;
+    public static final ModConfigSpec.IntValue MIN_GUARD_TOWERS_TO_BE_RAIDED;
+    public static final ModConfigSpec.BooleanValue ENABLE_RAID_GUARD_PROTECTION;
 
     // Entity Raid Configuration
-    public static final ForgeConfigSpec.BooleanValue ENABLE_ENTITY_RAIDS;
-    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> ENTITY_RAID_WHITELIST;
-    public static final ForgeConfigSpec.IntValue ENTITY_RAID_THRESHOLD;
-    public static final ForgeConfigSpec.IntValue ENTITY_RAID_DETECTION_RADIUS;
-    public static final ForgeConfigSpec.BooleanValue ENTITY_RAID_MESSAGE_ONLY;
-    public static final ForgeConfigSpec.IntValue ENTITY_RAID_BOUNDARY_TIMER_SECONDS;
+    public static final ModConfigSpec.BooleanValue ENABLE_ENTITY_RAIDS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> ENTITY_RAID_WHITELIST;
+    public static final ModConfigSpec.IntValue ENTITY_RAID_THRESHOLD;
+    public static final ModConfigSpec.IntValue ENTITY_RAID_DETECTION_RADIUS;
+    public static final ModConfigSpec.BooleanValue ENTITY_RAID_MESSAGE_ONLY;
+    public static final ModConfigSpec.IntValue ENTITY_RAID_BOUNDARY_TIMER_SECONDS;
 
-    public static final ForgeConfigSpec.IntValue ENTITY_RAID_CHECK_INTERVAL_TICKS;
-    public static final ForgeConfigSpec.IntValue ENTITY_RAID_COOLDOWN_MINUTES;
+    public static final ModConfigSpec.IntValue ENTITY_RAID_CHECK_INTERVAL_TICKS;
+    public static final ModConfigSpec.IntValue ENTITY_RAID_COOLDOWN_MINUTES;
 
     // Entity Raid Debug Configuration
-    public static final ForgeConfigSpec.BooleanValue ENABLE_ENTITY_RAID_DEBUG;
-    public static final ForgeConfigSpec.IntValue ENTITY_RAID_DEBUG_LEVEL;
-    public static final ForgeConfigSpec.BooleanValue BYPASS_ALLIANCE_CHECKS;
+    public static final ModConfigSpec.BooleanValue ENABLE_ENTITY_RAID_DEBUG;
+    public static final ModConfigSpec.IntValue ENTITY_RAID_DEBUG_LEVEL;
+    public static final ModConfigSpec.BooleanValue BYPASS_ALLIANCE_CHECKS;
 
     // PvP Kill Economy Configuration
-    public static final ForgeConfigSpec.BooleanValue ENABLE_PVP_KILL_ECONOMY;
-    public static final ForgeConfigSpec.DoubleValue PVP_KILL_REWARD_PERCENTAGE;
+    public static final ModConfigSpec.BooleanValue ENABLE_PVP_KILL_ECONOMY;
+    public static final ModConfigSpec.DoubleValue PVP_KILL_REWARD_PERCENTAGE;
 
     // General Colony Permissions Configuration
-    public static final ForgeConfigSpec.BooleanValue ENABLE_GENERAL_ITEM_INTERACTIONS;
-    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> GENERAL_COLONY_ACTIONS;
+    public static final ModConfigSpec.BooleanValue ENABLE_GENERAL_ITEM_INTERACTIONS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> GENERAL_COLONY_ACTIONS;
 
     // Guard Resistance During Raids Configuration
-    public static final ForgeConfigSpec.BooleanValue ENABLE_GUARD_RESISTANCE_DURING_RAIDS;
-    public static final ForgeConfigSpec.IntValue GUARD_RESISTANCE_LEVEL;
+    public static final ModConfigSpec.BooleanValue ENABLE_GUARD_RESISTANCE_DURING_RAIDS;
+    public static final ModConfigSpec.IntValue GUARD_RESISTANCE_LEVEL;
 
     // Happiness-Based Tax Configuration
-    public static final ForgeConfigSpec.BooleanValue ENABLE_HAPPINESS_TAX_MODIFIER;
-    public static final ForgeConfigSpec.DoubleValue HAPPINESS_TAX_MULTIPLIER_MIN;
-    public static final ForgeConfigSpec.DoubleValue HAPPINESS_TAX_MULTIPLIER_MAX;
+    public static final ModConfigSpec.BooleanValue ENABLE_HAPPINESS_TAX_MODIFIER;
+    public static final ModConfigSpec.DoubleValue HAPPINESS_TAX_MULTIPLIER_MIN;
+    public static final ModConfigSpec.DoubleValue HAPPINESS_TAX_MULTIPLIER_MAX;
 
     // Colony Inactivity Configuration
-    public static final ForgeConfigSpec.BooleanValue ENABLE_COLONY_INACTIVITY_TAX_PAUSE;
-    public static final ForgeConfigSpec.IntValue COLONY_INACTIVITY_HOURS_THRESHOLD;
+    public static final ModConfigSpec.BooleanValue ENABLE_COLONY_INACTIVITY_TAX_PAUSE;
+    public static final ModConfigSpec.IntValue COLONY_INACTIVITY_HOURS_THRESHOLD;
 
     // Extortion System Configuration
-    public static final ForgeConfigSpec.BooleanValue ENABLE_EXTORTION_SYSTEM;
-    public static final ForgeConfigSpec.DoubleValue DEFAULT_EXTORTION_PERCENTAGE;
-    public static final ForgeConfigSpec.IntValue EXTORTION_RESPONSE_TIME_MINUTES;
-    public static final ForgeConfigSpec.IntValue EXTORTION_IMMUNITY_HOURS;
+    public static final ModConfigSpec.BooleanValue ENABLE_EXTORTION_SYSTEM;
+    public static final ModConfigSpec.DoubleValue DEFAULT_EXTORTION_PERCENTAGE;
+    public static final ModConfigSpec.IntValue EXTORTION_RESPONSE_TIME_MINUTES;
+    public static final ModConfigSpec.IntValue EXTORTION_IMMUNITY_HOURS;
 
     // Citizen Militia System Configuration
-    public static final ForgeConfigSpec.BooleanValue ENABLE_CITIZEN_MILITIA;
-    public static final ForgeConfigSpec.DoubleValue MILITIA_CONVERSION_PERCENTAGE;
-    public static final ForgeConfigSpec.IntValue MILITIA_MIN_CITIZEN_LEVEL;
-    public static final ForgeConfigSpec.BooleanValue MILITIA_GUARDS_SEEK_RAIDERS;
-    public static final ForgeConfigSpec.BooleanValue TAX_STEAL_PER_GUARD_KILLED;
-    public static final ForgeConfigSpec.DoubleValue TAX_STEAL_PERCENTAGE_PER_GUARD;
-    public static final ForgeConfigSpec.DoubleValue MAX_RAID_TAX_PERCENTAGE;
-    public static final ForgeConfigSpec.BooleanValue APPLY_RESISTANCE_TO_CITIZENS;
+    public static final ModConfigSpec.BooleanValue ENABLE_CITIZEN_MILITIA;
+    public static final ModConfigSpec.DoubleValue MILITIA_CONVERSION_PERCENTAGE;
+    public static final ModConfigSpec.IntValue MILITIA_MIN_CITIZEN_LEVEL;
+    public static final ModConfigSpec.BooleanValue MILITIA_GUARDS_SEEK_RAIDERS;
+    public static final ModConfigSpec.BooleanValue TAX_STEAL_PER_GUARD_KILLED;
+    public static final ModConfigSpec.DoubleValue TAX_STEAL_PERCENTAGE_PER_GUARD;
+    public static final ModConfigSpec.DoubleValue MAX_RAID_TAX_PERCENTAGE;
+    public static final ModConfigSpec.BooleanValue APPLY_RESISTANCE_TO_CITIZENS;
 
     // Colony Auto-Abandon Configuration
-    public static final ForgeConfigSpec.BooleanValue ENABLE_COLONY_AUTO_ABANDON;
-    public static final ForgeConfigSpec.IntValue COLONY_AUTO_ABANDON_DAYS;
-    public static final ForgeConfigSpec.BooleanValue NOTIFY_OWNERS_BEFORE_ABANDON;
-    public static final ForgeConfigSpec.IntValue ABANDON_WARNING_DAYS;
+    public static final ModConfigSpec.BooleanValue ENABLE_COLONY_AUTO_ABANDON;
+    public static final ModConfigSpec.IntValue COLONY_AUTO_ABANDON_DAYS;
+    public static final ModConfigSpec.BooleanValue NOTIFY_OWNERS_BEFORE_ABANDON;
+    public static final ModConfigSpec.IntValue ABANDON_WARNING_DAYS;
     
     // Abandoned Colony Claiming Configuration
-    public static final ForgeConfigSpec.BooleanValue ENABLE_ABANDONED_COLONY_CLAIMING;
-    public static final ForgeConfigSpec.IntValue MIN_GUARDS_FOR_CLAIMING_RAID;
-    public static final ForgeConfigSpec.IntValue CLAIMING_RAID_DURATION_MINUTES;
-    public static final ForgeConfigSpec.IntValue CLAIMING_GRACE_PERIOD_HOURS;
-    public static final ForgeConfigSpec.BooleanValue SPAWN_MERCENARIES_IF_LOW_DEFENDERS;
-    public static final ForgeConfigSpec.ConfigValue<String> CLAIMING_BUILDING_REQUIREMENTS;
+    public static final ModConfigSpec.BooleanValue ENABLE_ABANDONED_COLONY_CLAIMING;
+    public static final ModConfigSpec.IntValue MIN_GUARDS_FOR_CLAIMING_RAID;
+    public static final ModConfigSpec.IntValue CLAIMING_RAID_DURATION_MINUTES;
+    public static final ModConfigSpec.IntValue CLAIMING_GRACE_PERIOD_HOURS;
+    public static final ModConfigSpec.BooleanValue SPAWN_MERCENARIES_IF_LOW_DEFENDERS;
+    public static final ModConfigSpec.ConfigValue<String> CLAIMING_BUILDING_REQUIREMENTS;
     
     // Raid Building Requirements Configuration
-    public static final ForgeConfigSpec.BooleanValue ENABLE_RAID_BUILDING_REQUIREMENTS;
-    public static final ForgeConfigSpec.ConfigValue<String> RAID_BUILDING_REQUIREMENTS;
+    public static final ModConfigSpec.BooleanValue ENABLE_RAID_BUILDING_REQUIREMENTS;
+    public static final ModConfigSpec.ConfigValue<String> RAID_BUILDING_REQUIREMENTS;
     
     // War Building Requirements Configuration
-    public static final ForgeConfigSpec.BooleanValue ENABLE_WAR_BUILDING_REQUIREMENTS;
-    public static final ForgeConfigSpec.ConfigValue<String> WAR_BUILDING_REQUIREMENTS;
+    public static final ModConfigSpec.BooleanValue ENABLE_WAR_BUILDING_REQUIREMENTS;
+    public static final ModConfigSpec.ConfigValue<String> WAR_BUILDING_REQUIREMENTS;
 
     // Recipe Disabling Configuration
-    public static final ForgeConfigSpec.BooleanValue DISABLE_HUT_RECIPES;
+    public static final ModConfigSpec.BooleanValue DISABLE_HUT_RECIPES;
 
     // Web API Configuration
-    public static final ForgeConfigSpec.BooleanValue ENABLE_WEB_API;
-    public static final ForgeConfigSpec.IntValue WEB_API_PORT;
-    public static final ForgeConfigSpec.ConfigValue<String> WEB_API_KEY;
-    public static final ForgeConfigSpec.IntValue WEB_API_RATE_LIMIT_REQUESTS_PER_MINUTE;
-    public static final ForgeConfigSpec.BooleanValue WEB_API_REQUIRE_AUTHENTICATION;
-    public static final ForgeConfigSpec.BooleanValue WEB_API_ENABLE_OFFLINE_PLAYERS;
-    public static final ForgeConfigSpec.IntValue WEB_API_CACHE_REFRESH_MINUTES;
+    public static final ModConfigSpec.BooleanValue ENABLE_WEB_API;
+    public static final ModConfigSpec.IntValue WEB_API_PORT;
+    public static final ModConfigSpec.ConfigValue<String> WEB_API_KEY;
+    public static final ModConfigSpec.IntValue WEB_API_RATE_LIMIT_REQUESTS_PER_MINUTE;
+    public static final ModConfigSpec.BooleanValue WEB_API_REQUIRE_AUTHENTICATION;
+    public static final ModConfigSpec.BooleanValue WEB_API_ENABLE_OFFLINE_PLAYERS;
+    public static final ModConfigSpec.IntValue WEB_API_CACHE_REFRESH_MINUTES;
 
     static {
 
@@ -1018,7 +1018,7 @@ public class TaxConfig {
      */
     public static double getBaseTaxForBuilding(String fullClassName) {
         String shortName = getShortBuildingName(fullClassName);
-        ForgeConfigSpec.DoubleValue taxValue = BUILDING_TAXES.get(shortName);
+        ModConfigSpec.DoubleValue taxValue = BUILDING_TAXES.get(shortName);
         return (taxValue != null) ? taxValue.get() : 0.0;
     }
 
@@ -1046,19 +1046,19 @@ public class TaxConfig {
      */
     public static double getUpgradeTaxForBuilding(String fullClassName) {
         String shortName = getShortBuildingName(fullClassName);
-        ForgeConfigSpec.DoubleValue upgradeValue = UPGRADE_TAXES.get(shortName);
+        ModConfigSpec.DoubleValue upgradeValue = UPGRADE_TAXES.get(shortName);
         return (upgradeValue != null) ? upgradeValue.get() : 0.0;
     }
 
     public static double getBaseMaintenanceForBuilding(String fullClassName) {
         String shortName = getShortBuildingName(fullClassName);
-        ForgeConfigSpec.DoubleValue maintenanceValue = BUILDING_MAINTENANCE.get(shortName);
+        ModConfigSpec.DoubleValue maintenanceValue = BUILDING_MAINTENANCE.get(shortName);
         return (maintenanceValue != null) ? maintenanceValue.get() : 0.0;
     }
 
     public static double getUpgradeMaintenanceForBuilding(String fullClassName) {
         String shortName = getShortBuildingName(fullClassName);
-        ForgeConfigSpec.DoubleValue upgradeValue = UPGRADE_MAINTENANCE.get(shortName);
+        ModConfigSpec.DoubleValue upgradeValue = UPGRADE_MAINTENANCE.get(shortName);
         return (upgradeValue != null) ? upgradeValue.get() : 0.0;
     }
 

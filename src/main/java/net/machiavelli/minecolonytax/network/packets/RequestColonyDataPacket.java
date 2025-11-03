@@ -6,7 +6,7 @@ import net.machiavelli.minecolonytax.network.NetworkHandler;
 import net.machiavelli.minecolonytax.server.ColonyDataCollector;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.NetworkEvent;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -38,7 +38,7 @@ public class RequestColonyDataPacket {
                 List<VassalIncomeData> vassalData = ColonyDataCollector.collectVassalIncomeData(player);
                 
                 // Send response back to client
-                NetworkHandler.CHANNEL.send(net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player), 
+                NetworkHandler.CHANNEL.send(net.neoforged.neoforge.network.PacketDistributor.PLAYER.with(() -> player), 
                     new ColonyDataResponsePacket(colonyData, vassalData));
             }
         });

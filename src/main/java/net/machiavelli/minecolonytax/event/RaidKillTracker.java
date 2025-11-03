@@ -14,10 +14,10 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraftforge.event.entity.living.LivingDeathEvent;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.Mod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -434,7 +434,7 @@ public class RaidKillTracker {
                         }
                     } else {
                         // Give items to killer's inventory
-                        net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
+                        net.minecraft.world.item.Item item = net.neoforged.neoforge.registries.ForgeRegistries.ITEMS.getValue(
                             new net.minecraft.resources.ResourceLocation(net.machiavelli.minecolonytax.TaxConfig.getCurrencyItemName()));
                         if (item != null) {
                             net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, taxAwarded);

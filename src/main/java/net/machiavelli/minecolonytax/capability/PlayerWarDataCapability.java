@@ -12,11 +12,11 @@ import net.minecraftforge.common.capabilities.*;
 import net.minecraftforge.common.util.INBTSerializable;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -67,7 +67,7 @@ public class PlayerWarDataCapability {
     
     // Add player load event handler to load data from persistent storage
     @SubscribeEvent
-    public static void onPlayerLoad(net.minecraftforge.event.entity.player.PlayerEvent.LoadFromFile event) {
+    public static void onPlayerLoad(net.neoforged.neoforge.event.entity.player.PlayerEvent.LoadFromFile event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             try {
                 String playerIdStr = player.getStringUUID();
@@ -252,8 +252,8 @@ public class PlayerWarDataCapability {
     }
 
     // Add player save event handler
-    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.HIGH)
-    public static void onPlayerSave(net.minecraftforge.event.entity.player.PlayerEvent.SaveToFile event) {
+    @SubscribeEvent(priority = net.neoforged.bus.api.EventPriority.HIGH)
+    public static void onPlayerSave(net.neoforged.neoforge.event.entity.player.PlayerEvent.SaveToFile event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             try {
                 // Get the player's war data capability

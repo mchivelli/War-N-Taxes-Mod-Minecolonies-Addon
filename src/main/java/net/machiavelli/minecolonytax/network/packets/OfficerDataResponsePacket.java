@@ -2,7 +2,7 @@ package net.machiavelli.minecolonytax.network.packets;
 
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.NetworkEvent;
 import net.machiavelli.minecolonytax.gui.TaxManagementScreen;
 import net.machiavelli.minecolonytax.gui.data.OfficerData;
 

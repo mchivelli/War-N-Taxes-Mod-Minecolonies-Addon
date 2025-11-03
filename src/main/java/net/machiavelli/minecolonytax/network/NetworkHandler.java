@@ -12,10 +12,10 @@ import net.machiavelli.minecolonytax.network.packets.OfficerDataResponsePacket;
 import net.machiavelli.minecolonytax.network.packets.RequestColonyDataPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkDirection;
-import net.minecraftforge.network.NetworkRegistry;
-import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.network.simple.SimpleChannel;
+import net.neoforged.neoforge.network.NetworkDirection;
+import net.neoforged.neoforge.network.NetworkRegistry;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.simple.SimpleChannel;
 
 public class NetworkHandler {
     public static final String PROTOCOL_VERSION = "1";

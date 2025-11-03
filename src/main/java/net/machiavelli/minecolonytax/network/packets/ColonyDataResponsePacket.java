@@ -5,7 +5,7 @@ import net.machiavelli.minecolonytax.gui.data.ColonyTaxData;
 import net.machiavelli.minecolonytax.gui.data.VassalIncomeData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.NetworkEvent;
 
 import java.util.ArrayList;
 import java.util.List;

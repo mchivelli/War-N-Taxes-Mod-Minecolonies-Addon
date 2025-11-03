@@ -17,7 +17,7 @@ import net.minecraft.world.BossEvent;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
-import net.minecraftforge.registries.ForgeRegistries;
+import net.neoforged.neoforge.registries.ForgeRegistries;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -548,7 +548,7 @@ public class EntityRaidManager {
         for (Entity entity : nearbyEntities) {
             EntityGlowPacket packet = new EntityGlowPacket(entity.getId(), true, 6000); // 5 minutes in ticks
             NetworkHandler.CHANNEL.sendTo(packet, colonyOwner.connection.connection, 
-                net.minecraftforge.network.NetworkDirection.PLAY_TO_CLIENT);
+                net.neoforged.neoforge.network.NetworkDirection.PLAY_TO_CLIENT);
         }
         
         // Log glow effect application - using generic logger since no specific method exists
@@ -594,7 +594,7 @@ public class EntityRaidManager {
         for (Entity entity : nearbyEntities) {
             EntityGlowPacket packet = new EntityGlowPacket(entity.getId(), false, 0);
             NetworkHandler.CHANNEL.sendTo(packet, colonyOwner.connection.connection, 
-                net.minecraftforge.network.NetworkDirection.PLAY_TO_CLIENT);
+                net.neoforged.neoforge.network.NetworkDirection.PLAY_TO_CLIENT);
         }
         
         // Log glow effect removal - using generic logger since no specific method exists

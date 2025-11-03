@@ -4,9 +4,9 @@ import net.machiavelli.minecolonytax.MineColonyTax;
 import net.machiavelli.minecolonytax.raid.ActiveRaidData;
 import net.machiavelli.minecolonytax.raid.RaidManager;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.Mod;
 import net.minecraftforge.server.ServerLifecycleHooks;
 
 import com.minecolonies.api.colony.permissions.IPermissions;

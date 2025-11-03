@@ -4,9 +4,9 @@ import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.permissions.ColonyPlayer;
 import net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager;
 import net.minecraft.server.MinecraftServer;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.neoforge.event.tick.TickEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 

@@ -12,13 +12,13 @@ import com.minecolonies.api.colony.permissions.IPermissions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.server.ServerStoppingEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.neoforge.event.tick.TickEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import net.minecraftforge.common.MinecraftForge;
+import net.neoforged.neoforge.common.NeoForge;
 import net.machiavelli.minecolonytax.raid.RaidManager;
 import net.machiavelli.minecolonytax.data.WarData;
 
@@ -70,12 +70,12 @@ public class TaxManager {
 
         // Unregister any existing handler to prevent multiple registrations
         if (tickEventHandler != null) {
-            MinecraftForge.EVENT_BUS.unregister(tickEventHandler);
+            NeoForge.EVENT_BUS.unregister(tickEventHandler);
         }
 
         // Register to handle ticks for generating tax (now timestamp-based)
         tickEventHandler = new TickEventHandler();
-        MinecraftForge.EVENT_BUS.register(tickEventHandler);
+        NeoForge.EVENT_BUS.register(tickEventHandler);
     }
 
     // Save tax data before the server stops

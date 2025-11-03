@@ -548,7 +548,7 @@ public class WarSystem {
                 ServerPlayer attackerPlayer = war.getColony().getWorld().getServer().getPlayerList().getPlayer(attackerUUID); 
                 if (attackerPlayer != null) {
                     PlayerWarDataManager.incrementWarsWon(attackerPlayer);
-                    net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(new WarVictoryEvent(attackerPlayer));
+                    net.minecraftforge.common.NeoForge.EVENT_BUS.post(new WarVictoryEvent(attackerPlayer));
                 }
             }
             // Apply victory/defeat balance transfers - attackers win, defenders pay

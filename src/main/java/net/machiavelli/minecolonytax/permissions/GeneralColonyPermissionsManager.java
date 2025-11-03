@@ -7,10 +7,10 @@ import com.minecolonies.api.colony.permissions.IPermissions;
 import com.minecolonies.api.colony.permissions.Rank;
 import net.machiavelli.minecolonytax.MineColonyTax;
 import net.machiavelli.minecolonytax.TaxConfig;
-import net.minecraftforge.event.TickEvent;
+import net.neoforged.neoforge.event.tick.TickEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 

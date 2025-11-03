@@ -28,7 +28,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.fml.common.Mod;
 import net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager;
 import net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager;
 import com.minecolonies.api.colony.permissions.IPermissions;
@@ -1244,7 +1244,7 @@ public class WntCommands {
                         net.sixik.sdmshoprework.SDMShopR.setMoney(player, currentBalance + claimedAmount);
                     } else {
                         // Use direct inventory manipulation instead of give command for modded items
-                        net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation(TaxConfig.getCurrencyItemName()));
+                        net.minecraft.world.item.Item item = net.neoforged.neoforge.registries.ForgeRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation(TaxConfig.getCurrencyItemName()));
                         if (item != null) {
                             net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, claimedAmount);
                             boolean added = player.getInventory().add(itemStack);
@@ -1407,7 +1407,7 @@ public class WntCommands {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             var stack = player.getInventory().getItem(i);
             if (!stack.isEmpty()) {
-                var registryName = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
+                var registryName = net.neoforged.neoforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
                 if (registryName != null && registryName.toString().equals(TaxConfig.getCurrencyItemName())) {
                     int available = stack.getCount();
                     if (available >= remaining) {

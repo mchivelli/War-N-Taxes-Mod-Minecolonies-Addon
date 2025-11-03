@@ -1,6 +1,6 @@
 package net.machiavelli.minecolonytax.network;
 
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.NetworkEvent;
 import net.minecraft.network.FriendlyByteBuf;
 
 import java.util.function.Supplier;

@@ -2,8 +2,8 @@ package net.machiavelli.minecolonytax.client;
 
 import net.machiavelli.minecolonytax.gui.TaxManagementScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
 
 /**
  * Client-side utilities for Tax GUI functionality

@@ -3,7 +3,7 @@ package net.machiavelli.minecolonytax.network.packets;
 import net.machiavelli.minecolonytax.permissions.TaxPermissionManager;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.NetworkEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
