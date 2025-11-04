@@ -1,0 +1,18 @@
+feat: Fix SDMShop integration and remaining API issues
+
+SDMShop Integration:
+- Created SDMShopCompat compatibility layer
+- Identified correct package: net.sixik.sdm_economy.api
+- Added getMoney/setMoney methods for API compatibility
+- Graceful fallback when SDM Economy not available
+
+API Fixes (27 files):
+- ForgeRegistries → BuiltInRegistries (NeoForge 1.21.1)
+- ResourceLocation() constructor → ResourceLocation.parse()
+- All registry access updated to NeoForge APIs
+
+Remaining:
+- Networking system (SimpleChannel → Payload) - 15 files
+- Minor null safety warnings
+
+Status: ~15-20 compile errors remaining (networking only)

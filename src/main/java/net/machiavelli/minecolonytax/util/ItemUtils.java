@@ -5,7 +5,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.machiavelli.minecolonytax.TaxConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -31,7 +31,7 @@ public class ItemUtils {
         }
         
         // Try to get the item from the registry
-        Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(itemName));
+        Item item = BuiltInRegistries.ITEMS.getValue(ResourceLocation.parse(itemName));
         if (item != null) {
             // Use direct inventory manipulation
             ItemStack itemStack = new ItemStack(item, amount);

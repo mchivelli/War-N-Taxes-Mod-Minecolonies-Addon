@@ -20,7 +20,7 @@ import net.neoforged.neoforge.network.simple.SimpleChannel;
 public class NetworkHandler {
     public static final String PROTOCOL_VERSION = "1";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
-            new ResourceLocation(MineColonyTax.MOD_ID, "main"),
+            ResourceLocation.parse(MineColonyTax.MOD_ID, "main"),
             () -> PROTOCOL_VERSION,
             PROTOCOL_VERSION::equals,
             PROTOCOL_VERSION::equals

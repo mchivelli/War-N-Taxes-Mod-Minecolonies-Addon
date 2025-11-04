@@ -517,7 +517,7 @@ public class RaidManager {
             }
             
             // Give items to the killer
-            net.minecraft.world.item.Item item = net.neoforged.neoforge.registries.ForgeRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation(TaxConfig.getCurrencyItemName()));
+            net.minecraft.world.item.Item item = net.neoforged.neoforge.registries.BuiltInRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation(TaxConfig.getCurrencyItemName()));
             if (item != null) {
                 net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, raidPenalty);
                 boolean added = killer.getInventory().add(itemStack);
@@ -1259,7 +1259,7 @@ public class RaidManager {
                     }
                 } else {
                     // Fallback to giving items if SDM not enabled
-                    net.minecraft.world.item.Item item = net.neoforged.neoforge.registries.ForgeRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation(TaxConfig.getCurrencyItemName()));
+                    net.minecraft.world.item.Item item = net.neoforged.neoforge.registries.BuiltInRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation(TaxConfig.getCurrencyItemName()));
                     if (item != null) {
                         net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, amountToDeduct);
                         boolean added = raiderPlayer.getInventory().add(itemStack);

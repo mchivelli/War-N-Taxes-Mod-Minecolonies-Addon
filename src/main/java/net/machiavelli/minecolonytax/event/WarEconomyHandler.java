@@ -11,9 +11,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
-import net.sixik.sdm_economy.SDMEconomy;
+import net.machiavelli.minecolonytax.integration.SDMShopCompat;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
@@ -34,7 +34,7 @@ public class WarEconomyHandler {
 
     /**
      * Deducts a percentage from each member of a team and reports the total deducted.
-     * If SDMShop conversion is enabled, player funds are modified via SDMEconomy.
+     * If SDMShop conversion is enabled, player funds are modified via SDMShopCompat.
      * Otherwise, the coin item specified in the config is deducted from the player's inventory.
      *
      * @param teamID   The team (or player UUID if no team exists).
@@ -67,9 +67,9 @@ public class WarEconomyHandler {
             if (loserPlayer != null) {
                 long deducted;
                 if (TaxConfig.isSDMShopConversionEnabled()) {
-                    long balance = SDMEconomy.getMoney(loserPlayer);
+                    long balance = SDMShopCompat.getMoney(loserPlayer);
                     deducted = (long) (balance * fraction);
-                    SDMEconomy.setMoney(loserPlayer, balance - deducted);
+                    SDMShopCompat.setMoney(loserPlayer, balance - deducted);
                 } else {
                     long invBalance = getInventoryCurrencyBalance(loserPlayer);
                     deducted = (long) (invBalance * fraction);
@@ -106,9 +106,9 @@ public class WarEconomyHandler {
                 ServerPlayer loserPlayer = ServerLifecycleHooks.getCurrentServer()
                         .getPlayerList().getPlayer(loserUUID);
                 if (loserPlayer != null) {
-                    long balance = SDMEconomy.getMoney(loserPlayer);
+                    long balance = SDMShopCompat.getMoney(loserPlayer);
                     long lostAmount = (long) (balance * fraction);
-                    SDMEconomy.setMoney(loserPlayer, balance - lostAmount);
+                    SDMShopCompat.setMoney(loserPlayer, balance - lostAmount);
                     totalTransferred += lostAmount;
                     loserPlayer.sendSystemMessage(
                             Component.literal("You lost " + lostAmount + " coins in reparations to " +
@@ -118,8 +118,8 @@ public class WarEconomyHandler {
                 }
             }
             if (winnerPlayer != null && totalTransferred > 0) {
-                long winnerBalance = SDMEconomy.getMoney(winnerPlayer);
-                SDMEconomy.setMoney(winnerPlayer, winnerBalance + totalTransferred);
+                long winnerBalance = SDMShopCompat.getMoney(winnerPlayer);
+                SDMShopCompat.setMoney(winnerPlayer, winnerBalance + totalTransferred);
                 winnerPlayer.sendSystemMessage(
                         Component.literal("You received " + totalTransferred + " coins in war reparations!")
                                 .withStyle(ChatFormatting.GREEN)
@@ -145,7 +145,7 @@ public class WarEconomyHandler {
             }
             if (winnerPlayer != null && totalTransferred > 0) {
                 // Try to add coins to the winner's inventory directly.
-                ItemStack coinStack = new ItemStack(ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName())), (int) totalTransferred);
+                ItemStack coinStack = new ItemStack(BuiltInRegistries.ITEMS.getValue(ResourceLocation.parse(TaxConfig.getCurrencyItemName())), (int) totalTransferred);
                 boolean added = winnerPlayer.getInventory().add(coinStack);
                 if (!added) {
                     // If inventory is full, drop items near winner
@@ -170,7 +170,7 @@ public class WarEconomyHandler {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
             if (!stack.isEmpty()) {
-                ResourceLocation registryName = ForgeRegistries.ITEMS.getKey(stack.getItem());
+                ResourceLocation registryName = BuiltInRegistries.ITEMS.getKey(stack.getItem());
                 if (registryName != null && registryName.toString().equals(TaxConfig.getCurrencyItemName())) {
                     total += stack.getCount();
                 }
@@ -188,7 +188,7 @@ public class WarEconomyHandler {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
             if (!stack.isEmpty()) {
-                ResourceLocation registryName = ForgeRegistries.ITEMS.getKey(stack.getItem());
+                ResourceLocation registryName = BuiltInRegistries.ITEMS.getKey(stack.getItem());
                 if (registryName != null && registryName.toString().equals(TaxConfig.getCurrencyItemName())) {
                     int available = stack.getCount();
                     if (available >= remaining) {
@@ -214,7 +214,7 @@ public class WarEconomyHandler {
             for (UUID member : team.getMembers()) {
                 ServerPlayer player = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(member);
                 if (player != null) {
-                    sum += SDMEconomy.getMoney(player);
+                    sum += SDMShopCompat.getMoney(player);
                 }
             }
         } else {
@@ -245,17 +245,17 @@ public class WarEconomyHandler {
                 ServerPlayer loser = ServerLifecycleHooks.getCurrentServer()
                         .getPlayerList().getPlayer(member);
                 if (loser != null) {
-                    long balance = SDMEconomy.getMoney(loser);
+                    long balance = SDMShopCompat.getMoney(loser);
                     long take = (long) (balance * ((double) demandedAmount / getTeamTotalBalance(losingTeamID)));
-                    SDMEconomy.setMoney(loser, balance - take);
+                    SDMShopCompat.setMoney(loser, balance - take);
                     totalTransferred += take;
                     loser.sendSystemMessage(Component.literal("You lost " + take + " coins in reparations!")
                             .withStyle(ChatFormatting.RED));
                 }
             }
             if (winner != null && totalTransferred > 0) {
-                long wb = SDMEconomy.getMoney(winner);
-                SDMEconomy.setMoney(winner, wb + totalTransferred);
+                long wb = SDMShopCompat.getMoney(winner);
+                SDMShopCompat.setMoney(winner, wb + totalTransferred);
                 winner.sendSystemMessage(Component.literal("You received " + totalTransferred + " coins in reparations!")
                         .withStyle(ChatFormatting.GREEN));
             }
@@ -318,7 +318,7 @@ public class WarEconomyHandler {
                         .getPlayerList().getPlayer(winnerUUID);
                 if (winner != null) {
                     ItemStack stack = new ItemStack(
-                            ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName())),
+                            BuiltInRegistries.ITEMS.getValue(ResourceLocation.parse(TaxConfig.getCurrencyItemName())),
                             (int) totalTaken
                     );
                     if (!winner.getInventory().add(stack)) {
@@ -355,16 +355,16 @@ public class WarEconomyHandler {
         if (loserPlayer != null && winnerPlayer != null) {
             if (TaxConfig.isSDMShopConversionEnabled()) {
                 // Use SDMShop economy
-                long loserBalance = SDMEconomy.getMoney(loserPlayer);
+                long loserBalance = SDMShopCompat.getMoney(loserPlayer);
                 long transferAmount = (long)(loserBalance * percentage);
                 
                 if (transferAmount > 0) {
                     // Remove from loser
-                    SDMEconomy.setMoney(loserPlayer, loserBalance - transferAmount);
+                    SDMShopCompat.setMoney(loserPlayer, loserBalance - transferAmount);
                     
                     // Add to winner
-                    long winnerBalance = SDMEconomy.getMoney(winnerPlayer);
-                    SDMEconomy.setMoney(winnerPlayer, winnerBalance + transferAmount);
+                    long winnerBalance = SDMShopCompat.getMoney(winnerPlayer);
+                    SDMShopCompat.setMoney(winnerPlayer, winnerBalance + transferAmount);
                     
                     transferredAmount = transferAmount;
                     
@@ -387,7 +387,7 @@ public class WarEconomyHandler {
                     if (actuallyDeducted > 0) {
                         // Add to winner's inventory
                         ItemStack coinStack = new ItemStack(
-                                ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName())), 
+                                BuiltInRegistries.ITEMS.getValue(ResourceLocation.parse(TaxConfig.getCurrencyItemName())), 
                                 (int) actuallyDeducted);
                                 
                         boolean added = winnerPlayer.getInventory().add(coinStack);

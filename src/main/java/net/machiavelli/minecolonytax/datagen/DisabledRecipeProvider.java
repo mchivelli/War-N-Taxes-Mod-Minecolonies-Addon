@@ -10,7 +10,7 @@ import net.minecraft.data.recipes.RecipeProvider;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeSerializer;
-import net.neoforged.neoforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,7 +87,7 @@ public class DisabledRecipeProvider extends RecipeProvider {
      */
     private static void addHutBlock(Object block) {
         if (block != null) {
-            ResourceLocation blockId = ForgeRegistries.BLOCKS.getKey((net.minecraft.world.level.block.Block) block);
+            ResourceLocation blockId = BuiltInRegistries.BLOCKS.getKey((net.minecraft.world.level.block.Block) block);
             if (blockId != null) {
                 DISABLED_HUT_RECIPES.add(blockId);
             }
@@ -111,9 +111,9 @@ public class DisabledRecipeProvider extends RecipeProvider {
         // Generate disabled recipes for each hut block
         for (ResourceLocation blockId : DISABLED_HUT_RECIPES) {
             // Create a disabled recipe that overrides the original
-            ItemStack resultItem = new ItemStack(ForgeRegistries.BLOCKS.getValue(blockId));
+            ItemStack resultItem = new ItemStack(BuiltInRegistries.BLOCKS.getValue(blockId));
             if (!resultItem.isEmpty()) {
-                ResourceLocation recipeId = new ResourceLocation("minecolonytax", "disabled_" + blockId.getPath());
+                ResourceLocation recipeId = ResourceLocation.parse("minecolonytax", "disabled_" + blockId.getPath());
                 
                 consumer.accept(new FinishedRecipe() {
                     @Override
@@ -135,7 +135,7 @@ public class DisabledRecipeProvider extends RecipeProvider {
                     
                     @Override
                     public @NotNull ResourceLocation getAdvancementId() {
-                        return new ResourceLocation("");
+                        return ResourceLocation.parse("");
                     }
                     
                     @Override
@@ -156,7 +156,7 @@ public class DisabledRecipeProvider extends RecipeProvider {
      */
     private @NotNull JsonObject itemStackToJson(@NotNull ItemStack stack) {
         JsonObject json = new JsonObject();
-        json.addProperty("item", ForgeRegistries.ITEMS.getKey(stack.getItem()).toString());
+        json.addProperty("item", BuiltInRegistries.ITEMS.getKey(stack.getItem()).toString());
         if (stack.getCount() > 1) {
             json.addProperty("count", stack.getCount());
         }

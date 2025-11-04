@@ -176,7 +176,7 @@ public class PvPMapManager {
             }
             pvpManager.arenaMapsByName.clear();
             for (ArenaMapData mapData : data.maps) {
-                ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, new ResourceLocation(mapData.dimension));
+                ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(mapData.dimension));
                 PvPMap map = new PvPMap(mapData.name, dimension);
                 map.setMaxPlayers(mapData.maxPlayers);
                 for (SpawnPointData spawnData : mapData.spawnPoints) {

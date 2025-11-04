@@ -329,7 +329,7 @@ public class TaxConfig {
         BUILDER.push("PvP Kill Economy");
 
         ENABLE_PVP_KILL_ECONOMY = BUILDER.comment("Enable PvP kill economy system. When enabled, killing a player transfers a percentage of their balance to the killer. " +
-                "Compatible with SDMShop and SDMEconomy. Disabled by default.")
+                "Compatible with SDMShop and SDMShopCompat. Disabled by default.")
                 .define("EnablePvPKillEconomy", false);
 
         PVP_KILL_REWARD_PERCENTAGE = BUILDER.comment("Percentage of victim's balance transferred to killer on PvP kill (0.0 - 1.0). " +

@@ -14,7 +14,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.NetworkEvent;
-import net.neoforged.neoforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 import java.util.function.Supplier;
 
@@ -87,7 +87,7 @@ public class PayDebtPacket {
                 hasEnoughFunds = playerBalance >= payAmount;
             } else {
                 // Check item-based currency
-                Item currencyItem = ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName()));
+                Item currencyItem = BuiltInRegistries.ITEMS.getValue(ResourceLocation.parse(TaxConfig.getCurrencyItemName()));
                 if (currencyItem != null) {
                     int itemCount = 0;
                     for (ItemStack stack : player.getInventory().items) {
@@ -109,7 +109,7 @@ public class PayDebtPacket {
                 SDMShopIntegration.removeMoney(player, (long) payAmount);
             } else {
                 // Remove items from inventory
-                Item currencyItem = ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName()));
+                Item currencyItem = BuiltInRegistries.ITEMS.getValue(ResourceLocation.parse(TaxConfig.getCurrencyItemName()));
                 if (currencyItem != null) {
                     int remainingToRemove = payAmount;
                     for (int i = 0; i < player.getInventory().items.size() && remainingToRemove > 0; i++) {

@@ -1240,11 +1240,11 @@ public class WntCommands {
 
                     // Update player's funds using SDMShop API if enabled
                     if (TaxConfig.isSDMShopConversionEnabled()) {
-                        long currentBalance = net.sixik.SDMEconomyework.SDMEconomy.getMoney(player);
-                        net.sixik.SDMEconomyework.SDMEconomy.setMoney(player, currentBalance + claimedAmount);
+                        long currentBalance = net.sixik.SDMEconomyework.SDMShopCompat.getMoney(player);
+                        net.sixik.SDMEconomyework.SDMShopCompat.setMoney(player, currentBalance + claimedAmount);
                     } else {
                         // Use direct inventory manipulation instead of give command for modded items
-                        net.minecraft.world.item.Item item = net.neoforged.neoforge.registries.ForgeRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation(TaxConfig.getCurrencyItemName()));
+                        net.minecraft.world.item.Item item = net.neoforged.neoforge.registries.BuiltInRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation(TaxConfig.getCurrencyItemName()));
                         if (item != null) {
                             net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, claimedAmount);
                             boolean added = player.getInventory().add(itemStack);
@@ -1391,11 +1391,11 @@ public class WntCommands {
     
     private static boolean deductCurrency(ServerPlayer player, int amount) {
         if (TaxConfig.isSDMShopConversionEnabled()) {
-            long balance = net.sixik.SDMEconomyework.SDMEconomy.getMoney(player);
+            long balance = net.sixik.SDMEconomyework.SDMShopCompat.getMoney(player);
             if (balance < amount) {
                 return false;
             }
-            net.sixik.SDMEconomyework.SDMEconomy.setMoney(player, balance - amount);
+            net.sixik.SDMEconomyework.SDMShopCompat.setMoney(player, balance - amount);
             return true;
         } else {
             return deductCurrencyFromInventory(player, amount);
@@ -1407,7 +1407,7 @@ public class WntCommands {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             var stack = player.getInventory().getItem(i);
             if (!stack.isEmpty()) {
-                var registryName = net.neoforged.neoforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
+                var registryName = net.neoforged.neoforge.registries.BuiltInRegistries.ITEMS.getKey(stack.getItem());
                 if (registryName != null && registryName.toString().equals(TaxConfig.getCurrencyItemName())) {
                     int available = stack.getCount();
                     if (available >= remaining) {

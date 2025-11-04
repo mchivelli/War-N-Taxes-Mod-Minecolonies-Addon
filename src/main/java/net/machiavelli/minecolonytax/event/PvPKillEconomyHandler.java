@@ -13,7 +13,7 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -151,7 +151,7 @@ public class PvPKillEconomyHandler {
     private static void handleItemTransfer(ServerPlayer victim, ServerPlayer killer, double percentage, boolean isRaidRelated) {
         try {
             String currencyItemName = TaxConfig.getCurrencyItemName();
-            Item currencyItem = ForgeRegistries.ITEMS.getValue(new ResourceLocation(currencyItemName));
+            Item currencyItem = BuiltInRegistries.ITEMS.getValue(ResourceLocation.parse(currencyItemName));
             
             if (currencyItem == null) {
                 LOGGER.warn("Currency item '{}' not found for PvP kill reward", currencyItemName);

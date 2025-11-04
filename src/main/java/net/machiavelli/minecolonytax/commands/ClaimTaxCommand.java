@@ -26,11 +26,11 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import net.sixik.sdm_economy.SDMEconomy; // Import the SDMShop API
+import net.machiavelli.minecolonytax.integration.SDMShopCompat; // Import the SDMShop API
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -140,11 +140,11 @@ public class ClaimTaxCommand {
 
                     // Update player's funds using SDMShop API if enabled
                     if (TaxConfig.isSDMShopConversionEnabled()) {
-                        long currentBalance = SDMEconomy.getMoney(player);
-                        SDMEconomy.setMoney(player, currentBalance + totalClaimed);
+                        long currentBalance = SDMShopCompat.getMoney(player);
+                        SDMShopCompat.setMoney(player, currentBalance + totalClaimed);
                     } else {
                         // Use direct inventory manipulation instead of give command for modded items
-                        Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName()));
+                        Item item = BuiltInRegistries.ITEMS.getValue(ResourceLocation.parse(TaxConfig.getCurrencyItemName()));
                         if (item != null) {
                             ItemStack itemStack = new ItemStack(item, totalClaimed);
                             boolean added = player.getInventory().add(itemStack);

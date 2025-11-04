@@ -17,7 +17,7 @@ import net.minecraft.world.BossEvent;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
-import net.neoforged.neoforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -277,7 +277,7 @@ public class EntityRaidManager {
         
         // Only log successful matches to avoid spam - failed matches are too numerous and not useful
         if (TaxConfig.isEntityRaidDebugEnabled() && match) {
-            ResourceLocation rl = ForgeRegistries.ENTITY_TYPES.getKey(entityType);
+            ResourceLocation rl = BuiltInRegistries.ENTITY_TYPES.getKey(entityType);
             String registryId = rl != null ? rl.toString() : "";
             LOGGER.info("[EntityRaid] ✅ WHITELIST MATCH: {} matches pattern in whitelist. registryId={}", 
                 entityType.getDescriptionId(), registryId);
@@ -297,7 +297,7 @@ public class EntityRaidManager {
         //  - exact registry id (e.g., "minecraft:pillager", "recruits:recruit")
         //  - exact description id (e.g., "entity.minecraft.pillager")
         List<? extends String> whitelist = TaxConfig.getEntityRaidWhitelist();
-        ResourceLocation rl = ForgeRegistries.ENTITY_TYPES.getKey(entityType);
+        ResourceLocation rl = BuiltInRegistries.ENTITY_TYPES.getKey(entityType);
         String registryId = rl != null ? rl.toString() : "";
         String namespace = rl != null ? rl.getNamespace() : "";
         String descId = entityType.getDescriptionId();

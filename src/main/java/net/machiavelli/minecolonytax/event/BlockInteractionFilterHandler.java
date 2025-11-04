@@ -19,7 +19,7 @@ import net.neoforged.bus.api.Event;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -146,7 +146,7 @@ public class BlockInteractionFilterHandler {
         }
         
         // Step 4: Get block ID for checking
-        ResourceLocation blockId = ForgeRegistries.BLOCKS.getKey(block);
+        ResourceLocation blockId = BuiltInRegistries.BLOCKS.getKey(block);
         if (blockId == null) {
             LOGGER.warn("Could not get registry key for block: {}", block);
             return FilterResult.PASS_THROUGH;

@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 public class TaxManagementScreen extends Screen {
-    private static final ResourceLocation BACKGROUND_TEXTURE = new ResourceLocation("minecolonytax", "textures/gui/backgroundmenu.png");
+    private static final ResourceLocation BACKGROUND_TEXTURE = ResourceLocation.parse("minecolonytax", "textures/gui/backgroundmenu.png");
     private static final int GUI_WIDTH = 360;
     private static final int GUI_HEIGHT = 280;
     

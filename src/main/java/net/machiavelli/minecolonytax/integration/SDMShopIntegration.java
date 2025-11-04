@@ -36,8 +36,8 @@ public class SDMShopIntegration {
                 "net.sixik.sdmshop.api.ShopAPI",
                 "net.sixik.SDMEconomyework.api.ShopAPI",
                 "net.sixik.sdmshop.SDMEconomyework",
-                "net.sixik.sdmeconomy.api.EconomyAPI",
-                "net.sixik.sdmeconomy.SDMEconomy"
+                "net.sixik.SDMShopCompat.api.EconomyAPI",
+                "net.sixik.SDMShopCompat.SDMEconomy"
             };
             
             for (String className : possibleClasses) {

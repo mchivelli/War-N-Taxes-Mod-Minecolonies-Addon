@@ -6,7 +6,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,7 +83,7 @@ public class RecipeDisableEventHandler {
      */
     private static void addHutBlock(Object block) {
         if (block != null) {
-            ResourceLocation blockId = ForgeRegistries.BLOCKS.getKey((net.minecraft.world.level.block.Block) block);
+            ResourceLocation blockId = BuiltInRegistries.BLOCKS.getKey((net.minecraft.world.level.block.Block) block);
             if (blockId != null) {
                 DISABLED_HUT_RECIPES.add(blockId);
             }

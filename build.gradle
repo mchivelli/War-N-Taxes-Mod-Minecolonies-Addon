@@ -92,6 +92,7 @@ dependencies {
     implementation "curse.maven:domum-ornamentum-527361:6688449"
     
     // SDMShop dependency (1.21.1 NeoForge version)
+    // Note: SDM Economy API not available yet for 1.21.1, using compatibility layer
     implementation "curse.maven:sdm-shop-948942:7173785"
     
     // FTB Teams dependency (1.21.1 NeoForge version)

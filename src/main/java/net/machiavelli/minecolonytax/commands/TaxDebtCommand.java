@@ -22,8 +22,8 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.registries.ForgeRegistries;
-import net.sixik.sdm_economy.SDMEconomy;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.machiavelli.minecolonytax.integration.SDMShopCompat;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -107,11 +107,11 @@ public class TaxDebtCommand {
      */
     private static boolean deductCurrency(ServerPlayer player, int amount) {
         if (TaxConfig.isSDMShopConversionEnabled()) {
-            long balance = SDMEconomy.getMoney(player);
+            long balance = SDMShopCompat.getMoney(player);
             if (balance < amount) {
                 return false;
             }
-            SDMEconomy.setMoney(player, balance - amount);
+            SDMShopCompat.setMoney(player, balance - amount);
             return true;
         } else {
             return deductCurrencyFromInventory(player, amount);
@@ -127,7 +127,7 @@ public class TaxDebtCommand {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
             if (!stack.isEmpty()) {
-                ResourceLocation registryName = ForgeRegistries.ITEMS.getKey(stack.getItem());
+                ResourceLocation registryName = BuiltInRegistries.ITEMS.getKey(stack.getItem());
                 if (registryName != null && registryName.toString().equals(TaxConfig.getCurrencyItemName())) {
                     int available = stack.getCount();
                     if (available >= remaining) {

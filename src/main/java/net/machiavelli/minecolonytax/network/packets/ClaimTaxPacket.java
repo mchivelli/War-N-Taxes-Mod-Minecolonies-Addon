@@ -17,7 +17,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.NetworkEvent;
-import net.neoforged.neoforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 import java.util.function.Supplier;
 
@@ -119,7 +119,7 @@ public class ClaimTaxPacket {
                     }
                 } else {
                     // Use item-based currency
-                    Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName()));
+                    Item item = BuiltInRegistries.ITEMS.getValue(ResourceLocation.parse(TaxConfig.getCurrencyItemName()));
                     if (item != null) {
                         ItemStack itemStack = new ItemStack(item, claimedAmount);
                         boolean added = player.getInventory().add(itemStack);

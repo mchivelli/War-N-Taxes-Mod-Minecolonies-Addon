@@ -11,7 +11,7 @@ import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,7 +82,7 @@ public final class RecipeDisableRuntime {
 
     private static void add(Object blockObj) {
         if (blockObj instanceof net.minecraft.world.level.block.Block block) {
-            ResourceLocation id = ForgeRegistries.BLOCKS.getKey(block);
+            ResourceLocation id = BuiltInRegistries.BLOCKS.getKey(block);
             if (id != null) {
                 HUT_BLOCK_IDS.add(id);
             }

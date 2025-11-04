@@ -11,7 +11,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -44,7 +44,7 @@ public class EntityRaidEventHandler {
         }
         
         // Log join event for visibility (no early whitelist gating; filtering happens in threshold check)
-        String registryId = String.valueOf(ForgeRegistries.ENTITY_TYPES.getKey(entity.getType()));
+        String registryId = String.valueOf(BuiltInRegistries.ENTITY_TYPES.getKey(entity.getType()));
         EntityRaidDebugLogger.logFilterStep(entity, null, "ENTITY_JOIN_LEVEL", true,
             "Entity joined level: " + registryId + " at " + entity.blockPosition());
         

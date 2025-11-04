@@ -1,0 +1,21 @@
+feat: Add all dependencies and fix API migrations
+
+DEPENDENCIES ADDED:
+- MineColonies 1.21.1 (curse.maven:minecolonies-245506:7162708)
+- Structurize, Multi-Piston, BlockUI, Domum Ornamentum
+- SDMShop 1.21.1 (curse.maven:sdm-shop-948942:7173785)
+- FTB Teams 1.21.1 (curse.maven:ftb-teams-forge-404468:7170718)
+
+API FIXES:
+- Event bus: Bus.FORGE -> Bus.GAME (14 files)
+- TickEvent API: ServerTickEvent.Post, ClientTickEvent.Post
+- PlayerWarData: Migrated to Codec-based serialization
+- PlayerWarDataAttachment: Updated for Codec serialization
+- All remaining Forge imports -> NeoForge equivalents
+- Removed old PlayerWarDataCapability (replaced by attachment)
+
+REMAINING:
+- Networking system (SimpleChannel -> Payload) - 14 packet files
+- SDMEconomy package resolution
+
+Status: Dependencies resolved, ~20 compile errors remain
