@@ -434,8 +434,8 @@ public class RaidKillTracker {
                         }
                     } else {
                         // Give items to killer's inventory
-                        net.minecraft.world.item.Item item = net.neoforged.neoforge.registries.BuiltInRegistries.ITEMS.getValue(
-                            new net.minecraft.resources.ResourceLocation(net.machiavelli.minecolonytax.TaxConfig.getCurrencyItemName()));
+                        net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEMS.getValue(
+                            net.minecraft.resources.ResourceLocation.parse(net.machiavelli.minecolonytax.TaxConfig.getCurrencyItemName()));
                         if (item != null) {
                             net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, taxAwarded);
                             boolean added = killer.getInventory().add(itemStack);

@@ -27,7 +27,7 @@ public class PlayerWarDataAttachment {
 
     // DeferredRegister for attachment types (register on MOD bus)
     public static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES = 
-        DeferredRegister.create(NeoBuiltInRegistries.Keys.ATTACHMENT_TYPES, MineColonyTax.MOD_ID);
+        DeferredRegister.create(NeoForgeRegistries.Keys.ATTACHMENT_TYPES, MineColonyTax.MOD_ID);
 
     /**
      * The attachment type for player war data.
