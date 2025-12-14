@@ -21,6 +21,8 @@ import org.apache.logging.log4j.Logger;
 import net.minecraftforge.common.MinecraftForge;
 import net.machiavelli.minecolonytax.raid.RaidManager;
 import net.machiavelli.minecolonytax.data.WarData;
+import net.machiavelli.minecolonytax.economy.RaidPenaltyManager;
+import net.machiavelli.minecolonytax.economy.WarChestManager;
 
 import java.io.File;
 import java.io.FileReader;
@@ -430,7 +432,23 @@ public class TaxManager {
 
                     // Calculate colony happiness for tax modifier
                     double colonyAvgHappiness = calculateColonyAverageHappiness(colony);
+
                     double happinessMultiplier = TaxConfig.calculateHappinessTaxMultiplier(colonyAvgHappiness);
+
+                    // Apply Raid Penalty Multiplier
+                    double raidPenaltyMultiplier = RaidPenaltyManager.getTaxMultiplier(colonyId);
+                    if (raidPenaltyMultiplier < 1.0 && TaxConfig.showTaxGenerationLogs()) {
+                        LOGGER.info("Colony {} has active raid penalty. Tax reduced by {:.0f}%",
+                                colony.getName(), (1.0 - raidPenaltyMultiplier) * 100);
+                    }
+
+                    // Apply War Exhaustion Multiplier (includes at-war, recovery, and reparations)
+                    double warExhaustionMultiplier = net.machiavelli.minecolonytax.economy.WarExhaustionManager
+                            .getTaxMultiplier(colonyId);
+                    if (warExhaustionMultiplier < 1.0 && TaxConfig.showTaxGenerationLogs()) {
+                        LOGGER.info("Colony {} has war exhaustion/reparations. Tax reduced by {:.0f}%",
+                                colony.getName(), (1.0 - warExhaustionMultiplier) * 100);
+                    }
 
                     for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
                         if (building.getBuildingLevel() > 0 && building.isBuilt()) {
@@ -444,7 +462,12 @@ public class TaxManager {
                             double rawTax = baseTax + upgradeTax;
 
                             // Apply happiness modifier to tax generation
-                            int generatedTax = (int) (rawTax * happinessMultiplier);
+                            double taxWithHappiness = rawTax * happinessMultiplier;
+
+                            // Apply raid penalty and war exhaustion modifiers
+                            int generatedTax = (int) (taxWithHappiness * raidPenaltyMultiplier
+                                    * warExhaustionMultiplier);
+
                             totalBaseTax += (int) rawTax; // Track base tax before happiness modifier
                             totalGeneratedTax += generatedTax; // Track actual modified tax for reporting
 
@@ -520,6 +543,43 @@ public class TaxManager {
                     if (tributePaid > 0) {
                         // Recalculate final balance after tribute deduction
                         finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
+                    }
+
+                    // --- War Chest Auto-Deposit ---
+                    if (TaxConfig.isWarChestEnabled() && TaxConfig.getWarChestAutoDepositPercent() > 0) {
+                        double autoDepositPercent = TaxConfig.getWarChestAutoDepositPercent();
+                        int depositAmount = (int) (totalGeneratedTax * autoDepositPercent);
+
+                        if (depositAmount > 0) {
+                            // Deduct from tax balance and add to war chest
+                            // Use adjustTax with negative amount to deduct without triggering debt logging
+                            // improperly here
+                            adjustTax(colony, -depositAmount);
+                            WarChestManager.addToWarChest(colonyId, depositAmount);
+
+                            finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0); // Update final balance for
+                                                                                      // logging
+
+                            if (TaxConfig.showTaxGenerationLogs()) {
+                                LOGGER.info("Auto-deposited {} to War Chest for colony {} ({}%)",
+                                        depositAmount, colony.getName(), (int) (autoDepositPercent * 100));
+                            }
+                        }
+                    }
+
+                    // --- Faction Shared Tax Pool ---
+                    if (TaxConfig.isFactionSystemEnabled() && TaxConfig.isSharedTaxPoolEnabled()) {
+                        double divertedAmount = net.machiavelli.minecolonytax.faction.FactionManager
+                                .processFactionTax(colonyId, totalGeneratedTax);
+                        if (divertedAmount > 0) {
+                            adjustTax(colony, -(int) divertedAmount);
+                            finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
+
+                            if (TaxConfig.showTaxGenerationLogs()) {
+                                LOGGER.info("Contributed {} to Faction Shared Pool for colony {}", (int) divertedAmount,
+                                        colony.getName());
+                            }
+                        }
                     }
 
                     // Consolidated logging per colony

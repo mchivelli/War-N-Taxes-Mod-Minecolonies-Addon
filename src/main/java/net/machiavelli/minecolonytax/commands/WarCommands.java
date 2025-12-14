@@ -21,10 +21,12 @@ import net.minecraft.world.level.Level;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import com.minecolonies.api.colony.IColonyManager;
 
 public class WarCommands {
 
-    // private static final Logger LOGGER = LogManager.getLogger(WarCommands.class); // LOGGER is unused
+    // private static final Logger LOGGER = LogManager.getLogger(WarCommands.class);
+    // // LOGGER is unused
     private static RaidManager raidManagerInstance; // Instance for non-static calls
     private static PeaceProposalManager peaceProposalManagerInstance; // Instance for non-static calls
 
@@ -45,83 +47,62 @@ public class WarCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("raid")
                 .then(Commands.argument("colony", StringArgumentType.string())
-                        .executes(WarCommands::handleRaidCommand) // Changed to avoid direct static call if manager is used
+                        .executes(WarCommands::handleRaidCommand) // Changed to avoid direct static call if manager is
+                                                                  // used
                 ));
         dispatcher.register(Commands.literal("wagewar")
                 .then(Commands.argument("colony", StringArgumentType.string())
-                        .executes(WarCommands::handleWageWarCommand)
-                ));
+                        .executes(WarCommands::handleWageWarCommand)));
         dispatcher.register(Commands.literal("suepeace")
                 .then(Commands.literal("whitepeace")
-                        .executes(WarCommands::suePeaceWhiteCommand)
-                )
+                        .executes(WarCommands::suePeaceWhiteCommand))
                 .then(Commands.literal("reparations")
                         .then(Commands.argument("amount", IntegerArgumentType.integer(1))
-                                .executes(ctx -> suePeaceReparationsCommand(ctx, IntegerArgumentType.getInteger(ctx, "amount")))
-                        )
-                )
-        );
+                                .executes(ctx -> suePeaceReparationsCommand(ctx,
+                                        IntegerArgumentType.getInteger(ctx, "amount"))))));
         dispatcher.register(Commands.literal("joinwar")
-                .executes(WarCommands::joinWarCommand)
-        );
+                .executes(WarCommands::joinWarCommand));
         dispatcher.register(Commands.literal("leavewar")
-                .executes(WarCommands::leaveWarCommand)
-        );
+                .executes(WarCommands::leaveWarCommand));
         dispatcher.register(Commands.literal("war")
                 .then(Commands.literal("accept")
                         .then(Commands.argument("colonyId", IntegerArgumentType.integer())
-                                .executes(ctx -> handleWarResponseCommand(ctx, true))
-                        )
-                )
+                                .executes(ctx -> handleWarResponseCommand(ctx, true))))
                 .then(Commands.literal("decline")
                         .then(Commands.argument("colonyId", IntegerArgumentType.integer())
-                                .executes(ctx -> handleWarResponseCommand(ctx, false))
-                        )
-                )
-        );
+                                .executes(ctx -> handleWarResponseCommand(ctx, false)))));
         dispatcher.register(Commands.literal("wardebug")
                 .requires(src -> src.hasPermission(2))
-                .executes(WarCommands::debugWarCommand)
-        );
+                .executes(WarCommands::debugWarCommand));
         dispatcher.register(Commands.literal("warinfo")
-                .executes(WarCommands::warInfoCommand)
-        );
+                .executes(WarCommands::warInfoCommand));
         dispatcher.register(Commands.literal("choosewarside")
                 .then(Commands.literal("attacker")
-                        .executes(ctx -> chooseWarSideCommand(ctx, true))
-                )
+                        .executes(ctx -> chooseWarSideCommand(ctx, true)))
                 .then(Commands.literal("defender")
-                        .executes(ctx -> chooseWarSideCommand(ctx, false))
-                )
-        );
-        
+                        .executes(ctx -> chooseWarSideCommand(ctx, false))));
+
         dispatcher.register(Commands.literal("warstop") // For stopping a specific war by colony name
                 .requires(src -> src.hasPermission(2))
                 .then(Commands.argument("colony", StringArgumentType.string())
-                     .executes(WarCommands::stopWarCommand)
-                )
-        );
+                        .executes(WarCommands::stopWarCommand)));
         dispatcher.register(Commands.literal("warstopall") // New command to stop all wars
                 .requires(src -> src.hasPermission(2))
-                .executes(WarCommands::stopAllWarsCommand)
-        );
+                .executes(WarCommands::stopAllWarsCommand));
         dispatcher.register(Commands.literal("raidstop")
                 .requires(src -> src.hasPermission(2))
-                .executes(WarCommands::stopRaidCommand)
-        );
+                .executes(WarCommands::stopRaidCommand));
         dispatcher.register(
                 Commands.literal("peace")
                         .then(Commands.literal("accept")
-                                .executes(WarCommands::acceptPeaceCommand)
-                        )
+                                .executes(WarCommands::acceptPeaceCommand))
                         .then(Commands.literal("decline")
-                                .executes(WarCommands::declinePeaceCommand)
-                        )
-        );
+                                .executes(WarCommands::declinePeaceCommand)));
     }
 
     // --- COMMAND HANDLERS ---
-    // These methods now primarily parse context and delegate to the respective managers or WarSystem.
+    // These methods now primarily parse context and delegate to the respective
+    // managers or WarSystem.
 
     private static int handleRaidCommand(CommandContext<CommandSourceStack> context) {
         return getRaidManager().handleRaid(context);
@@ -137,19 +118,39 @@ public class WarCommands {
             ctx.getSource().sendFailure(Component.literal("Target colony not found!"));
             return 0;
         }
-        if (!getRaidManager().getActiveRaids().isEmpty()) { // Check active raids via RaidManager
-             ctx.getSource().sendFailure(Component.literal("A raid is currently active! You cannot declare war."));
-             return 0;
+        if (!RaidManager.getActiveRaids().isEmpty()) { // Check active raids via RaidManager
+            ctx.getSource().sendFailure(Component.literal("A raid is currently active! You cannot declare war."));
+            return 0;
         }
         if (WarSystem.ACTIVE_WARS.containsKey(targetColony.getID())) {
             ctx.getSource().sendFailure(Component.literal("A war is already active for this colony!"));
             return 0;
         }
+
+        // Faction Alliance Check
+        IColony attackerColony = IColonyManager.getInstance().getColonies(level).stream()
+                .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                .findFirst()
+                .orElseGet(() -> IColonyManager.getInstance().getColonies(level).stream()
+                        .filter(c -> c.getPermissions().getPlayers().containsKey(attacker.getUUID()))
+                        .findFirst()
+                        .orElse(null));
+
+        if (attackerColony != null) {
+            if (net.machiavelli.minecolonytax.faction.FactionManager.areAllies(attackerColony.getID(),
+                    targetColony.getID())) {
+                ctx.getSource().sendFailure(Component.literal("You cannot declare war on an allied faction!")
+                        .withStyle(ChatFormatting.RED));
+                return 0;
+            }
+        }
+
         // Delegate core logic to WarSystem
         return WarSystem.processWageWarRequest(attacker, targetColony, ctx.getSource());
     }
 
-    private static int handleWarResponseCommand(CommandContext<CommandSourceStack> ctx, boolean accepted) throws CommandSyntaxException {
+    private static int handleWarResponseCommand(CommandContext<CommandSourceStack> ctx, boolean accepted)
+            throws CommandSyntaxException {
         ServerPlayer executor = ctx.getSource().getPlayerOrException();
         int colonyId = IntegerArgumentType.getInteger(ctx, "colonyId");
         // Delegate core logic to WarSystem
@@ -160,7 +161,8 @@ public class WarCommands {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         WarData war = WarSystem.getActiveWarForPlayer(player);
         if (war == null) {
-            ctx.getSource().sendFailure(Component.translatable("command.joinwar.error.none").withStyle(ChatFormatting.RED));
+            ctx.getSource()
+                    .sendFailure(Component.translatable("command.joinwar.error.none").withStyle(ChatFormatting.RED));
             return 0;
         }
         return WarSystem.processJoinWar(player, ctx.getSource());
@@ -170,18 +172,21 @@ public class WarCommands {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         WarData war = WarSystem.getActiveWarForPlayer(player);
         if (war == null) {
-            ctx.getSource().sendFailure(Component.translatable("command.joinwar.error.none").withStyle(ChatFormatting.RED));
+            ctx.getSource()
+                    .sendFailure(Component.translatable("command.joinwar.error.none").withStyle(ChatFormatting.RED));
             return 0;
         }
-        
+
         // Check if player is a colony owner
-        if (player.getUUID().equals(war.getColony().getPermissions().getOwner()) || 
-            player.getUUID().equals(war.getAttacker()) ||
-            (war.getAttackerColony() != null && player.getUUID().equals(war.getAttackerColony().getPermissions().getOwner()))) {
-            ctx.getSource().sendFailure(Component.translatable("command.leavewar.error.owner").withStyle(ChatFormatting.RED));
+        if (player.getUUID().equals(war.getColony().getPermissions().getOwner()) ||
+                player.getUUID().equals(war.getAttacker()) ||
+                (war.getAttackerColony() != null
+                        && player.getUUID().equals(war.getAttackerColony().getPermissions().getOwner()))) {
+            ctx.getSource()
+                    .sendFailure(Component.translatable("command.leavewar.error.owner").withStyle(ChatFormatting.RED));
             return 0;
         }
-        
+
         return WarSystem.processLeaveWar(player, ctx.getSource());
     }
 
@@ -189,7 +194,8 @@ public class WarCommands {
         return getPeaceProposalManager().suePeaceWhite(ctx);
     }
 
-    private static int suePeaceReparationsCommand(CommandContext<CommandSourceStack> ctx, int amount) throws CommandSyntaxException {
+    private static int suePeaceReparationsCommand(CommandContext<CommandSourceStack> ctx, int amount)
+            throws CommandSyntaxException {
         return getPeaceProposalManager().suePeaceReparations(ctx, amount);
     }
 
@@ -206,19 +212,21 @@ public class WarCommands {
         WarData war = WarSystem.getActiveWarForPlayer(player);
 
         if (war == null) {
-            ctx.getSource().sendFailure(Component.literal("You are not currently in an active war!").withStyle(ChatFormatting.RED));
+            ctx.getSource().sendFailure(
+                    Component.literal("You are not currently in an active war!").withStyle(ChatFormatting.RED));
             return 0;
         }
 
         StringBuilder sb = new StringBuilder();
-        String attackerColName = (war.getAttackerColony() != null) ? war.getAttackerColony().getName() : "UnknownAttackerColony";
+        String attackerColName = (war.getAttackerColony() != null) ? war.getAttackerColony().getName()
+                : "UnknownAttackerColony";
         String defenderColName = (war.getColony() != null) ? war.getColony().getName() : "UnknownDefenderColony";
         String status = (war.getStatus() != null) ? war.getStatus().toString() : "UNKNOWN";
 
         long now = System.currentTimeMillis();
         long remaining;
         String remainingStr;
-        
+
         if (war.isJoinPhaseActive()) {
             // During join phase, show time until join phase ends
             remaining = Math.max(0, (war.getJoinPhaseEndTime() - now) / 1000);
@@ -263,18 +271,20 @@ public class WarCommands {
         // Ensure this command is executed by a player with appropriate permissions
         ctx.getSource().getPlayerOrException(); // This validates player existence and permissions
         if (WarSystem.ACTIVE_WARS.isEmpty()) {
-            ctx.getSource().sendFailure(Component.literal("No active wars at the moment!").withStyle(ChatFormatting.RED));
+            ctx.getSource()
+                    .sendFailure(Component.literal("No active wars at the moment!").withStyle(ChatFormatting.RED));
             return 0;
         }
         StringBuilder sb = new StringBuilder();
         for (WarData war : WarSystem.ACTIVE_WARS.values()) {
-            String attackerColName = (war.getAttackerColony() != null) ? war.getAttackerColony().getName() : "UnknownAttackerColony";
+            String attackerColName = (war.getAttackerColony() != null) ? war.getAttackerColony().getName()
+                    : "UnknownAttackerColony";
             String defenderColName = (war.getColony() != null) ? war.getColony().getName() : "UnknownDefenderColony";
             String status = (war.getStatus() != null) ? war.getStatus().toString() : "UNKNOWN";
             long now = System.currentTimeMillis();
             long remaining;
             String remainingStr;
-            
+
             if (war.isJoinPhaseActive()) {
                 // During join phase, show time until join phase ends
                 remaining = Math.max(0, (war.getJoinPhaseEndTime() - now) / 1000);
@@ -325,9 +335,11 @@ public class WarCommands {
         }
         for (IColony colony : coloniesToStop) {
             WarSystem.endWar(colony);
-            WarSystem.sendColonyMessage(colony, Component.literal("War has been stopped by an operator.").withStyle(ChatFormatting.GOLD));
+            WarSystem.sendColonyMessage(colony,
+                    Component.literal("War has been stopped by an operator.").withStyle(ChatFormatting.GOLD));
         }
-        ctx.getSource().sendSuccess(() -> Component.literal("All active wars have been stopped.").withStyle(ChatFormatting.GREEN), false);
+        ctx.getSource().sendSuccess(
+                () -> Component.literal("All active wars have been stopped.").withStyle(ChatFormatting.GREEN), false);
         return 1;
     }
 
@@ -336,31 +348,41 @@ public class WarCommands {
         IColony colony = WarSystem.findColonyByName(colonyName, ctx.getSource().getLevel());
 
         if (colony == null) {
-            ctx.getSource().sendFailure(Component.literal("Colony not found: " + colonyName).withStyle(ChatFormatting.RED));
+            ctx.getSource()
+                    .sendFailure(Component.literal("Colony not found: " + colonyName).withStyle(ChatFormatting.RED));
             return 0;
         }
         if (!WarSystem.ACTIVE_WARS.containsKey(colony.getID())) {
-             ctx.getSource().sendFailure(Component.literal("No active war for colony: " + colonyName).withStyle(ChatFormatting.RED));
+            ctx.getSource().sendFailure(
+                    Component.literal("No active war for colony: " + colonyName).withStyle(ChatFormatting.RED));
             return 0;
         }
         WarSystem.endWar(colony);
-        WarSystem.sendColonyMessage(colony, Component.literal("War for " + colony.getName() + " has been stopped by an operator.").withStyle(ChatFormatting.GOLD));
-        ctx.getSource().sendSuccess(() -> Component.literal("War stopped for " + colony.getName() + ".").withStyle(ChatFormatting.GREEN), false);
+        WarSystem.sendColonyMessage(colony,
+                Component.literal("War for " + colony.getName() + " has been stopped by an operator.")
+                        .withStyle(ChatFormatting.GOLD));
+        ctx.getSource().sendSuccess(
+                () -> Component.literal("War stopped for " + colony.getName() + ".").withStyle(ChatFormatting.GREEN),
+                false);
         return 1;
     }
-    
+
     private static int stopRaidCommand(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-         // This now delegates to RaidManager, which needs to handle how a raid is targeted for stopping by an admin.
-         // The original logic activeRaids.get(player.getUUID()) was for a player stopping their *own* raid.
-         // Admin command needs a different way to target, or stops all.
-         // For now, RaidManager.stopRaidCommand will try to stop any active raid if called by admin.
+        // This now delegates to RaidManager, which needs to handle how a raid is
+        // targeted for stopping by an admin.
+        // The original logic activeRaids.get(player.getUUID()) was for a player
+        // stopping their *own* raid.
+        // Admin command needs a different way to target, or stops all.
+        // For now, RaidManager.stopRaidCommand will try to stop any active raid if
+        // called by admin.
         return getRaidManager().stopRaidCommand(ctx);
     }
-    
+
     /**
-     * Handle the player's choice of which side to join in a war when they are members of both teams.
+     * Handle the player's choice of which side to join in a war when they are
+     * members of both teams.
      * 
-     * @param ctx Command context
+     * @param ctx           Command context
      * @param joinAttackers True to join attackers, false to join defenders
      * @return Command success status
      */
@@ -368,24 +390,25 @@ public class WarCommands {
         try {
             ServerPlayer player = ctx.getSource().getPlayerOrException();
             WarData war = WarSystem.getActiveWarForPlayer(player);
-            
+
             if (war == null) {
                 ctx.getSource().sendFailure(Component.literal("No active war to join."));
                 return 0;
             }
-            
+
             if (!war.isJoinPhaseActive()) {
                 ctx.getSource().sendFailure(Component.literal("Join phase is over."));
                 return 0;
             }
-            
+
             int playerLives = TaxConfig.PLAYER_LIVES_IN_WAR.get();
-            
+
             if (joinAttackers) {
                 // Join attacker side
                 if (!war.getAttackerLives().containsKey(player.getUUID())) {
                     war.getAttackerLives().put(player.getUUID(), playerLives);
-                    player.sendSystemMessage(Component.literal("You have chosen to join the attacking side.").withStyle(ChatFormatting.GREEN));
+                    player.sendSystemMessage(Component.literal("You have chosen to join the attacking side.")
+                            .withStyle(ChatFormatting.GREEN));
                     if (war.alliesBossEvent != null && war.alliesBossEvent.isVisible()) {
                         war.alliesBossEvent.addPlayer(player);
                     } else {
@@ -400,7 +423,8 @@ public class WarCommands {
                 // Join defender side
                 if (!war.getDefenderLives().containsKey(player.getUUID())) {
                     war.getDefenderLives().put(player.getUUID(), playerLives);
-                    player.sendSystemMessage(Component.literal("You have chosen to join the defending side.").withStyle(ChatFormatting.GREEN));
+                    player.sendSystemMessage(Component.literal("You have chosen to join the defending side.")
+                            .withStyle(ChatFormatting.GREEN));
                     if (war.alliesBossEvent != null && war.alliesBossEvent.isVisible()) {
                         war.alliesBossEvent.addPlayer(player);
                     } else {

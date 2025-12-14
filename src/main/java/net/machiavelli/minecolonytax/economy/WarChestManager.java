@@ -277,6 +277,40 @@ public class WarChestManager {
     }
 
     /**
+     * Deduct a specific amount from the war chest (for one-time raid costs).
+     * 
+     * @param colonyId The colony ID
+     * @param amount   Amount to deduct
+     * @return new balance after deduction
+     */
+    public static int deductFromWarChest(int colonyId, int amount) {
+        int currentBalance = getWarChestBalance(colonyId);
+        int newBalance = Math.max(0, currentBalance - amount);
+        WAR_CHESTS.put(colonyId, newBalance);
+        saveData();
+        LOGGER.info("Deducted {} from colony {} war chest. New balance: {}", amount, colonyId, newBalance);
+        return newBalance;
+    }
+
+    /**
+     * Add a specific amount to the war chest.
+     * 
+     * @param colonyId The colony ID
+     * @param amount   Amount to add
+     * @return new balance after addition
+     */
+    public static int addToWarChest(int colonyId, int amount) {
+        int currentBalance = getWarChestBalance(colonyId);
+        int maxCapacity = TaxConfig.getWarChestMaxCapacity();
+        int newBalance = Math.min(maxCapacity, currentBalance + amount);
+
+        WAR_CHESTS.put(colonyId, newBalance);
+        saveData();
+        LOGGER.info("Added {} to colony {} war chest. New balance: {}", amount, colonyId, newBalance);
+        return newBalance;
+    }
+
+    /**
      * Check if war chest is depleted (for auto-surrender).
      */
     public static boolean isWarChestDepleted(int colonyId) {

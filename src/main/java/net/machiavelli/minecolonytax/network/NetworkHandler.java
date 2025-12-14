@@ -11,6 +11,9 @@ import net.machiavelli.minecolonytax.network.packets.RequestOfficerDataPacket;
 import net.machiavelli.minecolonytax.network.packets.OfficerDataResponsePacket;
 import net.machiavelli.minecolonytax.network.packets.RequestColonyDataPacket;
 import net.machiavelli.minecolonytax.network.packets.OpenTaxGUIPacket;
+import net.machiavelli.minecolonytax.network.packets.RequestWarChestDataPacket;
+import net.machiavelli.minecolonytax.network.packets.WarChestDataResponsePacket;
+import net.machiavelli.minecolonytax.network.packets.WarChestActionPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkDirection;
@@ -101,6 +104,25 @@ public class NetworkHandler {
                                 .decoder(OpenTaxGUIPacket::new)
                                 .encoder(OpenTaxGUIPacket::encode)
                                 .consumerMainThread(OpenTaxGUIPacket::handle)
+                                .add();
+
+                // War Chest packets
+                CHANNEL.messageBuilder(RequestWarChestDataPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                                .decoder(RequestWarChestDataPacket::new)
+                                .encoder(RequestWarChestDataPacket::toBytes)
+                                .consumerMainThread(RequestWarChestDataPacket::handle)
+                                .add();
+
+                CHANNEL.messageBuilder(WarChestDataResponsePacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
+                                .decoder(WarChestDataResponsePacket::new)
+                                .encoder(WarChestDataResponsePacket::toBytes)
+                                .consumerMainThread(WarChestDataResponsePacket::handle)
+                                .add();
+
+                CHANNEL.messageBuilder(WarChestActionPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                                .decoder(WarChestActionPacket::new)
+                                .encoder(WarChestActionPacket::toBytes)
+                                .consumerMainThread(WarChestActionPacket::handle)
                                 .add();
 
                 MineColonyTax.LOGGER.info("Network channel registered with {} packets", packetId);

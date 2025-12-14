@@ -209,6 +209,7 @@ public class TaxConfig {
         public static final ForgeConfigSpec.BooleanValue ENABLE_FACTION_SYSTEM;
         public static final ForgeConfigSpec.IntValue MAX_FACTION_MEMBERS;
         public static final ForgeConfigSpec.IntValue FACTION_CREATION_COST;
+        public static final ForgeConfigSpec.IntValue FACTION_ALLIANCE_LIMIT;
 
         // Shared Tax Pool
         public static final ForgeConfigSpec.BooleanValue ENABLE_SHARED_TAX_POOL;
@@ -251,6 +252,16 @@ public class TaxConfig {
         public static final ForgeConfigSpec.IntValue WAR_CHEST_DRAIN_PER_MINUTE;
         public static final ForgeConfigSpec.IntValue WAR_CHEST_MAX_CAPACITY;
         public static final ForgeConfigSpec.BooleanValue WAR_CHEST_AUTO_SURRENDER_ENABLED;
+        public static final ForgeConfigSpec.DoubleValue WAR_CHEST_AUTO_DEPOSIT_PERCENT;
+
+        // Raid War Chest
+        public static final ForgeConfigSpec.BooleanValue RAID_WAR_CHEST_ENABLED;
+        public static final ForgeConfigSpec.DoubleValue RAID_WAR_CHEST_COST_PERCENT;
+
+        // Raid Penalties
+        public static final ForgeConfigSpec.DoubleValue RAID_PENALTY_TAX_REDUCTION_PERCENT;
+        public static final ForgeConfigSpec.IntValue RAID_PENALTY_DURATION_HOURS;
+        public static final ForgeConfigSpec.DoubleValue RAID_REPAIR_COST_PERCENT;
 
         // ========== TAX EXPANSION: War Exhaustion ==========
         public static final ForgeConfigSpec.BooleanValue ENABLE_WAR_EXHAUSTION;
@@ -893,6 +904,10 @@ public class TaxConfig {
                                 "Tax cost to create a new faction.")
                                 .defineInRange("FactionCreationCost", 1000, 0, 100000);
 
+                FACTION_ALLIANCE_LIMIT = BUILDER.comment(
+                                "Maximum number of allied factions a faction can have.")
+                                .defineInRange("FactionAllianceLimit", 3, 0, 20);
+
                 // --- Shared Tax Pool ---
                 BUILDER.push("Shared Tax Pool");
                 ENABLE_SHARED_TAX_POOL = BUILDER.comment(
@@ -1040,6 +1055,38 @@ public class TaxConfig {
                 WAR_CHEST_AUTO_SURRENDER_ENABLED = BUILDER.comment(
                                 "If true, war automatically ends in surrender when war chest is depleted.")
                                 .define("WarChestAutoSurrenderEnabled", true);
+
+                WAR_CHEST_AUTO_DEPOSIT_PERCENT = BUILDER.comment(
+                                "Percentage of tax revenue to automatically deposit into war chest each tax cycle (0.0-1.0). "
+                                                +
+                                                "Example: 0.10 = 10% of each tax collection auto-deposited.")
+                                .defineInRange("WarChestAutoDepositPercent", 0.10, 0.0, 1.0);
+
+                // --- Raid War Chest ---
+                RAID_WAR_CHEST_ENABLED = BUILDER.comment(
+                                "If true, raids require war chest funds. Cost is one-time payment based on target's tax generation.")
+                                .define("RaidWarChestEnabled", true);
+
+                RAID_WAR_CHEST_COST_PERCENT = BUILDER.comment(
+                                "Raid cost as percentage of target colony's tax per interval (0.0-1.0). " +
+                                                "Example: 0.10 = raiding costs 10% of what target earns per tax cycle.")
+                                .defineInRange("RaidWarChestCostPercent", 0.10, 0.0, 2.0);
+
+                // --- Raid Penalties ---
+                RAID_PENALTY_TAX_REDUCTION_PERCENT = BUILDER.comment(
+                                "Percentage reduction in tax generation for raided colony (0.0-1.0). " +
+                                                "Example: 0.25 = 25% less tax after being raided.")
+                                .defineInRange("RaidPenaltyTaxReductionPercent", 0.25, 0.0, 1.0);
+
+                RAID_PENALTY_DURATION_HOURS = BUILDER.comment(
+                                "Duration in hours that the raid tax penalty lasts.")
+                                .defineInRange("RaidPenaltyDurationHours", 24, 1, 168);
+
+                RAID_REPAIR_COST_PERCENT = BUILDER.comment(
+                                "Cost to repair colony and remove raid penalty, as percentage of colony's total tax earnings (0.0-1.0). "
+                                                +
+                                                "Example: 0.50 = repairing costs 50% of colony's tax balance.")
+                                .defineInRange("RaidRepairCostPercent", 0.50, 0.0, 2.0);
                 BUILDER.pop();
 
                 // --- War Exhaustion ---
@@ -2295,6 +2342,10 @@ public class TaxConfig {
                 return FACTION_CREATION_COST.get();
         }
 
+        public static int getFactionAllianceLimit() {
+                return FACTION_ALLIANCE_LIMIT.get();
+        }
+
         // --- Shared Tax Pool ---
         public static boolean isSharedTaxPoolEnabled() {
                 return ENABLE_SHARED_TAX_POOL.get();
@@ -2412,6 +2463,32 @@ public class TaxConfig {
 
         public static boolean isWarChestAutoSurrenderEnabled() {
                 return WAR_CHEST_AUTO_SURRENDER_ENABLED.get();
+        }
+
+        public static double getWarChestAutoDepositPercent() {
+                return WAR_CHEST_AUTO_DEPOSIT_PERCENT.get();
+        }
+
+        // --- Raid War Chest ---
+        public static boolean isRaidWarChestEnabled() {
+                return RAID_WAR_CHEST_ENABLED.get();
+        }
+
+        public static double getRaidWarChestCostPercent() {
+                return RAID_WAR_CHEST_COST_PERCENT.get();
+        }
+
+        // --- Raid Penalties ---
+        public static double getRaidPenaltyTaxReductionPercent() {
+                return RAID_PENALTY_TAX_REDUCTION_PERCENT.get();
+        }
+
+        public static int getRaidPenaltyDurationHours() {
+                return RAID_PENALTY_DURATION_HOURS.get();
+        }
+
+        public static double getRaidRepairCostPercent() {
+                return RAID_REPAIR_COST_PERCENT.get();
         }
 
         // --- War Exhaustion ---

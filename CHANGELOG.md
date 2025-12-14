@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.1] - 2025-12-14
+
+### 🐛 Bug Fixes
+
+- **FIXED**: **War Declaration with Multiple Colonies** - Fixed an issue where players with multiple colonies could not declare war if their "first" colony didn't meet requirements. The system now correctly checks all owned colonies for valid war capabilities.
+
 ## [4.0.0] - 2025-12-14
 
 ### 📖 Patchouli Guidebook Integration

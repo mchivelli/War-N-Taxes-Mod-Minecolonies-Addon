@@ -286,6 +286,12 @@ public class WarSystem {
         data.initialAttackerTotalLives = data.getAttackerLives().values().stream().mapToInt(Integer::intValue).sum();
         data.initialDefenderTotalLives = data.getDefenderLives().values().stream().mapToInt(Integer::intValue).sum();
         ACTIVE_WARS.put(colony.getID(), data);
+
+        // Apply War Exhaustion - both colonies generate less tax during war
+        net.machiavelli.minecolonytax.economy.WarExhaustionManager.applyWarStatus(colony.getID());
+        if (attackerColony != null) {
+            net.machiavelli.minecolonytax.economy.WarExhaustionManager.applyWarStatus(attackerColony.getID());
+        }
     }
 
     public static void setWarInteractionPermissions(IColony colony, boolean allowed) {
@@ -590,8 +596,13 @@ public class WarSystem {
                 if (defender != null) {
                 }
             }
-            // Apply victory/defeat balance transfers - defenders win, attackers pay
             applyWarEconomyTransfers(war, false);
+
+            // Record war loss for attacker (they lost when defenders won)
+            if (war.getAttackerColony() != null) {
+                net.machiavelli.minecolonytax.economy.WarExhaustionManager
+                        .recordWarLoss(war.getAttackerColony().getID());
+            }
         } else if (attackersWin) {
             String defenderColonyName = war.getColony().getName();
             String attackerColonyName = war.getAttackerColony() != null ? war.getAttackerColony().getName()
@@ -616,6 +627,10 @@ public class WarSystem {
             }
             // Apply victory/defeat balance transfers - attackers win, defenders pay
             applyWarEconomyTransfers(war, true);
+
+            // Record war loss for defender (they lost when attackers won)
+            net.machiavelli.minecolonytax.economy.WarExhaustionManager.recordWarLoss(war.getColony().getID());
+
             if (TaxConfig.ENABLE_COLONY_TRANSFER.get()) {
                 transferOwnership(war.getColony(), war.getAttacker());
             } else if (TaxConfig.isWarVassalizationEnabled()) {
@@ -1066,6 +1081,14 @@ public class WarSystem {
 
         // Now remove from active wars
         warData = ACTIVE_WARS.remove(colony.getID());
+
+        // Remove War Exhaustion status and start recovery period
+        net.machiavelli.minecolonytax.economy.WarExhaustionManager.removeWarStatus(colony.getID());
+        if (warData != null && warData.getAttackerColony() != null) {
+            net.machiavelli.minecolonytax.economy.WarExhaustionManager
+                    .removeWarStatus(warData.getAttackerColony().getID());
+        }
+
         if (warData != null) {
             if (warData.timerTask != null) {
                 warData.timerTask.cancel();
@@ -2178,6 +2201,55 @@ public class WarSystem {
         }
     }
 
+    /**
+     * Finds a valid colony owned by the player that meets the requirements to
+     * declare war on the target.
+     * Checks building requirements, guard counts, and war chest status.
+     * 
+     * @param player        The player attempting to declare war
+     * @param targetColony  The target colony
+     * @param checkWarChest Whether to check war chest requirements (usually true)
+     * @return The first valid IColony found, or null if none meet requirements
+     */
+    public static IColony findValidAttackerColony(ServerPlayer player, IColony targetColony, boolean checkWarChest) {
+        if (player == null || targetColony == null)
+            return null;
+
+        List<IColony> playerColonies = IColonyManager.getInstance().getColonies(player.level()).stream()
+                .filter(c -> c.getPermissions().getOwner().equals(player.getUUID()))
+                .toList();
+
+        for (IColony potentialAttacker : playerColonies) {
+            // Cannot attack yourself
+            if (potentialAttacker.getID() == targetColony.getID())
+                continue;
+
+            // Check building/guard requirements
+            if (TaxConfig.isWarBuildingRequirementsEnabled()) {
+                net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager.RequirementResult reqs = net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager
+                        .checkWarRequirements(potentialAttacker);
+                if (!reqs.meetsRequirements)
+                    continue;
+            } else {
+                int guardCount = countGuards(potentialAttacker);
+                if (guardCount < TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get())
+                    continue;
+            }
+
+            // Check War Chest
+            if (checkWarChest) {
+                if (!net.machiavelli.minecolonytax.economy.WarChestManager.canDeclareWar(potentialAttacker.getID(),
+                        targetColony.getID())) {
+                    continue;
+                }
+            }
+
+            return potentialAttacker;
+        }
+
+        return null;
+    }
+
     public static int processWageWarRequest(ServerPlayer attacker, IColony targetColony, CommandSourceStack source) {
         Level level = source.getLevel();
 
@@ -2188,48 +2260,34 @@ public class WarSystem {
             return 0;
         }
 
-        IColony attackerColony = IColonyManager.getInstance().getColonies(level).stream()
-                .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
-                .findFirst().orElse(null);
+        // Find a valid attacker colony using the new helper
+        IColony attackerColony = findValidAttackerColony(attacker, targetColony, true);
+
         if (attackerColony == null) {
-            source.sendFailure(Component.literal("You must own a colony to declare war."));
-            return 0;
-        }
-        // Check requirements: Building requirements take priority over simple guard
-        // count
-        if (TaxConfig.isWarBuildingRequirementsEnabled()) {
-            // Use new building requirements system (includes guard towers and other
-            // buildings)
-            net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager.RequirementResult warRequirements = net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager
-                    .checkWarRequirements(attackerColony);
+            // Retained specific error messaging logic for better user feedback if they have
+            // at least one colony
+            IColony anyColony = IColonyManager.getInstance().getColonies(level).stream()
+                    .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                    .findFirst().orElse(null);
 
-            if (!warRequirements.meetsRequirements) {
-                source.sendFailure(Component.literal("Cannot declare war: " + warRequirements.message)
-                        .withStyle(ChatFormatting.RED));
-                return 0;
+            if (anyColony == null) {
+                source.sendFailure(Component.literal("You must own a colony to declare war."));
+            } else {
+                // If they have colonies but none were valid, give a generic failure or try to
+                // diagnose the first one
+                if (TaxConfig.isWarBuildingRequirementsEnabled()) {
+                    net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager.RequirementResult reqs = net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager
+                            .checkWarRequirements(anyColony);
+                    source.sendFailure(Component.literal("None of your colonies meet the war requirements. Example ("
+                            + anyColony.getName() + "): " + reqs.message));
+                } else {
+                    source.sendFailure(
+                            Component.literal("None of your colonies have enough guards or resources to declare war."));
+                }
             }
-        } else {
-            // Fall back to legacy guard count system
-            int attackerGuards = countGuards(attackerColony);
-            if (attackerGuards < TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get()) {
-                source.sendFailure(Component.literal("Your colony must have at least "
-                        + TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get() + " guards! (Found: " + attackerGuards + ")"));
-                return 0;
-            }
-        }
-
-        // War Chest requirement check
-        if (!net.machiavelli.minecolonytax.economy.WarChestManager.canDeclareWar(attackerColony.getID(),
-                targetColony.getID())) {
-            source.sendFailure(net.machiavelli.minecolonytax.economy.WarChestManager.getWarDeclarationBlockedMessage(
-                    attackerColony.getID(), targetColony.getID()));
             return 0;
         }
 
-        if (targetColony.getID() == attackerColony.getID()) {
-            source.sendFailure(Component.literal("Cannot declare war on your own colony!"));
-            return 0;
-        }
         ServerPlayer owner = level.getServer().getPlayerList().getPlayer(targetColony.getPermissions().getOwner());
         if (owner == null) {
             source.sendFailure(Component.literal("Target colony owner is offline!"));
@@ -2359,41 +2417,28 @@ public class WarSystem {
             return 0;
         }
 
-        IColony attackerColony = IColonyManager.getInstance().getColonies(level).stream()
-                .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
-                .findFirst().orElse(null);
+        // Find a valid attacker colony using the new helper
+        IColony attackerColony = findValidAttackerColony(attacker, targetColony, true);
+
         if (attackerColony == null) {
-            source.sendFailure(Component.literal("You must own a colony to declare war."));
-            return 0;
-        }
-        // Check requirements: Building requirements take priority over simple guard
-        // count
-        if (TaxConfig.isWarBuildingRequirementsEnabled()) {
-            // Use new building requirements system (includes guard towers and other
-            // buildings)
-            net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager.RequirementResult warRequirements = net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager
-                    .checkWarRequirements(attackerColony);
+            // Retained specific error messaging logic for better user feedback
+            IColony anyColony = IColonyManager.getInstance().getColonies(level).stream()
+                    .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                    .findFirst().orElse(null);
 
-            if (!warRequirements.meetsRequirements) {
-                source.sendFailure(Component.literal("Cannot declare war: " + warRequirements.message)
-                        .withStyle(ChatFormatting.RED));
-                return 0;
+            if (anyColony == null) {
+                source.sendFailure(Component.literal("You must own a colony to declare war."));
+            } else {
+                if (TaxConfig.isWarBuildingRequirementsEnabled()) {
+                    net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager.RequirementResult reqs = net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager
+                            .checkWarRequirements(anyColony);
+                    source.sendFailure(Component.literal("None of your colonies meet the war requirements. Example ("
+                            + anyColony.getName() + "): " + reqs.message));
+                } else {
+                    source.sendFailure(
+                            Component.literal("None of your colonies have enough guards or resources to declare war."));
+                }
             }
-        } else {
-            // Fall back to legacy guard count system
-            int attackerGuards = countGuards(attackerColony);
-            if (attackerGuards < TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get()) {
-                source.sendFailure(Component.literal("Your colony must have at least "
-                        + TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get() + " guards! (Found: " + attackerGuards + ")"));
-                return 0;
-            }
-        }
-
-        // War Chest requirement check
-        if (!net.machiavelli.minecolonytax.economy.WarChestManager.canDeclareWar(attackerColony.getID(),
-                targetColony.getID())) {
-            source.sendFailure(net.machiavelli.minecolonytax.economy.WarChestManager.getWarDeclarationBlockedMessage(
-                    attackerColony.getID(), targetColony.getID()));
             return 0;
         }
 

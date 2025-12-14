@@ -13,6 +13,8 @@ import net.machiavelli.minecolonytax.raid.GuardResistanceHandler;
 import net.machiavelli.minecolonytax.militia.CitizenMilitiaManager;
 import net.machiavelli.minecolonytax.data.HistoryManager;
 import net.machiavelli.minecolonytax.data.PlayerWarDataManager;
+import net.machiavelli.minecolonytax.economy.RaidPenaltyManager;
+import net.machiavelli.minecolonytax.economy.WarChestManager;
 import net.machiavelli.minecolonytax.event.RaidLoginNotifier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -139,6 +141,13 @@ public class RaidManager {
                 return 0;
             }
 
+            // Faction Alliance Check
+            if (net.machiavelli.minecolonytax.faction.FactionManager.areAllies(raiderColony.getID(), colony.getID())) {
+                context.getSource().sendFailure(
+                        Component.literal("You cannot raid an allied faction!").withStyle(ChatFormatting.RED));
+                return 0;
+            }
+
             // Check RaidGuardProtection
             int targetGuards = WarSystem.countGuards(colony);
             if (TaxConfig.isRaidGuardProtectionEnabled()) {
@@ -169,6 +178,33 @@ public class RaidManager {
                 LOGGER.info("RAID BLOCKED: Colony {} is in debt ({}) and debt system is disabled", colony.getName(),
                         colonyBalance);
                 return 0;
+            }
+
+            // --- RAID WAR CHEST CHECK ---
+            if (TaxConfig.isRaidWarChestEnabled()) {
+                // Calculate raid cost based on target colony's tax generation
+                int targetTaxBalance = TaxManager.getStoredTaxForColony(colony);
+                double costPercent = TaxConfig.getRaidWarChestCostPercent();
+                final int raidCost = Math.max((int) Math.ceil(targetTaxBalance * costPercent), 50); // Minimum raid cost
+
+                int warChestBalance = WarChestManager.getWarChestBalance(raiderColony.getID());
+
+                if (warChestBalance < raidCost) {
+                    context.getSource().sendFailure(Component.literal(
+                            String.format("Insufficient War Chest funds to raid! Need: %d, Have: %d", raidCost,
+                                    warChestBalance))
+                            .withStyle(ChatFormatting.RED));
+                    LOGGER.info("RAID BLOCKED: Colony {} has insufficient war chest ({}) to pay raid cost ({})",
+                            raiderColony.getName(), warChestBalance, raidCost);
+                    return 0;
+                }
+
+                // Deduct raid cost from war chest
+                WarChestManager.deductFromWarChest(raiderColony.getID(), raidCost);
+                context.getSource().sendSuccess(() -> Component.literal(
+                        String.format("Paid %d from War Chest to start raid.", raidCost))
+                        .withStyle(ChatFormatting.GOLD), false);
+                LOGGER.info("Raider colony {} paid {} from war chest for raid", raiderColony.getName(), raidCost);
             }
 
             Long graceEnd = RAID_GRACE_PERIODS.get(raiderUUID);
@@ -386,6 +422,21 @@ public class RaidManager {
                     LOGGER.info("✅ TAX TRANSFER APPROVED - Raider: {}, Colony: {}", raiderPlayer.getName().getString(),
                             raidData.getColony().getName());
                     transferTaxRevenue(raidData);
+
+                    // Apply raid penalty to the raided colony
+                    if (TaxConfig.getRaidPenaltyTaxReductionPercent() > 0) {
+                        RaidPenaltyManager.applyRaidPenalty(raidData.getColony().getID());
+                        LOGGER.info("Applied raid penalty to colony {} - tax reduced for {} hours",
+                                raidData.getColony().getName(), TaxConfig.getRaidPenaltyDurationHours());
+
+                        // Notify colony owner about the penalty
+                        sendColonyMessage(raidData.getColony(), Component.literal(
+                                String.format(
+                                        "⚠ Your colony has been damaged! Tax generation reduced by %.0f%% for %d hours. Use /wnt repair to restore.",
+                                        TaxConfig.getRaidPenaltyTaxReductionPercent() * 100,
+                                        TaxConfig.getRaidPenaltyDurationHours()))
+                                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+                    }
                 } else {
                     // Raider left boundaries or didn't kill any guards - no rewards
                     String denialReason = raidData.hasLeftBoundaries() ? "left colony boundaries"
@@ -1126,7 +1177,7 @@ public class RaidManager {
         }
     }
 
-    private void sendColonyMessage(IColony colony, Component message) {
+    private static void sendColonyMessage(IColony colony, Component message) {
         if (colony == null || colony.getWorld() == null)
             return;
         IPermissions perms = colony.getPermissions();

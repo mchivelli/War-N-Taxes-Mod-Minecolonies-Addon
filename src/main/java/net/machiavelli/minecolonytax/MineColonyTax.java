@@ -5,9 +5,12 @@ import net.machiavelli.minecolonytax.vassalization.VassalManager;
 import net.machiavelli.minecolonytax.recipe.ModRecipeSerializers;
 import net.machiavelli.minecolonytax.commands.RecipeDisableTestCommand;
 import net.machiavelli.minecolonytax.commands.WarChestCommand;
+import net.machiavelli.minecolonytax.commands.RaidRepairCommand;
+import net.machiavelli.minecolonytax.commands.FactionCommand;
 import net.machiavelli.minecolonytax.economy.WarChestManager;
 import net.machiavelli.minecolonytax.raid.GuardResistanceHandler;
 import net.machiavelli.minecolonytax.webapi.WebAPIServer;
+import net.machiavelli.minecolonytax.faction.FactionManager;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -82,12 +85,18 @@ public class MineColonyTax {
         // Register commands
         RecipeDisableTestCommand.register(event.getServer().getCommands().getDispatcher());
         WarChestCommand.register(event.getServer().getCommands().getDispatcher());
+        RaidRepairCommand.register(event.getServer().getCommands().getDispatcher());
+        FactionCommand.register(event.getServer().getCommands().getDispatcher());
         LOGGER.info("WarChestCommand registered");
 
         LOGGER.info("Server starting - initializing TaxManager with configured interval of {} minutes",
                 TaxConfig.getTaxIntervalInMinutes());
         TaxManager.initialize(event.getServer());
         LOGGER.info("TaxManager initialization complete");
+
+        // Initialize War Exhaustion Manager for penalty tracking
+        net.machiavelli.minecolonytax.economy.WarExhaustionManager.initialize(event.getServer());
+        LOGGER.info("WarExhaustionManager initialization complete");
 
         // Restore all colony permissions to config defaults (disable war/raid actions)
         // This ensures clean state after server restarts/crashes
@@ -136,6 +145,10 @@ public class MineColonyTax {
         WarChestManager.initialize(event.getServer());
         LOGGER.info("WarChestManager initialized");
 
+        // Initialize FactionManager
+        FactionManager.init();
+        LOGGER.info("FactionManager initialized");
+
         // Emergency cleanup of guard resistance effects on startup
         GuardResistanceHandler.emergencyCleanup();
         LOGGER.info("Guard resistance effects cleanup completed");
@@ -179,6 +192,20 @@ public class MineColonyTax {
             LOGGER.info("WarChestManager shutdown complete");
         } catch (Throwable t) {
             LOGGER.warn("Error during WarChestManager shutdown: {}", t.toString());
+        }
+
+        try {
+            net.machiavelli.minecolonytax.economy.WarExhaustionManager.shutdown();
+            LOGGER.info("WarExhaustionManager shutdown complete");
+        } catch (Throwable t) {
+            LOGGER.warn("Error during WarExhaustionManager shutdown: {}", t.toString());
+        }
+
+        try {
+            FactionManager.saveData();
+            LOGGER.info("FactionManager data saved");
+        } catch (Throwable t) {
+            LOGGER.warn("Error saving FactionManager data: {}", t.toString());
         }
     }
 }
