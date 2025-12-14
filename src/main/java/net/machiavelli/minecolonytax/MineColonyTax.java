@@ -1,7 +1,5 @@
 package net.machiavelli.minecolonytax;
 
-import net.machiavelli.minecolonytax.TaxConfig;
-import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.network.NetworkHandler;
 import net.machiavelli.minecolonytax.vassalization.VassalManager;
 import net.machiavelli.minecolonytax.recipe.ModRecipeSerializers;
@@ -11,6 +9,7 @@ import net.machiavelli.minecolonytax.webapi.WebAPIServer;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
@@ -24,29 +23,33 @@ import org.apache.logging.log4j.Logger;
 public class MineColonyTax {
     public static final String MOD_ID = "minecolonytax";
     public static final Logger LOGGER = LogManager.getLogger();
-    
+
     // Web API Server instance (SERVER-SIDE ONLY)
     private static WebAPIServer webAPIServer = null;
 
     public MineColonyTax() {
-        // Register configuration - Use COMMON type to prevent world-directory serverconfig creation
-        // This ensures config goes ONLY to /config/warntax/ and NOT to world/serverconfig/
-        // Single registration prevents duplicate config files and .bak file proliferation
+        // Register configuration - Use COMMON type to prevent world-directory
+        // serverconfig creation
+        // This ensures config goes ONLY to /config/warntax/ and NOT to
+        // world/serverconfig/
+        // Single registration prevents duplicate config files and .bak file
+        // proliferation
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, TaxConfig.CONFIG, "warntax/minecolonytax.toml");
-        
+
         // Register recipe serializers
         ModRecipeSerializers.RECIPE_SERIALIZERS.register(FMLJavaModLoadingContext.get().getModEventBus());
-        
+
         // Register event listeners
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
-        
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::clientSetup);
+
         // Register server events (including ServerStartingEvent)
         MinecraftForge.EVENT_BUS.register(this);
-        
+
         // Manually register RaidKillTracker to ensure it works
         MinecraftForge.EVENT_BUS.register(net.machiavelli.minecolonytax.event.RaidKillTracker.class);
         LOGGER.error("MANUALLY REGISTERED RaidKillTracker event handler!");
-        
+
         LOGGER.info("MineColonyTax mod initialized with COMMON config type - no serverconfig creation");
     }
 
@@ -56,25 +59,41 @@ public class MineColonyTax {
             LOGGER.info("MineColonyTax setup complete");
         });
     }
-    
+
+    private void clientSetup(final net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent event) {
+        // Set Patchouli config flag if admin pages are enabled
+        if (ModList.get().isLoaded("patchouli") && TaxConfig.SHOW_ADMIN_PAGES_IN_BOOK.get()) {
+            try {
+                Class<?> apiClass = Class.forName("vazkii.patchouli.api.PatchouliAPI");
+                Object instance = apiClass.getMethod("get").invoke(null);
+                instance.getClass().getMethod("setConfigFlag", String.class, boolean.class)
+                        .invoke(instance, "minecolonytax:show_admin", true);
+                LOGGER.info("Registered Patchouli flag 'minecolonytax:show_admin'");
+            } catch (Exception e) {
+                LOGGER.warn("Failed to set Patchouli config flag: {}", e.getMessage());
+            }
+        }
+    }
+
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
         // Register commands
         RecipeDisableTestCommand.register(event.getServer().getCommands().getDispatcher());
-        
-        LOGGER.info("Server starting - initializing TaxManager with configured interval of {} minutes", TaxConfig.getTaxIntervalInMinutes());
+
+        LOGGER.info("Server starting - initializing TaxManager with configured interval of {} minutes",
+                TaxConfig.getTaxIntervalInMinutes());
         TaxManager.initialize(event.getServer());
         LOGGER.info("TaxManager initialization complete");
-        
+
         // Restore all colony permissions to config defaults (disable war/raid actions)
         // This ensures clean state after server restarts/crashes
         LOGGER.info("Restoring all colony war/raid permissions to config defaults...");
         WarSystem.restoreAllColonyPermissionsToDefaults();
         LOGGER.info("Colony permissions restoration complete");
-        
+
         // 🚨 AUTOMATIC: Immediate null owner fixes - NO DELAYS, NO MANUAL INTERVENTION
         LOGGER.error("🚨 AUTOMATIC NULL OWNER PROTECTION: Fixing ALL null owners immediately on startup...");
-        
+
         // IMMEDIATE fix - run right now, no delays
         try {
             net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.emergencyFixAllNullOwners();
@@ -82,7 +101,7 @@ public class MineColonyTax {
         } catch (Exception e) {
             LOGGER.error("💥 IMMEDIATE null owner fix failed", e);
         }
-        
+
         // Schedule additional safety fixes
         event.getServer().execute(() -> {
             try {
@@ -94,7 +113,7 @@ public class MineColonyTax {
                 LOGGER.error("💥 DELAYED null owner fix failed", e);
             }
         });
-        
+
         // Final safety net
         event.getServer().execute(() -> {
             try {
@@ -105,46 +124,46 @@ public class MineColonyTax {
                 LOGGER.error("💥 FINAL null owner verification failed", e);
             }
         });
-        
-		// Initialize VassalManager so server reference is available for notifications
-		VassalManager.initialize(event.getServer());
-		
-		// Emergency cleanup of guard resistance effects on startup
-		GuardResistanceHandler.emergencyCleanup();
-		LOGGER.info("Guard resistance effects cleanup completed");
-		
-		// Start Web API Server if enabled (SERVER-SIDE ONLY)
-		if (TaxConfig.isWebAPIEnabled()) {
-			try {
-				webAPIServer = new WebAPIServer(event.getServer());
-				webAPIServer.start();
-				LOGGER.info("Web API Server initialization complete");
-			} catch (Exception e) {
-				LOGGER.error("Failed to start Web API Server: {}", e.getMessage());
-				e.printStackTrace();
-			}
-		} else {
-			LOGGER.debug("Web API Server is disabled in configuration");
-		}
+
+        // Initialize VassalManager so server reference is available for notifications
+        VassalManager.initialize(event.getServer());
+
+        // Emergency cleanup of guard resistance effects on startup
+        GuardResistanceHandler.emergencyCleanup();
+        LOGGER.info("Guard resistance effects cleanup completed");
+
+        // Start Web API Server if enabled (SERVER-SIDE ONLY)
+        if (TaxConfig.isWebAPIEnabled()) {
+            try {
+                webAPIServer = new WebAPIServer(event.getServer());
+                webAPIServer.start();
+                LOGGER.info("Web API Server initialization complete");
+            } catch (Exception e) {
+                LOGGER.error("Failed to start Web API Server: {}", e.getMessage());
+                e.printStackTrace();
+            }
+        } else {
+            LOGGER.debug("Web API Server is disabled in configuration");
+        }
     }
 
-	@SubscribeEvent
-	public void onServerStopping(ServerStoppingEvent event) {
-		// Stop Web API Server
-		if (webAPIServer != null && webAPIServer.isRunning()) {
-			try {
-				webAPIServer.stop();
-				LOGGER.info("Web API Server shutdown complete");
-			} catch (Throwable t) {
-				LOGGER.warn("Error during Web API Server shutdown: {}", t.toString());
-			}
-		}
-		
-		try {
-			VassalManager.shutdown();
-			LOGGER.info("VassalManager shutdown complete");
-		} catch (Throwable t) {
-			LOGGER.warn("Error during VassalManager shutdown: {}", t.toString());
-		}
-	}
+    @SubscribeEvent
+    public void onServerStopping(ServerStoppingEvent event) {
+        // Stop Web API Server
+        if (webAPIServer != null && webAPIServer.isRunning()) {
+            try {
+                webAPIServer.stop();
+                LOGGER.info("Web API Server shutdown complete");
+            } catch (Throwable t) {
+                LOGGER.warn("Error during Web API Server shutdown: {}", t.toString());
+            }
+        }
+
+        try {
+            VassalManager.shutdown();
+            LOGGER.info("VassalManager shutdown complete");
+        } catch (Throwable t) {
+            LOGGER.warn("Error during VassalManager shutdown: {}", t.toString());
+        }
+    }
 }

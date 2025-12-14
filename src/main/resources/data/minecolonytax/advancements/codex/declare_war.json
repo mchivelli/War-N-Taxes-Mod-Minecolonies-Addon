@@ -1,0 +1,23 @@
+{
+    "parent": "minecolonytax:codex/root",
+    "display": {
+        "icon": {
+            "item": "minecraft:tnt"
+        },
+        "title": {
+            "translate": "advancements.minecolonytax.codex.declare_war.title"
+        },
+        "description": {
+            "translate": "advancements.minecolonytax.codex.declare_war.description"
+        },
+        "frame": "challenge",
+        "show_toast": true,
+        "announce_to_chat": true,
+        "hidden": false
+    },
+    "criteria": {
+        "check": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

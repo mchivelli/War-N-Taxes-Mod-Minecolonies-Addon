@@ -1,0 +1,23 @@
+{
+    "parent": "minecolonytax:codex/root",
+    "display": {
+        "icon": {
+            "item": "minecraft:gold_nugget"
+        },
+        "title": {
+            "translate": "advancements.minecolonytax.codex.claim_tax.title"
+        },
+        "description": {
+            "translate": "advancements.minecolonytax.codex.claim_tax.description"
+        },
+        "frame": "task",
+        "show_toast": true,
+        "announce_to_chat": true,
+        "hidden": false
+    },
+    "criteria": {
+        "check": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

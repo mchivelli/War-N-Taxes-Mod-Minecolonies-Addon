@@ -1,0 +1,27 @@
+{
+    "name": "minecolonytax.entry.player_commands.name",
+    "icon": "minecraft:oak_sign",
+    "category": "minecolonytax:commands",
+    "sortnum": 0,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.player_commands.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.player_commands.tax.title",
+            "text": "minecolonytax.entry.player_commands.tax"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.player_commands.combat.title",
+            "text": "minecolonytax.entry.player_commands.combat"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.player_commands.diplomacy.title",
+            "text": "minecolonytax.entry.player_commands.diplomacy"
+        }
+    ]
+}

@@ -1,0 +1,17 @@
+{
+    "name": "minecolonytax.entry.duels.name",
+    "icon": "minecraft:iron_sword",
+    "category": "minecolonytax:pvp_arena",
+    "sortnum": 0,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.duels.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.duels.challenging.title",
+            "text": "minecolonytax.entry.duels.challenging"
+        }
+    ]
+}

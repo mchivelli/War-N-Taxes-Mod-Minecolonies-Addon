@@ -1,0 +1,17 @@
+{
+    "name": "minecolonytax.entry.happiness_modifier.name",
+    "icon": "minecraft:cake",
+    "category": "minecolonytax:tax_system",
+    "sortnum": 1,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.happiness_modifier.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.happiness_modifier.effects.title",
+            "text": "minecolonytax.entry.happiness_modifier.effects"
+        }
+    ]
+}

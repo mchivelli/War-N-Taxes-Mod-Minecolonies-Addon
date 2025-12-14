@@ -1,0 +1,17 @@
+{
+    "name": "minecolonytax.entry.claiming_tax.name",
+    "icon": "minecraft:emerald",
+    "category": "minecolonytax:tax_system",
+    "sortnum": 3,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.claiming_tax.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.claiming_tax.restrictions.title",
+            "text": "minecolonytax.entry.claiming_tax.restrictions"
+        }
+    ]
+}

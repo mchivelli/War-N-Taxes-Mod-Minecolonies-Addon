@@ -134,6 +134,17 @@ TaxStealPerGuard = 200
 	#Apply block interaction filter during raids.
 	#If enabled, blacklist/whitelist rules will be enforced during active raids.
 	BlockFilterRaids = true
+	#When enabled and ENABLE_COLONY_TRANSFER is disabled, winning a war will vassalize the losing colony instead of transferring ownership.
+	#The losing colony will pay a percentage of their tax income to the winner for a set duration.
+	EnableWarVassalization = true
+	#Duration (in hours) that a war vassalization lasts.
+	#After this time, the vassalization automatically ends. Set to 0 for permanent vassalization until manually revoked.
+	#Range: 0 ~ 8760
+	WarVassalizationDurationHours = 168
+	#Percentage of the vassal colony's tax income paid to the victor as tribute (1-100).
+	#This is the tribute rate enforced when a colony is vassalized through war.
+	#Range: 1 ~ 100
+	WarVassalizationTributePercentage = 25
 
 	["War Settings"."Entity Raid Settings"]
 		#Enable entity-triggered raids. When disabled, entities will not trigger raids even if they meet the criteria. Admin-only feature.
@@ -293,6 +304,14 @@ TaxStealPerGuard = 200
 		#How often to refresh the offline player data cache (in minutes). The server will scan player data files at this interval to update offline player statistics. Lower values = more current data but higher disk I/O. Higher values = less load but stale data. Only used when 'WebAPIEnableOfflinePlayers' is true. Recommended: 5-15 minutes for active servers, 30-60 minutes for larger servers. Default: 10 minutes
 		#Range: 1 ~ 1440
 		WebAPICacheRefreshMinutes = 10
+
+	["War Settings"."Patchouli Book"]
+		#Give players the War & Taxes Codex (Patchouli guide book) when they first join the server.
+		#Requires Patchouli mod to be installed. Book is only given once per player.
+		GivePatchouliBookOnJoin = true
+		#Show admin/configuration pages in the Patchouli guide book.
+		#When disabled, the Configuration category with admin commands and settings is hidden from players.
+		ShowAdminPagesInBook = false
 
 ["PvP Arena Settings"]
 	#Allow players to use commands while in a PvP battle. It's recommended to keep this false to prevent exploits.
@@ -582,4 +601,70 @@ TaxStealPerGuard = 200
 	#Tax increase per level for Nether Worker
 	#Range: 0.0 ~ 1.7976931348623157E308
 	netherworkerUpgrade = 6.0
+	#Base tax for Stone Smeltery
+	#Range: 0.0 ~ 1.7976931348623157E308
+	stonesmeltery = 12.0
+	#Tax increase per level for Stone Smeltery
+	#Range: 0.0 ~ 1.7976931348623157E308
+	stonesmelteryUpgrade = 5.0
+	#Base tax for Sifter
+	#Range: 0.0 ~ 1.7976931348623157E308
+	sifter = 10.0
+	#Tax increase per level for Sifter
+	#Range: 0.0 ~ 1.7976931348623157E308
+	sifterUpgrade = 4.0
+	#Base tax for Postbox
+	#Range: 0.0 ~ 1.7976931348623157E308
+	postbox = 8.0
+	#Tax increase per level for Postbox
+	#Range: 0.0 ~ 1.7976931348623157E308
+	postboxUpgrade = 2.0
+	#Base tax for Stash
+	#Range: 0.0 ~ 1.7976931348623157E308
+	stash = 5.0
+	#Tax increase per level for Stash
+	#Range: 0.0 ~ 1.7976931348623157E308
+	stashUpgrade = 1.0
+	#Base tax for School
+	#Range: 0.0 ~ 1.7976931348623157E308
+	school = 15.0
+	#Tax increase per level for School
+	#Range: 0.0 ~ 1.7976931348623157E308
+	schoolUpgrade = 5.0
+	#Base tax for Mystical Site
+	#Range: 0.0 ~ 1.7976931348623157E308
+	mysticalsite = 20.0
+	#Tax increase per level for Mystical Site
+	#Range: 0.0 ~ 1.7976931348623157E308
+	mysticalsiteUpgrade = 10.0
+	#Base tax for Simple Quarry
+	#Range: 0.0 ~ 1.7976931348623157E308
+	simplequarry = 15.0
+	#Tax increase per level for Simple Quarry
+	#Range: 0.0 ~ 1.7976931348623157E308
+	simplequarryUpgrade = 5.0
+	#Base tax for Medium Quarry
+	#Range: 0.0 ~ 1.7976931348623157E308
+	mediumquarry = 20.0
+	#Tax increase per level for Medium Quarry
+	#Range: 0.0 ~ 1.7976931348623157E308
+	mediumquarryUpgrade = 7.0
+	#Base tax for Large Quarry
+	#Range: 0.0 ~ 1.7976931348623157E308
+	largequarry = 25.0
+	#Tax increase per level for Large Quarry
+	#Range: 0.0 ~ 1.7976931348623157E308
+	largequarryUpgrade = 9.0
+	#Base tax for Kitchen
+	#Range: 0.0 ~ 1.7976931348623157E308
+	kitchen = 12.0
+	#Tax increase per level for Kitchen
+	#Range: 0.0 ~ 1.7976931348623157E308
+	kitchenUpgrade = 5.0
+	#Base tax for Gatehouse
+	#Range: 0.0 ~ 1.7976931348623157E308
+	gatehouse = 10.0
+	#Tax increase per level for Gatehouse
+	#Range: 0.0 ~ 1.7976931348623157E308
+	gatehouseUpgrade = 3.0
 

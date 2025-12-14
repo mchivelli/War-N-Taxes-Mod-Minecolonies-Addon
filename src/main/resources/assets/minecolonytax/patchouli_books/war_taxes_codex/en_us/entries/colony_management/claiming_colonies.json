@@ -1,0 +1,17 @@
+{
+    "name": "minecolonytax.entry.claiming_colonies.name",
+    "icon": "minecolonies:sceptergold",
+    "category": "minecolonytax:colony_management",
+    "sortnum": 1,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.claiming_colonies.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.claiming_colonies.raid.title",
+            "text": "minecolonytax.entry.claiming_colonies.raid"
+        }
+    ]
+}

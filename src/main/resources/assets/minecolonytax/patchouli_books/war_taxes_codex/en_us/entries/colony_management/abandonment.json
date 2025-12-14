@@ -1,0 +1,17 @@
+{
+    "name": "minecolonytax.entry.abandonment.name",
+    "icon": "minecraft:dead_bush",
+    "category": "minecolonytax:colony_management",
+    "sortnum": 0,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.abandonment.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.abandonment.auto.title",
+            "text": "minecolonytax.entry.abandonment.auto"
+        }
+    ]
+}

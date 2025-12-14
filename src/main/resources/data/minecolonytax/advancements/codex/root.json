@@ -1,0 +1,22 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecolonies:supplychestdeployer"
+        },
+        "title": {
+            "translate": "advancements.minecolonytax.codex.root.title"
+        },
+        "description": {
+            "translate": "advancements.minecolonytax.codex.root.description"
+        },
+        "background": "minecraft:textures/gui/advancements/backgrounds/stone.png",
+        "show_toast": false,
+        "announce_to_chat": false,
+        "hidden": true
+    },
+    "criteria": {
+        "always": {
+            "trigger": "minecraft:tick"
+        }
+    }
+}

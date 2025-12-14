@@ -239,6 +239,20 @@ public class VassalManager {
     public static int handleTaxIncome(IColony colony, int generatedTax) {
         VassalRelation rel = ACTIVE_VASSALS.get(colony.getID());
         if (rel == null) return 0;
+        
+        // Check if vassalization has expired
+        if (rel.isExpired()) {
+            LOGGER.info("War vassalization expired for colony {} - removing relation", colony.getName());
+            ACTIVE_VASSALS.remove(colony.getID());
+            saveData();
+            
+            // Notify both parties
+            Component expirationMsg = Component.literal("§6⚔ War Vassalization Ended: The vassalization of colony '" + colony.getName() + "' has expired.");
+            sendToColonyManagers(colony, expirationMsg);
+            sendOrQueue(rel.overlordUUID, expirationMsg);
+            return 0;
+        }
+        
         int tribute = (int) (generatedTax * rel.percent / 100.0);
         if (tribute <= 0) return 0;
 
@@ -262,6 +276,114 @@ public class VassalManager {
             queueMessage(rel.overlordUUID, msg);
         }
         return tribute;
+    }
+    
+    /**
+     * Forces a colony to become a vassal as a result of war victory.
+     * This bypasses the normal proposal/acceptance flow.
+     * 
+     * @param vassalColony The colony that lost the war and will become a vassal
+     * @param overlordUUID The UUID of the player who won the war (will receive tribute)
+     * @param tributePercent The percentage of tax income to pay as tribute
+     * @param durationHours Duration in hours for the vassalization (0 = permanent)
+     * @return true if vassalization was successful, false if colony is already a vassal
+     */
+    public static boolean forceVassalize(IColony vassalColony, UUID overlordUUID, int tributePercent, int durationHours) {
+        if (vassalColony == null || overlordUUID == null) {
+            LOGGER.warn("forceVassalize called with null colony or overlord");
+            return false;
+        }
+        
+        int colonyId = vassalColony.getID();
+        
+        // Check if already vassalized
+        if (ACTIVE_VASSALS.containsKey(colonyId)) {
+            LOGGER.info("Colony {} is already a vassal, cannot force vassalize again", vassalColony.getName());
+            return false;
+        }
+        
+        // Calculate expiration time
+        long expirationTime = 0;
+        if (durationHours > 0) {
+            expirationTime = System.currentTimeMillis() + (durationHours * 60L * 60L * 1000L);
+        }
+        
+        // Create the forced vassalization
+        VassalRelation rel = new VassalRelation(
+            colonyId, 
+            overlordUUID, 
+            tributePercent, 
+            System.currentTimeMillis(),
+            expirationTime,
+            true // isWarVassalization
+        );
+        ACTIVE_VASSALS.put(colonyId, rel);
+        saveData();
+        
+        // Get overlord info for notifications
+        String overlordName = getPlayerName(overlordUUID);
+        IColony overlordColony = getPrimaryColonyOfPlayer(overlordUUID);
+        String overlordColonyName = overlordColony != null ? overlordColony.getName() : "Unknown";
+        
+        // Format duration message
+        String durationMsg;
+        if (durationHours <= 0) {
+            durationMsg = "permanently";
+        } else if (durationHours < 24) {
+            durationMsg = "for " + durationHours + " hours";
+        } else {
+            int days = durationHours / 24;
+            int remainingHours = durationHours % 24;
+            if (remainingHours > 0) {
+                durationMsg = "for " + days + " days and " + remainingHours + " hours";
+            } else {
+                durationMsg = "for " + days + " days";
+            }
+        }
+        
+        // Notify the vassal colony
+        Component vassalNotification = Component.literal("§c⚔ WAR DEFEAT: Your colony has been vassalized by " + overlordName + 
+            " (" + overlordColonyName + ") " + durationMsg + "!")
+            .withStyle(ChatFormatting.RED);
+        Component vassalDetails = Component.literal("§7You will pay " + tributePercent + "% of your tax income as tribute.");
+        sendToColonyManagers(vassalColony, vassalNotification);
+        sendToColonyManagers(vassalColony, vassalDetails);
+        
+        // Notify the overlord
+        Component overlordNotification = Component.literal("§a⚔ WAR VICTORY: Colony '" + vassalColony.getName() + 
+            "' is now your vassal " + durationMsg + "!")
+            .withStyle(ChatFormatting.GREEN);
+        Component overlordDetails = Component.literal("§7They will pay you " + tributePercent + "% of their tax income as tribute.");
+        sendOrQueue(overlordUUID, overlordNotification);
+        sendOrQueue(overlordUUID, overlordDetails);
+        
+        LOGGER.info("War vassalization created: Colony {} is now vassal to {} with {}% tribute {}",
+            vassalColony.getName(), overlordName, tributePercent, durationMsg);
+        
+        return true;
+    }
+    
+    /**
+     * Gets remaining hours for a war vassalization, or -1 if permanent/not found
+     */
+    public static int getRemainingVassalizationHours(int colonyId) {
+        VassalRelation rel = ACTIVE_VASSALS.get(colonyId);
+        if (rel == null || rel.expirationTime <= 0) {
+            return -1; // Permanent or not found
+        }
+        long remainingMillis = rel.expirationTime - System.currentTimeMillis();
+        if (remainingMillis <= 0) {
+            return 0; // Expired
+        }
+        return (int) (remainingMillis / (60L * 60L * 1000L));
+    }
+    
+    /**
+     * Checks if a colony's vassalization is from war (vs voluntary)
+     */
+    public static boolean isWarVassalization(int colonyId) {
+        VassalRelation rel = ACTIVE_VASSALS.get(colonyId);
+        return rel != null && rel.isWarVassalization;
     }
     
     /**
@@ -424,12 +546,31 @@ public class VassalManager {
         int percent;
         long lastPayment;
         int lastTribute;
+        long expirationTime; // 0 = permanent, otherwise epoch millis when vassalization expires
+        boolean isWarVassalization; // true if this was created through war victory
+        
         public VassalRelation(int colonyId, UUID overlordUUID, int percent, long lastPayment) {
             this.colonyId = colonyId;
             this.overlordUUID = overlordUUID;
             this.percent = percent;
             this.lastPayment = lastPayment;
             this.lastTribute = 0;
+            this.expirationTime = 0; // Permanent by default
+            this.isWarVassalization = false;
+        }
+        
+        public VassalRelation(int colonyId, UUID overlordUUID, int percent, long lastPayment, long expirationTime, boolean isWarVassalization) {
+            this.colonyId = colonyId;
+            this.overlordUUID = overlordUUID;
+            this.percent = percent;
+            this.lastPayment = lastPayment;
+            this.lastTribute = 0;
+            this.expirationTime = expirationTime;
+            this.isWarVassalization = isWarVassalization;
+        }
+        
+        public boolean isExpired() {
+            return expirationTime > 0 && System.currentTimeMillis() >= expirationTime;
         }
     }
 

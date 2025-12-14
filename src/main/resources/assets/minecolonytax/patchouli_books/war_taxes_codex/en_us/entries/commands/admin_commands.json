@@ -1,0 +1,22 @@
+{
+    "name": "minecolonytax.entry.admin_commands.name",
+    "icon": "minecraft:command_block",
+    "category": "minecolonytax:commands",
+    "flag": "minecolonytax:show_admin",
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.admin_commands.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.admin_commands.debug.title",
+            "text": "minecolonytax.entry.admin_commands.debug"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.admin_commands.control.title",
+            "text": "minecolonytax.entry.admin_commands.control"
+        }
+    ]
+}

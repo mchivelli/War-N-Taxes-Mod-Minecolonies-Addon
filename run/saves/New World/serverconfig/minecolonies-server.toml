@@ -1,174 +1,174 @@
 
-#Alle Konfigurationen zu Kernfunktionen des Spiels
+#All configuration items related to the core gameplay
 [gameplay]
-	#Anzahl der Erstbürger. [Standard: 4, min: 1, max: 10]
+	#Amount of initial citizens. [Default: 4, min: 1, max: 10]
 	#Range: 1 ~ 10
 	initialcitizenamount = 4
-	#Sollen Spieler in der Lage sein, unendlich viele Vorratslager / -schiffe zu platzieren? [Standard: false]
+	#Should players be able to place an infinite amount of supply camps/ships? [Default: false]
 	allowinfinitesupplychests = false
-	#Dürfen Spieler ihre Kolonie verlassen, um einfach eine neue zu erstellen? Achtung: das ist buggy! [Standard: false]
+	#Should players be allowed to abandon their colony to create a new one easily? Note: This is buggy! [Default: false]
 	allowinfinitecolonies = true
-	#Sollten Kolonien in anderen Dimensionen erlaubt sein? [Standard: true]
+	#Should colonies in other dimensions be allowed? [Default: true]
 	allowotherdimcolonies = true
-	#Maximale Einwohner in einer Kolonie. [Standard: 250, min: 100, max: 500]
+	#Max citizens in one colony. [Default: 250, min: 100, max: 500]
 	#Range: 100 ~ 500
 	maxcitizenpercolony = 250
-	#Sollen Funktionen, die in der Entwicklung sind, aktiv sein (könnten Fehlerhaft sein)? [Standard: false]
+	#Should development features be enabled (might be buggy)? [Default: false]
 	enableindevelopmentfeatures = false
-	#Sollen die Namensschilder der Einwohner gerendert werden? [Standard: true]
+	#Should citizen name tags be rendered? [Default: true]
 	alwaysrendernametag = true
-	#Sollen Arbeiter arbeiten, während es regnet? [Standard: false]
+	#Should workers work during the rain? [Default: false]
 	workersalwaysworkinrain = false
-	#Soll spezieller Feiertagsinhalt angezeigt werden? [Standard: true]
+	#Should special holiday content be displayed? [Default: true]
 	holidayfeatures = true
-	#Chance für den Miner, Erze zu bekommen wenn er Bruchstein oder Stein abbaut (kann per Datapack auf andere Materialien ausgeweitet werden). In %. (Zum Ändern, welche Erze der Miner finden kann, siehe "Liste von Bonus Erzen") [Standard: 1, min: 0, max: 100]
+	#Chance for the Miner to get an ore when mining cobblestone or stone (by default, can be expanded with datapacks to other materials). This is a percentage. (To change which ores the Miner can find, see "List of Lucky Ores".) [Default: 1, min: 0, max: 100]
 	#Range: 0 ~ 100
 	luckyblockchance = 1
-	#Das Mindestlevel des Rathauses, um das Teleportieren zu anderen Kolonien zu erlauben. [Standard: 3, min: 0, max: 5]
+	#The minimum level a Town Hall has to be to allow teleportation to allied colonies. [Default: 3, min: 0, max: 5]
 	#Range: 0 ~ 5
 	minthleveltoteleport = 3
-	#Essensverbrauch Multiplikator. [Standard: 1,000000, min: 0,100000, max: 100,000000]
+	#Food consumption modifier. [Default: 1,000000, min: 0,100000, max: 100,000000]
 	#Range: 0.1 ~ 100.0
 	foodmodifier = 1.0
-	#Wie gewöhnlich sind Krankheiten. 1 = Sehr gewöhnlich, 100 = Extrem selten. [Standard: 5, min: 1, max: 100]
+	#How common diseases are. 1 = Very common, 100 = extremely rare. [Default: 5, min: 1, max: 100]
 	#Range: 1 ~ 100
 	diseasemodifier = 5
-	#Wenn ein Teil der Kolonie von einem Besitzer/Offizier geladen wird, soll die Kolonie geladen bleiben? (Lege mit der Option "Kolonie-Chunk-Ladestrenge" fest, wie viele Chunks geladen werden.) [Standard: true]
+	#If part of the colony is loaded by an owner/officer, should the colony be kept loaded? (Set how many chunks are loaded with the "Colony Chunk Loading Strictness" option.) [Default: true]
 	forceloadcolony = true
-	#Bestimme, wie lange ein Chunk geladen bleibt, nachdem der Spieler die Welt verlassen hat. Wird durch Neustart zurückgesetzt. Standard: 10 Min [Standard: 10, min: 1, max: 1440]
+	#Set how long chunks stay loaded after player leaves, does not persist through restarts. Default: 10min [Default: 10, min: 1, max: 1440]
 	#Range: 1 ~ 1440
 	loadtime = 10
-	#Hiermit wird gesteuert, wie viele Chunks mit der Option "Chunkladen der Kolonie" geladen werden. Je höher dieser Wert ist, desto weniger Chunks werden geladen. (Die innersten Chunks werden zuerst geladen.) 1 = alle beanspruchten Chunks laden. [Standard: 3, min: 1, max: 15]
+	#This controls how many chunks are loaded with the "Chunk Load Colony" option. The higher this value, the fewer chunks will be loaded. (The innermost chunks will be loaded first.) 1 = load all claimed chunks. [Default: 3, min: 1, max: 15]
 	#Range: 1 ~ 15
 	colonyloadstrictness = 3
-	#Maximale Baumstamm-Anzahl bei einem Baum nach denen der Förster bei seiner Suche sucht. [Standard: 400, min: 1, max: 1000]
+	#Max log count in one tree for the Forester to check during their tree search. [Default: 400, min: 1, max: 1000]
 	#Range: 1 ~ 1000
 	maxtreesize = 400
-	#Deaktiviert Einschränkungen beim Platzieren des Nachschublagers, gedacht für Skyworld und ähnliches [Standard: false]
+	#Disables supply camp placing restrictions, intended for skyworlds and similar [Default: false]
 	nosupplyplacementrestrictions = false
-	#Plünderer werden im Himmel erscheinen, wenn aktiviert [Standard: false]
+	#Raiders will spawn in the sky if this is enabled [Default: false]
 	skyraiders = false
 
-#Alle Konfigurationen im Zusammenhang mit dem Forschungssystem
+#All configurations related to the research system
 [research]
-	#Erlaubt automatischen und (fast) sofortigen Abschluss von Forschung für Spieler im Creative Modus. Wenn abgeschaltet, können Spieler im Creative Modus Forschung beginnen, diese hat dann die Standard Fortschrittsgeschwindigkeit. [Standard: true]
+	#Allows automatic and (near) instant completion of research for players in creative mode. If false, creative players will still be able to begin researches, but will have normal progress rates. [Default: true]
 	researchcreativecompletion = true
-	#Erhöht die Anzahl an Informationen, die mit Forschungs-Datapaketen zusammenhängen, die während des Ladens protokolliert werden. [Standard: false]
+	#Significantly increases the amount of information related to research datapacks that is logged during the world load. [Default: false]
 	researchdebuglog = false
-	#Eine Liste von Gegenständen, die den Spielern beim Rückgängigmachen einer bereits abgeschlossenen Forschung in Rechnung gestellt werden müssen. 
+	#A list of items to charge players when undoing an already-completed research. 
 	researchresetcost = ["minecolonies:ancienttome:1"]
 
-#Alle Konfigurationen bezüglich der Befehle von MineColonies
+#All configurations related to the MineColonies commands
 [commands]
-	#Sollte Spielern erlaubt sein den "/mc rtp" Befehl zu nutzen? [Standard: false]
+	#Should players be allowed to use the /mc rtp command? [Default: false]
 	canplayerusertpcommand = false
-	#Soll Spielern erlaubt sein den "/mc colony teleport" Befehl zu nutzen? [Standard: false]
+	#Should players be allowed to use the /mc colony teleport command? [Default: false]
 	canplayerusecolonytpcommand = false
-	#Sollte Spielern erlaubt sein sich zu Verbündeten Kolonien zu teleportieren? [Standard: true]
+	#Can players teleport to allied colonies? [Default: true]
 	canplayeruseallytownhallteleport = true
-	#Soll Spielern erlaubt sein den "/mc home" Befehl zu nutzen? Anmerkung: Nur Inhaber der Kolonie können diesen Befehl nutzen. [Standard: false]
+	#Should players be allowed to use the /mc home command? Note: Only owners of the colony can use this command. [Default: false]
 	canplayerusehometpcommand = false
-	#Soll Spielern erlaubt sein den "/mc colony info" Befehl zu nutzen? [Standard: true]
+	#Should players be allowed to use the /mc colony info command? [Default: true]
 	canplayeruseshowcolonyinfocommand = true
-	#Soll Spielern erlaubt sein den "/mc citizens kill" Befehl zu nutzen? [Standard: false]
+	#Should players be allowed to use the /mc citizens kill command? [Default: false]
 	canplayerusekillcitizenscommand = false
-	#Soll Spielern erlaubt sein den "/mc colony addOfficer" Befehl zu nutzen? [Standard: true]
+	#Should players be allowed to use the /mc colony addOfficer command? [Default: true]
 	canplayeruseaddofficercommand = true
-	#Soll Spielern erlaubt sein den "/mc colony delete" Befehl zu nutzen? [Standard: false]
+	#Should players be allowed to use the /mc colony delete command? [Default: false]
 	canplayerusedeletecolonycommand = false
-	#Soll es Spielern erlaubt sein, den Befehl /mc colony requestsystem-reset zu verwenden? [Standard: false]
+	#Should players be allowed to use the /mc colony requestsystem-reset command? [Default: false]
 	canplayeruseresetcommand = false
 
-#Alle Konfigurationen im Zusammenhang mit Kolonieansprüchen
+#All configuration related to colony claims
 [claims]
-	#Maximaler Anspruchsbereich für eine Kolonie. Dies ist der Radius, gemessen in Chunks. [Standard: 20, min: 1, max: 250]
+	#Maximum claim range for a colony. This is the radius, measured in chunks. [Default: 20, min: 1, max: 250]
 	#Range: 1 ~ 250
 	maxColonySize = 20
-	#Die Minimale Distanz (in Chunks) zwischen Kolonien. [Standard: 8, min: 1, max: 200]
+	#The minimum distance (in chunks) between colonies. [Default: 8, min: 1, max: 200]
 	#Range: 1 ~ 200
 	minColonyDistance = 8
-	#Initialer Anspruchsbereich für eine Kolonie. Dies ist der Radius, gemessen in Chunks. [Standard: 4, min: 1, max: 15]
+	#Initial claim size for a colony. This is the radius, measured in chunks. [Default: 4, min: 1, max: 15]
 	#Range: 1 ~ 15
 	initialColonySize = 4
-	#Maximale Entfernung (in Blöcken) vom Weltspawn für eine Kolonie. [Standard: 30000, min: 1000, max: 2147483647]
+	#Max distance (in blocks) from world spawn for a colony. [Default: 30000, min: 1000, max: 2147483647]
 	#Range: > 1000
 	maxdistancefromworldspawn = 30000
-	#Minimale Entfernung (in Blöcken) vom Weltspawn für eine Kolonie. [Standard: 0, min: 0, max: 1000]
+	#Min distance (in blocks) from world spawn for a colony. [Default: 0, min: 0, max: 1000]
 	#Range: 0 ~ 1000
 	mindistancefromworldspawn = 0
 
-#Alle Konfigurationen bezüglich des Kampfsystems von MineColonies
+#All configuration items related to the combat elements of MineColonies
 [combat]
-	#minecolonies.config.dobarbariansspawn.comment [Standard: true]
+	#minecolonies.config.dobarbariansspawn.comment [Default: true]
 	dobarbariansspawn = true
-	#minecolonies.config.barbarianhordedifficulty.comment [Standard: 5, min: 0, max: 10]
+	#minecolonies.config.barbarianhordedifficulty.comment [Default: 5, min: 0, max: 10]
 	#Range: 0 ~ 10
 	barbarianhordedifficulty = 5
-	#minecolonies.config.maxbarbariansize.comment [Standard: 80, min: 6, max: 400]
+	#minecolonies.config.maxbarbariansize.comment [Default: 80, min: 6, max: 400]
 	#Range: 6 ~ 400
 	maxBarbarianSize = 80
-	#minecolonies.config.dobarbariansbreakthroughwalls.comment [Standard: true]
+	#minecolonies.config.dobarbariansbreakthroughwalls.comment [Default: true]
 	dobarbariansbreakthroughwalls = true
-	#Die durchschnittliche Anzahl an Nächten zwischen Überfällen. [Standard: 14, min: 1, max: 50]
+	#The average number of nights between raids. [Default: 14, min: 1, max: 50]
 	#Range: 1 ~ 50
 	averagenumberofnightsbetweenraids = 14
-	#Die minimale Anzahl an Nächten zwischen Überfällen. [Standard: 10, min: 1, max: 30]
+	#The minimum number of nights between raids. [Default: 10, min: 1, max: 30]
 	#Range: 1 ~ 30
 	minimumnumberofnightsbetweenraids = 10
-	#Sollen Monster Einwohner angreifen? [Standard: true]
+	#Should mobs attack citizens? [Default: true]
 	mobattackcitizens = true
-	#minecolonies.config.shouldraiderbreakdoors.comment [Standard: true]
+	#minecolonies.config.shouldraiderbreakdoors.comment [Default: true]
 	shouldraiderbreakdoors = true
-	#minecolonies.config.guarddamagemultiplier.comment [Standard: 1,000000, min: 0,100000, max: 15,000000]
+	#minecolonies.config.guarddamagemultiplier.comment [Default: 1,000000, min: 0,100000, max: 15,000000]
 	#Range: 0.1 ~ 15.0
 	guardDamageMultiplier = 1.0
-	#Lebenmultiplikator für alle Wachen. [Standard: 1,000000, min: 0,100000, max: 5,000000]
+	#Health multiplier for all Guards. [Default: 1,000000, min: 0,100000, max: 5,000000]
 	#Range: 0.1 ~ 5.0
 	guardhealthmult = 1.0
-	#Aktiviere Minecolonies PVP Modus (Achtung Kolonien können unter bestimmten Umständen gegrieft und zerstört werden). [Standard: false]
+	#Turn on MineColonies PVP mode (colonies can be destroyed and griefed under certain conditions). [Default: false]
 	pvp_mode = true
 
-#Alle Berechtigungseinstellungen
+#All permission configuration options
 [permissions]
-	#Sollte der Kolonie Schutz aktiviert sein? [Standard: true]
+	#Should colony protection be enabled? [Default: true]
 	enablecolonyprotection = true
-	#Sollten unabhängig vom Kolonie Schutz Explosionen innerhalb von Kolonien ausgeschaltet werden? DAMAGE_NOTHING verhindert Explosionen vollständig. DAMAGE_PLAYERS, erlaubt Explosionen, Spieler und feindliche Mobs zu beschädigen, aber nicht Blöcke oder neutrale oder freundliche Mobs. DAMAGE_ENTITIES erlaubt Schaden an allen Entitäten. DAMAGE_EVERYTHING lässt Explosionen zu, die Entitäten und Blöcke beschädigen. 
+	#Independent from the colony protection, should explosions be turned off inside colonies? DAMAGE_NOTHING prevents explosions completely. DAMAGE_PLAYERS, allows explosions to damage players and hostile mobs, but not blocks or neutral or friendly mobs. DAMAGE_ENTITIES allows damage to all entities. DAMAGE_EVERYTHING allows explosions to damage entities and blocks. 
 	#Allowed Values: DAMAGE_NOTHING, DAMAGE_PLAYERS, DAMAGE_ENTITIES, DAMAGE_EVERYTHING
 	turnoffexplosionsincolonies = "DAMAGE_EVERYTHING"
-	#Blöcke, mit denen jeder Spieler in jeder Kolonie interagieren kann 
+	#Blocks players should be able to interact with in any colony (ex: vending machines) 
 	freetointeractblocks = ["dirt", "0 0 0"]
 
-#Alle Konfigurationen bezüglich Mod Kompatibilität
+#All configuration related to mod compatibility
 [compatibility]
-	#Gegenstände, die von Bürgern in der Bibliothek konsumiert werden. 
+	#Items consumed by citizens in the Library. 
 	configliststudyitems = ["minecraft:paper;400;100", "minecraft:book;600;10"]
-	#Gegenstände, die von Tavernen-Besuchern angefordert werden. 
+	#Items requested by Tavern visitors. 
 	configlistrecruitmentitems = ["minecraft:hay_block;3", "minecraft:book;2", "minecraft:enchanted_book;9", "minecraft:diamond;9", "minecraft:emerald;8", "minecraft:baked_potato;1", "minecraft:gold_ingot;2", "minecraft:redstone;2", "minecraft:lapis_lazuli;2", "minecraft:cake;11", "minecraft:sunflower;5", "minecraft:honeycomb;6", "minecraft:quartz;3"]
-	#Liste der Erze die der Bergarbeiter auf magische weise Finden kann (siehe "Erz Wahrscheinlichkeit") Beinhaltet den Block und seine Wahrscheinlichkeit, separiert durch Ausrufezeichen. 
+	#List of ore blocks rarely found magically by Miners (see "Ore Chance"). Includes the block and its chance, separated by exclamation marks. 
 	luckyores = ["minecraft:coal_ore!64", "minecraft:copper_ore!48", "minecraft:iron_ore!32", "minecraft:gold_ore!16", "minecraft:redstone_ore!8", "minecraft:lapis_ore!4", "minecraft:diamond_ore!2", "minecraft:emerald_ore!1"]
-	#Alle Krankheiten die Bewohner bekommen können. Der Name, wie gewöhnlich Sie ist, und alle Zutaten um es zu heilen. 
+	#All diseases citizens can get. The name, how common it is, and all ingredients to cure it. 
 	diseases = ["Influenza,100,minecraft:carrot,minecraft:potato", "Measles,10,minecraft:dandelion,minecraft:kelp,minecraft:poppy", "Smallpox,1,minecraft:honey_bottle,minecraft:golden_apple"]
-	#Beim Laden von Rezepten werden Revisions-CSV-Dateien erstellt, um die Fehlersuche bei Datapacks oder zusätzlichen Mods zu erleichtern. [Standard: false]
+	#When loading recipes, generate audit CSV files to help debug datapacks or extra mods. [Default: false]
 	auditcraftingtags = false
-	#Schalte debuggen des Inventars ein. [Standard: false]
+	#Enable inventory debugging. [Default: false]
 	debuginventories = false
-	#Schalte dies ein, wenn du diese Welt zum Bauen und Scannen von Blaupausen verwendest. [Standard: false]
+	#Turn this on if you're using this world for blueprint building and scanning. [Default: false]
 	blueprintbuildmode = false
 
-#Alle Einstellungen für "Weg finden"
+#All configurations related to pathfinding
 [pathfinding]
-	#Die Genauigkeit der Wegfindungsdebugnachrichten. [Standard: 0, min: 0, max: 10]
+	#Verbosity of pathfinding debug messages. [Default: 0, min: 0, max: 10]
 	#Range: 0 ~ 10
 	pathfindingdebugverbosity = 0
-	#Mindeste aufeinanderfolgende Schienen für Bewohner. [Standard: 8, min: 5, max: 100]
+	#Minimum number of consecutive rails for citizens to use them. [Default: 8, min: 5, max: 100]
 	#Range: 5 ~ 100
 	minimumrailstopath = 8
-	#Anzahl der zusätzlichen Wege die für die Weg Findung berechnet werden [Standard: 2, min: 1, max: 10]
+	#Amount of additional threads to be used for pathfinding. [Default: 2, min: 1, max: 10]
 	#Range: 1 ~ 10
 	pathfindingmaxthreadcount = 2
 
-#Alle Konfigurationen beziehen sich auf das Anforderungssystem
+#All configurations related to the request system
 [requestSystem]
-	#Sollte das Anfragesystem (wenn möglich) kreativ lösen, wenn der Spieler eine Anfrage lösen muss? Dies ist ein Debugging-Tool und kann sehr lange dauern, um eine Anfrage zu lösen. [Standard: false]
+	#Should the request system creatively resolve (if possible) when the player is required to resolve a request? This is a debugging tool and can take a very long time to resolve a request. [Default: false]
 	creativeresolve = false
 

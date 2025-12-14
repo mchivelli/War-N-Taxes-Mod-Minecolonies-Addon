@@ -1,0 +1,27 @@
+{
+    "name": "minecolonytax.entry.war_overview.name",
+    "icon": "minecraft:netherite_sword",
+    "category": "minecolonytax:war_system",
+    "sortnum": 0,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.war_overview.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.war_overview.stakes.title",
+            "text": "minecolonytax.entry.war_overview.stakes"
+        },
+        {
+            "type": "patchouli:relations",
+            "title": "minecolonytax.entry.war_overview.learn_more.title",
+            "entries": [
+                "minecolonytax:war_system/declaring_war",
+                "minecolonytax:war_system/war_phases",
+                "minecolonytax:war_system/war_vassalization"
+            ],
+            "text": "minecolonytax.entry.war_overview.learn_more"
+        }
+    ]
+}

@@ -1,0 +1,6 @@
+{
+    "parent": "minecraft:item/generated",
+    "textures": {
+        "layer0": "minecolonytax:item/war_taxes_codex"
+    }
+}

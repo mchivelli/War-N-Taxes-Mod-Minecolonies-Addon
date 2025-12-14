@@ -88,6 +88,7 @@ public class ColonyAbandonmentManager {
     
     /**
      * Check if a specific colony should be abandoned or warned.
+     * FIXED: Now considers officer visit data from OfficerColonyVisitTracker in addition to MineColonies' internal tracking.
      */
     public static AbandonmentStatus checkColonyAbandonmentStatus(IColony colony) {
         if (colony == null || colony.getPermissions() == null) {
@@ -101,6 +102,17 @@ public class ColonyAbandonmentManager {
         }
         
         int lastContactHours = colony.getLastContactInHours();
+        
+        // CRITICAL FIX: Also check officer visit tracking data
+        // Officers logging in resets the abandonment timer even if they don't physically visit the colony
+        long officerVisitHours = net.machiavelli.minecolonytax.event.OfficerColonyVisitTracker.getHoursSinceOfficerVisit(colony.getID());
+        if (officerVisitHours >= 0 && officerVisitHours < lastContactHours) {
+            // Officers visited more recently than MineColonies' internal tracking shows - use the officer visit time
+            lastContactHours = (int) officerVisitHours;
+            LOGGER.debug("Colony {} using officer visit hours ({}) instead of MineColonies contact hours for abandonment check", 
+                        colony.getName(), officerVisitHours);
+        }
+        
         int abandonDays = TaxConfig.getColonyAutoAbandonDays();
         int warningDays = TaxConfig.getAbandonWarningDays();
         
@@ -530,11 +542,17 @@ public class ColonyAbandonmentManager {
     
     /**
      * Mark a colony as claimed (remove from abandoned list).
+     * Also clears officer visit tracking as the new owner will establish fresh activity.
      */
     public static void markColonyAsClaimed(int colonyId) {
         abandonedColonies.remove(colonyId);
         warnedColonies.remove(colonyId);
         formerColonyMembers.remove(colonyId); // Clear former members tracking
+        
+        // Clear officer visit tracking - fresh start for new owner
+        net.machiavelli.minecolonytax.event.OfficerColonyVisitTracker.clearColonyVisitData(colonyId);
+        
+        LOGGER.info("Colony {} marked as claimed - cleared all abandonment tracking data", colonyId);
     }
     
     /**

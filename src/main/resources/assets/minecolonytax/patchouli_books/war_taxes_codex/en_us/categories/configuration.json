@@ -1,0 +1,7 @@
+{
+    "name": "minecolonytax.category.configuration.name",
+    "description": "minecolonytax.category.configuration.desc",
+    "icon": "minecraft:repeating_command_block",
+    "flag": "minecolonytax:show_admin",
+    "sortnum": 100
+}

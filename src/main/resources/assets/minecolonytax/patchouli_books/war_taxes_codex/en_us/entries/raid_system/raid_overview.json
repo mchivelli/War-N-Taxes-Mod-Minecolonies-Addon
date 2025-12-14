@@ -1,0 +1,27 @@
+{
+    "name": "minecolonytax.entry.raid_overview.name",
+    "icon": "minecraft:iron_sword",
+    "category": "minecolonytax:raid_system",
+    "sortnum": 0,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.raid_overview.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.raid_overview.vswar.title",
+            "text": "minecolonytax.entry.raid_overview.vswar"
+        },
+        {
+            "type": "patchouli:relations",
+            "title": "minecolonytax.entry.raid_overview.learn_more.title",
+            "entries": [
+                "minecolonytax:raid_system/starting_raids",
+                "minecolonytax:raid_system/raid_mechanics",
+                "minecolonytax:raid_system/raid_rewards"
+            ],
+            "text": "minecolonytax.entry.raid_overview.learn_more"
+        }
+    ]
+}

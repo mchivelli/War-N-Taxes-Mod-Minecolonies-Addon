@@ -1,0 +1,23 @@
+{
+    "parent": "minecolonytax:codex/root",
+    "display": {
+        "icon": {
+            "item": "minecraft:iron_sword"
+        },
+        "title": {
+            "translate": "advancements.minecolonytax.codex.start_raid.title"
+        },
+        "description": {
+            "translate": "advancements.minecolonytax.codex.start_raid.description"
+        },
+        "frame": "challenge",
+        "show_toast": true,
+        "announce_to_chat": true,
+        "hidden": false
+    },
+    "criteria": {
+        "check": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

@@ -63,8 +63,7 @@ public class TaxManager {
 
         // Load tax data on server start
         loadTaxData(server);
-        
-        
+
         // Load last tax generation timestamp
         loadLastTaxGenerationTime();
 
@@ -82,9 +81,9 @@ public class TaxManager {
     @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent event) {
         LOGGER.info("Server stopping. Saving tax data and timestamp...");
-        saveTaxData();  // Save tax data when server stops
-        saveLastTaxGenerationTime();  // CRITICAL: Save timestamp on shutdown
-        
+        saveTaxData(); // Save tax data when server stops
+        saveLastTaxGenerationTime(); // CRITICAL: Save timestamp on shutdown
+
         // End all claiming raids
         try {
             net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.endAllClaimingRaids();
@@ -95,10 +94,10 @@ public class TaxManager {
 
     // Inner class for handling tick events (now timestamp-based)
     public static class TickEventHandler {
-        private int tickCount = 0;  // Check every 20 ticks (1 second) for performance
-        private int abandonmentTickCount = 0;  // Check abandonment every hour (72000 ticks)
-        private int cleanupTickCount = 0;  // Check [abandoned] cleanup every 30 minutes (36000 ticks)
-        private int nullOwnerCheckCount = 0;  // 🚨 Check null owners every 5 seconds (100 ticks) - AGGRESSIVE!
+        private int tickCount = 0; // Check every 20 ticks (1 second) for performance
+        private int abandonmentTickCount = 0; // Check abandonment every hour (72000 ticks)
+        private int cleanupTickCount = 0; // Check [abandoned] cleanup every 30 minutes (36000 ticks)
+        private int nullOwnerCheckCount = 0; // 🚨 Check null owners every 5 seconds (100 ticks) - AGGRESSIVE!
 
         @SubscribeEvent
         public void onServerTick(TickEvent.ServerTickEvent event) {
@@ -107,7 +106,7 @@ public class TaxManager {
                 abandonmentTickCount++;
                 cleanupTickCount++;
                 nullOwnerCheckCount++;
-                
+
                 // 🚨 AUTOMATIC: Check for null owners every 5 seconds - AGGRESSIVE PROTECTION!
                 if (nullOwnerCheckCount >= 100) { // 100 ticks = 5 seconds - MUCH MORE FREQUENT!
                     nullOwnerCheckCount = 0;
@@ -117,30 +116,31 @@ public class TaxManager {
                         LOGGER.error("Failed automatic null owner fix", e);
                     }
                 }
-                
-                // Check tax generation every second instead of every tick (performance optimization)
+
+                // Check tax generation every second instead of every tick (performance
+                // optimization)
                 if (tickCount >= 20) { // 20 ticks = 1 second
                     tickCount = 0;
                     checkForTaxGeneration();
                 }
-                
+
                 // Check colony abandonment every hour (72000 ticks = 1 hour)
                 if (abandonmentTickCount >= 72000) {
                     abandonmentTickCount = 0;
                     checkColonyAbandonment();
                 }
-                
+
                 // Run proactive [abandoned] cleanup every 30 minutes (36000 ticks = 30 minutes)
                 if (cleanupTickCount >= 36000) {
                     cleanupTickCount = 0;
                     runPeriodicAbandonedCleanup();
                 }
-                
+
                 // Update claiming raids every second
                 if (tickCount == 0) {
                     net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager.updateClaimingRaids();
                 }
-                
+
                 // Check for officer changes in abandoned colonies every 5 minutes (6000 ticks)
                 // This detects admin commands that add officers/owners to abandoned colonies
                 if (abandonmentTickCount % 6000 == 0) {
@@ -148,7 +148,7 @@ public class TaxManager {
                 }
             }
         }
-        
+
         /**
          * Run periodic cleanup of [abandoned] entries to prevent corruption.
          */
@@ -160,55 +160,61 @@ public class TaxManager {
                 LOGGER.error("Error during periodic [abandoned] cleanup", e);
             }
         }
-        
+
         /**
-         * Check all abandoned colonies for new officers/owners (detects admin commands).
+         * Check all abandoned colonies for new officers/owners (detects admin
+         * commands).
          */
         private void checkForOfficerChangesInAbandonedColonies() {
             try {
-                if (serverInstance == null) return;
-                
+                if (serverInstance == null)
+                    return;
+
                 // Get all colonies and check if any abandoned ones have new officers
-                for (com.minecolonies.api.colony.IColony colony : com.minecolonies.api.IMinecoloniesAPI.getInstance().getColonyManager().getAllColonies()) {
+                for (com.minecolonies.api.colony.IColony colony : com.minecolonies.api.IMinecoloniesAPI.getInstance()
+                        .getColonyManager().getAllColonies()) {
                     try {
                         // Only check colonies that are currently marked as abandoned
                         if (net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.isColonyAbandoned(colony)) {
                             net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.checkForNewOfficers(colony);
                         }
                     } catch (Exception e) {
-                        LOGGER.error("Error checking colony {} for officer changes: {}", colony.getName(), e.getMessage());
+                        LOGGER.error("Error checking colony {} for officer changes: {}", colony.getName(),
+                                e.getMessage());
                     }
                 }
             } catch (Exception e) {
                 LOGGER.error("Error during officer change check", e);
             }
         }
-        
+
         private void checkForTaxGeneration() {
             long currentTime = System.currentTimeMillis();
             long intervalMs = Math.max(60000L, TaxConfig.getTaxIntervalInMinutes() * 60L * 1000L); // Minimum 1 minute
-            
+
             // Handle clock changes/future timestamps (system clock moved backward)
             if (lastTaxGenerationTime > currentTime + 60000L) { // More than 1 minute in future
                 if (TaxConfig.showTaxGenerationLogs()) {
-                    LOGGER.warn("Last tax generation timestamp is in the future! Clock may have changed. Resetting timestamp.");
+                    LOGGER.warn(
+                            "Last tax generation timestamp is in the future! Clock may have changed. Resetting timestamp.");
                 }
                 lastTaxGenerationTime = currentTime - intervalMs; // Force immediate generation
                 saveLastTaxGenerationTime();
             }
-            
+
             // If this is the first time or enough time has passed, generate taxes
             if (lastTaxGenerationTime == 0L || (currentTime - lastTaxGenerationTime) >= intervalMs) {
                 if (TaxConfig.showTaxGenerationLogs()) {
                     if (lastTaxGenerationTime == 0L) {
-                        LOGGER.info("First tax generation triggered (interval: {} minutes)", TaxConfig.getTaxIntervalInMinutes());
+                        LOGGER.info("First tax generation triggered (interval: {} minutes)",
+                                TaxConfig.getTaxIntervalInMinutes());
                     } else {
                         long elapsedMinutes = (currentTime - lastTaxGenerationTime) / (60L * 1000L);
-                        LOGGER.info("Tax generation triggered after {} minutes elapsed (interval: {} minutes)", 
+                        LOGGER.info("Tax generation triggered after {} minutes elapsed (interval: {} minutes)",
                                 elapsedMinutes, TaxConfig.getTaxIntervalInMinutes());
                     }
                 }
-                
+
                 lastTaxGenerationTime = currentTime;
                 saveLastTaxGenerationTime(); // Persist timestamp immediately
                 TaxManager.generateTaxesForAllColonies();
@@ -218,7 +224,8 @@ public class TaxManager {
         private void checkColonyAbandonment() {
             if (serverInstance != null) {
                 try {
-                    net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.checkColoniesForAbandonment(serverInstance);
+                    net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager
+                            .checkColoniesForAbandonment(serverInstance);
                 } catch (Exception e) {
                     LOGGER.error("Error during colony abandonment check", e);
                 }
@@ -230,12 +237,14 @@ public class TaxManager {
 
         int colonyId = colony.getID();
         int storedTax = colonyTaxMap.getOrDefault(colonyId, 0);
-        
-        LOGGER.info("[TAX DEBUG] Colony {}: Stored tax = {}, Requested amount = {}", colony.getName(), storedTax, amount);
+
+        LOGGER.info("[TAX DEBUG] Colony {}: Stored tax = {}, Requested amount = {}", colony.getName(), storedTax,
+                amount);
 
         if (storedTax <= 0) {
-            LOGGER.info("[TAX DEBUG] No tax available to claim for colony {} (stored: {})", colony.getName(), storedTax);
-            return 0;  // No tax to claim
+            LOGGER.info("[TAX DEBUG] No tax available to claim for colony {} (stored: {})", colony.getName(),
+                    storedTax);
+            return 0; // No tax to claim
         }
 
         // If the colony's tax is frozen, do not allow claiming.
@@ -254,7 +263,8 @@ public class TaxManager {
             return 0;
         }
 
-        // Check if the colony is currently in a war (either as defender or attacker) - if so, block tax claiming
+        // Check if the colony is currently in a war (either as defender or attacker) -
+        // if so, block tax claiming
         WarData activeWar = WarSystem.ACTIVE_WARS.get(colonyId);
         if (activeWar == null) {
             for (WarData wd : WarSystem.ACTIVE_WARS.values()) {
@@ -275,24 +285,24 @@ public class TaxManager {
         if (amount == -1) {
             // Claim all tax
             claimedAmount = storedTax;
-            colonyTaxMap.put(colonyId, 0);  // Reset tax to zero
+            colonyTaxMap.put(colonyId, 0); // Reset tax to zero
         } else {
             // Claim a specific amount
-            claimedAmount = Math.min(amount, storedTax);  // Ensure the claimed amount does not exceed the stored tax
-            colonyTaxMap.put(colonyId, storedTax - claimedAmount);  // Deduct the claimed amount
+            claimedAmount = Math.min(amount, storedTax); // Ensure the claimed amount does not exceed the stored tax
+            colonyTaxMap.put(colonyId, storedTax - claimedAmount); // Deduct the claimed amount
         }
 
         if (TaxConfig.showTaxGenerationLogs()) {
             LOGGER.info("Claimed {} tax for colony {}", claimedAmount, colony.getName());
         }
-        saveTaxData(true);  // Log save for important operations like claiming tax
+        saveTaxData(true); // Log save for important operations like claiming tax
 
         return claimedAmount;
     }
 
     // Overload for backward compatibility
     public static int claimTax(IColony colony) {
-        return claimTax(colony, -1);  // Claim all tax by default
+        return claimTax(colony, -1); // Claim all tax by default
     }
 
     // Method to get stored tax for a colony
@@ -308,7 +318,8 @@ public class TaxManager {
         if (currentTax < maxTax) {
             int newTax = Math.min(currentTax + taxAmount, maxTax);
             colonyTaxMap.put(colony.getID(), newTax);
-            // Removed per-building logging - will be aggregated in generateTaxesForAllColonies
+            // Removed per-building logging - will be aggregated in
+            // generateTaxesForAllColonies
         } else {
             // Only log max limit reached once per colony per iteration
             // This will be handled in generateTaxesForAllColonies method
@@ -317,7 +328,7 @@ public class TaxManager {
 
     public static void deductColonyTax(IColony colony, double percentage) {
         int currentTax = colonyTaxMap.getOrDefault(colony.getID(), 0);
-        int deduction = (int)(currentTax * percentage);
+        int deduction = (int) (currentTax * percentage);
         colonyTaxMap.put(colony.getID(), currentTax - deduction);
         if (TaxConfig.showTaxGenerationLogs()) {
             LOGGER.info("Deducted {} tax as penalty from colony {}", deduction, colony.getName());
@@ -334,8 +345,10 @@ public class TaxManager {
 
     /**
      * Calculate the average happiness of adult citizens in a colony.
+     * 
      * @param colony The colony to calculate happiness for
-     * @return Average happiness (0.0 - 10.0), or 5.0 if no adult citizens or happiness unavailable
+     * @return Average happiness (0.0 - 10.0), or 5.0 if no adult citizens or
+     *         happiness unavailable
      */
     public static double calculateColonyAverageHappiness(IColony colony) {
         try {
@@ -346,9 +359,9 @@ public class TaxManager {
                 if (citizen != null && !citizen.isChild()) {
                     try {
                         // Access happiness handler through the citizen data
-                        com.minecolonies.api.entity.citizen.citizenhandlers.ICitizenHappinessHandler happinessHandler = 
-                            ((com.minecolonies.core.colony.CitizenData) citizen).getCitizenHappinessHandler();
-                        
+                        com.minecolonies.api.entity.citizen.citizenhandlers.ICitizenHappinessHandler happinessHandler = ((com.minecolonies.core.colony.CitizenData) citizen)
+                                .getCitizenHappinessHandler();
+
                         if (happinessHandler != null) {
                             double happiness = happinessHandler.getHappiness(colony, citizen);
                             totalHappiness += happiness;
@@ -357,8 +370,8 @@ public class TaxManager {
                     } catch (Exception e) {
                         // If we can't get happiness for this citizen, skip them
                         if (TaxConfig.showTaxGenerationLogs()) {
-                            LOGGER.debug("Could not get happiness for citizen {} in colony {}: {}", 
-                                citizen.getName(), colony.getName(), e.getMessage());
+                            LOGGER.debug("Could not get happiness for citizen {} in colony {}: {}",
+                                    citizen.getName(), colony.getName(), e.getMessage());
                         }
                     }
                 }
@@ -388,21 +401,22 @@ public class TaxManager {
                         LOGGER.debug("Skipping tax generation for disabled colony {}", colonyId);
                         return;
                     }
-                    
+
                     // Check colony inactivity
                     if (TaxConfig.isColonyInactivityTaxPauseEnabled()) {
                         int lastContactHours = colony.getLastContactInHours();
                         int inactivityThreshold = TaxConfig.getColonyInactivityHoursThreshold();
-                        
+
                         if (lastContactHours >= inactivityThreshold) {
                             if (TaxConfig.showTaxGenerationLogs()) {
-                                LOGGER.info("Skipping tax generation for inactive colony {} - Last contact: {} hours ago (threshold: {} hours)", 
-                                           colony.getName(), lastContactHours, inactivityThreshold);
+                                LOGGER.info(
+                                        "Skipping tax generation for inactive colony {} - Last contact: {} hours ago (threshold: {} hours)",
+                                        colony.getName(), lastContactHours, inactivityThreshold);
                             }
                             return;
                         }
                     }
-                    
+
                     // Track colony-level statistics
                     int totalGeneratedTax = 0;
                     int totalBaseTax = 0; // Tax before happiness modifier
@@ -413,7 +427,7 @@ public class TaxManager {
                     int finalTaxBalance;
                     int guardTowerCount = 0;
                     int requiredGuardTowers = TaxConfig.getRequiredGuardTowersForBoost();
-                    
+
                     // Calculate colony happiness for tax modifier
                     double colonyAvgHappiness = calculateColonyAverageHappiness(colony);
                     double happinessMultiplier = TaxConfig.calculateHappinessTaxMultiplier(colonyAvgHappiness);
@@ -421,19 +435,19 @@ public class TaxManager {
                     for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
                         if (building.getBuildingLevel() > 0 && building.isBuilt()) {
                             buildingCount++;
-                            String buildingType = building.getBuildingDisplayName();
+                            String buildingType = building.getClass().getName();
                             int buildingLevel = building.getBuildingLevel();
 
                             // Generate Tax Income
                             double baseTax = TaxConfig.getBaseTaxForBuilding(buildingType);
                             double upgradeTax = TaxConfig.getUpgradeTaxForBuilding(buildingType) * buildingLevel;
                             double rawTax = baseTax + upgradeTax;
-                            
+
                             // Apply happiness modifier to tax generation
                             int generatedTax = (int) (rawTax * happinessMultiplier);
                             totalBaseTax += (int) rawTax; // Track base tax before happiness modifier
                             totalGeneratedTax += generatedTax; // Track actual modified tax for reporting
-                            
+
                             // Check if we hit max limit for this building's tax
                             int currentTax = colonyTaxMap.getOrDefault(colonyId, 0);
                             int maxTax = TaxConfig.getMaxTaxRevenue();
@@ -445,7 +459,8 @@ public class TaxManager {
 
                             // Deduct Maintenance Cost
                             double baseMaintenance = TaxConfig.getBaseMaintenanceForBuilding(buildingType);
-                            double upgradeMaintenance = TaxConfig.getUpgradeMaintenanceForBuilding(buildingType) * buildingLevel;
+                            double upgradeMaintenance = TaxConfig.getUpgradeMaintenanceForBuilding(buildingType)
+                                    * buildingLevel;
                             int totalMaintenanceForBuilding = (int) (baseMaintenance + upgradeMaintenance);
                             totalMaintenance += totalMaintenanceForBuilding;
 
@@ -454,7 +469,7 @@ public class TaxManager {
                                 int newTax = currentTax - totalMaintenanceForBuilding;
                                 int debtLimit = TaxConfig.getDebtLimit();
                                 if (debtLimit > 0 && newTax < -debtLimit) {
-                                    newTax = -debtLimit;  // Do not allow tax to drop below negative debt limit
+                                    newTax = -debtLimit; // Do not allow tax to drop below negative debt limit
                                     hasDebt = true;
                                 }
                                 colonyTaxMap.put(colonyId, newTax);
@@ -462,7 +477,7 @@ public class TaxManager {
                             }
                         }
                     }
-                    
+
                     finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
 
                     // --- Guard Tower Tax Boost Processing ---
@@ -472,62 +487,68 @@ public class TaxManager {
                             String displayName = building.getBuildingDisplayName();
                             String className = building.getClass().getName().toLowerCase();
                             String toString = building.toString().toLowerCase();
-                            
+
                             if ((displayName != null && "Guard Tower".equalsIgnoreCase(displayName)) ||
-                                className.contains("guardtower") ||
-                                toString.contains("guardtower") ||
-                                toString.contains("guard_tower")) {
+                                    className.contains("guardtower") ||
+                                    toString.contains("guardtower") ||
+                                    toString.contains("guard_tower")) {
                                 guardTowerCount++;
                             }
                         }
                     }
-                    
+
                     // Apply guard tower boost if requirements are met
                     if (guardTowerCount >= requiredGuardTowers) {
                         double boostPercentage = TaxConfig.getGuardTowerTaxBoostPercentage();
                         int boostAmount = (int) (totalGeneratedTax * boostPercentage);
-                        
+
                         if (boostAmount > 0) {
                             incrementTaxRevenue(colony, boostAmount);
                             finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
-                            
+
                             if (TaxConfig.showTaxGenerationLogs()) {
-                                LOGGER.info("Applied guard tower tax boost to colony {}: {} tax ({} guard towers, {}% boost)", 
-                                           colony.getName(), boostAmount, guardTowerCount, (int)(boostPercentage * 100));
+                                LOGGER.info(
+                                        "Applied guard tower tax boost to colony {}: {} tax ({} guard towers, {}% boost)",
+                                        colony.getName(), boostAmount, guardTowerCount, (int) (boostPercentage * 100));
                             }
                         }
                     }
 
                     // --- Vassal tribute processing ---
-                    int tributePaid = net.machiavelli.minecolonytax.vassalization.VassalManager.handleTaxIncome(colony, totalGeneratedTax);
+                    int tributePaid = net.machiavelli.minecolonytax.vassalization.VassalManager.handleTaxIncome(colony,
+                            totalGeneratedTax);
                     if (tributePaid > 0) {
                         // Recalculate final balance after tribute deduction
                         finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
                     }
-                    
+
                     // Consolidated logging per colony
                     if (TaxConfig.showTaxGenerationLogs()) {
-                        LOGGER.info("Tax cycle completed for colony {} - Buildings: {}, Generated: {}, Maintenance: {}, Final Balance: {}", 
-                                   colony.getName(), buildingCount, totalGeneratedTax, totalMaintenance, finalTaxBalance);
-                        
+                        LOGGER.info(
+                                "Tax cycle completed for colony {} - Buildings: {}, Generated: {}, Maintenance: {}, Final Balance: {}",
+                                colony.getName(), buildingCount, totalGeneratedTax, totalMaintenance, finalTaxBalance);
+
                         // Log happiness impact if enabled
                         if (TaxConfig.isHappinessTaxModifierEnabled()) {
                             int happinessTaxImpact = totalGeneratedTax - totalBaseTax;
-                            String impactType = happinessTaxImpact > 0 ? "BONUS" : (happinessTaxImpact < 0 ? "PENALTY" : "NEUTRAL");
-                            LOGGER.info("Colony {} - Happiness: {}/10.0, Tax Impact: {} coins ({})", 
-                                colonyId, String.format("%.1f", colonyAvgHappiness), happinessTaxImpact, impactType);
+                            String impactType = happinessTaxImpact > 0 ? "BONUS"
+                                    : (happinessTaxImpact < 0 ? "PENALTY" : "NEUTRAL");
+                            LOGGER.info("Colony {} - Happiness: {}/10.0, Tax Impact: {} coins ({})",
+                                    colonyId, String.format("%.1f", colonyAvgHappiness), happinessTaxImpact,
+                                    impactType);
                         }
-                        
+
                         if (maxLimitHits > 0) {
-                            LOGGER.info("Colony {} reached tax revenue maximum limit on {} building calculations (Max: {})", 
-                                       colony.getName(), maxLimitHits, TaxConfig.getMaxTaxRevenue());
+                            LOGGER.info(
+                                    "Colony {} reached tax revenue maximum limit on {} building calculations (Max: {})",
+                                    colony.getName(), maxLimitHits, TaxConfig.getMaxTaxRevenue());
                         }
-                        
+
                         if (hasDebt) {
                             LOGGER.info("Colony {} hit debt limit during maintenance deductions", colony.getName());
                         }
                     }
-                    
+
                     // Notify colony managers with enhanced tax report
                     IPermissions permissions = colony.getPermissions();
                     Set<ColonyPlayer> officers = permissions.getPlayersByRank(permissions.getRankOfficer());
@@ -545,42 +566,41 @@ public class TaxManager {
                             // Send main tax report header
                             player.sendSystemMessage(Component.translatable(
                                     "message.minecolonytax.tax_report_header",
-                                    colony.getName()
-                            ).withStyle(net.minecraft.ChatFormatting.GOLD, net.minecraft.ChatFormatting.BOLD));
-                            
+                                    colony.getName())
+                                    .withStyle(net.minecraft.ChatFormatting.GOLD, net.minecraft.ChatFormatting.BOLD));
+
                             // Send separator line
                             player.sendSystemMessage(Component.translatable(
-                                    "message.minecolonytax.tax_report_separator"
-                            ).withStyle(net.minecraft.ChatFormatting.GRAY));
-                            
+                                    "message.minecolonytax.tax_report_separator")
+                                    .withStyle(net.minecraft.ChatFormatting.GRAY));
+
                             // Send tax generation info
                             player.sendSystemMessage(Component.translatable(
                                     "message.minecolonytax.tax_report_generation",
                                     buildingCount,
-                                    totalGeneratedTax
-                            ).withStyle(net.minecraft.ChatFormatting.GREEN));
-                            
+                                    totalGeneratedTax).withStyle(net.minecraft.ChatFormatting.GREEN));
+
                             // Send maintenance info
                             if (totalMaintenance > 0) {
                                 player.sendSystemMessage(Component.translatable(
                                         "message.minecolonytax.tax_report_maintenance",
-                                        totalMaintenance
-                                ).withStyle(net.minecraft.ChatFormatting.RED));
+                                        totalMaintenance).withStyle(net.minecraft.ChatFormatting.RED));
                             }
-                            
+
                             // Show happiness modifier if applicable
                             if (TaxConfig.isHappinessTaxModifierEnabled()) {
                                 int happinessTaxImpact = totalGeneratedTax - totalBaseTax;
-                                net.minecraft.ChatFormatting happinessColor = happinessTaxImpact > 0 ? net.minecraft.ChatFormatting.GREEN : 
-                                    (happinessTaxImpact < 0 ? net.minecraft.ChatFormatting.RED : net.minecraft.ChatFormatting.YELLOW);
+                                net.minecraft.ChatFormatting happinessColor = happinessTaxImpact > 0
+                                        ? net.minecraft.ChatFormatting.GREEN
+                                        : (happinessTaxImpact < 0 ? net.minecraft.ChatFormatting.RED
+                                                : net.minecraft.ChatFormatting.YELLOW);
                                 String impactSign = happinessTaxImpact > 0 ? "+" : "";
                                 player.sendSystemMessage(Component.translatable(
                                         "message.minecolonytax.tax_report_happiness",
                                         String.format("%.1f", colonyAvgHappiness),
-                                        impactSign + happinessTaxImpact
-                                ).withStyle(happinessColor));
+                                        impactSign + happinessTaxImpact).withStyle(happinessColor));
                             }
-                            
+
                             // Show guard tower boost if applicable
                             if (guardTowerCount >= requiredGuardTowers) {
                                 double boostPercentage = TaxConfig.getGuardTowerTaxBoostPercentage();
@@ -588,24 +608,22 @@ public class TaxManager {
                                 player.sendSystemMessage(Component.translatable(
                                         "message.minecolonytax.tax_report_guard_boost",
                                         guardTowerCount,
-                                        (int)(boostPercentage * 100),
-                                        boostAmount
-                                ).withStyle(net.minecraft.ChatFormatting.BLUE));
+                                        (int) (boostPercentage * 100),
+                                        boostAmount).withStyle(net.minecraft.ChatFormatting.BLUE));
                             }
-                            
+
                             // Show tribute paid if applicable
                             if (tributePaid > 0) {
                                 player.sendSystemMessage(Component.translatable(
                                         "message.minecolonytax.tax_report_tribute",
-                                        tributePaid
-                                ).withStyle(net.minecraft.ChatFormatting.DARK_PURPLE));
+                                        tributePaid).withStyle(net.minecraft.ChatFormatting.DARK_PURPLE));
                             }
-                            
+
                             // Send separator line
                             player.sendSystemMessage(Component.translatable(
-                                    "message.minecolonytax.tax_report_separator"
-                            ).withStyle(net.minecraft.ChatFormatting.GRAY));
-                            
+                                    "message.minecolonytax.tax_report_separator")
+                                    .withStyle(net.minecraft.ChatFormatting.GRAY));
+
                             // Send current balance with appropriate color
                             net.minecraft.ChatFormatting balanceColor;
                             String statusKey;
@@ -619,21 +637,20 @@ public class TaxManager {
                                 balanceColor = net.minecraft.ChatFormatting.GREEN;
                                 statusKey = "message.minecolonytax.tax_report_status_healthy";
                             }
-                            
+
                             player.sendSystemMessage(Component.translatable(
                                     "message.minecolonytax.tax_report_balance",
-                                    finalTaxBalance
-                            ).withStyle(balanceColor, net.minecraft.ChatFormatting.BOLD));
-                            
+                                    finalTaxBalance).withStyle(balanceColor, net.minecraft.ChatFormatting.BOLD));
+
                             player.sendSystemMessage(Component.translatable(
                                     statusKey,
-                                    finalTaxBalance < 0 ? Math.abs(finalTaxBalance) : TaxConfig.getMaxTaxRevenue()
-                            ).withStyle(balanceColor));
-                            
+                                    finalTaxBalance < 0 ? Math.abs(finalTaxBalance) : TaxConfig.getMaxTaxRevenue())
+                                    .withStyle(balanceColor));
+
                             // Send footer
                             player.sendSystemMessage(Component.translatable(
-                                    "message.minecolonytax.tax_report_footer"
-                            ).withStyle(net.minecraft.ChatFormatting.GRAY));
+                                    "message.minecolonytax.tax_report_footer")
+                                    .withStyle(net.minecraft.ChatFormatting.GRAY));
                         }
                     }
 
@@ -661,13 +678,14 @@ public class TaxManager {
     // Update tax when a new building is constructed or upgraded
     public static void updateTaxForBuilding(IColony colony, IBuilding building, int currentLevel) {
         if (currentLevel > 0 && building.isBuilt()) {
-            String buildingType = building.getBuildingDisplayName();
+            String buildingType = building.getClass().getName();
             double baseTax = TaxConfig.getBaseTaxForBuilding(buildingType);
             double upgradeTax = TaxConfig.getUpgradeTaxForBuilding(buildingType) * currentLevel;
             int totalTax = (int) (baseTax + upgradeTax);
             incrementTaxRevenue(colony, totalTax);
             if (totalTax > 0) {
-                LOGGER.debug("Generated {} tax for building {} (level {}) in colony {}", totalTax, buildingType, currentLevel, colony.getName());
+                LOGGER.debug("Generated {} tax for building {} (level {}) in colony {}", totalTax, buildingType,
+                        currentLevel, colony.getName());
             }
         }
     }
@@ -676,7 +694,7 @@ public class TaxManager {
     private static void saveTaxData() {
         saveTaxData(false); // Default to not log
     }
-    
+
     // Overloaded method with logging control
     private static void saveTaxData(boolean logSave) {
         File file = new File(TAX_DATA_FILE);
@@ -696,7 +714,8 @@ public class TaxManager {
         File taxFile = new File(TAX_DATA_FILE);
         if (taxFile.exists()) {
             try (FileReader reader = new FileReader(taxFile)) {
-                Type taxDataType = new TypeToken<Map<Integer, Integer>>() {}.getType();
+                Type taxDataType = new TypeToken<Map<Integer, Integer>>() {
+                }.getType();
                 Map<Integer, Integer> loadedData = GSON.fromJson(reader, taxDataType);
                 if (loadedData != null) {
                     colonyTaxMap.putAll(loadedData);
@@ -710,9 +729,8 @@ public class TaxManager {
         }
     }
 
-
-
-    // --- New method added to freeze tax claims for a colony for a given number of hours ---
+    // --- New method added to freeze tax claims for a colony for a given number of
+    // hours ---
     public static void freezeColonyTax(int colonyId, int freezeHours) {
         FROZEN_COLONIES.add(colonyId);
         if (TaxConfig.showTaxGenerationLogs()) {
@@ -730,9 +748,9 @@ public class TaxManager {
         }, TimeUnit.HOURS.toMillis(freezeHours));
     }
 
-
     /**
      * Applies a payment to reduce the colony's tax debt or add to its balance.
+     * 
      * @param colony The colony to receive the payment.
      * @param amount The payment amount.
      * @return The effective payment applied (full amount is always used).
@@ -743,7 +761,8 @@ public class TaxManager {
         // Apply the full amount regardless of current balance
         colonyTaxMap.put(colonyId, currentTax + amount);
         if (TaxConfig.showTaxGenerationLogs()) {
-            LOGGER.info("Colony {} tax payment of {}. New tax value: {}", colony.getName(), amount, colonyTaxMap.get(colonyId));
+            LOGGER.info("Colony {} tax payment of {}. New tax value: {}", colony.getName(), amount,
+                    colonyTaxMap.get(colonyId));
         }
         saveTaxData(true);
         return amount;
@@ -774,24 +793,26 @@ public class TaxManager {
         File timestampFile = new File(TAX_TIMESTAMP_FILE);
         if (timestampFile.exists()) {
             try (FileReader reader = new FileReader(timestampFile)) {
-                Type timestampType = new TypeToken<Map<String, Long>>() {}.getType();
+                Type timestampType = new TypeToken<Map<String, Long>>() {
+                }.getType();
                 Map<String, Long> timestampData = GSON.fromJson(reader, timestampType);
                 if (timestampData != null && timestampData.containsKey("lastTaxGeneration")) {
                     long loadedTimestamp = timestampData.get("lastTaxGeneration");
-                    
+
                     // Validate timestamp isn't corrupted or unrealistic
                     long currentTime = System.currentTimeMillis();
                     long oneYearAgo = currentTime - (365L * 24L * 60L * 60L * 1000L); // 1 year ago
                     long oneYearFromNow = currentTime + (365L * 24L * 60L * 60L * 1000L); // 1 year in future
-                    
+
                     if (loadedTimestamp < oneYearAgo || loadedTimestamp > oneYearFromNow) {
-                        LOGGER.warn("Loaded timestamp appears corrupted ({}), starting fresh", new java.util.Date(loadedTimestamp));
+                        LOGGER.warn("Loaded timestamp appears corrupted ({}), starting fresh",
+                                new java.util.Date(loadedTimestamp));
                         lastTaxGenerationTime = 0L;
                     } else {
                         lastTaxGenerationTime = loadedTimestamp;
                         if (TaxConfig.showTaxGenerationLogs()) {
                             long minutesAgo = (currentTime - lastTaxGenerationTime) / (60L * 1000L);
-                            LOGGER.info("Loaded last tax generation timestamp: {} minutes ago ({})", 
+                            LOGGER.info("Loaded last tax generation timestamp: {} minutes ago ({})",
                                     minutesAgo, new java.util.Date(lastTaxGenerationTime));
                         }
                     }
@@ -826,21 +847,24 @@ public class TaxManager {
             }
             return;
         }
-        
+
         File timestampFile = new File(TAX_TIMESTAMP_FILE);
         timestampFile.getParentFile().mkdirs(); // Ensure directory exists
-        
+
         try (FileWriter writer = new FileWriter(timestampFile)) {
             Map<String, Long> timestampData = new HashMap<>();
             timestampData.put("lastTaxGeneration", lastTaxGenerationTime);
             timestampData.put("version", 1L); // Version for future compatibility
             GSON.toJson(timestampData, writer);
-            
+
             if (TaxConfig.showTaxGenerationLogs()) {
-                LOGGER.debug("Saved tax generation timestamp: {} ({})", lastTaxGenerationTime, new java.util.Date(lastTaxGenerationTime));
+                LOGGER.debug("Saved tax generation timestamp: {} ({})", lastTaxGenerationTime,
+                        new java.util.Date(lastTaxGenerationTime));
             }
         } catch (IOException e) {
-            LOGGER.error("CRITICAL: Failed to save tax generation timestamp! Tax intervals may be affected after restart: {}", e.getMessage());
+            LOGGER.error(
+                    "CRITICAL: Failed to save tax generation timestamp! Tax intervals may be affected after restart: {}",
+                    e.getMessage());
         }
     }
 

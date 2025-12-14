@@ -1,0 +1,28 @@
+{
+    "name": "minecolonytax.entry.welcome.name",
+    "icon": "minecraft:book",
+    "category": "minecolonytax:getting_started",
+    "sortnum": 0,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.welcome.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.welcome.page1.title",
+            "text": "minecolonytax.entry.welcome.page1"
+        },
+        {
+            "type": "patchouli:relations",
+            "title": "minecolonytax.entry.welcome.explore",
+            "entries": [
+                "minecolonytax:getting_started/first_steps",
+                "minecolonytax:tax_system/how_taxes_work",
+                "minecolonytax:raid_system/raid_overview",
+                "minecolonytax:war_system/war_overview"
+            ],
+            "text": "minecolonytax.entry.welcome.explore.desc"
+        }
+    ]
+}

@@ -1,0 +1,28 @@
+{
+    "name": "minecolonytax.entry.first_steps.name",
+    "icon": "minecraft:compass",
+    "category": "minecolonytax:getting_started",
+    "sortnum": 1,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.first_steps.page0"
+        },
+        {
+            "type": "patchouli:quest",
+            "trigger": "minecolonytax:codex/claim_tax",
+            "title": "minecolonytax.entry.first_steps.quest.title",
+            "text": "minecolonytax.entry.first_steps.step1"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.first_steps.step2.title",
+            "text": "minecolonytax.entry.first_steps.step2"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.first_steps.step3.title",
+            "text": "minecolonytax.entry.first_steps.step3"
+        }
+    ]
+}

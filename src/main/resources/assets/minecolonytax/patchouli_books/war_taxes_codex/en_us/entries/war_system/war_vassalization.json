@@ -1,0 +1,22 @@
+{
+    "name": "minecolonytax.entry.war_vassalization.name",
+    "icon": "minecraft:chain",
+    "category": "minecolonytax:war_system",
+    "sortnum": 3,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.war_vassalization.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.war_vassalization.tribute.title",
+            "text": "minecolonytax.entry.war_vassalization.tribute"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.war_vassalization.duration.title",
+            "text": "minecolonytax.entry.war_vassalization.duration"
+        }
+    ]
+}

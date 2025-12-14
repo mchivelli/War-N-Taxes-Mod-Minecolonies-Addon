@@ -45,6 +45,7 @@ public class ColonyActivityTracker {
     
     /**
      * Check if a specific colony is currently active based on inactivity settings.
+     * ENHANCED: Now considers officer visits in addition to owner visits.
      * 
      * @param colony The colony to check
      * @return true if the colony is active (should generate taxes), false if inactive
@@ -64,6 +65,14 @@ public class ColonyActivityTracker {
         
         // Calculate fresh activity status
         int lastContactHours = colony.getLastContactInHours();
+        
+        // CRITICAL FIX: Check if officers have visited recently
+        long officerVisitHours = net.machiavelli.minecolonytax.event.OfficerColonyVisitTracker.getHoursSinceOfficerVisit(colonyId);
+        if (officerVisitHours >= 0 && officerVisitHours < lastContactHours) {
+            // Officers visited more recently - use that time
+            lastContactHours = (int) officerVisitHours;
+        }
+        
         int threshold = TaxConfig.getColonyInactivityHoursThreshold();
         boolean isActive = lastContactHours < threshold;
         
@@ -75,6 +84,7 @@ public class ColonyActivityTracker {
     
     /**
      * Get detailed activity status for a colony.
+     * ENHANCED: Now considers officer visits in addition to owner visits.
      * 
      * @param colony The colony to check
      * @return ActivityStatus containing detailed information
@@ -94,6 +104,14 @@ public class ColonyActivityTracker {
         
         // Calculate fresh activity status
         int lastContactHours = colony.getLastContactInHours();
+        
+        // CRITICAL FIX: Check if officers have visited recently
+        long officerVisitHours = net.machiavelli.minecolonytax.event.OfficerColonyVisitTracker.getHoursSinceOfficerVisit(colonyId);
+        if (officerVisitHours >= 0 && officerVisitHours < lastContactHours) {
+            // Officers visited more recently - use that time
+            lastContactHours = (int) officerVisitHours;
+        }
+        
         int threshold = TaxConfig.getColonyInactivityHoursThreshold();
         boolean isActive = lastContactHours < threshold;
         

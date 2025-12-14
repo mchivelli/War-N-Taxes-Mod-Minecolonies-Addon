@@ -7,6 +7,88 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2025-12-14
+
+### 📖 Patchouli Guidebook Integration
+
+- **NEW FEATURE**: **War 'N Taxes Codex** - Complete in-game guidebook powered by Patchouli
+- **Automatic Book Distribution**: Players receive the codex on first join (configurable)
+- **9 Content Categories**:
+  - Getting Started: Welcome guide and first steps
+  - Tax System: How taxes work, happiness modifier, guard tower boost, claiming tax, tax rates
+  - Raid System: Overview, starting raids, mechanics, rewards, militia
+  - War System: Overview, declaring war, war phases, vassalization
+  - Diplomacy: Peace proposals, extortion
+  - PvP Arena: Duels, team battles
+  - Colony Management: Abandonment, claiming colonies
+  - Commands: Player and admin command references
+  - Configuration: Admin-only section (config-gated)
+- **Interactive Commands**: Clickable command links throughout the book that execute commands
+- **Custom Styling**: Color-coded text macros for tax, raid, war, success, warning, and more
+- **Militia Entity Display**: Entity page showing citizen militia with wooden sword equipment
+- **Multi-Language Support**: Translations for German, Russian, French, and Spanish
+- **Advancements**: Progress tracking for claiming tax, starting raids, and declaring war
+
+#### Configuration Options:
+- `GivePatchouliBookOnJoin` (default: true) - Give book to new players
+- `ShowAdminPatchouliCategory` (default: false) - Show admin config section in book
+
+### 🐛 Bug Fixes
+
+- **FIXED**: Added missing prerequisite note in First Steps explaining MineColonies colony requirement
+- **FIXED**: Advancement localization keys added for proper display in Advancements screen
+
+## [3.2.11] - 2025-12-07
+
+### ⚔️ War Vassalization System
+
+- **NEW FEATURE**: **War Vassalization** - When colony transfer is disabled, winning a war now vassalizes the losing colony instead
+- **Configurable Duration**: War vassalization lasts for a configurable time period (default: 168 hours / 1 week)
+- **Tribute Payments**: Vassalized colonies pay a percentage of their tax income to the victor (default: 25%)
+- **Automatic Expiration**: War vassalizations automatically expire after the configured duration with notifications to both parties
+- **Three New Config Options**:
+  - `EnableWarVassalization` (default: true) - Toggle war vassalization when colony transfer is off
+  - `WarVassalizationDurationHours` (default: 168) - How long vassalization lasts (0 = permanent)
+  - `WarVassalizationTributePercentage` (default: 25) - Tribute rate percentage
+
+#### Technical Implementation:
+- Added `forceVassalize()` method to `VassalManager.java` for war-triggered vassalizations
+- Extended `VassalRelation` class with `expirationTime` and `isWarVassalization` fields
+- Modified `handleTaxIncome()` to check for and auto-remove expired vassalizations
+- Integrated with `WarSystem.checkForVictory()` to trigger vassalization on attacker victory
+
+### 🐛 Critical Colony Abandonment Bug Fix
+
+- **FIXED**: **Officer Visit Data Not Being Used** - Colony abandonment checks now properly consider officer visit data
+- **Root Cause**: `ColonyAbandonmentManager.checkColonyAbandonmentStatus()` only used MineColonies' internal `lastContactInHours` and completely ignored visit data from `OfficerColonyVisitTracker`
+- **Impact**: Even when officers physically entered their colony, the abandonment timer was NOT being reset, causing colonies to become abandoned despite active officer presence
+- **Solution**: Abandonment status checks now compare both MineColonies' contact hours AND officer visit hours, using whichever is more recent
+- **Result**: Officer physical presence now properly resets the abandonment timer as intended
+
+#### Technical Details:
+- **File**: `ColonyAbandonmentManager.java` lines 92-129
+- **Fix**: Added call to `OfficerColonyVisitTracker.getHoursSinceOfficerVisit()` in `checkColonyAbandonmentStatus()`
+- **Logic**: Uses the minimum of MineColonies' hours and officer physical entry hours for the most recent activity
+
+### 🏰 Colony Abandonment Timer - Physical Entry Detection
+
+- **CHANGED**: Timer reset now requires **physical colony entry** - simply logging in no longer resets ALL your colonies' timers
+- **EFFICIENT**: Uses chunk-based detection - colony lookup only happens when player moves to a new chunk (every ~16 blocks)
+- **OPTIMIZED I/O**: File saves are batched every 5 minutes instead of on every entry, preventing disk thrashing
+- **DIRTY FLAG**: Skips saves entirely if no changes occurred, further reducing I/O overhead
+- **PERSISTENT**: Visit timestamps saved to `config/warntax/officerVisitData.json`, survives server restarts
+- **CLEANUP**: Player tracking data cleared on logout to minimize memory usage
+
+#### How It Works:
+1. Player moves to a new chunk → Check if they entered a colony
+2. If entering a colony they own/officer → Reset that colony's timer only
+3. Changes batched in memory, saved every 5 minutes or on shutdown
+
+#### Why This Change:
+- More fair: Requires actual presence in the colony, not just being online
+- More efficient: No iteration over all colonies on every login
+- No TPS impact: Only checks colony on chunk changes, not every tick
+
 ### 🐛 Critical Raid System Bug Fixes
 
 #### Bug #1: Raid Ending Immediately

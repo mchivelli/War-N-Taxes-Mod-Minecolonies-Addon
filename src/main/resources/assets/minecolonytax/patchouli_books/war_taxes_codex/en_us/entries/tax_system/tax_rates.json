@@ -1,0 +1,17 @@
+{
+    "name": "minecolonytax.entry.tax_rates.name",
+    "icon": "minecraft:emerald",
+    "category": "minecolonytax:tax_system",
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.tax_rates.title",
+            "text": "minecolonytax.entry.tax_rates.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.tax_rates.command.title",
+            "text": "minecolonytax.entry.tax_rates.command"
+        }
+    ]
+}

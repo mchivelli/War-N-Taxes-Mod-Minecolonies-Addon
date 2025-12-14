@@ -1,0 +1,17 @@
+{
+    "name": "minecolonytax.entry.militia.name",
+    "icon": "minecraft:iron_chestplate",
+    "category": "minecolonytax:raid_system",
+    "sortnum": 4,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.militia.page0"
+        },
+        {
+            "type": "patchouli:entity",
+            "entity": "minecolonies:citizen",
+            "text": "minecolonytax.entry.militia.entity"
+        }
+    ]
+}
