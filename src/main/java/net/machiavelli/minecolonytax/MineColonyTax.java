@@ -4,6 +4,8 @@ import net.machiavelli.minecolonytax.network.NetworkHandler;
 import net.machiavelli.minecolonytax.vassalization.VassalManager;
 import net.machiavelli.minecolonytax.recipe.ModRecipeSerializers;
 import net.machiavelli.minecolonytax.commands.RecipeDisableTestCommand;
+import net.machiavelli.minecolonytax.commands.WarChestCommand;
+import net.machiavelli.minecolonytax.economy.WarChestManager;
 import net.machiavelli.minecolonytax.raid.GuardResistanceHandler;
 import net.machiavelli.minecolonytax.webapi.WebAPIServer;
 import net.minecraftforge.event.server.ServerStartingEvent;
@@ -79,6 +81,8 @@ public class MineColonyTax {
     public void onServerStarting(ServerStartingEvent event) {
         // Register commands
         RecipeDisableTestCommand.register(event.getServer().getCommands().getDispatcher());
+        WarChestCommand.register(event.getServer().getCommands().getDispatcher());
+        LOGGER.info("WarChestCommand registered");
 
         LOGGER.info("Server starting - initializing TaxManager with configured interval of {} minutes",
                 TaxConfig.getTaxIntervalInMinutes());
@@ -128,6 +132,10 @@ public class MineColonyTax {
         // Initialize VassalManager so server reference is available for notifications
         VassalManager.initialize(event.getServer());
 
+        // Initialize WarChestManager for war chest tracking
+        WarChestManager.initialize(event.getServer());
+        LOGGER.info("WarChestManager initialized");
+
         // Emergency cleanup of guard resistance effects on startup
         GuardResistanceHandler.emergencyCleanup();
         LOGGER.info("Guard resistance effects cleanup completed");
@@ -164,6 +172,13 @@ public class MineColonyTax {
             LOGGER.info("VassalManager shutdown complete");
         } catch (Throwable t) {
             LOGGER.warn("Error during VassalManager shutdown: {}", t.toString());
+        }
+
+        try {
+            WarChestManager.shutdown();
+            LOGGER.info("WarChestManager shutdown complete");
+        } catch (Throwable t) {
+            LOGGER.warn("Error during WarChestManager shutdown: {}", t.toString());
         }
     }
 }
