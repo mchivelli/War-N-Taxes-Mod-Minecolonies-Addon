@@ -2217,6 +2217,15 @@ public class WarSystem {
                 return 0;
             }
         }
+
+        // War Chest requirement check
+        if (!net.machiavelli.minecolonytax.economy.WarChestManager.canDeclareWar(attackerColony.getID(),
+                targetColony.getID())) {
+            source.sendFailure(net.machiavelli.minecolonytax.economy.WarChestManager.getWarDeclarationBlockedMessage(
+                    attackerColony.getID(), targetColony.getID()));
+            return 0;
+        }
+
         if (targetColony.getID() == attackerColony.getID()) {
             source.sendFailure(Component.literal("Cannot declare war on your own colony!"));
             return 0;
@@ -2379,6 +2388,15 @@ public class WarSystem {
                 return 0;
             }
         }
+
+        // War Chest requirement check
+        if (!net.machiavelli.minecolonytax.economy.WarChestManager.canDeclareWar(attackerColony.getID(),
+                targetColony.getID())) {
+            source.sendFailure(net.machiavelli.minecolonytax.economy.WarChestManager.getWarDeclarationBlockedMessage(
+                    attackerColony.getID(), targetColony.getID()));
+            return 0;
+        }
+
         if (targetColony.getID() == attackerColony.getID()) {
             source.sendFailure(Component.literal("Cannot declare war on your own colony!"));
             return 0;
