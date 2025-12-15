@@ -17,22 +17,22 @@ import java.util.function.Supplier;
 public class ColonyDataResponsePacket {
     private final List<ColonyTaxData> colonyData;
     private final List<VassalIncomeData> vassalData;
-    
+
     public ColonyDataResponsePacket(List<ColonyTaxData> colonyData) {
         this.colonyData = colonyData;
         this.vassalData = new ArrayList<>();
     }
-    
+
     public ColonyDataResponsePacket(List<ColonyTaxData> colonyData, List<VassalIncomeData> vassalData) {
         this.colonyData = colonyData;
         this.vassalData = vassalData;
     }
-    
+
     public ColonyDataResponsePacket(FriendlyByteBuf buf) {
         // Read colony data
         int size = buf.readInt();
         this.colonyData = new ArrayList<>();
-        
+
         for (int i = 0; i < size; i++) {
             int colonyId = buf.readInt();
             String colonyName = buf.readUtf();
@@ -52,20 +52,26 @@ public class ColonyDataResponsePacket {
             int debtAmount = buf.readInt();
             int approximateRevenuePerInterval = buf.readInt();
             boolean isOwner = buf.readBoolean();
-            
+
+            // New fields
+            String taxPolicy = buf.readUtf();
+            double taxPolicyMultiplier = buf.readDouble();
+            double happiness = buf.readDouble();
+            double happinessMultiplier = buf.readDouble();
+
             this.colonyData.add(new ColonyTaxData(
-                colonyId, colonyName, taxBalance, maxTaxRevenue,
-                buildingCount, guardCount, guardTowerCount,
-                canClaimTax, isAtWar, isBeingRaided,
-                isVassal, vassalTributeRate, hasVassals, vassalCount,
-                lastTaxGeneration, debtAmount, approximateRevenuePerInterval, isOwner
-            ));
+                    colonyId, colonyName, taxBalance, maxTaxRevenue,
+                    buildingCount, guardCount, guardTowerCount,
+                    canClaimTax, isAtWar, isBeingRaided,
+                    isVassal, vassalTributeRate, hasVassals, vassalCount,
+                    lastTaxGeneration, debtAmount, approximateRevenuePerInterval, isOwner,
+                    taxPolicy, taxPolicyMultiplier, happiness, happinessMultiplier));
         }
-        
+
         // Read vassal data
         int vassalSize = buf.readInt();
         this.vassalData = new ArrayList<>();
-        
+
         for (int i = 0; i < vassalSize; i++) {
             int vassalColonyId = buf.readInt();
             String vassalColonyName = buf.readUtf();
@@ -74,17 +80,16 @@ public class ColonyDataResponsePacket {
             int lastTribute = buf.readInt();
             long lastPayment = buf.readLong();
             boolean canClaim = buf.readBoolean();
-            
+
             this.vassalData.add(new VassalIncomeData(
-                vassalColonyId, vassalColonyName, tributeRate,
-                tributeOwed, lastTribute, lastPayment, canClaim
-            ));
+                    vassalColonyId, vassalColonyName, tributeRate,
+                    tributeOwed, lastTribute, lastPayment, canClaim));
         }
     }
-    
+
     public void toBytes(FriendlyByteBuf buf) {
         buf.writeInt(colonyData.size());
-        
+
         for (ColonyTaxData data : colonyData) {
             buf.writeInt(data.getColonyId());
             buf.writeUtf(data.getColonyName());
@@ -104,11 +109,17 @@ public class ColonyDataResponsePacket {
             buf.writeInt(data.getDebtAmount());
             buf.writeInt(data.getApproximateRevenuePerInterval());
             buf.writeBoolean(data.isOwner());
+
+            // New fields
+            buf.writeUtf(data.getTaxPolicy());
+            buf.writeDouble(data.getTaxPolicyMultiplier());
+            buf.writeDouble(data.getHappiness());
+            buf.writeDouble(data.getHappinessMultiplier());
         }
-        
+
         // Write vassal data
         buf.writeInt(vassalData.size());
-        
+
         for (VassalIncomeData data : vassalData) {
             buf.writeInt(data.getVassalColonyId());
             buf.writeUtf(data.getVassalColonyName());
@@ -119,7 +130,7 @@ public class ColonyDataResponsePacket {
             buf.writeBoolean(data.canClaim());
         }
     }
-    
+
     public boolean handle(Supplier<NetworkEvent.Context> supplier) {
         NetworkEvent.Context context = supplier.get();
         context.enqueueWork(() -> {

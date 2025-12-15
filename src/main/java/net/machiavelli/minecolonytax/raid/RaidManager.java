@@ -148,6 +148,18 @@ public class RaidManager {
                 return 0;
             }
 
+            // Ransom Immunity Check - colony is protected after paying ransom
+            if (net.machiavelli.minecolonytax.economy.RansomManager.hasImmunity(colony.getPermissions().getOwner())) {
+                int remainingHours = net.machiavelli.minecolonytax.economy.RansomManager
+                        .getRemainingImmunityHours(colony.getPermissions().getOwner());
+                context.getSource().sendFailure(
+                        Component
+                                .literal(
+                                        "This colony is protected from raids! (" + remainingHours + " hours remaining)")
+                                .withStyle(ChatFormatting.RED));
+                return 0;
+            }
+
             // Check RaidGuardProtection
             int targetGuards = WarSystem.countGuards(colony);
             if (TaxConfig.isRaidGuardProtectionEnabled()) {

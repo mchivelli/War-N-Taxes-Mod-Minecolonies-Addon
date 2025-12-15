@@ -125,6 +125,14 @@ public class NetworkHandler {
                                 .consumerMainThread(WarChestActionPacket::handle)
                                 .add();
 
+                CHANNEL.messageBuilder(net.machiavelli.minecolonytax.network.packets.SetTaxPolicyPacket.class, nextId(),
+                                NetworkDirection.PLAY_TO_SERVER)
+                                .decoder(net.machiavelli.minecolonytax.network.packets.SetTaxPolicyPacket::new)
+                                .encoder(net.machiavelli.minecolonytax.network.packets.SetTaxPolicyPacket::toBytes)
+                                .consumerMainThread(
+                                                net.machiavelli.minecolonytax.network.packets.SetTaxPolicyPacket::handle)
+                                .add();
+
                 MineColonyTax.LOGGER.info("Network channel registered with {} packets", packetId);
         }
 

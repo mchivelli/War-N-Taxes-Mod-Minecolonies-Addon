@@ -453,7 +453,7 @@ public class TaxManager {
                     for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
                         if (building.getBuildingLevel() > 0 && building.isBuilt()) {
                             buildingCount++;
-                            String buildingType = building.getClass().getName();
+                            String buildingType = building.getBuildingType().getRegistryName().getPath();
                             int buildingLevel = building.getBuildingLevel();
 
                             // Generate Tax Income
@@ -464,9 +464,13 @@ public class TaxManager {
                             // Apply happiness modifier to tax generation
                             double taxWithHappiness = rawTax * happinessMultiplier;
 
-                            // Apply raid penalty and war exhaustion modifiers
+                            // Apply Tax Policy Modifier (LOW/NORMAL/HIGH/WAR)
+                            double taxPolicyMultiplier = 1.0 + net.machiavelli.minecolonytax.economy.TaxPolicyManager
+                                    .getRevenueModifier(colonyId);
+
+                            // Apply raid penalty, war exhaustion, and tax policy modifiers
                             int generatedTax = (int) (taxWithHappiness * raidPenaltyMultiplier
-                                    * warExhaustionMultiplier);
+                                    * warExhaustionMultiplier * taxPolicyMultiplier);
 
                             totalBaseTax += (int) rawTax; // Track base tax before happiness modifier
                             totalGeneratedTax += generatedTax; // Track actual modified tax for reporting
@@ -738,7 +742,7 @@ public class TaxManager {
     // Update tax when a new building is constructed or upgraded
     public static void updateTaxForBuilding(IColony colony, IBuilding building, int currentLevel) {
         if (currentLevel > 0 && building.isBuilt()) {
-            String buildingType = building.getClass().getName();
+            String buildingType = building.getBuildingType().getRegistryName().getPath();
             double baseTax = TaxConfig.getBaseTaxForBuilding(buildingType);
             double upgradeTax = TaxConfig.getUpgradeTaxForBuilding(buildingType) * currentLevel;
             int totalTax = (int) (baseTax + upgradeTax);

@@ -1,4 +1,4 @@
-package net.machiavelli.minecolonytax;
+﻿package net.machiavelli.minecolonytax;
 
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.fml.common.Mod;
@@ -194,6 +194,16 @@ public class TaxConfig {
         public static final ForgeConfigSpec.DoubleValue TAX_POLICY_HIGH_HAPPINESS_MODIFIER;
         public static final ForgeConfigSpec.DoubleValue TAX_POLICY_WAR_REVENUE_MODIFIER;
         public static final ForgeConfigSpec.DoubleValue TAX_POLICY_WAR_HAPPINESS_MODIFIER;
+
+        // Stepped Happiness Curve
+        public static final ForgeConfigSpec.BooleanValue HAPPINESS_USE_STEPPED_CURVE;
+        public static final ForgeConfigSpec.DoubleValue HAPPINESS_TIER_MISERABLE;
+        public static final ForgeConfigSpec.DoubleValue HAPPINESS_TIER_UNHAPPY;
+        public static final ForgeConfigSpec.DoubleValue HAPPINESS_TIER_DISCONTENT;
+        public static final ForgeConfigSpec.DoubleValue HAPPINESS_TIER_NEUTRAL;
+        public static final ForgeConfigSpec.DoubleValue HAPPINESS_TIER_CONTENT;
+        public static final ForgeConfigSpec.DoubleValue HAPPINESS_TIER_HAPPY;
+        public static final ForgeConfigSpec.DoubleValue HAPPINESS_TIER_VERY_HAPPY;
 
         // Tax Reports
         public static final ForgeConfigSpec.BooleanValue ENABLE_TAX_REPORTS;
@@ -855,6 +865,42 @@ public class TaxConfig {
                                 .defineInRange("WarPolicyHappinessModifier", -0.25, -1.0, 0.0);
                 BUILDER.pop();
 
+                // --- Stepped Happiness Curve ---
+                BUILDER.push("Stepped Happiness Curve");
+                HAPPINESS_USE_STEPPED_CURVE = BUILDER.comment(
+                                "Use stepped happiness tiers instead of linear interpolation.",
+                                "Stepped tiers provide clearer feedback to players about their colony's happiness state.")
+                                .define("UseSteppedHappinessCurve", true);
+
+                HAPPINESS_TIER_MISERABLE = BUILDER.comment(
+                                "Tax multiplier when happiness is 0-2 (Miserable). Default: 0.50 = -50% tax")
+                                .defineInRange("TierMiserableMultiplier", 0.50, 0.0, 1.0);
+
+                HAPPINESS_TIER_UNHAPPY = BUILDER.comment(
+                                "Tax multiplier when happiness is 2-4 (Unhappy). Default: 0.70 = -30% tax")
+                                .defineInRange("TierUnhappyMultiplier", 0.70, 0.0, 1.0);
+
+                HAPPINESS_TIER_DISCONTENT = BUILDER.comment(
+                                "Tax multiplier when happiness is 4-5 (Discontent). Default: 0.85 = -15% tax")
+                                .defineInRange("TierDiscontentMultiplier", 0.85, 0.0, 1.0);
+
+                HAPPINESS_TIER_NEUTRAL = BUILDER.comment(
+                                "Tax multiplier when happiness is 5-6 (Neutral). Default: 1.0 = no change")
+                                .defineInRange("TierNeutralMultiplier", 1.0, 0.5, 1.5);
+
+                HAPPINESS_TIER_CONTENT = BUILDER.comment(
+                                "Tax multiplier when happiness is 6-7 (Content). Default: 1.10 = +10% tax")
+                                .defineInRange("TierContentMultiplier", 1.10, 1.0, 2.0);
+
+                HAPPINESS_TIER_HAPPY = BUILDER.comment(
+                                "Tax multiplier when happiness is 7-9 (Happy). Default: 1.25 = +25% tax")
+                                .defineInRange("TierHappyMultiplier", 1.25, 1.0, 2.0);
+
+                HAPPINESS_TIER_VERY_HAPPY = BUILDER.comment(
+                                "Tax multiplier when happiness is 9-10 (Very Happy). Default: 1.40 = +40% tax")
+                                .defineInRange("TierVeryHappyMultiplier", 1.40, 1.0, 2.0);
+                BUILDER.pop();
+
                 // --- Tax Reports ---
                 BUILDER.push("Tax Reports");
                 ENABLE_TAX_REPORTS = BUILDER.comment(
@@ -1413,20 +1459,24 @@ public class TaxConfig {
                                                 .defineInRange("guardtowerMaintenanceUpgrade", 3.0, 0.0,
                                                                 Double.MAX_VALUE));
 
-                BUILDING_TAXES.put("barrackstower", BUILDER.comment("Base maintenance cost per hour for Barracks Tower")
-                                .defineInRange("barrackstowerMaintenance", 14.0, 0.0, Double.MAX_VALUE));
+                BUILDING_MAINTENANCE.put("barrackstower",
+                                BUILDER.comment("Base maintenance cost per hour for Barracks Tower")
+                                                .defineInRange("barrackstowerMaintenance", 14.0, 0.0,
+                                                                Double.MAX_VALUE));
                 UPGRADE_MAINTENANCE.put("barrackstower",
                                 BUILDER.comment("Additional maintenance per level for Barracks Tower")
                                                 .defineInRange("barrackstowerMaintenanceUpgrade", 6.0, 0.0,
                                                                 Double.MAX_VALUE));
 
-                BUILDING_TAXES.put("archery", BUILDER.comment("Base tax for Archery")
+                BUILDING_MAINTENANCE.put("archery", BUILDER.comment("Base maintenance cost per hour for Archery")
                                 .defineInRange("archeryMaintenance", 12.0, 0.0, Double.MAX_VALUE));
                 UPGRADE_MAINTENANCE.put("archery", BUILDER.comment("Base maintenance cost per hour for Archery")
                                 .defineInRange("archeryMaintenanceUpgrade", 6.0, 0.0, Double.MAX_VALUE));
 
-                BUILDING_TAXES.put("combatacademy", BUILDER.comment("Base maintenance cost per hour for Combat Academy")
-                                .defineInRange("combatacademyMaintenance", 14.0, 0.0, Double.MAX_VALUE));
+                BUILDING_MAINTENANCE.put("combatacademy",
+                                BUILDER.comment("Base maintenance cost per hour for Combat Academy")
+                                                .defineInRange("combatacademyMaintenance", 14.0, 0.0,
+                                                                Double.MAX_VALUE));
                 UPGRADE_MAINTENANCE.put("combatacademy",
                                 BUILDER.comment("Additional maintenance per level for Combat Academy")
                                                 .defineInRange("combatacademyMaintenanceUpgrade", 6.0, 0.0,
@@ -1502,19 +1552,6 @@ public class TaxConfig {
                 UPGRADE_TAXES.put("bakery", BUILDER.comment("Tax increase per level for Bakery")
                                 .defineInRange("bakeryUpgrade", 4.0, 0.0, Double.MAX_VALUE));
 
-                // BUILDING_TAXES.put("barracks", BUILDER.comment("Base tax for Barracks")
-                // .defineInRange("barracks", 15.0, 0.0, Double.MAX_VALUE));
-                // UPGRADE_TAXES.put("barracks", BUILDER.comment("Tax increase per level for
-                // Barracks")
-                // .defineInRange("barracksUpgrade", 7.0, 0.0, Double.MAX_VALUE));
-                //
-                // BUILDING_TAXES.put("barrackstower", BUILDER.comment("Base tax for Barracks
-                // Tower")
-                // .defineInRange("barrackstower", 14.0, 0.0, Double.MAX_VALUE));
-                // UPGRADE_TAXES.put("barrackstower", BUILDER.comment("Tax increase per level
-                // for Barracks Tower")
-                // .defineInRange("barrackstowerUpgrade", 6.0, 0.0, Double.MAX_VALUE));
-
                 BUILDING_TAXES.put("blacksmith", BUILDER.comment("Base tax for Blacksmith")
                                 .defineInRange("blacksmith", 18.0, 0.0, Double.MAX_VALUE));
                 UPGRADE_TAXES.put("blacksmith", BUILDER.comment("Tax increase per level for Blacksmith")
@@ -1571,12 +1608,6 @@ public class TaxConfig {
                                 .defineInRange("fisherman", 10.0, 0.0, Double.MAX_VALUE));
                 UPGRADE_TAXES.put("fisherman", BUILDER.comment("Tax increase per level for Fisherman")
                                 .defineInRange("fishermanUpgrade", 4.0, 0.0, Double.MAX_VALUE));
-
-                // BUILDING_TAXES.put("guardtower", BUILDER.comment("Base tax for Guard Tower")
-                // .defineInRange("guardtower", 10.0, 0.0, Double.MAX_VALUE));
-                // UPGRADE_TAXES.put("guardtower", BUILDER.comment("Tax increase per level for
-                // Guard Tower")
-                // .defineInRange("guardtowerUpgrade", 5.0, 0.0, Double.MAX_VALUE));
 
                 BUILDING_TAXES.put("home", BUILDER.comment("Base tax for Residence")
                                 .defineInRange("home", 5.0, 0.0, Double.MAX_VALUE));
@@ -1725,114 +1756,66 @@ public class TaxConfig {
                 UPGRADE_TAXES.put("gatehouse", BUILDER.comment("Tax increase per level for Gatehouse")
                                 .defineInRange("gatehouseUpgrade", 3.0, 0.0, Double.MAX_VALUE));
 
-                // Add mapping for full class names to short names used in config
-                // Legacy mappings (just in case)
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.barracks", "barracks");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.guardtower", "guardtower");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.archery", "archery");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.bakery", "bakery");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.blacksmith", "blacksmith");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.builder", "builder");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.chickenherder", "chickenherder");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.combatacademy", "combatacademy");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.composter", "composter");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.cook", "cook");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.cowboy", "cowboy");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.crusher", "crusher");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.deliveryman", "deliveryman");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.farmer", "farmer");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.fisherman", "fisherman");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.home", "residence");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.library", "library");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.university", "university");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.warehouse", "warehouse");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.tavern", "tavern");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.miner", "miner");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.sawmill", "sawmill");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.stonemason", "stonemason");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.florist", "florist");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.enchanter", "enchanter");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.hospital", "hospital");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.glassblower", "glassblower");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.dyer", "dyer");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.mechanic", "mechanic");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.plantation", "plantation");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.graveyard", "graveyard");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.beekeeper", "beekeeper");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.netherworker", "netherworker");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.alchemist", "alchemist");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.concretemixer", "concretemixer");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.fletcher", "fletcher");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.lumberjack", "lumberjack");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.rabbithutch", "rabbithutch");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.shepherd", "shepherd");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.smeltery", "smeltery");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.swineherder", "swineherder");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.townhall", "townhall");
-                CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.warehousedeliveryman", "warehousedeliveryman");
+                // Add mapping for MineColonies Registry IDs to short names used in config
+                // NOTE: Keys here MUST match the IDs in
+                // com.minecolonies.api.colony.buildings.ModBuildings
+                CLASS_NAME_TO_SHORT_NAME.put("archery", "archery");
+                CLASS_NAME_TO_SHORT_NAME.put("baker", "bakery");
+                CLASS_NAME_TO_SHORT_NAME.put("barracks", "barracks");
+                CLASS_NAME_TO_SHORT_NAME.put("barrackstower", "barrackstower");
+                CLASS_NAME_TO_SHORT_NAME.put("blacksmith", "blacksmith");
+                CLASS_NAME_TO_SHORT_NAME.put("builder", "builder");
+                CLASS_NAME_TO_SHORT_NAME.put("chickenherder", "chickenherder");
+                CLASS_NAME_TO_SHORT_NAME.put("combatacademy", "combatacademy");
+                CLASS_NAME_TO_SHORT_NAME.put("composter", "composter");
+                CLASS_NAME_TO_SHORT_NAME.put("cook", "cook");
+                CLASS_NAME_TO_SHORT_NAME.put("cowboy", "cowboy");
+                CLASS_NAME_TO_SHORT_NAME.put("crusher", "crusher");
+                CLASS_NAME_TO_SHORT_NAME.put("deliveryman", "deliveryman");
+                CLASS_NAME_TO_SHORT_NAME.put("farmer", "farmer");
+                CLASS_NAME_TO_SHORT_NAME.put("fisherman", "fisherman");
+                CLASS_NAME_TO_SHORT_NAME.put("residence", "home");
+                CLASS_NAME_TO_SHORT_NAME.put("library", "library");
+                CLASS_NAME_TO_SHORT_NAME.put("university", "university");
+                CLASS_NAME_TO_SHORT_NAME.put("warehouse", "warehouse");
+                CLASS_NAME_TO_SHORT_NAME.put("tavern", "tavern");
+                CLASS_NAME_TO_SHORT_NAME.put("miner", "miner");
+                CLASS_NAME_TO_SHORT_NAME.put("sawmill", "sawmill");
+                CLASS_NAME_TO_SHORT_NAME.put("stonemason", "stonemason");
+                CLASS_NAME_TO_SHORT_NAME.put("florist", "florist");
+                CLASS_NAME_TO_SHORT_NAME.put("enchanter", "enchanter");
+                CLASS_NAME_TO_SHORT_NAME.put("hospital", "hospital");
+                CLASS_NAME_TO_SHORT_NAME.put("glassblower", "glassblower");
+                CLASS_NAME_TO_SHORT_NAME.put("dyer", "dyer");
+                CLASS_NAME_TO_SHORT_NAME.put("mechanic", "mechanic");
+                CLASS_NAME_TO_SHORT_NAME.put("plantation", "plantation");
+                CLASS_NAME_TO_SHORT_NAME.put("graveyard", "graveyard");
+                CLASS_NAME_TO_SHORT_NAME.put("beekeeper", "beekeeper");
+                CLASS_NAME_TO_SHORT_NAME.put("netherworker", "netherworker");
 
-                // Correct new class name mappings (Standard MineColonies structure)
-                String prefix = "com.minecolonies.core.colony.buildings.workerbuildings.";
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingBarracks", "barracks");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingGuardTower", "guardtower");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingArchery", "archery");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingBaker", "bakery"); // Note: BuildingBaker -> bakery
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingBlacksmith", "blacksmith");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingBuilder", "builder");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingChickenHerder", "chickenherder");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingCombatAcademy", "combatacademy");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingComposter", "composter");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingCook", "cook");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingCowboy", "cowboy");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingCrusher", "crusher");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingDeliveryman", "deliveryman");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingFarmer", "farmer");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingFisherman", "fisherman");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingResidence", "residence"); // Note: BuildingResidence ->
-                                                                                         // residence
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingLibrary", "library");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingUniversity", "university");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingWarehouse", "warehouse");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingTavern", "tavern");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingMiner", "miner");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingSawmill", "sawmill");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingStonemason", "stonemason");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingFlorist", "florist");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingEnchanter", "enchanter");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingHospital", "hospital");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingGlassblower", "glassblower");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingDyer", "dyer");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingMechanic", "mechanic");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingPlantation", "plantation");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingGraveyard", "graveyard");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingBeekeeper", "beekeeper");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingNetherWorker", "netherworker");
+                CLASS_NAME_TO_SHORT_NAME.put("alchemist", "alchemist");
+                CLASS_NAME_TO_SHORT_NAME.put("concretemixer", "concretemixer");
+                CLASS_NAME_TO_SHORT_NAME.put("fletcher", "fletcher");
+                CLASS_NAME_TO_SHORT_NAME.put("lumberjack", "lumberjack");
+                CLASS_NAME_TO_SHORT_NAME.put("rabbithutch", "rabbithutch");
+                CLASS_NAME_TO_SHORT_NAME.put("shepherd", "shepherd");
+                CLASS_NAME_TO_SHORT_NAME.put("smeltery", "smeltery");
+                CLASS_NAME_TO_SHORT_NAME.put("swineherder", "swineherder");
+                CLASS_NAME_TO_SHORT_NAME.put("townhall", "townhall");
+                CLASS_NAME_TO_SHORT_NAME.put("guardtower", "guardtower");
 
-                // New buildings from user list
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingAlchemist", "alchemist");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingConcreteMixer", "concretemixer"); // Assuming Name
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingFletcher", "fletcher");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingLumberjack", "lumberjack");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingRabbitHutch", "rabbithutch"); // Assuming Name
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingShepherd", "shepherd");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingSmeltery", "smeltery");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingSwineHerder", "swineherder");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingTownHall", "townhall");
-                // CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingWarehouseDeliveryman",
-                // "warehousedeliveryman"); // Unlikely to need explicit class map if it's just
-                // a deliveryman variant, but kept for consistency if it exists
+                CLASS_NAME_TO_SHORT_NAME.put("stonesmeltery", "stonesmeltery");
+                CLASS_NAME_TO_SHORT_NAME.put("sifter", "sifter");
+                CLASS_NAME_TO_SHORT_NAME.put("postbox", "postbox");
+                CLASS_NAME_TO_SHORT_NAME.put("stash", "stash");
+                CLASS_NAME_TO_SHORT_NAME.put("school", "school");
+                CLASS_NAME_TO_SHORT_NAME.put("mysticalsite", "mysticalsite");
 
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingStoneSmeltery", "stonesmeltery");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingSifter", "sifter");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingPostbox", "postbox");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingStash", "stash");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingSchool", "school");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingMysticalSite", "mysticalsite");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingSimpleQuarry", "simplequarry");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingMediumQuarry", "mediumquarry");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingLargeQuarry", "largequarry");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingKitchen", "kitchen");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingGateHouse", "gatehouse");
+                CLASS_NAME_TO_SHORT_NAME.put("simplequarry", "simplequarry");
+                CLASS_NAME_TO_SHORT_NAME.put("mediumquarry", "mediumquarry");
+                CLASS_NAME_TO_SHORT_NAME.put("largequarry", "largequarry");
+                CLASS_NAME_TO_SHORT_NAME.put("kitchen", "kitchen");
+                CLASS_NAME_TO_SHORT_NAME.put("gatehouse", "gatehouse");
 
                 CONFIG = BUILDER.build();
         }
@@ -1846,13 +1829,14 @@ public class TaxConfig {
         }
 
         /**
-         * Retrieves the base tax for a given building type using its full class name.
+         * Retrieves the base tax for a given building type using its Registry ID.
          *
-         * @param fullClassName The full class name of the building type.
-         * @return The base tax amount.
+         * @param registryId The registry ID of the building (from
+         *                   building.getBuildingType().getRegistryName().getPath())
+         * @return The base tax value.
          */
-        public static double getBaseTaxForBuilding(String fullClassName) {
-                String shortName = getShortBuildingName(fullClassName);
+        public static double getBaseTaxForBuilding(String registryId) {
+                String shortName = getShortBuildingName(registryId);
                 ForgeConfigSpec.DoubleValue taxValue = BUILDING_TAXES.get(shortName);
                 return (taxValue != null) ? taxValue.get() : 0.0;
         }
@@ -1874,26 +1858,39 @@ public class TaxConfig {
         }
 
         /**
-         * Retrieves the upgrade tax for a given building type using its full class
-         * name.
+         * Retrieves the upgrade tax for a given building type using its Registry ID.
          *
-         * @param fullClassName The full class name of the building type.
+         * @param registryId The registry ID of the building.
          * @return The upgrade tax amount per level.
          */
-        public static double getUpgradeTaxForBuilding(String fullClassName) {
-                String shortName = getShortBuildingName(fullClassName);
+        public static double getUpgradeTaxForBuilding(String registryId) {
+                String shortName = getShortBuildingName(registryId);
                 ForgeConfigSpec.DoubleValue upgradeValue = UPGRADE_TAXES.get(shortName);
                 return (upgradeValue != null) ? upgradeValue.get() : 0.0;
         }
 
-        public static double getBaseMaintenanceForBuilding(String fullClassName) {
-                String shortName = getShortBuildingName(fullClassName);
+        /**
+         * Retrieves the base maintenance cost for a given building type using its
+         * Registry ID.
+         *
+         * @param registryId The registry ID of the building.
+         * @return The base maintenance cost.
+         */
+        public static double getBaseMaintenanceForBuilding(String registryId) {
+                String shortName = getShortBuildingName(registryId);
                 ForgeConfigSpec.DoubleValue maintenanceValue = BUILDING_MAINTENANCE.get(shortName);
                 return (maintenanceValue != null) ? maintenanceValue.get() : 0.0;
         }
 
-        public static double getUpgradeMaintenanceForBuilding(String fullClassName) {
-                String shortName = getShortBuildingName(fullClassName);
+        /**
+         * Retrieves the upgrade maintenance cost for a given building type using its
+         * Registry ID.
+         *
+         * @param registryId The registry ID of the building.
+         * @return The upgrade maintenance cost per level.
+         */
+        public static double getUpgradeMaintenanceForBuilding(String registryId) {
+                String shortName = getShortBuildingName(registryId);
                 ForgeConfigSpec.DoubleValue upgradeValue = UPGRADE_MAINTENANCE.get(shortName);
                 return (upgradeValue != null) ? upgradeValue.get() : 0.0;
         }
@@ -1916,14 +1913,13 @@ public class TaxConfig {
         }
 
         /**
-         * Helper method to convert full class name to short config name.
+         * Helper method to look up short name based on the Registry ID found at runtime
          *
-         * @param fullClassName Full class name of the building (e.g.,
-         *                      com.minecolonies.building.barracks).
+         * @param registryId Registry ID of the building (e.g., barracks).
          * @return The corresponding short name (e.g., barracks).
          */
-        private static String getShortBuildingName(String fullClassName) {
-                return CLASS_NAME_TO_SHORT_NAME.getOrDefault(fullClassName, "unknown");
+        private static String getShortBuildingName(String registryId) {
+                return CLASS_NAME_TO_SHORT_NAME.getOrDefault(registryId, "unknown");
         }
 
         public static boolean isColonyTransferEnabled() {
@@ -2147,6 +2143,25 @@ public class TaxConfig {
                 // Clamp happiness to valid range
                 avgHappiness = Math.max(0.0, Math.min(10.0, avgHappiness));
 
+                // Use stepped curve if enabled
+                if (useSteppedHappinessCurve()) {
+                        // 7-tier stepped happiness curve
+                        if (avgHappiness < 2.0)
+                                return getHappinessTierMiserable(); // Miserable: 0-2
+                        if (avgHappiness < 4.0)
+                                return getHappinessTierUnhappy(); // Unhappy: 2-4
+                        if (avgHappiness < 5.0)
+                                return getHappinessTierDiscontent(); // Discontent: 4-5
+                        if (avgHappiness < 6.0)
+                                return getHappinessTierNeutral(); // Neutral: 5-6
+                        if (avgHappiness < 7.0)
+                                return getHappinessTierContent(); // Content: 6-7
+                        if (avgHappiness < 9.0)
+                                return getHappinessTierHappy(); // Happy: 7-9
+                        return getHappinessTierVeryHappy(); // Very Happy: 9-10
+                }
+
+                // Fallback to linear interpolation (original behavior)
                 double minMultiplier = getHappinessTaxMultiplierMin();
                 double maxMultiplier = getHappinessTaxMultiplierMax();
 
@@ -2155,6 +2170,39 @@ public class TaxConfig {
 
                 // Linear interpolation between min and max multipliers
                 return minMultiplier + (normalizedHappiness * (maxMultiplier - minMultiplier));
+        }
+
+        // Stepped Happiness Curve Getters
+        public static boolean useSteppedHappinessCurve() {
+                return HAPPINESS_USE_STEPPED_CURVE.get();
+        }
+
+        public static double getHappinessTierMiserable() {
+                return HAPPINESS_TIER_MISERABLE.get();
+        }
+
+        public static double getHappinessTierUnhappy() {
+                return HAPPINESS_TIER_UNHAPPY.get();
+        }
+
+        public static double getHappinessTierDiscontent() {
+                return HAPPINESS_TIER_DISCONTENT.get();
+        }
+
+        public static double getHappinessTierNeutral() {
+                return HAPPINESS_TIER_NEUTRAL.get();
+        }
+
+        public static double getHappinessTierContent() {
+                return HAPPINESS_TIER_CONTENT.get();
+        }
+
+        public static double getHappinessTierHappy() {
+                return HAPPINESS_TIER_HAPPY.get();
+        }
+
+        public static double getHappinessTierVeryHappy() {
+                return HAPPINESS_TIER_VERY_HAPPY.get();
         }
 
         // Colony Auto-Abandon Configuration Getters

@@ -87,6 +87,7 @@ public class MineColonyTax {
         WarChestCommand.register(event.getServer().getCommands().getDispatcher());
         RaidRepairCommand.register(event.getServer().getCommands().getDispatcher());
         FactionCommand.register(event.getServer().getCommands().getDispatcher());
+        net.machiavelli.minecolonytax.commands.RansomCommand.register(event.getServer().getCommands().getDispatcher());
         LOGGER.info("WarChestCommand registered");
 
         LOGGER.info("Server starting - initializing TaxManager with configured interval of {} minutes",
@@ -97,6 +98,14 @@ public class MineColonyTax {
         // Initialize War Exhaustion Manager for penalty tracking
         net.machiavelli.minecolonytax.economy.WarExhaustionManager.initialize(event.getServer());
         LOGGER.info("WarExhaustionManager initialization complete");
+
+        // Initialize Ransom Manager
+        net.machiavelli.minecolonytax.economy.RansomManager.initialize(event.getServer());
+        LOGGER.info("RansomManager initialization complete");
+
+        // Initialize Tax Policy Manager
+        net.machiavelli.minecolonytax.economy.TaxPolicyManager.initialize(event.getServer());
+        LOGGER.info("TaxPolicyManager initialization complete");
 
         // Restore all colony permissions to config defaults (disable war/raid actions)
         // This ensures clean state after server restarts/crashes
@@ -199,6 +208,20 @@ public class MineColonyTax {
             LOGGER.info("WarExhaustionManager shutdown complete");
         } catch (Throwable t) {
             LOGGER.warn("Error during WarExhaustionManager shutdown: {}", t.toString());
+        }
+
+        try {
+            net.machiavelli.minecolonytax.economy.TaxPolicyManager.shutdown();
+            LOGGER.info("TaxPolicyManager shutdown complete");
+        } catch (Throwable t) {
+            LOGGER.warn("Error during TaxPolicyManager shutdown: {}", t.toString());
+        }
+
+        try {
+            net.machiavelli.minecolonytax.economy.RansomManager.shutdown();
+            LOGGER.info("RansomManager shutdown complete");
+        } catch (Throwable t) {
+            LOGGER.warn("Error during RansomManager shutdown: {}", t.toString());
         }
 
         try {
