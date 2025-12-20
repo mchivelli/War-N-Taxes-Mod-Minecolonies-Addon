@@ -54,11 +54,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GivePatchouliBookOnJoin` (default: true) - Give book to new players
 - `ShowAdminPatchouliCategory` (default: false) - Show admin config section in book
 
-### 🐛 Bug Fixes
-
-- **FIXED**: Added missing prerequisite note in First Steps explaining MineColonies colony requirement
-- **FIXED**: Advancement localization keys added for proper display in Advancements screen
-
 ## [3.2.11] - 2025-12-07
 
 ### ⚔️ War Vassalization System
