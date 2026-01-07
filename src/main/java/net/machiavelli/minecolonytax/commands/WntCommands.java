@@ -514,7 +514,8 @@ public class WntCommands {
                                                                 .executes(WntCommands::handleClaimColony)))
 
                                 .then(Commands.literal("listabandoned")
-                                                .requires(source -> source.hasPermission(2))
+                                                .requires(source -> TaxConfig.isListAbandonedForAllEnabled()
+                                                                || source.hasPermission(2))
                                                 .executes(WntCommands::listAbandonedColonies))
                                 .then(Commands.literal("claimstatus")
                                                 .executes(WntCommands::checkClaimingStatus))

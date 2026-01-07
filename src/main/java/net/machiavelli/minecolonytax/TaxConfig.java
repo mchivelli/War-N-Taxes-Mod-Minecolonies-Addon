@@ -152,6 +152,7 @@ public class TaxConfig {
         public static final ForgeConfigSpec.IntValue COLONY_AUTO_ABANDON_DAYS;
         public static final ForgeConfigSpec.BooleanValue NOTIFY_OWNERS_BEFORE_ABANDON;
         public static final ForgeConfigSpec.IntValue ABANDON_WARNING_DAYS;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_LIST_ABANDONED_FOR_ALL;
 
         // Abandoned Colony Claiming Configuration
         public static final ForgeConfigSpec.BooleanValue ENABLE_ABANDONED_COLONY_CLAIMING;
@@ -639,6 +640,13 @@ public class TaxConfig {
                 ABANDON_WARNING_DAYS = BUILDER.comment("Days before abandonment to warn owners and officers. " +
                                 "Warnings are sent when they log in during this period.")
                                 .defineInRange("AbandonWarningDays", 3, 1, 30);
+
+                ENABLE_LIST_ABANDONED_FOR_ALL = BUILDER.comment(
+                                "Allow ALL players to use /wnt listabandoned command.\n" +
+                                                "When FALSE (default): Only OPs (permission level 2+) can view abandoned colonies.\n"
+                                                +
+                                                "When TRUE: Any player can view the list of abandoned colonies available for claiming.")
+                                .define("EnableListAbandonedForAll", false);
 
                 BUILDER.pop();
 
@@ -2609,5 +2617,9 @@ public class TaxConfig {
 
         public static int getInvestmentResearchDurationDays() {
                 return INVESTMENT_RESEARCH_DURATION_DAYS.get();
+        }
+
+        public static boolean isListAbandonedForAllEnabled() {
+                return ENABLE_LIST_ABANDONED_FOR_ALL.get();
         }
 }
