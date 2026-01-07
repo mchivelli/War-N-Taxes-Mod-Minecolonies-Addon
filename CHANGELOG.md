@@ -7,30 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [4.0.2] - 2025-12-15
+## [4.0.0] - 2025-12-15
 
-### 🐛 Critical Tax System Fixes
-
-- **FIXED**: **Military Buildings Using Wrong Config Map** - `barrackstower`, `archery`, and `combatacademy` were incorrectly using `BUILDING_TAXES.put()` instead of `BUILDING_MAINTENANCE.put()` in the military maintenance section
-- **FIXED**: **Duplicate Tax Entries** - Removed duplicate `barracks`, `guardtower`, and `barrackstower` entries from BUILDING_TAXES (military buildings should only have maintenance costs, not generate tax income)
-- **FIXED**: **Debug Command Using Wrong Identifier** - The `/wnt debugtax` command was using `getBuildingDisplayName()` (e.g., "Restaurant", "Guard Tower") instead of the Registry ID (`getBuildingType().getRegistryName().getPath()` - e.g., "cook", "guardtower"), causing ALL buildings to show 0 tax in debug output
-- **IMPROVED**: Debug output now shows both display name and registry ID for clarity: `Restaurant [cook] (L3): +15 tax, -0 maint = +15 net`
-
-#### Technical Details:
-- Military buildings (`barracks`, `barrackstower`, `guardtower`, `archery`, `combatacademy`) now correctly only have maintenance entries
-- Tax-generating buildings use `BUILDING_TAXES` map, military buildings use `BUILDING_MAINTENANCE` map
-- All 54 MineColonies Registry IDs verified against `ModBuildings.java`
-- `CLASS_NAME_TO_SHORT_NAME` mappings verified: `baker`→`bakery`, `residence`→`home`, all others→same name
-
-## [4.0.1] - 2025-12-14
-
-### 🐛 Bug Fixes
-
-- **FIXED**: **War Declaration with Multiple Colonies** - Fixed an issue where players with multiple colonies could not declare war if their "first" colony didn't meet requirements. The system now correctly checks all owned colonies for valid war capabilities.
-
-## [4.0.0] - 2025-12-14
-
-### 📖 Patchouli Guidebook Integration
+### � Patchouli Guidebook Integration
 
 - **NEW FEATURE**: **War 'N Taxes Codex** - Complete in-game guidebook powered by Patchouli
 - **Automatic Book Distribution**: Players receive the codex on first join (configurable)
@@ -54,8 +33,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GivePatchouliBookOnJoin` (default: true) - Give book to new players
 - `ShowAdminPatchouliCategory` (default: false) - Show admin config section in book
 
+### �🐛 Critical Tax System Fixes
+
+- **FIXED**: **Military Buildings Using Wrong Config Map** - `barrackstower`, `archery`, and `combatacademy` were incorrectly using `BUILDING_TAXES.put()` instead of `BUILDING_MAINTENANCE.put()` in the military maintenance section
+- **FIXED**: **Duplicate Tax Entries** - Removed duplicate `barracks`, `guardtower`, and `barrackstower` entries from BUILDING_TAXES (military buildings should only have maintenance costs, not generate tax income)
+- **FIXED**: **Debug Command Using Wrong Identifier** - The `/wnt debugtax` command was using `getBuildingDisplayName()` (e.g., "Restaurant", "Guard Tower") instead of the Registry ID (`getBuildingType().getRegistryName().getPath()` - e.g., "cook", "guardtower"), causing ALL buildings to show 0 tax in debug output
+- **IMPROVED**: Debug output now shows both display name and registry ID for clarity: `Restaurant [cook] (L3): +15 tax, -0 maint = +15 net`
+
+#### Technical Details:
+- Military buildings (`barracks`, `barrackstower`, `guardtower`, `archery`, `combatacademy`) now correctly only have maintenance entries
+- Tax-generating buildings use `BUILDING_TAXES` map, military buildings use `BUILDING_MAINTENANCE` map
+- All 54 MineColonies Registry IDs verified against `ModBuildings.java`
+- `CLASS_NAME_TO_SHORT_NAME` mappings verified: `baker`→`bakery`, `residence`→`home`, all others→same name
+
 ### 🐛 Bug Fixes
 
+- **FIXED**: **War Declaration with Multiple Colonies** - Fixed an issue where players with multiple colonies could not declare war if their "first" colony didn't meet requirements. The system now correctly checks all owned colonies for valid war capabilities.
 - **FIXED**: Added missing prerequisite note in First Steps explaining MineColonies colony requirement
 - **FIXED**: Advancement localization keys added for proper display in Advancements screen
 
