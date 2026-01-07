@@ -1410,36 +1410,43 @@ public class TaxConfig {
 
                 BUILDER.push("Military Maintenance Costs");
 
-                BUILDING_MAINTENANCE.put("barracks", BUILDER.comment("Base maintenance cost per hour for Barracks")
-                                .defineInRange("barracksMaintenance", 15.0, 0.0, Double.MAX_VALUE));
-                UPGRADE_MAINTENANCE.put("barracks", BUILDER.comment("Additional maintenance per level for Barracks")
-                                .defineInRange("barracksMaintenanceUpgrade", 5.0, 0.0, Double.MAX_VALUE));
+                BUILDING_MAINTENANCE.put("barracks",
+                                BUILDER.comment("Base maintenance cost per hour for Barracks (Range: 0-10000)")
+                                                .defineInRange("barracksMaintenance", 15.0, 0.0, 10000.0));
+                UPGRADE_MAINTENANCE.put("barracks",
+                                BUILDER.comment("Additional maintenance per level for Barracks (Range: 0-1000)")
+                                                .defineInRange("barracksMaintenanceUpgrade", 5.0, 0.0, 1000.0));
 
-                BUILDING_MAINTENANCE.put("guardtower", BUILDER.comment("Base maintenance cost per hour for Guard Tower")
-                                .defineInRange("guardtowerMaintenance", 10.0, 0.0, Double.MAX_VALUE));
+                BUILDING_MAINTENANCE.put("guardtower",
+                                BUILDER.comment("Base maintenance cost per hour for Guard Tower (Range: 0-10000)")
+                                                .defineInRange("guardtowerMaintenance", 10.0, 0.0, 10000.0));
                 UPGRADE_MAINTENANCE.put("guardtower",
-                                BUILDER.comment("Additional maintenance per level for Guard Tower")
+                                BUILDER.comment("Additional maintenance per level for Guard Tower (Range: 0-1000)")
                                                 .defineInRange("guardtowerMaintenanceUpgrade", 3.0, 0.0,
-                                                                Double.MAX_VALUE));
+                                                                1000.0));
 
-                BUILDING_TAXES.put("barrackstower", BUILDER.comment("Base maintenance cost per hour for Barracks Tower")
-                                .defineInRange("barrackstowerMaintenance", 14.0, 0.0, Double.MAX_VALUE));
+                BUILDING_MAINTENANCE.put("barrackstower",
+                                BUILDER.comment("Base maintenance cost per hour for Barracks Tower (Range: 0-10000)")
+                                                .defineInRange("barrackstowerMaintenance", 14.0, 0.0, 10000.0));
                 UPGRADE_MAINTENANCE.put("barrackstower",
-                                BUILDER.comment("Additional maintenance per level for Barracks Tower")
+                                BUILDER.comment("Additional maintenance per level for Barracks Tower (Range: 0-1000)")
                                                 .defineInRange("barrackstowerMaintenanceUpgrade", 6.0, 0.0,
-                                                                Double.MAX_VALUE));
+                                                                1000.0));
 
-                BUILDING_TAXES.put("archery", BUILDER.comment("Base tax for Archery")
-                                .defineInRange("archeryMaintenance", 12.0, 0.0, Double.MAX_VALUE));
-                UPGRADE_MAINTENANCE.put("archery", BUILDER.comment("Base maintenance cost per hour for Archery")
-                                .defineInRange("archeryMaintenanceUpgrade", 6.0, 0.0, Double.MAX_VALUE));
+                BUILDING_MAINTENANCE.put("archery",
+                                BUILDER.comment("Base maintenance cost per hour for Archery (Range: 0-10000)")
+                                                .defineInRange("archeryMaintenance", 12.0, 0.0, 10000.0));
+                UPGRADE_MAINTENANCE.put("archery",
+                                BUILDER.comment("Additional maintenance per level for Archery (Range: 0-1000)")
+                                                .defineInRange("archeryMaintenanceUpgrade", 6.0, 0.0, 1000.0));
 
-                BUILDING_TAXES.put("combatacademy", BUILDER.comment("Base maintenance cost per hour for Combat Academy")
-                                .defineInRange("combatacademyMaintenance", 14.0, 0.0, Double.MAX_VALUE));
+                BUILDING_MAINTENANCE.put("combatacademy",
+                                BUILDER.comment("Base maintenance cost per hour for Combat Academy (Range: 0-10000)")
+                                                .defineInRange("combatacademyMaintenance", 14.0, 0.0, 10000.0));
                 UPGRADE_MAINTENANCE.put("combatacademy",
-                                BUILDER.comment("Additional maintenance per level for Combat Academy")
+                                BUILDER.comment("Additional maintenance per level for Combat Academy (Range: 0-1000)")
                                                 .defineInRange("combatacademyMaintenanceUpgrade", 6.0, 0.0,
-                                                                Double.MAX_VALUE));
+                                                                1000.0));
 
                 BUILDER.pop();
 
@@ -1449,290 +1456,290 @@ public class TaxConfig {
                 // Add base and upgrade taxes for all buildings
 
                 // BUILDING_TAXES.put("archery", BUILDER.comment("Base tax for Archery")
-                // .defineInRange("archery", 12.0, 0.0, Double.MAX_VALUE));
+                // .defineInRange("archery", 12.0, 0.0, 10000.0));
                 // UPGRADE_TAXES.put("archery", BUILDER.comment("Tax increase per level for
                 // Archery")
-                // .defineInRange("archeryUpgrade", 6.0, 0.0, Double.MAX_VALUE));
+                // .defineInRange("archeryUpgrade", 6.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("alchemist", BUILDER.comment("Base tax for Alchemist")
-                                .defineInRange("alchemist", 12.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("alchemist", 12.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("alchemist", BUILDER.comment("Tax increase per level for Alchemist")
-                                .defineInRange("alchemistUpgrade", 5.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("alchemistUpgrade", 5.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("concretemixer", BUILDER.comment("Base tax for Concrete Mixer")
-                                .defineInRange("concretemixer", 10.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("concretemixer", 10.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("concretemixer", BUILDER.comment("Tax increase per level for Concrete Mixer")
-                                .defineInRange("concretemixerUpgrade", 4.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("concretemixerUpgrade", 4.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("fletcher", BUILDER.comment("Base tax for Fletcher")
-                                .defineInRange("fletcher", 9.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("fletcher", 9.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("fletcher", BUILDER.comment("Tax increase per level for Fletcher")
-                                .defineInRange("fletcherUpgrade", 3.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("fletcherUpgrade", 3.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("lumberjack", BUILDER.comment("Base tax for Lumberjack")
-                                .defineInRange("lumberjack", 11.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("lumberjack", 11.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("lumberjack", BUILDER.comment("Tax increase per level for Lumberjack")
-                                .defineInRange("lumberjackUpgrade", 5.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("lumberjackUpgrade", 5.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("rabbithutch", BUILDER.comment("Base tax for Rabbit Hutch")
-                                .defineInRange("rabbithutch", 8.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("rabbithutch", 8.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("rabbithutch", BUILDER.comment("Tax increase per level for Rabbit Hutch")
-                                .defineInRange("rabbithutchUpgrade", 2.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("rabbithutchUpgrade", 2.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("shepherd", BUILDER.comment("Base tax for Shepherd")
-                                .defineInRange("shepherd", 9.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("shepherd", 9.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("shepherd", BUILDER.comment("Tax increase per level for Shepherd")
-                                .defineInRange("shepherdUpgrade", 3.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("shepherdUpgrade", 3.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("smeltery", BUILDER.comment("Base tax for Smeltery")
-                                .defineInRange("smeltery", 15.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("smeltery", 15.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("smeltery", BUILDER.comment("Tax increase per level for Smeltery")
-                                .defineInRange("smelteryUpgrade", 6.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("smelteryUpgrade", 6.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("swineherder", BUILDER.comment("Base tax for Swine Herder")
-                                .defineInRange("swineherder", 10.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("swineherder", 10.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("swineherder", BUILDER.comment("Tax increase per level for Swine Herder")
-                                .defineInRange("swineherderUpgrade", 4.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("swineherderUpgrade", 4.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("townhall", BUILDER.comment("Base tax for Town Hall")
-                                .defineInRange("townhall", 20.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("townhall", 20.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("townhall", BUILDER.comment("Tax increase per level for Town Hall")
-                                .defineInRange("townhallUpgrade", 8.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("townhallUpgrade", 8.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("warehousedeliveryman", BUILDER.comment("Base tax for Warehouse Deliveryman")
-                                .defineInRange("warehousedeliveryman", 12.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("warehousedeliveryman", 12.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("warehousedeliveryman",
                                 BUILDER.comment("Tax increase per level for Warehouse Deliveryman")
                                                 .defineInRange("warehousedeliverymanUpgrade", 5.0, 0.0,
-                                                                Double.MAX_VALUE));
+                                                                10000.0));
 
                 BUILDING_TAXES.put("bakery", BUILDER.comment("Base tax for Bakery")
-                                .defineInRange("bakery", 10.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("bakery", 10.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("bakery", BUILDER.comment("Tax increase per level for Bakery")
-                                .defineInRange("bakeryUpgrade", 4.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("bakeryUpgrade", 4.0, 0.0, 10000.0));
 
                 // BUILDING_TAXES.put("barracks", BUILDER.comment("Base tax for Barracks")
-                // .defineInRange("barracks", 15.0, 0.0, Double.MAX_VALUE));
+                // .defineInRange("barracks", 15.0, 0.0, 10000.0));
                 // UPGRADE_TAXES.put("barracks", BUILDER.comment("Tax increase per level for
                 // Barracks")
-                // .defineInRange("barracksUpgrade", 7.0, 0.0, Double.MAX_VALUE));
+                // .defineInRange("barracksUpgrade", 7.0, 0.0, 10000.0));
                 //
                 // BUILDING_TAXES.put("barrackstower", BUILDER.comment("Base tax for Barracks
                 // Tower")
-                // .defineInRange("barrackstower", 14.0, 0.0, Double.MAX_VALUE));
+                // .defineInRange("barrackstower", 14.0, 0.0, 10000.0));
                 // UPGRADE_TAXES.put("barrackstower", BUILDER.comment("Tax increase per level
                 // for Barracks Tower")
-                // .defineInRange("barrackstowerUpgrade", 6.0, 0.0, Double.MAX_VALUE));
+                // .defineInRange("barrackstowerUpgrade", 6.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("blacksmith", BUILDER.comment("Base tax for Blacksmith")
-                                .defineInRange("blacksmith", 18.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("blacksmith", 18.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("blacksmith", BUILDER.comment("Tax increase per level for Blacksmith")
-                                .defineInRange("blacksmithUpgrade", 8.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("blacksmithUpgrade", 8.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("builder", BUILDER.comment("Base tax for Builder")
-                                .defineInRange("builder", 8.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("builder", 8.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("builder", BUILDER.comment("Tax increase per level for Builder")
-                                .defineInRange("builderUpgrade", 4.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("builderUpgrade", 4.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("chickenherder", BUILDER.comment("Base tax for Chicken Herder")
-                                .defineInRange("chickenherder", 9.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("chickenherder", 9.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("chickenherder", BUILDER.comment("Tax increase per level for Chicken Herder")
-                                .defineInRange("chickenherderUpgrade", 3.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("chickenherderUpgrade", 3.0, 0.0, 10000.0));
 
                 // BUILDING_TAXES.put("combatacademy", BUILDER.comment("Base tax for Combat
                 // Academy")
-                // .defineInRange("combatacademy", 14.0, 0.0, Double.MAX_VALUE));
+                // .defineInRange("combatacademy", 14.0, 0.0, 10000.0));
                 // UPGRADE_TAXES.put("combatacademy", BUILDER.comment("Tax increase per level
                 // for Combat Academy")
-                // .defineInRange("combatacademyUpgrade", 6.0, 0.0, Double.MAX_VALUE));
+                // .defineInRange("combatacademyUpgrade", 6.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("composter", BUILDER.comment("Base tax for Composter")
-                                .defineInRange("composter", 6.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("composter", 6.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("composter", BUILDER.comment("Tax increase per level for Composter")
-                                .defineInRange("composterUpgrade", 2.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("composterUpgrade", 2.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("cook", BUILDER.comment("Base tax for Cook")
-                                .defineInRange("cook", 12.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("cook", 12.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("cook", BUILDER.comment("Tax increase per level for Cook")
-                                .defineInRange("cookUpgrade", 5.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("cookUpgrade", 5.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("cowboy", BUILDER.comment("Base tax for Cowboy")
-                                .defineInRange("cowboy", 9.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("cowboy", 9.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("cowboy", BUILDER.comment("Tax increase per level for Cowboy")
-                                .defineInRange("cowboyUpgrade", 4.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("cowboyUpgrade", 4.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("crusher", BUILDER.comment("Base tax for Crusher")
-                                .defineInRange("crusher", 13.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("crusher", 13.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("crusher", BUILDER.comment("Tax increase per level for Crusher")
-                                .defineInRange("crusherUpgrade", 6.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("crusherUpgrade", 6.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("deliveryman", BUILDER.comment("Base tax for Deliveryman")
-                                .defineInRange("deliveryman", 12.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("deliveryman", 12.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("deliveryman", BUILDER.comment("Tax increase per level for Deliveryman")
-                                .defineInRange("deliverymanUpgrade", 5.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("deliverymanUpgrade", 5.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("farmer", BUILDER.comment("Base tax for Farmer")
-                                .defineInRange("farmer", 11.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("farmer", 11.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("farmer", BUILDER.comment("Tax increase per level for Farmer")
-                                .defineInRange("farmerUpgrade", 5.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("farmerUpgrade", 5.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("fisherman", BUILDER.comment("Base tax for Fisherman")
-                                .defineInRange("fisherman", 10.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("fisherman", 10.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("fisherman", BUILDER.comment("Tax increase per level for Fisherman")
-                                .defineInRange("fishermanUpgrade", 4.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("fishermanUpgrade", 4.0, 0.0, 10000.0));
 
                 // BUILDING_TAXES.put("guardtower", BUILDER.comment("Base tax for Guard Tower")
-                // .defineInRange("guardtower", 10.0, 0.0, Double.MAX_VALUE));
+                // .defineInRange("guardtower", 10.0, 0.0, 10000.0));
                 // UPGRADE_TAXES.put("guardtower", BUILDER.comment("Tax increase per level for
                 // Guard Tower")
-                // .defineInRange("guardtowerUpgrade", 5.0, 0.0, Double.MAX_VALUE));
+                // .defineInRange("guardtowerUpgrade", 5.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("home", BUILDER.comment("Base tax for Residence")
-                                .defineInRange("home", 5.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("home", 5.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("home", BUILDER.comment("Tax increase per level for Residence")
-                                .defineInRange("homeUpgrade", 2.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("homeUpgrade", 2.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("library", BUILDER.comment("Base tax for Library")
-                                .defineInRange("library", 13.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("library", 13.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("library", BUILDER.comment("Tax increase per level for Library")
-                                .defineInRange("libraryUpgrade", 6.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("libraryUpgrade", 6.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("university", BUILDER.comment("Base tax for University")
-                                .defineInRange("university", 20.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("university", 20.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("university", BUILDER.comment("Tax increase per level for University")
-                                .defineInRange("universityUpgrade", 10.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("universityUpgrade", 10.0, 0.0, 10000.0));
 
                 // Additional buildings
                 BUILDING_TAXES.put("warehouse", BUILDER.comment("Base tax for Warehouse")
-                                .defineInRange("warehouse", 10.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("warehouse", 10.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("warehouse", BUILDER.comment("Tax increase per level for Warehouse")
-                                .defineInRange("warehouseUpgrade", 4.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("warehouseUpgrade", 4.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("tavern", BUILDER.comment("Base tax for Tavern")
-                                .defineInRange("tavern", 14.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("tavern", 14.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("tavern", BUILDER.comment("Tax increase per level for Tavern")
-                                .defineInRange("tavernUpgrade", 6.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("tavernUpgrade", 6.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("miner", BUILDER.comment("Base tax for Miner")
-                                .defineInRange("miner", 11.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("miner", 11.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("miner", BUILDER.comment("Tax increase per level for Miner")
-                                .defineInRange("minerUpgrade", 5.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("minerUpgrade", 5.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("sawmill", BUILDER.comment("Base tax for Sawmill")
-                                .defineInRange("sawmill", 10.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("sawmill", 10.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("sawmill", BUILDER.comment("Tax increase per level for Sawmill")
-                                .defineInRange("sawmillUpgrade", 3.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("sawmillUpgrade", 3.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("stonemason", BUILDER.comment("Base tax for Stonemason")
-                                .defineInRange("stonemason", 12.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("stonemason", 12.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("stonemason", BUILDER.comment("Tax increase per level for Stonemason")
-                                .defineInRange("stonemasonUpgrade", 4.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("stonemasonUpgrade", 4.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("florist", BUILDER.comment("Base tax for Florist")
-                                .defineInRange("florist", 8.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("florist", 8.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("florist", BUILDER.comment("Tax increase per level for Florist")
-                                .defineInRange("floristUpgrade", 2.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("floristUpgrade", 2.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("enchanter", BUILDER.comment("Base tax for Enchanter")
-                                .defineInRange("enchanter", 15.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("enchanter", 15.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("enchanter", BUILDER.comment("Tax increase per level for Enchanter")
-                                .defineInRange("enchanterUpgrade", 5.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("enchanterUpgrade", 5.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("hospital", BUILDER.comment("Base tax for Hospital")
-                                .defineInRange("hospital", 20.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("hospital", 20.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("hospital", BUILDER.comment("Tax increase per level for Hospital")
-                                .defineInRange("hospitalUpgrade", 8.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("hospitalUpgrade", 8.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("glassblower", BUILDER.comment("Base tax for Glassblower")
-                                .defineInRange("glassblower", 10.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("glassblower", 10.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("glassblower", BUILDER.comment("Tax increase per level for Glassblower")
-                                .defineInRange("glassblowerUpgrade", 3.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("glassblowerUpgrade", 3.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("dyer", BUILDER.comment("Base tax for Dyer")
-                                .defineInRange("dyer", 9.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("dyer", 9.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("dyer", BUILDER.comment("Tax increase per level for Dyer")
-                                .defineInRange("dyerUpgrade", 3.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("dyerUpgrade", 3.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("mechanic", BUILDER.comment("Base tax for Mechanic")
-                                .defineInRange("mechanic", 11.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("mechanic", 11.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("mechanic", BUILDER.comment("Tax increase per level for Mechanic")
-                                .defineInRange("mechanicUpgrade", 4.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("mechanicUpgrade", 4.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("plantation", BUILDER.comment("Base tax for Plantation")
-                                .defineInRange("plantation", 12.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("plantation", 12.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("plantation", BUILDER.comment("Tax increase per level for Plantation")
-                                .defineInRange("plantationUpgrade", 4.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("plantationUpgrade", 4.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("graveyard", BUILDER.comment("Base tax for Graveyard")
-                                .defineInRange("graveyard", 7.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("graveyard", 7.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("graveyard", BUILDER.comment("Tax increase per level for Graveyard")
-                                .defineInRange("graveyardUpgrade", 2.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("graveyardUpgrade", 2.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("beekeeper", BUILDER.comment("Base tax for Beekeeper")
-                                .defineInRange("beekeeper", 9.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("beekeeper", 9.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("beekeeper", BUILDER.comment("Tax increase per level for Beekeeper")
-                                .defineInRange("beekeeperUpgrade", 3.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("beekeeperUpgrade", 3.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("netherworker", BUILDER.comment("Base tax for Nether Worker")
-                                .defineInRange("netherworker", 15.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("netherworker", 15.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("netherworker", BUILDER.comment("Tax increase per level for Nether Worker")
-                                .defineInRange("netherworkerUpgrade", 6.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("netherworkerUpgrade", 6.0, 0.0, 10000.0));
 
                 // Newly added buildings
                 BUILDING_TAXES.put("stonesmeltery", BUILDER.comment("Base tax for Stone Smeltery")
-                                .defineInRange("stonesmeltery", 12.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("stonesmeltery", 12.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("stonesmeltery", BUILDER.comment("Tax increase per level for Stone Smeltery")
-                                .defineInRange("stonesmelteryUpgrade", 5.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("stonesmelteryUpgrade", 5.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("sifter", BUILDER.comment("Base tax for Sifter")
-                                .defineInRange("sifter", 10.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("sifter", 10.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("sifter", BUILDER.comment("Tax increase per level for Sifter")
-                                .defineInRange("sifterUpgrade", 4.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("sifterUpgrade", 4.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("postbox", BUILDER.comment("Base tax for Postbox")
-                                .defineInRange("postbox", 8.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("postbox", 8.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("postbox", BUILDER.comment("Tax increase per level for Postbox")
-                                .defineInRange("postboxUpgrade", 2.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("postboxUpgrade", 2.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("stash", BUILDER.comment("Base tax for Stash")
-                                .defineInRange("stash", 5.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("stash", 5.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("stash", BUILDER.comment("Tax increase per level for Stash")
-                                .defineInRange("stashUpgrade", 1.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("stashUpgrade", 1.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("school", BUILDER.comment("Base tax for School")
-                                .defineInRange("school", 15.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("school", 15.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("school", BUILDER.comment("Tax increase per level for School")
-                                .defineInRange("schoolUpgrade", 5.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("schoolUpgrade", 5.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("mysticalsite", BUILDER.comment("Base tax for Mystical Site")
-                                .defineInRange("mysticalsite", 20.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("mysticalsite", 20.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("mysticalsite", BUILDER.comment("Tax increase per level for Mystical Site")
-                                .defineInRange("mysticalsiteUpgrade", 10.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("mysticalsiteUpgrade", 10.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("simplequarry", BUILDER.comment("Base tax for Simple Quarry")
-                                .defineInRange("simplequarry", 15.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("simplequarry", 15.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("simplequarry", BUILDER.comment("Tax increase per level for Simple Quarry")
-                                .defineInRange("simplequarryUpgrade", 5.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("simplequarryUpgrade", 5.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("mediumquarry", BUILDER.comment("Base tax for Medium Quarry")
-                                .defineInRange("mediumquarry", 20.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("mediumquarry", 20.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("mediumquarry", BUILDER.comment("Tax increase per level for Medium Quarry")
-                                .defineInRange("mediumquarryUpgrade", 7.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("mediumquarryUpgrade", 7.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("largequarry", BUILDER.comment("Base tax for Large Quarry")
-                                .defineInRange("largequarry", 25.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("largequarry", 25.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("largequarry", BUILDER.comment("Tax increase per level for Large Quarry")
-                                .defineInRange("largequarryUpgrade", 9.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("largequarryUpgrade", 9.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("kitchen", BUILDER.comment("Base tax for Kitchen")
-                                .defineInRange("kitchen", 12.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("kitchen", 12.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("kitchen", BUILDER.comment("Tax increase per level for Kitchen")
-                                .defineInRange("kitchenUpgrade", 5.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("kitchenUpgrade", 5.0, 0.0, 10000.0));
 
                 BUILDING_TAXES.put("gatehouse", BUILDER.comment("Base tax for Gatehouse")
-                                .defineInRange("gatehouse", 10.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("gatehouse", 10.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("gatehouse", BUILDER.comment("Tax increase per level for Gatehouse")
-                                .defineInRange("gatehouseUpgrade", 3.0, 0.0, Double.MAX_VALUE));
+                                .defineInRange("gatehouseUpgrade", 3.0, 0.0, 10000.0));
 
                 // Add mapping for full class names to short names used in config
                 // Legacy mappings (just in case)
