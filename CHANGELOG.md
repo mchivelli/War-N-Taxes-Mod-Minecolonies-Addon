@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [4.0.0] - 2025-12-15
 
-### � Patchouli Guidebook Integration
+### 📖 Patchouli Guidebook Integration
 
 - **NEW FEATURE**: **War 'N Taxes Codex** - Complete in-game guidebook powered by Patchouli
 - **Automatic Book Distribution**: Players receive the codex on first join (configurable)
@@ -33,7 +33,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GivePatchouliBookOnJoin` (default: true) - Give book to new players
 - `ShowAdminPatchouliCategory` (default: false) - Show admin config section in book
 
-### �🐛 Critical Tax System Fixes
+### 💰 SDMShop Integration Fix
+
+- **FIXED**: **SDMShop Currency Conversion** - Fixed critical bug where SDMShop currency items were not being properly detected and converted when players claimed tax
+- **Root Cause**: The currency item lookup was failing when SDMShop mod was present, resulting in players receiving nothing when claiming tax
+- **Solution**: Added proper null checks and fallback handling for SDMShop integration
+
+### 🏚️ Colony Abandonment Configuration
+
+- **NEW CONFIG**: `EnableListAbandonedForAll` - Controls who can use the `/wnt listabandoned` command
+  - Default: `false` (OP-only, requires permission level 2)
+  - When `true`: All players can view the list of abandoned colonies
+- **Location**: Colony Auto-Abandon section of config
+
+### 🔧 Configuration Improvements
+
+- **FIXED**: **Absurd Range Values** - Replaced all `Double.MAX_VALUE` (1.7976931348623157E308) in config ranges with sensible maximum of `10000.0`
+- **FIXED**: **Military Building Map Bug** - `barrackstower`, `archery`, and `combatacademy` were incorrectly using `BUILDING_TAXES` map; now correctly use `BUILDING_MAINTENANCE` map
+- **IMPROVED**: Added `[WIP]` markers to Tax Expansion config sections (Economy, Factions, Espionage, War Mechanics, Money Sinks) to indicate feature branches not yet merged
+
+### 🐛 Critical Tax System Fixes
 
 - **FIXED**: **Military Buildings Using Wrong Config Map** - `barrackstower`, `archery`, and `combatacademy` were incorrectly using `BUILDING_TAXES.put()` instead of `BUILDING_MAINTENANCE.put()` in the military maintenance section
 - **FIXED**: **Duplicate Tax Entries** - Removed duplicate `barracks`, `guardtower`, and `barrackstower` entries from BUILDING_TAXES (military buildings should only have maintenance costs, not generate tax income)
