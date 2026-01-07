@@ -13,7 +13,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.server.ServerLifecycleHooks;
-import net.sixik.sdmshoprework.SDMShopR;
+import net.machiavelli.minecolonytax.integration.SDMShopIntegration;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
@@ -24,18 +24,23 @@ import static net.machiavelli.minecolonytax.WarSystem.FTB_TEAMS_INSTALLED;
 import static net.machiavelli.minecolonytax.WarSystem.FTB_TEAM_MANAGER;
 
 /**
- * Handles transferring or deducting money from entire teams (attacker or defender).
- * In this revised version, if SDMShop conversion is enabled the code uses the SDMShop API.
- * Otherwise, it uses the item specified in the config—deducting coins from the player's inventory.
+ * Handles transferring or deducting money from entire teams (attacker or
+ * defender).
+ * In this revised version, if SDMShop conversion is enabled the code uses the
+ * SDMShop API.
+ * Otherwise, it uses the item specified in the config—deducting coins from the
+ * player's inventory.
  */
 public class WarEconomyHandler {
 
     private static final Logger LOGGER = LogManager.getLogger(WarEconomyHandler.class);
 
     /**
-     * Deducts a percentage from each member of a team and reports the total deducted.
+     * Deducts a percentage from each member of a team and reports the total
+     * deducted.
      * If SDMShop conversion is enabled, player funds are modified via SDMShopR.
-     * Otherwise, the coin item specified in the config is deducted from the player's inventory.
+     * Otherwise, the coin item specified in the config is deducted from the
+     * player's inventory.
      *
      * @param teamID   The team (or player UUID if no team exists).
      * @param fraction The fraction (e.g. 0.25 for 25% deduction).
@@ -66,10 +71,10 @@ public class WarEconomyHandler {
                     .getPlayerList().getPlayer(loserUUID);
             if (loserPlayer != null) {
                 long deducted;
-                if (TaxConfig.isSDMShopConversionEnabled()) {
-                    long balance = SDMShopR.getMoney(loserPlayer);
+                if (TaxConfig.isSDMShopConversionEnabled() && SDMShopIntegration.isAvailable()) {
+                    long balance = SDMShopIntegration.getMoney(loserPlayer);
                     deducted = (long) (balance * fraction);
-                    SDMShopR.setMoney(loserPlayer, balance - deducted);
+                    SDMShopIntegration.setMoney(loserPlayer, balance - deducted);
                 } else {
                     long invBalance = getInventoryCurrencyBalance(loserPlayer);
                     deducted = (long) (invBalance * fraction);
@@ -79,51 +84,50 @@ public class WarEconomyHandler {
                 totalDeducted += deducted;
                 loserPlayer.sendSystemMessage(
                         Component.literal("You lost " + deducted + " coins due to war reparations!")
-                                .withStyle(ChatFormatting.RED)
-                );
+                                .withStyle(ChatFormatting.RED));
             }
         }
         return totalDeducted;
     }
 
     /**
-     * Transfers a fraction of each player’s balance on the losing team to a single winner.
+     * Transfers a fraction of each player’s balance on the losing team to a single
+     * winner.
      *
-     * @param losingTeamID The team (or single player UUID) from which funds are deducted.
+     * @param losingTeamID The team (or single player UUID) from which funds are
+     *                     deducted.
      * @param winnerUUID   The player receiving the funds.
      * @param fraction     The fraction to be transferred.
      * @return The total transferred amount.
      */
     public static long transferTeamBalanceToSinglePlayer(UUID losingTeamID,
-                                                         UUID winnerUUID,
-                                                         double fraction) {
+            UUID winnerUUID,
+            double fraction) {
         long totalTransferred = 0L;
         ServerPlayer winnerPlayer = ServerLifecycleHooks.getCurrentServer()
                 .getPlayerList().getPlayer(winnerUUID);
-        if (TaxConfig.isSDMShopConversionEnabled()) {
+        if (TaxConfig.isSDMShopConversionEnabled() && SDMShopIntegration.isAvailable()) {
             Team losingTeam = FTB_TEAM_MANAGER.getTeamByID(losingTeamID).orElseThrow();
             for (UUID loserUUID : losingTeam.getMembers()) {
                 ServerPlayer loserPlayer = ServerLifecycleHooks.getCurrentServer()
                         .getPlayerList().getPlayer(loserUUID);
                 if (loserPlayer != null) {
-                    long balance = SDMShopR.getMoney(loserPlayer);
+                    long balance = SDMShopIntegration.getMoney(loserPlayer);
                     long lostAmount = (long) (balance * fraction);
-                    SDMShopR.setMoney(loserPlayer, balance - lostAmount);
+                    SDMShopIntegration.setMoney(loserPlayer, balance - lostAmount);
                     totalTransferred += lostAmount;
                     loserPlayer.sendSystemMessage(
                             Component.literal("You lost " + lostAmount + " coins in reparations to " +
-                                            ((winnerPlayer != null) ? winnerPlayer.getName().getString() : "your enemy") + "!")
-                                    .withStyle(ChatFormatting.RED)
-                    );
+                                    ((winnerPlayer != null) ? winnerPlayer.getName().getString() : "your enemy") + "!")
+                                    .withStyle(ChatFormatting.RED));
                 }
             }
             if (winnerPlayer != null && totalTransferred > 0) {
-                long winnerBalance = SDMShopR.getMoney(winnerPlayer);
-                SDMShopR.setMoney(winnerPlayer, winnerBalance + totalTransferred);
+                long winnerBalance = SDMShopIntegration.getMoney(winnerPlayer);
+                SDMShopIntegration.setMoney(winnerPlayer, winnerBalance + totalTransferred);
                 winnerPlayer.sendSystemMessage(
                         Component.literal("You received " + totalTransferred + " coins in war reparations!")
-                                .withStyle(ChatFormatting.GREEN)
-                );
+                                .withStyle(ChatFormatting.GREEN));
             }
         } else {
             // Fallback: Use inventory-based deduction.
@@ -138,14 +142,15 @@ public class WarEconomyHandler {
                     totalTransferred += actuallyDeducted;
                     loserPlayer.sendSystemMessage(
                             Component.literal("You lost " + actuallyDeducted + " coins in reparations to " +
-                                            ((winnerPlayer != null) ? winnerPlayer.getName().getString() : "your enemy") + "!")
-                                    .withStyle(ChatFormatting.RED)
-                    );
+                                    ((winnerPlayer != null) ? winnerPlayer.getName().getString() : "your enemy") + "!")
+                                    .withStyle(ChatFormatting.RED));
                 }
             }
             if (winnerPlayer != null && totalTransferred > 0) {
                 // Try to add coins to the winner's inventory directly.
-                ItemStack coinStack = new ItemStack(ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName())), (int) totalTransferred);
+                ItemStack coinStack = new ItemStack(
+                        ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName())),
+                        (int) totalTransferred);
                 boolean added = winnerPlayer.getInventory().add(coinStack);
                 if (!added) {
                     // If inventory is full, drop items near winner
@@ -154,8 +159,7 @@ public class WarEconomyHandler {
                 }
                 winnerPlayer.sendSystemMessage(
                         Component.literal("You received " + totalTransferred + " coins in war reparations!")
-                                .withStyle(ChatFormatting.GREEN)
-                );
+                                .withStyle(ChatFormatting.GREEN));
             }
         }
         return totalTransferred;
@@ -163,7 +167,8 @@ public class WarEconomyHandler {
 
     /**
      * Returns the total coin balance in the inventory of a player.
-     * Assumes 1 coin = 1 item of the type specified by TaxConfig.getCurrencyItemName().
+     * Assumes 1 coin = 1 item of the type specified by
+     * TaxConfig.getCurrencyItemName().
      */
     public static long getInventoryCurrencyBalance(ServerPlayer player) {
         long total = 0;
@@ -180,7 +185,8 @@ public class WarEconomyHandler {
     }
 
     /**
-     * Deducts up to the specified amount of currency items from the player's inventory.
+     * Deducts up to the specified amount of currency items from the player's
+     * inventory.
      * Returns the total amount that was actually deducted.
      */
     public static long deductCurrencyFromInventory(ServerPlayer player, long amount) {
@@ -214,7 +220,7 @@ public class WarEconomyHandler {
             for (UUID member : team.getMembers()) {
                 ServerPlayer player = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(member);
                 if (player != null) {
-                    sum += SDMShopR.getMoney(player);
+                    sum += SDMShopIntegration.getMoney(player);
                 }
             }
         } else {
@@ -231,11 +237,12 @@ public class WarEconomyHandler {
 
     /**
      * Deducts a demanded amount proportionally from each member of the losing team.
-     * If the team's total funds (via SDMShop or inventory) are less than the demanded amount, returns false.
+     * If the team's total funds (via SDMShop or inventory) are less than the
+     * demanded amount, returns false.
      * Otherwise, transfers the deducted total to the winner.
      */
     public static boolean payReparationsProportionally(UUID losingTeamID, UUID winnerUUID, long demandedAmount) {
-        if (TaxConfig.isSDMShopConversionEnabled()) {
+        if (TaxConfig.isSDMShopConversionEnabled() && SDMShopIntegration.isAvailable()) {
             // --- SDMShop-only path (unchanged) ---
             Team losingTeam = FTB_TEAM_MANAGER.getTeamByID(losingTeamID).orElseThrow();
             long totalTransferred = 0L;
@@ -245,27 +252,30 @@ public class WarEconomyHandler {
                 ServerPlayer loser = ServerLifecycleHooks.getCurrentServer()
                         .getPlayerList().getPlayer(member);
                 if (loser != null) {
-                    long balance = SDMShopR.getMoney(loser);
+                    long balance = SDMShopIntegration.getMoney(loser);
                     long take = (long) (balance * ((double) demandedAmount / getTeamTotalBalance(losingTeamID)));
-                    SDMShopR.setMoney(loser, balance - take);
+                    SDMShopIntegration.setMoney(loser, balance - take);
                     totalTransferred += take;
                     loser.sendSystemMessage(Component.literal("You lost " + take + " coins in reparations!")
                             .withStyle(ChatFormatting.RED));
                 }
             }
             if (winner != null && totalTransferred > 0) {
-                long wb = SDMShopR.getMoney(winner);
-                SDMShopR.setMoney(winner, wb + totalTransferred);
-                winner.sendSystemMessage(Component.literal("You received " + totalTransferred + " coins in reparations!")
-                        .withStyle(ChatFormatting.GREEN));
+                long wb = SDMShopIntegration.getMoney(winner);
+                SDMShopIntegration.setMoney(winner, wb + totalTransferred);
+                winner.sendSystemMessage(
+                        Component.literal("You received " + totalTransferred + " coins in reparations!")
+                                .withStyle(ChatFormatting.GREEN));
             }
             return true;
         } else {
             // --- Colony tax first ---
             IColony losingColony = null;
             for (WarData w : WarSystem.ACTIVE_WARS.values()) {
-                if (losingTeamID.equals(w.getAttackerTeamID()))       losingColony = w.getAttackerColony();
-                else if (losingTeamID.equals(w.getDefenderTeamID())) losingColony = w.getColony();
+                if (losingTeamID.equals(w.getAttackerTeamID()))
+                    losingColony = w.getAttackerColony();
+                else if (losingTeamID.equals(w.getDefenderTeamID()))
+                    losingColony = w.getColony();
             }
 
             long claimedFromColony = 0;
@@ -273,8 +283,8 @@ public class WarEconomyHandler {
                 claimedFromColony = TaxManager.claimTax(losingColony, (int) demandedAmount);
             }
 
-            long remaining   = demandedAmount - claimedFromColony;
-            long totalTaken  = claimedFromColony;
+            long remaining = demandedAmount - claimedFromColony;
+            long totalTaken = claimedFromColony;
 
             if (remaining > 0 && losingColony != null) {
                 // collect all alive participants on that side
@@ -284,13 +294,15 @@ public class WarEconomyHandler {
                     war.getAttackerLives().keySet().forEach(uuid -> {
                         ServerPlayer p = ServerLifecycleHooks.getCurrentServer()
                                 .getPlayerList().getPlayer(uuid);
-                        if (p != null) members.add(p);
+                        if (p != null)
+                            members.add(p);
                     });
                 } else {
                     war.getDefenderLives().keySet().forEach(uuid -> {
                         ServerPlayer p = ServerLifecycleHooks.getCurrentServer()
                                 .getPlayerList().getPlayer(uuid);
-                        if (p != null) members.add(p);
+                        if (p != null)
+                            members.add(p);
                     });
                 }
 
@@ -302,13 +314,15 @@ public class WarEconomyHandler {
                 for (ServerPlayer p : members) {
                     long bal = getInventoryCurrencyBalance(p);
                     long take = Math.round((double) bal / sumInv * remaining);
-                    if (take > toTake) take = toTake;
+                    if (take > toTake)
+                        take = toTake;
                     long actually = deductCurrencyFromInventory(p, take);
                     totalTaken += actually;
-                    toTake    -= actually;
+                    toTake -= actually;
                     p.sendSystemMessage(Component.literal("You lost " + actually + " coins in reparations!")
                             .withStyle(ChatFormatting.RED));
-                    if (toTake <= 0) break;
+                    if (toTake <= 0)
+                        break;
                 }
             }
 
@@ -319,8 +333,7 @@ public class WarEconomyHandler {
                 if (winner != null) {
                     ItemStack stack = new ItemStack(
                             ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName())),
-                            (int) totalTaken
-                    );
+                            (int) totalTaken);
                     if (!winner.getInventory().add(stack)) {
                         // If inventory is full, drop items near winner
                         winner.drop(stack, false);
@@ -335,81 +348,79 @@ public class WarEconomyHandler {
         }
     }
 
-
     /**
-     * Transfers a percentage of a losing player's balance directly to a winning player.
+     * Transfers a percentage of a losing player's balance directly to a winning
+     * player.
      * 
-     * @param loserUUID UUID of the player to deduct from
+     * @param loserUUID  UUID of the player to deduct from
      * @param winnerUUID UUID of the player to receive funds
      * @param percentage Percentage of loser's balance to transfer
      * @return The amount actually transferred
      */
     public static double transferBalanceToPlayer(UUID loserUUID, UUID winnerUUID, double percentage) {
         double transferredAmount = 0;
-        
+
         ServerPlayer loserPlayer = ServerLifecycleHooks.getCurrentServer()
                 .getPlayerList().getPlayer(loserUUID);
         ServerPlayer winnerPlayer = ServerLifecycleHooks.getCurrentServer()
                 .getPlayerList().getPlayer(winnerUUID);
-                
+
         if (loserPlayer != null && winnerPlayer != null) {
-            if (TaxConfig.isSDMShopConversionEnabled()) {
+            if (TaxConfig.isSDMShopConversionEnabled() && SDMShopIntegration.isAvailable()) {
                 // Use SDMShop economy
-                long loserBalance = SDMShopR.getMoney(loserPlayer);
-                long transferAmount = (long)(loserBalance * percentage);
-                
+                long loserBalance = SDMShopIntegration.getMoney(loserPlayer);
+                long transferAmount = (long) (loserBalance * percentage);
+
                 if (transferAmount > 0) {
                     // Remove from loser
-                    SDMShopR.setMoney(loserPlayer, loserBalance - transferAmount);
-                    
+                    SDMShopIntegration.setMoney(loserPlayer, loserBalance - transferAmount);
+
                     // Add to winner
-                    long winnerBalance = SDMShopR.getMoney(winnerPlayer);
-                    SDMShopR.setMoney(winnerPlayer, winnerBalance + transferAmount);
-                    
+                    long winnerBalance = SDMShopIntegration.getMoney(winnerPlayer);
+                    SDMShopIntegration.setMoney(winnerPlayer, winnerBalance + transferAmount);
+
                     transferredAmount = transferAmount;
-                    
+
                     // Notify loser
                     loserPlayer.sendSystemMessage(
-                            Component.literal("You lost " + transferAmount + " as war reparations to " + 
+                            Component.literal("You lost " + transferAmount + " as war reparations to " +
                                     winnerPlayer.getName().getString() + "!")
-                                    .withStyle(ChatFormatting.RED)
-                    );
+                                    .withStyle(ChatFormatting.RED));
                 }
             } else {
                 // Use inventory-based economy
                 long loserInvBalance = getInventoryCurrencyBalance(loserPlayer);
-                long transferAmount = (long)(loserInvBalance * percentage);
-                
+                long transferAmount = (long) (loserInvBalance * percentage);
+
                 if (transferAmount > 0) {
                     // Deduct from loser's inventory
                     long actuallyDeducted = deductCurrencyFromInventory(loserPlayer, transferAmount);
-                    
+
                     if (actuallyDeducted > 0) {
                         // Add to winner's inventory
                         ItemStack coinStack = new ItemStack(
-                                ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName())), 
+                                ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName())),
                                 (int) actuallyDeducted);
-                                
+
                         boolean added = winnerPlayer.getInventory().add(coinStack);
                         if (!added) {
                             // If inventory is full, drop items near winner
                             winnerPlayer.drop(coinStack, false);
                             LOGGER.debug("Winner's inventory was full, dropped {} items near them", actuallyDeducted);
                         }
-                        
+
                         transferredAmount = actuallyDeducted;
-                        
+
                         // Notify loser
                         loserPlayer.sendSystemMessage(
-                                Component.literal("You lost " + actuallyDeducted + " as war reparations to " + 
+                                Component.literal("You lost " + actuallyDeducted + " as war reparations to " +
                                         winnerPlayer.getName().getString() + "!")
-                                        .withStyle(ChatFormatting.RED)
-                        );
+                                        .withStyle(ChatFormatting.RED));
                     }
                 }
             }
         }
-        
+
         return transferredAmount;
     }
 }

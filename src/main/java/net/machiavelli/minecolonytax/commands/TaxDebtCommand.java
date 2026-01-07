@@ -23,7 +23,7 @@ import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.registries.ForgeRegistries;
-import net.sixik.sdmshoprework.SDMShopR;
+import net.machiavelli.minecolonytax.integration.SDMShopIntegration;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -44,9 +44,11 @@ public class TaxDebtCommand {
                                                     } catch (Exception e) {
                                                         return builder.buildFuture();
                                                     }
-                                                    IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
+                                                    IColonyManager colonyManager = IMinecoloniesAPI.getInstance()
+                                                            .getColonyManager();
                                                     List<String> colonyNames = colonyManager.getAllColonies().stream()
-                                                            .filter(colony -> colony.getPermissions().getRank(player.getUUID()).isColonyManager())
+                                                            .filter(colony -> colony.getPermissions()
+                                                                    .getRank(player.getUUID()).isColonyManager())
                                                             .map(IColony::getName)
                                                             .map(name -> name.contains(" ") ? "\"" + name + "\"" : name)
                                                             .collect(Collectors.toList());
@@ -54,16 +56,14 @@ public class TaxDebtCommand {
                                                 })
                                                 .executes(context -> {
                                                     int amount = IntegerArgumentType.getInteger(context, "amount");
-                                                    String colonyName = StringArgumentType.getString(context, "colony").replace("\"", "");
+                                                    String colonyName = StringArgumentType.getString(context, "colony")
+                                                            .replace("\"", "");
                                                     return execute(context, colonyName, amount);
-                                                })
-                                        )
-                                )
-                        )
-        );
+                                                })))));
     }
 
-    private static int execute(CommandContext<CommandSourceStack> context, String colonyName, int amount) throws CommandSyntaxException {
+    private static int execute(CommandContext<CommandSourceStack> context, String colonyName, int amount)
+            throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
         ServerPlayer player = source.getPlayerOrException();
 
@@ -93,7 +93,8 @@ public class TaxDebtCommand {
 
             // Allow full payment amount, regardless of current balance
             int paid = TaxManager.payTaxDebt(colony, amount);
-            source.sendSuccess(() -> Component.translatable("command.taxdebt.success", paid, colony.getName(), TaxManager.getStoredTaxForColony(colony)), false);
+            source.sendSuccess(() -> Component.translatable("command.taxdebt.success", paid, colony.getName(),
+                    TaxManager.getStoredTaxForColony(colony)), false);
         }
 
         if (!foundColony) {
@@ -103,15 +104,16 @@ public class TaxDebtCommand {
     }
 
     /**
-     * Deducts currency from the player using SDMShopR if enabled, or from the player's inventory otherwise.
+     * Deducts currency from the player using SDMShopR if enabled, or from the
+     * player's inventory otherwise.
      */
     private static boolean deductCurrency(ServerPlayer player, int amount) {
-        if (TaxConfig.isSDMShopConversionEnabled()) {
-            long balance = SDMShopR.getMoney(player);
+        if (TaxConfig.isSDMShopConversionEnabled() && SDMShopIntegration.isAvailable()) {
+            long balance = SDMShopIntegration.getMoney(player);
             if (balance < amount) {
                 return false;
             }
-            SDMShopR.setMoney(player, balance - amount);
+            SDMShopIntegration.setMoney(player, balance - amount);
             return true;
         } else {
             return deductCurrencyFromInventory(player, amount);

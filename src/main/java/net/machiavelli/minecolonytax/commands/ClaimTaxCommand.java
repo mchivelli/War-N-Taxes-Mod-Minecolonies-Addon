@@ -26,7 +26,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import net.sixik.sdmshoprework.SDMShopR; // Import the SDMShop API
+import net.machiavelli.minecolonytax.integration.SDMShopIntegration;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -159,9 +159,9 @@ public class ClaimTaxCommand {
                             colony.getName(), totalClaimed));
 
                     // Update player's funds using SDMShop API if enabled
-                    if (TaxConfig.isSDMShopConversionEnabled()) {
-                        long currentBalance = SDMShopR.getMoney(player);
-                        SDMShopR.setMoney(player, currentBalance + totalClaimed);
+                    if (TaxConfig.isSDMShopConversionEnabled() && SDMShopIntegration.isAvailable()) {
+                        long currentBalance = SDMShopIntegration.getMoney(player);
+                        SDMShopIntegration.setMoney(player, currentBalance + totalClaimed);
                     } else {
                         // Use direct inventory manipulation instead of give command for modded items
                         Item item = ForgeRegistries.ITEMS
