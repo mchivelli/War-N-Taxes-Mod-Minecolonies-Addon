@@ -828,9 +828,9 @@ public class TaxConfig {
                 BUILDER.pop();
 
                 // ============================================================
-                // TAX EXPANSION: Economy Settings
+                // [WIP] TAX EXPANSION: Economy Settings (Feature Branch - Not Yet Merged)
                 // ============================================================
-                BUILDER.push("Tax Expansion - Economy");
+                BUILDER.push("Tax Expansion - Economy [WIP]");
 
                 // --- Tax Policies ---
                 BUILDER.push("Tax Policies");
@@ -896,9 +896,9 @@ public class TaxConfig {
                 BUILDER.pop(); // End Tax Expansion - Economy
 
                 // ============================================================
-                // TAX EXPANSION: Faction Settings
+                // [WIP] TAX EXPANSION: Faction Settings (Feature Branch - Not Yet Merged)
                 // ============================================================
-                BUILDER.push("Tax Expansion - Factions");
+                BUILDER.push("Tax Expansion - Factions [WIP]");
 
                 ENABLE_FACTION_SYSTEM = BUILDER.comment(
                                 "Enable faction system. Colonies can form factions with shared tax pools and trade routes.")
@@ -961,9 +961,9 @@ public class TaxConfig {
                 BUILDER.pop(); // End Tax Expansion - Factions
 
                 // ============================================================
-                // TAX EXPANSION: Espionage Settings
+                // [WIP] TAX EXPANSION: Espionage Settings (Feature Branch - Not Yet Merged)
                 // ============================================================
-                BUILDER.push("Tax Expansion - Espionage");
+                BUILDER.push("Tax Expansion - Espionage [WIP]");
 
                 ENABLE_SPY_SYSTEM = BUILDER.comment(
                                 "Enable the spy/sabotage system. Colonies can spend tax to perform espionage on rivals.")
@@ -1035,9 +1035,9 @@ public class TaxConfig {
                 BUILDER.pop(); // End Tax Expansion - Espionage
 
                 // ============================================================
-                // TAX EXPANSION: War Mechanics
+                // [WIP] TAX EXPANSION: War Mechanics (Feature Branch - Not Yet Merged)
                 // ============================================================
-                BUILDER.push("Tax Expansion - War Mechanics");
+                BUILDER.push("Tax Expansion - War Mechanics [WIP]");
 
                 // --- War Chest ---
                 BUILDER.push("War Chest");
@@ -1168,9 +1168,10 @@ public class TaxConfig {
                 BUILDER.pop(); // End Tax Expansion - War Mechanics
 
                 // ============================================================
-                // TAX EXPANSION: Money Sinks / Investments
+                // [WIP] TAX EXPANSION: Money Sinks / Investments (Feature Branch - Not Yet
+                // Merged)
                 // ============================================================
-                BUILDER.push("Tax Expansion - Money Sinks");
+                BUILDER.push("Tax Expansion - Money Sinks [WIP]");
 
                 ENABLE_INVESTMENTS = BUILDER.comment(
                                 "Enable investment system. Colonies can spend tax for permanent or temporary bonuses.")
