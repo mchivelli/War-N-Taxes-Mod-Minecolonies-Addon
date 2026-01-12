@@ -6,8 +6,6 @@
   "use_resource_pack": true,
   "model": "minecolonytax:war_taxes_codex",
   "creative_tab": "minecolonytax.creative_tab",
-  "dont_generate_book": true,
-  "custom_book_item": "minecraft:written_book",
   "show_progress": true,
   "text_color": "333333",
   "header_color": "A02727",

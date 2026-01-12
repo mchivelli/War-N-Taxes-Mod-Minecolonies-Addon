@@ -1,0 +1,136 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.8/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Java: 21.0.9, JVM: 21.0.9+10-LTS (Eclipse Adoptium), Arch: amd64
+
+> Task :compileJava
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:5: error: cannot find symbol
+import com.minecolonies.core.IMinecoloniesAPI;
+                            ^
+  symbol:   class IMinecoloniesAPI
+  location: package com.minecolonies.core
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:11: error: package net.machiavelli.minecolonytax.trade does not exist
+import net.machiavelli.minecolonytax.trade.TradeRouteManager;
+                                          ^
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:12: error: package net.machiavelli.minecolonytax.trade.TradeRouteManager does not exist
+import net.machiavelli.minecolonytax.trade.TradeRouteManager.TradeRouteData;
+                                                            ^
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:13: error: package net.machiavelli.minecolonytax.trade.TradeRouteManager does not exist
+import net.machiavelli.minecolonytax.trade.TradeRouteManager.TradeRouteProposal;
+                                                            ^
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:55: error: cannot find symbol
+        String result = TradeRouteManager.proposeTradeRoute(player, targetColonyId);
+                        ^
+  symbol:   variable TradeRouteManager
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:67: error: cannot find symbol
+        String result = TradeRouteManager.acceptTradeRoute(player, proposerColonyId);
+                        ^
+  symbol:   variable TradeRouteManager
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:79: error: cannot find symbol
+        String result = TradeRouteManager.denyTradeRoute(player, proposerColonyId);
+                        ^
+  symbol:   variable TradeRouteManager
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:91: error: cannot find symbol
+        String result = TradeRouteManager.cancelTradeRoute(player, partnerColonyId);
+                        ^
+  symbol:   variable TradeRouteManager
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:114: error: cannot find symbol
+        List<TradeRouteData> activeRoutes = TradeRouteManager.getActiveRoutesForColony(playerColonyId);
+             ^
+  symbol:   class TradeRouteData
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:114: error: cannot find symbol
+        List<TradeRouteData> activeRoutes = TradeRouteManager.getActiveRoutesForColony(playerColonyId);
+                                            ^
+  symbol:   variable TradeRouteManager
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:119: error: cannot find symbol
+            for (TradeRouteData route : activeRoutes) {
+                 ^
+  symbol:   class TradeRouteData
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:139: error: cannot find symbol
+        List<TradeRouteProposal> proposals = TradeRouteManager.getProposalsForColony(playerColonyId);
+             ^
+  symbol:   class TradeRouteProposal
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:139: error: cannot find symbol
+        List<TradeRouteProposal> proposals = TradeRouteManager.getProposalsForColony(playerColonyId);
+                                             ^
+  symbol:   variable TradeRouteManager
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:142: error: cannot find symbol
+            for (TradeRouteProposal proposal : proposals) {
+                 ^
+  symbol:   class TradeRouteProposal
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:159: error: cannot find symbol
+        int routeCount = TradeRouteManager.getActiveRouteCount(playerColonyId);
+                         ^
+  symbol:   variable TradeRouteManager
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:180: error: cannot find symbol
+        List<TradeRouteData> activeRoutes = TradeRouteManager.getActiveRoutesForColony(playerColony.getID());
+             ^
+  symbol:   class TradeRouteData
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:180: error: cannot find symbol
+        List<TradeRouteData> activeRoutes = TradeRouteManager.getActiveRoutesForColony(playerColony.getID());
+                                            ^
+  symbol:   variable TradeRouteManager
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:181: error: cannot find symbol
+        TradeRouteData route = activeRoutes.stream()
+        ^
+  symbol:   class TradeRouteData
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:226: error: cannot find symbol
+        IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
+                                       ^
+  symbol:   variable IMinecoloniesAPI
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\commands\TradeRouteCommand.java:241: error: cannot find symbol
+        IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
+                                       ^
+  symbol:   variable IMinecoloniesAPI
+  location: class TradeRouteCommand
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\MineColonyTax.java:42: warning: [removal] get() in ModLoadingContext has been deprecated and marked for removal
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, TaxConfig.CONFIG, "warntax/minecolonytax.toml");
+                         ^
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\MineColonyTax.java:45: warning: [removal] get() in FMLJavaModLoadingContext has been deprecated and marked for removal
+        ModRecipeSerializers.RECIPE_SERIALIZERS.register(FMLJavaModLoadingContext.get().getModEventBus());
+                                                                                 ^
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\MineColonyTax.java:48: warning: [removal] get() in FMLJavaModLoadingContext has been deprecated and marked for removal
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
+                                ^
+C:\Dev\War-N-Taxes-Mod---Minecolonies-Addon\src\main\java\net\machiavelli\minecolonytax\MineColonyTax.java:49: warning: [removal] get() in FMLJavaModLoadingContext has been deprecated and marked for removal
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::clientSetup);
+                                ^
+20 errors
+4 warnings
+
+> Task :compileJava FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileJava'.
+> Compilation failed; see the compiler error output for details.
+
+* Try:
+> Run with --info option to get more log output.
+> Run with --scan to get full insights.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.8/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 22s
+1 actionable task: 1 executed

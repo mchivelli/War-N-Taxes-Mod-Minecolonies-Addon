@@ -313,6 +313,251 @@ TaxStealPerGuard = 200
 		#When disabled, the Configuration category with admin commands and settings is hidden from players.
 		ShowAdminPagesInBook = false
 
+	["War Settings"."Tax Expansion - Economy"]
+
+		["War Settings"."Tax Expansion - Economy"."Tax Policies"]
+			#Enable tax policy system. Colonies can choose policies that affect tax generation and citizen happiness.
+			EnableTaxPolicies = true
+			#Revenue modifier for LOW tax policy. Negative = less tax. Example: -0.25 = 25% less revenue.
+			#Range: -1.0 ~ 0.0
+			LowPolicyRevenueModifier = -0.25
+			#Happiness modifier for LOW tax policy. Positive = happier citizens. Example: 0.20 = 20% faster happiness growth.
+			#Range: 0.0 ~ 1.0
+			LowPolicyHappinessModifier = 0.2
+			#Revenue modifier for HIGH tax policy. Positive = more tax. Example: 0.25 = 25% more revenue.
+			#Range: 0.0 ~ 1.0
+			HighPolicyRevenueModifier = 0.25
+			#Happiness modifier for HIGH tax policy. Negative = unhappier citizens. Example: -0.15 = 15% slower happiness.
+			#Range: -1.0 ~ 0.0
+			HighPolicyHappinessModifier = -0.15
+			#Revenue modifier for WAR ECONOMY policy. High boost during wartime. Example: 0.50 = 50% more revenue.
+			#Range: 0.0 ~ 2.0
+			WarPolicyRevenueModifier = 0.5
+			#Happiness modifier for WAR ECONOMY policy. Citizens dislike war economy. Example: -0.25 = 25% happiness penalty.
+			#Range: -1.0 ~ 0.0
+			WarPolicyHappinessModifier = -0.25
+
+		["War Settings"."Tax Expansion - Economy"."Tax Reports"]
+			#Enable tax report generation as written books. Use /wnt taxreport to generate.
+			EnableTaxReports = true
+			#Hours before tax report books auto-delete from inventory. Set to 0 to never auto-delete.
+			#Range: 0 ~ 720
+			TaxReportAutoDeleteHours = 0
+			#Maximum days of tax history to track for reports.
+			#Range: 1 ~ 365
+			TaxReportMaxHistoryDays = 30
+
+		["War Settings"."Tax Expansion - Economy".Leaderboards]
+			#Enable server-wide leaderboards for tax earnings, wars won, etc.
+			EnableLeaderboards = true
+			#How often leaderboards are recalculated (in minutes).
+			#Range: 5 ~ 1440
+			LeaderboardUpdateIntervalMinutes = 60
+			#Number of entries to show in leaderboard commands.
+			#Range: 5 ~ 50
+			LeaderboardTopCount = 10
+
+	["War Settings"."Tax Expansion - Factions"]
+		#Enable faction system. Colonies can form factions with shared tax pools and trade routes.
+		EnableFactionSystem = true
+		#Maximum number of colonies that can join a single faction.
+		#Range: 2 ~ 50
+		MaxFactionMembers = 10
+		#Tax cost to create a new faction.
+		#Range: 0 ~ 100000
+		FactionCreationCost = 1000
+
+		["War Settings"."Tax Expansion - Factions"."Shared Tax Pool"]
+			#Enable shared tax pool for factions. Member colonies contribute a percentage to the pool.
+			EnableSharedTaxPool = true
+			#Default percentage of tax income that faction members contribute to the shared pool.
+			#Range: 0 ~ 100
+			DefaultPoolContributionPercent = 10
+			#Maximum balance the shared tax pool can hold.
+			#Range: > 1000
+			MaxPoolBalance = 100000
+			#Days to retain pool transaction history for reporting.
+			#Range: 1 ~ 365
+			PoolHistoryRetentionDays = 30
+
+		["War Settings"."Tax Expansion - Factions"."Trade Routes"]
+			#Enable trade routes between allied colonies. Trade routes generate passive income based on distance.
+			EnableTradeRoutes = true
+			#Tax income generated per chunk of distance on a trade route (per tax cycle).
+			#Range: 1 ~ 100
+			TradeRouteIncomePerChunk = 5
+			#Maximum distance in chunks for a trade route. Longer routes = more income but higher maintenance.
+			#Range: 10 ~ 10000
+			TradeRouteMaxDistanceChunks = 1000
+			#Maintenance cost per trade route per tax cycle.
+			#Range: 0 ~ 10000
+			TradeRouteMaintenanceCost = 50
+			#Maximum number of trade routes a colony can have active.
+			#Range: 1 ~ 20
+			MaxTradeRoutesPerColony = 3
+
+	["War Settings"."Tax Expansion - Espionage"]
+		#Enable the spy/sabotage system. Colonies can spend tax to perform espionage on rivals.
+		EnableSpySystem = true
+		#Cooldown in minutes between spy actions against the same colony.
+		#Range: 1 ~ 1440
+		SpyCooldownMinutes = 60
+		#Base chance (0.0-1.0) of being detected when performing spy actions. Each action adds its own detection modifier.
+		#Range: 0.0 ~ 1.0
+		SpyDetectionBaseChance = 0.15
+
+		["War Settings"."Tax Expansion - Espionage"."Action Costs"]
+			#Tax cost for SCOUT action (reveals enemy colony's current tax balance).
+			#Range: 0 ~ 100000
+			ScoutCost = 100
+			#Tax cost for SABOTAGE action (reduces target's next tax cycle).
+			#Range: 0 ~ 100000
+			SabotageCost = 500
+			#Tax cost for BRIBE GUARDS action (disables guards during next raid).
+			#Range: 0 ~ 100000
+			BribeGuardsCost = 1000
+			#Tax cost for STEAL SECRETS action (copy building synergy bonuses temporarily).
+			#Range: 0 ~ 100000
+			StealSecretsCost = 750
+
+		["War Settings"."Tax Expansion - Espionage"."Action Effects"]
+			#Percentage reduction to target's tax for the next cycle when sabotaged (0.0-1.0). Example: 0.25 = 25% less tax.
+			#Range: 0.0 ~ 1.0
+			SabotageTaxReductionPercent = 0.25
+			#Number of guards disabled when BRIBE GUARDS action succeeds.
+			#Range: 1 ~ 20
+			BribeGuardsDisabledCount = 2
+			#Duration in hours that stolen building synergy bonuses last.
+			#Range: 1 ~ 168
+			StealSecretsDurationHours = 24
+
+		["War Settings"."Tax Expansion - Espionage"."Detection Chances"]
+			#Additional detection chance for SCOUT action (0.0-1.0). Low risk action.
+			#Range: 0.0 ~ 1.0
+			ScoutDetectionChance = 0.05
+			#Additional detection chance for SABOTAGE action (0.0-1.0). Medium risk.
+			#Range: 0.0 ~ 1.0
+			SabotageDetectionChance = 0.25
+			#Additional detection chance for BRIBE GUARDS action (0.0-1.0). High risk.
+			#Range: 0.0 ~ 1.0
+			BribeGuardsDetectionChance = 0.35
+			#Additional detection chance for STEAL SECRETS action (0.0-1.0). Medium-high risk.
+			#Range: 0.0 ~ 1.0
+			StealSecretsDetectionChance = 0.2
+
+	["War Settings"."Tax Expansion - War Mechanics"]
+
+		["War Settings"."Tax Expansion - War Mechanics"."War Chest"]
+			#Enable war chest system. Colonies must have funds in war chest to declare war. War chest drains during active war.
+			EnableWarChest = true
+			#Minimum war chest balance required as percentage of target colony's tax balance (0.0-1.0). Example: 0.25 = need 25% of target's balance to declare war.
+			#Range: 0.0 ~ 2.0
+			WarChestMinPercentOfTarget = 0.25
+			#Amount drained from war chest per minute during active war.
+			#Range: 0 ~ 10000
+			WarChestDrainPerMinute = 100
+			#Maximum capacity of the war chest. Prevents hoarding.
+			#Range: > 1000
+			WarChestMaxCapacity = 50000
+			#If true, war automatically ends in surrender when war chest is depleted.
+			WarChestAutoSurrenderEnabled = true
+
+		["War Settings"."Tax Expansion - War Mechanics"."War Exhaustion"]
+			#Enable war exhaustion. Colonies generate less tax during active wars and need recovery time after.
+			EnableWarExhaustion = true
+			#Percentage reduction in tax generation during active war (0.0-1.0). Example: 0.30 = 30% less tax during war.
+			#Range: 0.0 ~ 1.0
+			WarTaxReductionPercent = 0.3
+			#Hours after war ends for colony tax generation to fully recover.
+			#Range: 0 ~ 720
+			PostWarRecoveryHours = 48
+
+		["War Settings"."Tax Expansion - War Mechanics"."War Reparations"]
+			#Enable war reparations debuff for colonies that lose wars frequently.
+			EnableWarReparations = true
+			#Percentage penalty to tax generation while under reparations (0.0-1.0). Example: 0.20 = 20% less tax.
+			#Range: 0.0 ~ 1.0
+			ReparationsTaxPenaltyPercent = 0.2
+			#Duration in hours that war reparations debuff lasts.
+			#Range: 1 ~ 720
+			ReparationsDurationHours = 72
+			#Number of wars lost within 7 days to trigger reparations debuff.
+			#Range: 1 ~ 20
+			ReparationsTriggerLossesCount = 3
+
+		["War Settings"."Tax Expansion - War Mechanics"."Ransom System"]
+			#Enable ransom system. When colony owner dies during raid, attacker can demand ransom to end raid.
+			EnableRansomSystem = true
+			#Default ransom amount as percentage of victim's tax balance (0.0-1.0). Example: 0.15 = 15% of their balance.
+			#Range: 0.0 ~ 1.0
+			RansomDefaultPercent = 0.15
+			#Minimum ransom amount (floors the percentage calculation).
+			#Range: 0 ~ 100000
+			RansomMinAmount = 100
+			#Maximum ransom amount (caps the percentage calculation).
+			#Range: > 100
+			RansomMaxAmount = 10000
+			#Seconds victim has to respond to ransom offer before it expires.
+			#Range: 10 ~ 300
+			RansomTimeoutSeconds = 60
+			#Cooldown in minutes before same attacker can offer ransom to same victim.
+			#Range: 1 ~ 1440
+			RansomCooldownMinutes = 30
+			#Hours of immunity from raids after paying a ransom.
+			#Range: 0 ~ 168
+			RansomImmunityAfterPaymentHours = 24
+
+	["War Settings"."Tax Expansion - Money Sinks"]
+		#Enable investment system. Colonies can spend tax for permanent or temporary bonuses.
+		EnableInvestments = true
+		#Factor applied to each subsequent investment purchase (0.0-1.0). Example: 0.9 = each purchase is 90% as effective as the previous.
+		#Range: 0.1 ~ 1.0
+		InvestmentDiminishingReturnsFactor = 0.9
+
+		["War Settings"."Tax Expansion - Money Sinks"."Infrastructure Investment"]
+			#Tax cost for infrastructure investment (permanent tax bonus).
+			#Range: 100 ~ 1000000
+			InfrastructureCost = 1000
+			#Permanent tax generation bonus per infrastructure investment (0.0-1.0). Example: 0.05 = 5% more tax generation.
+			#Range: 0.01 ~ 0.5
+			InfrastructureBonus = 0.05
+			#Maximum number of infrastructure investments a colony can have.
+			#Range: 1 ~ 100
+			InfrastructureMaxStacks = 10
+
+		["War Settings"."Tax Expansion - Money Sinks"."Guard Training Investment"]
+			#Tax cost for guard training investment (temporary damage bonus).
+			#Range: 50 ~ 100000
+			GuardTrainingCost = 500
+			#Damage bonus for guards after training (0.0-1.0). Example: 0.10 = 10% more damage.
+			#Range: 0.01 ~ 1.0
+			GuardTrainingDamageBonus = 0.1
+			#Duration in hours that guard training bonus lasts.
+			#Range: 1 ~ 168
+			GuardTrainingDurationHours = 24
+
+		["War Settings"."Tax Expansion - Money Sinks"."Festival Investment"]
+			#Tax cost to host a festival (temporary happiness bonus).
+			#Range: 100 ~ 1000000
+			FestivalCost = 2000
+			#Happiness bonus during festival (0.0-1.0). Example: 0.50 = 50% faster happiness growth.
+			#Range: 0.1 ~ 2.0
+			FestivalHappinessBonus = 0.5
+			#Duration in hours that festival happiness bonus lasts.
+			#Range: 1 ~ 168
+			FestivalDurationHours = 48
+
+		["War Settings"."Tax Expansion - Money Sinks"."Research Investment"]
+			#Tax cost for research investment (spy defense bonus).
+			#Range: 100 ~ 1000000
+			ResearchCost = 1500
+			#Bonus to spy detection chance while research is active (0.0-1.0). Example: 0.50 = 50% higher chance to detect enemy spies.
+			#Range: 0.1 ~ 2.0
+			ResearchSpyDefenseBonus = 0.5
+			#Duration in days that research spy defense bonus lasts.
+			#Range: 1 ~ 30
+			ResearchDurationDays = 7
+
 ["PvP Arena Settings"]
 	#Allow players to use commands while in a PvP battle. It's recommended to keep this false to prevent exploits.
 	allowCommandsInBattle = false

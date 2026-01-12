@@ -5,9 +5,17 @@ All notable changes to the War N Tax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.0.1] - 2026-01-12
 
-## [4.0.0] - 2025-12-15
+### 🐛 Bug Fixes
+
+- **FIXED**: **Lectern Book Overwrite Bug** - Fixed critical bug where placing any book in a lectern would cause it to display as the War 'N Taxes Codex
+- **Root Cause**: The `book.json` configuration used `"custom_book_item": "minecraft:written_book"`, causing Patchouli's lectern handler to match ALL written books as the mod's guidebook
+- **Solution**: Removed `custom_book_item` and `dont_generate_book` settings so Patchouli generates a unique book item that won't conflict with other books
+
+---
+
+## [4.0.0] - 2026-01-07
 
 ### 📖 Patchouli Guidebook Integration
 
