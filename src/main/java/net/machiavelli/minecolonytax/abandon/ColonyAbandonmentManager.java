@@ -255,7 +255,7 @@ public class ColonyAbandonmentManager {
             permissions.setPermission(colonyNeutralRank, com.minecolonies.api.colony.permissions.Action.USE_SCAN_TOOL, false);
             permissions.setPermission(colonyNeutralRank, com.minecolonies.api.colony.permissions.Action.THROW_POTION, false);
             permissions.setPermission(colonyNeutralRank, com.minecolonies.api.colony.permissions.Action.SHOOT_ARROW, false);
-            permissions.setPermission(colonyNeutralRank, com.minecolonies.api.colony.permissions.Action.GUARDS_ATTACK, false);
+            // NOTE: GUARDS_ATTACK removed from API - hostility now controlled by Rank.isHostile()
             // NOTE: USE_FLY_STICK not available in this API version
             
             // Also set hostile rank to be restrictive (in case someone gets hostile rank)

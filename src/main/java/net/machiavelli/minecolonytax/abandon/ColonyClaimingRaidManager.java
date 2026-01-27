@@ -1310,7 +1310,7 @@ public class ColonyClaimingRaidManager {
             // Grant attack permissions during raid
             perms.setPermission(neutral, Action.HURT_CITIZEN, true);
             perms.setPermission(neutral, Action.ATTACK_CITIZEN, true);
-            perms.setPermission(neutral, Action.GUARDS_ATTACK, true);
+            // GUARDS_ATTACK removed from API - hostility now controlled by Rank.isHostile()
             perms.setPermission(neutral, Action.HURT_VISITOR, true);
             perms.setPermission(neutral, Action.ATTACK_ENTITY, true);
             perms.setPermission(neutral, Action.SHOOT_ARROW, true);
@@ -1321,7 +1321,7 @@ public class ColonyClaimingRaidManager {
             // Revoke attack permissions after raid
             perms.setPermission(neutral, Action.HURT_CITIZEN, false);
             perms.setPermission(neutral, Action.ATTACK_CITIZEN, false);
-            perms.setPermission(neutral, Action.GUARDS_ATTACK, false);
+            // GUARDS_ATTACK removed from API - hostility now controlled by Rank.isHostile()
             perms.setPermission(neutral, Action.HURT_VISITOR, false);
             perms.setPermission(neutral, Action.ATTACK_ENTITY, false);
             perms.setPermission(neutral, Action.SHOOT_ARROW, false);

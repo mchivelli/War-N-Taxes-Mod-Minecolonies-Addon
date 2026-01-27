@@ -1275,29 +1275,32 @@ public class TaxConfig {
                                 .defineInRange("PlayerLivesInWar", 5, 1, 100); // Default 5 lives
 
                 CONFIGURABLE_WAR_ACTIONS = BUILDER.comment(
-                                "Actions permitted during a War. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.")
+                                "Actions permitted during a War. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.\n" +
+                                "Note: GUARDS_ATTACK was removed from Minecolonies API - hostility is now controlled by Rank.isHostile()")
                                 .defineList("WarActions",
                                                 List.of("PLACE_BLOCKS", "BREAK_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM",
-                                                                "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET",
+                                                                "ATTACK_CITIZEN", "FILL_BUCKET",
                                                                 "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY",
                                                                 "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN",
                                                                 "HURT_VISITOR", "THROW_POTION"),
                                                 obj -> obj instanceof String);
 
                 CONFIGURABLE_RAID_ACTIONS = BUILDER.comment(
-                                "Actions permitted during a Raid. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.")
+                                "Actions permitted during a Raid. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.\n" +
+                                "Note: GUARDS_ATTACK was removed from Minecolonies API - hostility is now controlled by Rank.isHostile()")
                                 .defineList("RaidActions",
-                                                List.of("TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN", "GUARDS_ATTACK",
+                                                List.of("TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN",
                                                                 "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK",
                                                                 "RIGHTCLICK_ENTITY", "ATTACK_ENTITY", "EXPLODE",
                                                                 "HURT_CITIZEN", "HURT_VISITOR", "THROW_POTION"),
                                                 obj -> obj instanceof String);
 
                 CONFIGURABLE_CLAIMING_ACTIONS = BUILDER.comment(
-                                "Actions permitted during Abandoned Colony Claiming raids. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.")
+                                "Actions permitted during Abandoned Colony Claiming raids. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.\n" +
+                                "Note: GUARDS_ATTACK was removed from Minecolonies API - hostility is now controlled by Rank.isHostile()")
                                 .defineList("ClaimingActions",
                                                 List.of("PLACE_BLOCKS", "BREAK_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM",
-                                                                "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET",
+                                                                "ATTACK_CITIZEN", "FILL_BUCKET",
                                                                 "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY",
                                                                 "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN",
                                                                 "HURT_VISITOR", "THROW_POTION", "OPEN_CONTAINER"),
