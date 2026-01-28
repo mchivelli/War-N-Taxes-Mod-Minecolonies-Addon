@@ -1287,7 +1287,7 @@ public class TaxConfig {
                 CONFIGURABLE_RAID_ACTIONS = BUILDER.comment(
                                 "Actions permitted during a Raid. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.")
                                 .defineList("RaidActions",
-                                                List.of("TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN", "GUARDS_ATTACK",
+                                                List.of("TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN",
                                                                 "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK",
                                                                 "RIGHTCLICK_ENTITY", "ATTACK_ENTITY", "EXPLODE",
                                                                 "HURT_CITIZEN", "HURT_VISITOR", "THROW_POTION"),
@@ -1297,7 +1297,7 @@ public class TaxConfig {
                                 "Actions permitted during Abandoned Colony Claiming raids. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.")
                                 .defineList("ClaimingActions",
                                                 List.of("PLACE_BLOCKS", "BREAK_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM",
-                                                                "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET",
+                                                                "ATTACK_CITIZEN", "FILL_BUCKET",
                                                                 "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY",
                                                                 "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN",
                                                                 "HURT_VISITOR", "THROW_POTION", "OPEN_CONTAINER"),
