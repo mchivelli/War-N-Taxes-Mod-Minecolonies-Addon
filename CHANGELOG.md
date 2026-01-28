@@ -5,6 +5,26 @@ All notable changes to the War N Tax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.2] - 2026-01-28
+
+### ⚙️ Dependency & Compatibility Overhaul
+
+- **UPDATED**: **All Mod Dependencies** - Updated to latest compatible versions for Minecraft 1.20.1 Forge
+  - MineColonies: `1.1.1170`
+  - BlockUI: `1.0.194`
+  - Multi-Piston: `0.0.47-snapshot`
+  - Structurize: `1.0.800`
+  - Domum Ornamentum: `1.0.295`
+  - FTB Teams: `2001.3.2`
+  - Recruits: `1.14.2.2`
+  - Patchouli: `1.20.1-84.1-FORGE`
+- **CORE**: Upgraded Minecraft Forge to **47.4.3**
+- **FIXED**: **MineColonies API Compatibility** - Removed all references to obsolete `Action.GUARDS_ATTACK` which was removed in the latest API version
+- **IMPROVED**: **Runtime Dependency Enforcement** - `mods.toml` now strictly requires these minimum mod versions to prevent crashes with outdated dependencies
+- **OPTIMIZED**: Added build performance tuning to `gradle.properties` (`org.gradle.parallel`, `org.gradle.caching`, etc.)
+
+---
+
 ## [4.0.1] - 2026-01-12
 
 ### 🐛 Bug Fixes
@@ -38,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Advancements**: Progress tracking for claiming tax, starting raids, and declaring war
 
 #### Configuration Options:
+
 - `GivePatchouliBookOnJoin` (default: true) - Give book to new players
 - `ShowAdminPatchouliCategory` (default: false) - Show admin config section in book
 
@@ -68,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **IMPROVED**: Debug output now shows both display name and registry ID for clarity: `Restaurant [cook] (L3): +15 tax, -0 maint = +15 net`
 
 #### Technical Details:
+
 - Military buildings (`barracks`, `barrackstower`, `guardtower`, `archery`, `combatacademy`) now correctly only have maintenance entries
 - Tax-generating buildings use `BUILDING_TAXES` map, military buildings use `BUILDING_MAINTENANCE` map
 - All 54 MineColonies Registry IDs verified against `ModBuildings.java`
@@ -93,6 +115,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `WarVassalizationTributePercentage` (default: 25) - Tribute rate percentage
 
 #### Technical Implementation:
+
 - Added `forceVassalize()` method to `VassalManager.java` for war-triggered vassalizations
 - Extended `VassalRelation` class with `expirationTime` and `isWarVassalization` fields
 - Modified `handleTaxIncome()` to check for and auto-remove expired vassalizations
@@ -107,6 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Result**: Officer physical presence now properly resets the abandonment timer as intended
 
 #### Technical Details:
+
 - **File**: `ColonyAbandonmentManager.java` lines 92-129
 - **Fix**: Added call to `OfficerColonyVisitTracker.getHoursSinceOfficerVisit()` in `checkColonyAbandonmentStatus()`
 - **Logic**: Uses the minimum of MineColonies' hours and officer physical entry hours for the most recent activity
@@ -121,11 +145,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLEANUP**: Player tracking data cleared on logout to minimize memory usage
 
 #### How It Works:
+
 1. Player moves to a new chunk → Check if they entered a colony
 2. If entering a colony they own/officer → Reset that colony's timer only
 3. Changes batched in memory, saved every 5 minutes or on shutdown
 
 #### Why This Change:
+
 - More fair: Requires actual presence in the colony, not just being online
 - More efficient: No iteration over all colonies on every login
 - No TPS impact: Only checks colony on chunk changes, not every tick
@@ -133,6 +159,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🐛 Critical Raid System Bug Fixes
 
 #### Bug #1: Raid Ending Immediately
+
 - **FIXED**: **Raid Ending Immediately Bug** - Raids no longer end instantly without starting the timer
 - **Root Cause**: Duration check was executing BEFORE incrementing elapsed time, causing raids to end on first timer tick
 - **Impact**: Raids would show "Raid FAILED! No rewards earned" message instantly without boss bar appearing
@@ -140,6 +167,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Technical Change**: Changed `>=` to `>` in duration check to allow full raid duration (5 minutes default)
 
 **Technical Details:**
+
 - **File**: `RaidManager.java` lines 752-762
 - **Before**: Check duration → Increment time → Update boss bar
 - **After**: Increment time → Update boss bar → Check duration
@@ -147,6 +175,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Result**: Raids now properly run for their full configured duration with boss bar visible
 
 #### Bug #2: No Rewards Despite Killing All Guards
+
 - **FIXED**: **Reward Eligibility Bug** - Raiders now receive rewards when successfully killing all guards
 - **Root Cause**: Guard reconciliation system updated `CitizenMilitiaManager` counter but not `ActiveRaidData.guardsKilled`
 - **Impact**: Even after killing all guards and winning the raid, raiders received "failed to kill any guards" message
@@ -154,6 +183,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Solution**: Call `raidData.incrementGuardsKilled()` in reconciliation loop alongside `CitizenMilitiaManager` update
 
 **Technical Details:**
+
 - **File**: `RaidManager.java` line 848
 - **Fix**: Added `raidData.incrementGuardsKilled()` in guard reconciliation loop
 - **Debug Logging**: Enhanced logging to show both counter values for troubleshooting
@@ -182,6 +212,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **History Limit**: Automatically maintains last 100 raids per colony for performance
 
 #### Technical Implementation:
+
 - Created `RaidEntry` inner class in `HistoryManager.java` with full structured data
 - Updated `RaidManager.java` to use `addRaidEntry()` instead of legacy string format
 - Added query methods: `getStructuredRaids()`, `getRaidsByPlayer()`, `getTotalAmountStolen()`
@@ -205,6 +236,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Mixed Configuration Support**: Can combine specific blocks and whole mods in same list
 
 #### Configuration Examples:
+
 ```toml
 BlockInteractionBlacklist = [
     "minecraft:bedrock",               # Specific block
@@ -221,6 +253,7 @@ BlockInteractionWhitelist = [
 ```
 
 #### Technical Implementation:
+
 - Enhanced `BlockInteractionFilterHandler.java` with mod-level matching logic
 - Added iteration over blacklist/whitelist checking for `#` prefix entries
 - Matches block IDs starting with `modid:` when mod-level entry found
@@ -237,6 +270,7 @@ BlockInteractionWhitelist = [
 - **Enhanced Logging**: Full stack traces and detailed error messages for debugging
 
 #### Issues Fixed:
+
 1. **Server Stats Endpoint Crash**: Three loops iterating over players, only one actually worked, others created garbage-collected arrays
 2. **Leaderboard Endpoint Crash**: Using `getOrCreate()` returned fake empty instances instead of real data
 3. **False Empty Stats**: `getOrCreate()` created new PlayerWarData instances that weren't attached to players
@@ -244,6 +278,7 @@ BlockInteractionWhitelist = [
 5. **Missing Debug Info**: No visibility into what went wrong when errors occurred
 
 #### Technical Changes:
+
 - **`WarStatsAPIData.java`**:
   - Removed 2 redundant loops in `getServerStatsJSON()` (performance boost)
   - Changed from `getOrCreate()` to `capability.resolve().orElse(null)` in all methods
@@ -258,6 +293,7 @@ BlockInteractionWhitelist = [
   - `WEBAPI_DATA_LOADING_VERIFICATION.md` - How to verify data loading works correctly
 
 #### Verification Steps:
+
 - Check server logs for "Web API Server Started Successfully!"
 - Test health endpoint: `GET /api/health` should return `200 OK`
 - Test server stats: `GET /api/warstats/server` should return real data, not 500
@@ -271,6 +307,7 @@ BlockInteractionWhitelist = [
 - **NEW FEATURE**: **Debug Tax Command** - Comprehensive tax breakdown command for troubleshooting
 
 #### Tax GUI Refresh Fix:
+
 - **Accurate Estimates**: Approximate revenue calculation now uses real config tax values
 - **Happiness Integration**: Accounts for happiness modifier multiplier (0.5x to 1.5x default)
 - **Guard Tower Boost**: Properly calculates guard tower boost (25% default with 5+ towers)
@@ -278,6 +315,7 @@ BlockInteractionWhitelist = [
 - **Real-Time Updates**: Refresh button properly updates all colony data including approximate income
 
 #### Technical Changes:
+
 - **`ColonyDataCollector.java`**:
   - Rewrote `calculateApproximateRevenue()` to use actual config values
   - Added happiness multiplier calculation matching `TaxManager` logic
@@ -286,6 +324,7 @@ BlockInteractionWhitelist = [
   - Replaced hardcoded 3.5 per building with config-based estimates
 
 #### Debug Tax Command (`/wnt debugtax <colony>`):
+
 - **Admin Command**: Requires OP level 2, provides detailed tax breakdown
 - **Current Balance**: Shows stored tax for colony
 - **Happiness Analysis**:
@@ -311,6 +350,7 @@ BlockInteractionWhitelist = [
   - Max tax revenue cap
 
 #### Command Output Example:
+
 ```
 ═══════════════════════════════════════
 📊 TAX DEBUG BREAKDOWN: MyColony
@@ -343,12 +383,14 @@ Current Balance: 1500
 ```
 
 #### Use Cases:
+
 - **Players**: Click refresh in Tax GUI to see accurate income estimates
 - **Admins**: Use `/wnt debugtax` to troubleshoot tax calculation issues
 - **Server Operators**: Verify config values are working as intended
 - **Debugging**: Identify why colonies aren't generating expected taxes
 
 #### Benefits:
+
 - ✅ Tax GUI shows realistic income projections
 - ✅ Players can plan economy based on accurate estimates
 - ✅ Admins can verify config changes immediately
@@ -358,6 +400,7 @@ Current Balance: 1500
 - ✅ Match expected vs actual tax generation
 
 #### Documentation:
+
 - Created `TAX_GUI_AND_DEBUG_FIXES.md` with complete implementation details
 - Includes verification steps, troubleshooting guide, and config reference
 - Documents calculation flow matching `TaxManager.generateTaxesForAllColonies()`
@@ -379,6 +422,7 @@ Current Balance: 1500
   - Raid end title commands
 
 #### Technical Implementation:
+
 - Updated `sendColonyMessage()` in `RaidManager.java` to filter by rank (Owner/Officer/Friend only)
 - Updated `sendColonyMessageExcluding()` in `RaidManager.java` with same filtering logic
 - Updated `sendColonyMessage()` in `WarSystem.java` to exclude Hostile and Neutral ranks
@@ -402,6 +446,7 @@ Current Balance: 1500
 - **Comprehensive Coverage**: Filters block breaking, placement, and usage (right-click) interactions
 
 #### Configuration Options:
+
 - `EnableBlockInteractionFilter` - Master toggle for the system (default: true)
 - `BlockInteractionBlacklist` - List of blocks that CANNOT be interacted with (highest priority)
 - `BlockInteractionWhitelist` - List of blocks that CAN be interacted with (overrides normal restrictions)
@@ -409,6 +454,7 @@ Current Balance: 1500
 - `BlockFilterRaids` - Apply filtering during raids (default: true)
 
 #### Security Architecture:
+
 - **Priority Order**: Blacklist > Whitelist > Existing Protection Systems
 - **Immutable Config**: Configuration values cannot be modified at runtime
 - **EventPriority.HIGHEST**: Guarantees filter runs before all other protection handlers
@@ -417,6 +463,7 @@ Current Balance: 1500
 - **No Bypass Exploits**: All interaction types (break/place/use) comprehensively covered
 
 #### Technical Implementation:
+
 - Created `BlockInteractionFilterHandler.java` event handler with HIGHEST priority
 - Added 5 new configuration options to `TaxConfig.java` with secure getter methods
 - Integrated with `RaidManager` active raid detection system
@@ -425,6 +472,7 @@ Current Balance: 1500
 - Created technical summary: `BLOCK_FILTER_IMPLEMENTATION_SUMMARY.md`
 
 #### Default Blacklist (Protected):
+
 - `minecraft:bedrock` - World boundaries
 - `minecraft:command_block` - Admin tools
 - `minecraft:chain_command_block` - Admin tools
@@ -434,6 +482,7 @@ Current Balance: 1500
 - `minecolonies:blockhuttownhall` - Colony center
 
 #### Default Whitelist (Accessible):
+
 - `minecraft:chest` - Looting during raids
 - `minecraft:barrel` - Storage access
 - `minecraft:furnace` - Resource blocks
@@ -457,6 +506,7 @@ Current Balance: 1500
 - **JSON Responses**: Clean, structured JSON data for easy integration
 
 #### API Endpoints:
+
 - `GET /api/health` - Server health check and feature availability
 - `GET /api/warstats/all` - Retrieve all player war statistics
 - `GET /api/warstats/leaderboard?sort=warsWon&limit=50` - Sorted leaderboards
@@ -464,6 +514,7 @@ Current Balance: 1500
 - `GET /api/warstats/server` - Server-wide statistics and aggregates
 
 #### Configuration Options:
+
 - `EnableWebAPI` - Master toggle for the API server (default: false)
 - `WebAPIPort` - HTTP port for the API server (default: 8090)
 - `WebAPIKey` - API key for authentication (default: "change-me-in-production")
@@ -473,6 +524,7 @@ Current Balance: 1500
 - `WebAPICacheRefreshMinutes` - Offline cache refresh interval (default: 10)
 
 #### Security Features:
+
 - **Authentication Required**: API key protection enabled by default
 - **Rate Limiting**: Per-IP request throttling prevents abuse
 - **Read-Only**: No write operations, GET requests only
@@ -481,6 +533,7 @@ Current Balance: 1500
 - **Error Handling**: Graceful error responses with proper HTTP status codes
 
 #### Offline Player Caching:
+
 - **NBT Parsing**: Scans `world/playerdata/*.dat` files for war statistics
 - **Background Processing**: Non-blocking cache refresh every 10 minutes (configurable)
 - **Memory Efficient**: ~500 bytes per player (~5MB for 10,000 players)
@@ -489,6 +542,7 @@ Current Balance: 1500
 - **Query Parameter**: `?includeOffline=true` to include offline players in results
 
 #### Technical Implementation:
+
 - Created `WebAPIServer.java` - HTTP server with security features and endpoint routing
 - Created `WarStatsAPIData.java` - Data collection, JSON serialization, and online/offline merging
 - Created `PlayerDataCache.java` - Offline player NBT parsing and intelligent caching
@@ -498,6 +552,7 @@ Current Balance: 1500
 - Created implementation summary: `WEB_API_IMPLEMENTATION_SUMMARY.md`
 
 #### Performance Characteristics:
+
 - **Response Time**: <1ms for online players, <10ms with offline data included
 - **Disk I/O**: 1-5 seconds per cache refresh (background, non-blocking)
 - **Memory**: Minimal overhead, cached data only when offline support enabled
@@ -505,6 +560,7 @@ Current Balance: 1500
 - **No Dependencies**: Uses Java built-in HttpServer (com.sun.net.httpserver)
 
 #### Example Usage:
+
 ```bash
 # Get all player statistics
 curl -H "X-API-Key: your-api-key" http://localhost:8090/api/warstats/all
@@ -534,6 +590,7 @@ curl -H "X-API-Key: your-api-key" \
 - **No Item Loss**: Players start with their inventory and leave with their inventory - no clearing, no snapshots, no duplication
 
 #### Technical Implementation:
+
 - Removed `saveInventory()` call from battle start sequence (`startBattle()`)
 - Removed `restoreInventory()` call from player restoration sequence (`restorePlayer()`)
 - Deprecated `saveInventory()` and `restoreInventory()` methods (kept as NO-OPs for compatibility)
@@ -553,6 +610,7 @@ curl -H "X-API-Key: your-api-key" \
 - **Disconnect Safety**: Defeated player tracking is properly cleaned up when players disconnect
 
 #### Technical Implementation:
+
 - Added `defeatedPlayers` tracking map to `PvPManager` for state management
 - Modified `handlePlayerDefeat()` to schedule 5-second delayed restoration using battle end scheduler
 - Created `restoreDefeatedPlayer()` method for clean player state restoration
@@ -578,6 +636,7 @@ curl -H "X-API-Key: your-api-key" \
 - **FTB Teams Integration**: Team members from both sides receive appropriate notifications based on their involvement
 
 #### Technical Implementation:
+
 - Created `broadcastToServer()` helper method for server-wide announcements
 - Maintained `sendNotificationToWarParticipants()` for targeted officer/friend notifications
 - Updated `broadcastComponent()` to use server-wide broadcasts for war results
@@ -601,6 +660,7 @@ curl -H "X-API-Key: your-api-key" \
 - **Smart Entry Messages**: Players entering abandoned colonies see claimability status and eligibility requirements.
 
 #### Configuration Options:
+
 - `AutoAbandonmentEnabled` (default: true)
 - `ColonyInactivityDays` (default: 14)
 - `ClaimingRaidDurationMinutes` (default: 5)
@@ -614,11 +674,13 @@ curl -H "X-API-Key: your-api-key" \
 - **Conflict Resolution**: Automatic handling of conflicting configuration values.
 
 #### Default Requirements:
+
 - **Raids**: Townhall (level 1) + 3 Guard Towers (level 1)
 - **Wars**: Townhall (level 2) + 3 Guard Towers (level 1) + Builder's Hut (level 1) + 1 Residential Hut (level 1)
 - **Colony Claiming**: Configurable (default: owning a colony with 3 guards)
 
 #### Configuration Options:
+
 - `EnableRaidBuildingRequirements` / `EnableWarBuildingRequirements`
 - `RaidBuildingRequirements` / `WarBuildingRequirements`
 - Legacy settings (`MinGuardsToRaid`, `MinGuardsToWageWar`) used as fallback when building requirements disabled
@@ -633,6 +695,7 @@ curl -H "X-API-Key: your-api-key" \
 - **Colony Transfer Integration**: Automatic colony ownership transfer when enabled and attackers win.
 
 #### Economy Features:
+
 - **SDMShop Integration**: Direct balance transfers between participants
 - **Inventory Currency**: Physical item transfers with detailed tracking
 - **Colony Tax System**: Tax pool transfers between colonies
@@ -646,8 +709,9 @@ curl -H "X-API-Key: your-api-key" \
 - **Clear Role Communication**: Players informed of their rank and eligibility status.
 
 #### Notification Types:
+
 - **⚔️ WAR DECLARED**: For attacking colony members
-- **🛡️ COLONY UNDER ATTACK**: For defending colony members  
+- **🛡️ COLONY UNDER ATTACK**: For defending colony members
 - **⚔️ TEAM WAR DECLARED**: For FTB Teams attackers
 - **🛡️ TEAM COLONY UNDER ATTACK**: For FTB Teams defenders
 
@@ -668,11 +732,13 @@ curl -H "X-API-Key: your-api-key" \
 ### 📋 New Commands & Features
 
 #### New Commands:
+
 - `/wnt claimcolony <colony>` - Claim an abandoned colony
-- `/wnt listabandoned` - List all abandoned colonies  
+- `/wnt listabandoned` - List all abandoned colonies
 - `/wnt forceabandon <colony>` - Admin-only colony abandonment
 
 #### Enhanced Commands:
+
 - `/wnt help raid` / `/wnt help wagewar` - Now show building requirements or legacy guard requirements based on configuration
 - All commands now provide clearer feedback and requirement validation
 
@@ -720,12 +786,14 @@ curl -H "X-API-Key: your-api-key" \
   - War response handling updated to support extortion-request records safely.
 
 #### Configuration
+
 - `EnableExtortionSystem` (boolean)
 - `DefaultExtortionPercentage` (double 0.0–1.0; e.g., 0.15 => 15%)
 - `ExtortionResponseTimeMinutes` (int, default 5)
 - `ExtortionImmunityHours` (int, default 24)
 
 Technical references:
+
 - Commands and payment flow: `src/main/java/net/machiavelli/minecolonytax/commands/WntCommands.java`
 - War flow, timers, immunity, pending requests: `src/main/java/net/machiavelli/minecolonytax/WarSystem.java`
 - Config keys: `src/main/java/net/machiavelli/minecolonytax/TaxConfig.java`
@@ -843,6 +911,7 @@ Technical references:
 - **Colony Boundary Enforcement**: Entities must remain within colony boundaries during raids, with configurable grace period for re-entry
 
 #### 🎮 **Dynamic Raid Experience**
+
 - **Dynamic Bossbar**: Real-time bossbar displaying remaining attacking entities and countdown timer
 - **Smart Grace Period**: 5-second grace timer activates only when ALL entities leave boundary, pauses/resumes if entities return
 - **Fixed Duration Raids**: Raids last exactly 5 minutes regardless of entity movement (configurable)
@@ -850,12 +919,14 @@ Technical references:
 - **Accurate Timer**: Fixed timer display bug - now shows proper countdown (e.g., "4m 23s left")
 
 #### 💰 **Economic Impact System**
+
 - **Configurable Tax Deductions**: Automatic tax revenue penalties every minute during active raids
 - **Percentage-Based Penalties**: Uses configured `RaidPenaltyPercentage` (e.g., 25% per minute)
 - **Real-Time Notifications**: Players receive tax deduction alerts during raids
 - **Revenue Protection**: Deductions are capped to prevent complete colony bankruptcy
 
 #### 🛡️ **Advanced Alliance & Diplomacy**
+
 - **MineColonies Integration**: Respects colony officer/friend ranks - allies won't trigger raids
 - **Recruits Diplomacy Support**: Revolutionary integration with Recruits mod diplomatic system
 - **Team-Based Filtering**: Recruits with ALLY diplomatic status are excluded from triggering raids
@@ -863,6 +934,7 @@ Technical references:
 - **Cross-Mod Compatibility**: Works seamlessly whether Recruits mod is present or not
 
 #### ⚙️ **System Improvements**
+
 - **Cooldown System**: Configurable cooldown periods between entity raids for the same colony (default: 30 minutes)
 - **Chat Deduplication**: Fixed duplicate notification spam to colony members
 - **Performance Optimized**: Configurable check intervals to balance detection accuracy with server performance
@@ -872,7 +944,7 @@ Technical references:
 
 ### 🔓 General Colony Permissions System
 
-- **NEW FEATURE**: Added General Colony Permissions system for universal item interactions within colonies  
+- **NEW FEATURE**: Added General Colony Permissions system for universal item interactions within colonies
 - **Universal Access**: Allows **all players** (including non-allies, strangers, and enemies) to drop and pickup items in colony boundaries
 - **Configurable Actions**: Default permissions include `TOSS_ITEM` and `PICKUP_ITEM` (block interactions can be added via configuration)
 - **MineColonies Integration**: Leverages native MineColonies permission system by modifying neutral and hostile ranks
@@ -901,22 +973,22 @@ Technical references:
 
 - **Centralized PvP Settings**: All PvP-related settings have been moved into the main `minecolonytax.toml` config file under the `["PvP Arena Settings"]` section. This removes the separate `minecolonytax-pvp.toml` file and consolidates all server configurations into a single, easy-to-manage location.
 - **Configurable Timers & Cooldowns**: Added new configuration options for all PvP countdowns and cooldowns:
-    - `allowCommandsInBattle`: Toggle whether players can use commands during a battle.
-    - `challengeCooldownSeconds`: Set the cooldown for duel challenges.
-    - `teamBattleCooldownSeconds`: Set the cooldown for starting team battles.
-    - `battleDurationSeconds`: Define the default length of a battle before it's declared a draw.
-    - `teamBattleStartCountdownSeconds`: Control the countdown before a team battle begins.
-    - `battleEndCountdownSeconds`: Adjust the delay before players are teleported back after a battle.
+  - `allowCommandsInBattle`: Toggle whether players can use commands during a battle.
+  - `challengeCooldownSeconds`: Set the cooldown for duel challenges.
+  - `teamBattleCooldownSeconds`: Set the cooldown for starting team battles.
+  - `battleDurationSeconds`: Define the default length of a battle before it's declared a draw.
+  - `teamBattleStartCountdownSeconds`: Control the countdown before a team battle begins.
+  - `battleEndCountdownSeconds`: Adjust the delay before players are teleported back after a battle.
 - **Improved Countdown Notifications**: The team battle start countdown is now less spammy. It notifies players at 10-second intervals until the last 5 seconds, at which point it notifies every second to build anticipation.
 - **NEW FEATURE - Team PvP System**: Added comprehensive team-based PvP functionality with the new `/teampvp` command:
-    - `/teampvp create <map>`: Create a new team battle on a specified map
-    - `/teampvp join <battleId> <team>`: Join a team battle (team 1 or 2)
-    - `/teampvp switch <battleId> <team>`: Switch teams within a battle
-    - `/teampvp start <battleId>`: Start a team battle early (organizer only)
-    - Team battles support multiple players per team with automatic balancing
-    - Interactive team rosters with real-time updates
-    - Configurable team sizes based on map capacity
-    - Automatic countdown system with configurable duration
+  - `/teampvp create <map>`: Create a new team battle on a specified map
+  - `/teampvp join <battleId> <team>`: Join a team battle (team 1 or 2)
+  - `/teampvp switch <battleId> <team>`: Switch teams within a battle
+  - `/teampvp start <battleId>`: Start a team battle early (organizer only)
+  - Team battles support multiple players per team with automatic balancing
+  - Interactive team rosters with real-time updates
+  - Configurable team sizes based on map capacity
+  - Automatic countdown system with configurable duration
 
 ### 🛡️ Raid Guard Protection System
 
@@ -970,11 +1042,11 @@ Technical references:
 - **Improved war participation**: Players receive clickable prompts in chat to select their preferred side
 
 ### Fixed
+
 - **Server Startup Performance**: Drastically reduced log spam during server startup by condensing building detection messages into single summary per colony
 - **Guard Tower Boost Bug**: Fixed guard tower tax boost being applied every tick instead of once per cooldown period (configurable, default 5 minutes)
 - **Improved Logging**: Replaced individual building messages with comprehensive colony summaries showing processed buildings, tax generated, guard count, and max tax status
 - **Duplicate Raid Tax Announcements**: Fixed issue where raid tax announcements were being displayed twice per interval. Messages are now sent only once to all relevant players without duplication, even if players are members of both colonies involved in the raid.
-
 
 ### 🏰 Guard Tower Tax Boost Implementation
 
@@ -992,18 +1064,21 @@ Technical references:
 ### 🚀 Major Features Added
 
 #### Unified Command System
+
 - **BREAKING CHANGE**: All commands now require `/wnt` prefix (War 'N Taxes)
 - Implemented comprehensive unified command handler in `WntCommands.java`
 - Removed individual command auto-registration to prevent conflicts
 - All functionality preserved under new command structure
 
 #### Intelligent Command Suggestions
+
 - **Colony name suggestions** with proper quote formatting for names containing spaces
-- **Player name suggestions** for admin commands  
+- **Player name suggestions** for admin commands
 - **Colony ID suggestions** for war responses with context-awareness
 - **Permission-based suggestions** that adapt to user access levels
 
 #### Comprehensive Help System
+
 - **Main help** via `/wnt` or `/wnt help` showing command overview
 - **Command-specific help** via `/wnt help <command>` with detailed explanations
 - **Permission-aware help** that hides admin commands from regular users
@@ -1012,9 +1087,11 @@ Technical references:
 ### 🎮 Command Changes
 
 #### New Unified Commands
+
 All commands now use `/wnt` prefix:
 
 **War Commands:**
+
 - `/wnt wagewar "<colony>"` - Declare war (previously `/wagewar`)
 - `/wnt raid "<colony>"` - Start raid (previously `/raid`)
 - `/wnt joinwar` - Join war (previously `/joinwar`)
@@ -1023,20 +1100,24 @@ All commands now use `/wnt` prefix:
 - `/wnt warinfo` - War status (previously `/warinfo`)
 
 **Peace Commands:**
+
 - `/wnt peace whitepeace` - Propose white peace (previously `/suepeace whitepeace`)
 - `/wnt peace reparations <amount>` - Propose reparations (previously `/suepeace reparations`)
 - `/wnt peace accept/decline` - Respond to peace (previously `/peace`)
 
 **Tax Commands:**
+
 - `/wnt claimtax [colony] [amount]` - Claim tax (previously `/claimtax`)
 - `/wnt checktax [player]` - Check tax (previously `/checktax`)
 - `/wnt taxdebt pay <amount> "<colony>"` - Pay debt (previously `/taxdebt pay`)
 
 **Statistics Commands:**
+
 - `/wnt warhistory [colony]` - View war history (previously separate command)
 - `/wnt warstats` - Personal statistics (previously separate command)
 
 **Admin Commands:**
+
 - `/wnt wardebug` - Debug wars (previously `/wardebug`)
 - `/wnt warstop "<colony>"` - Stop specific war (previously `/warstop`)
 - `/wnt warstopall` - Stop all wars (previously `/warstopall`)
@@ -1046,18 +1127,21 @@ All commands now use `/wnt` prefix:
 ### 🔧 Technical Improvements
 
 #### Command Architecture
+
 - **Centralized command handling** in `WntCommands.java`
 - **Removed redundant registrations** from individual command classes
 - **Preserved all functionality** while eliminating command conflicts
 - **Improved error handling** and user feedback
 
 #### Parameter Processing
+
 - **Smart colony name extraction** from quoted format
 - **Automatic quote handling** for colonies with spaces in names
 - **Robust parameter parsing** with fallback support
 - **Context-aware validation** based on user permissions
 
 #### Code Organization
+
 - **Eliminated duplicate code** between old command classes and new unified system
 - **Wrapper methods** for functionality that couldn't be directly delegated
 - **Consistent error messaging** across all commands
@@ -1066,12 +1150,14 @@ All commands now use `/wnt` prefix:
 ### 🎨 User Experience Enhancements
 
 #### Visual Improvements
+
 - **Shortened tax report display** by reducing "=" characters by 8 for better chat fit
 - **Consistent command formatting** across all help displays
 - **Color-coded help sections** for better readability
 - **Structured command lists** with clear categories
 
 #### Accessibility
+
 - **Tab completion** for all command parameters
 - **Smart suggestions** that reduce typing errors
 - **Context help** available at every step
@@ -1080,12 +1166,14 @@ All commands now use `/wnt` prefix:
 ### 🐛 Bug Fixes
 
 #### Command Conflicts Resolved
+
 - **Fixed duplicate command registrations** that caused conflicts
 - **Eliminated `/checktax` bypass** that allowed old command usage
 - **Resolved parameter suggestion issues** with bracket vs quote formatting
 - **Fixed colony name parsing** for names containing spaces
 
 #### Registration Issues
+
 - **Removed `@Mod.EventBusSubscriber`** annotations from old command classes
 - **Cleaned up `@SubscribeEvent`** methods to prevent auto-registration
 - **Updated main registration** to only use unified command handler
@@ -1094,6 +1182,7 @@ All commands now use `/wnt` prefix:
 ### 📝 Documentation Updates
 
 #### README.md Complete Rewrite
+
 - **Comprehensive command documentation** with examples and requirements
 - **Feature-focused organization** highlighting key capabilities
 - **Updated installation instructions** reflecting new command system
@@ -1101,6 +1190,7 @@ All commands now use `/wnt` prefix:
 - **Developer information** for contributors and mod developers
 
 #### Help System Enhancement
+
 - **In-game documentation** accessible via `/wnt help`
 - **Command-specific guidance** with practical examples
 - **Requirement explanations** for each command
@@ -1109,12 +1199,14 @@ All commands now use `/wnt` prefix:
 ### 🔄 Migration Notes
 
 #### For Server Administrators
+
 - **All commands now require `/wnt` prefix** - update any scripts or documentation
 - **Old commands no longer work** - users will need to adapt to new system
 - **All functionality preserved** - no features lost in transition
 - **Enhanced admin tools** with improved debugging and control
 
 #### For Players
+
 - **Simple migration**: Add `/wnt` before existing commands
 - **Improved help**: Use `/wnt help` to discover all available commands
 - **Better suggestions**: Tab completion now shows proper formatting
@@ -1123,15 +1215,17 @@ All commands now use `/wnt` prefix:
 ### 🏗️ Internal Changes
 
 #### Code Structure
+
 - **Unified command registration** in single file
-- **Eliminated redundant command handlers** 
+- **Eliminated redundant command handlers**
 - **Preserved all manager instances** (RaidManager, PeaceProposalManager, etc.)
 - **Maintained compatibility** with existing data structures
 
 #### Build System
+
 - **Successful compilation** verified with all changes
 - **No breaking changes** to mod loading or dependencies
-- **Maintained Forge compatibility** 
+- **Maintained Forge compatibility**
 - **Clean build output** with minimal warnings
 
 ---
@@ -1139,8 +1233,9 @@ All commands now use `/wnt` prefix:
 ## [Previous Versions]
 
 ### Features Preserved from Earlier Versions
+
 - Complete war system with declarations, join phases, and combat
-- Raid mechanics with territory requirements and penalties  
+- Raid mechanics with territory requirements and penalties
 - Tax collection and debt management systems
 - Peace proposal and diplomatic resolution systems
 - Player statistics and war history tracking
@@ -1164,17 +1259,17 @@ All commands now use `/wnt` prefix:
 
 ### Command Mapping
 
-| Old Command | New Command |
-|-------------|-------------|
-| `/claimtax` | `/wnt claimtax` |
-| `/checktax` | `/wnt checktax` |
-| `/wagewar` | `/wnt wagewar` |
-| `/raid` | `/wnt raid` |
-| `/joinwar` | `/wnt joinwar` |
-| `/warinfo` | `/wnt warinfo` |
-| `/peace` | `/wnt peace` |
-| All others | Add `/wnt` prefix |
+| Old Command | New Command       |
+| ----------- | ----------------- |
+| `/claimtax` | `/wnt claimtax`   |
+| `/checktax` | `/wnt checktax`   |
+| `/wagewar`  | `/wnt wagewar`    |
+| `/raid`     | `/wnt raid`       |
+| `/joinwar`  | `/wnt joinwar`    |
+| `/warinfo`  | `/wnt warinfo`    |
+| `/peace`    | `/wnt peace`      |
+| All others  | Add `/wnt` prefix |
 
 ---
 
-*This changelog documents the major refactoring to implement a unified command system while preserving all existing functionality and improving user experience.* 
+_This changelog documents the major refactoring to implement a unified command system while preserving all existing functionality and improving user experience._

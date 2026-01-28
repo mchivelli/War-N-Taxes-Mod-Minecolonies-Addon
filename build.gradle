@@ -137,24 +137,24 @@ repositories {
 
 dependencies {
 
-    implementation fg.deobf("curse.maven:minecolonies-245506:5761248")
-    runtimeOnly fg.deobf("curse.maven:blockui-522992:5658253")
-    runtimeOnly fg.deobf("curse.maven:multi-piston-303278:5204918")
-    runtimeOnly fg.deobf("curse.maven:domum-ornamentum-527361:5764067")
-    runtimeOnly fg.deobf("curse.maven:structurize-298744:5676596")
-    runtimeOnly fg.deobf("curse.maven:jei-238222:5739402")
-    implementation fg.deobf("curse.maven:sdm-shop-948942:7395729")
+    implementation fg.deobf("curse.maven:minecolonies-245506:7532527")
+    runtimeOnly fg.deobf("curse.maven:blockui-522992:7041657")
+    runtimeOnly fg.deobf("curse.maven:multi-piston-303278:7097891")
+    runtimeOnly fg.deobf("curse.maven:domum-ornamentum-527361:7530695")
+    runtimeOnly fg.deobf("curse.maven:structurize-298744:7532330")
+    runtimeOnly fg.deobf("curse.maven:jei-238222:7391695")
+    implementation fg.deobf("curse.maven:sdm-shop-948942:7435190")
     runtimeOnly fg.deobf("curse.maven:ftb-library-forge-404465:7296748")
     runtimeOnly fg.deobf("curse.maven:sdm-economy-1102542:6689080")
-    runtimeOnly fg.deobf("curse.maven:sdm-engine-core-964997:5761090")
+    runtimeOnly fg.deobf("curse.maven:sdm-engine-core-964997:7090174")
     runtimeOnly fg.deobf("curse.maven:sdm-ui-lib-1095061:6086204")
     runtimeOnly fg.deobf("curse.maven:architectury-api-419699:5137938")
-    implementation fg.deobf("curse.maven:ftb-teams-forge-404468:5267190")
-    implementation fg.deobf("curse.maven:recruits-523860:6500292")
-    implementation fg.deobf("vazkii.patchouli:Patchouli:1.20.1-84-FORGE")
+    implementation fg.deobf("curse.maven:ftb-teams-forge-404468:7499810")
+    implementation fg.deobf("curse.maven:recruits-523860:7534864")
+    implementation fg.deobf("vazkii.patchouli:Patchouli:1.20.1-84.1-FORGE")
 
 
-    minecraft "net.minecraftforge:forge:1.20.1-47.3.10"
+    minecraft "net.minecraftforge:forge:1.20.1-47.4.3"
 
 
 
@@ -171,6 +171,15 @@ tasks.named('processResources', ProcessResources).configure {
             loader_version_range: loader_version_range,
             mod_id: mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
             mod_authors: mod_authors, mod_description: mod_description,
+            minecolonies_version_range: minecolonies_version_range,
+            blockui_version_range: blockui_version_range,
+            multipiston_version_range: multipiston_version_range,
+            domum_ornamentum_version_range: domum_ornamentum_version_range,
+            structurize_version_range: structurize_version_range,
+            sdm_shop_version_range: sdm_shop_version_range,
+            ftb_teams_version_range: ftb_teams_version_range,
+            recruits_version_range: recruits_version_range,
+            patchouli_version_range: patchouli_version_range
     ]
     inputs.properties replaceProperties
 

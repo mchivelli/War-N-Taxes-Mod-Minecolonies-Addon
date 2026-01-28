@@ -1,0 +1,120 @@
+Configuration on demand is an incubating feature.
+
+> Configure project :
+Java: 17.0.18, JVM: 17.0.18+8 (Arch Linux), Arch: amd64
+
+> Task :clean
+
+> Task :compileJava
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/raid/RaidManager.java:293: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                        .getAdvancement(new net.minecraft.resources.ResourceLocation("minecolonytax:codex/start_raid"));
+                                        ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/raid/RaidManager.java:620: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                    .getValue(new net.minecraft.resources.ResourceLocation(TaxConfig.getCurrencyItemName()));
+                              ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/raid/RaidManager.java:1447: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                            .getValue(new net.minecraft.resources.ResourceLocation(TaxConfig.getCurrencyItemName()));
+                                      ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/event/PvPKillEconomyHandler.java:154: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+            Item currencyItem = ForgeRegistries.ITEMS.getValue(new ResourceLocation(currencyItemName));
+                                                               ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/event/RaidKillTracker.java:438: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                            new net.minecraft.resources.ResourceLocation(net.machiavelli.minecolonytax.TaxConfig.getCurrencyItemName()));
+                            ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/event/PatchouliBookHandler.java:25: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+    public static final ResourceLocation BOOK_ID = new ResourceLocation(MineColonyTax.MOD_ID, "war_taxes_codex");
+                                                   ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/WarSystem.java:2343: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                        new net.minecraft.resources.ResourceLocation("minecolonytax:codex/declare_war"));
+                        ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/event/WarEconomyHandler.java:152: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                        ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName())),
+                                                       ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/event/WarEconomyHandler.java:335: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                            ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName())),
+                                                           ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/event/WarEconomyHandler.java:402: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                                ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName())),
+                                                               ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/gui/TaxManagementScreen.java:32: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+    private static final ResourceLocation BACKGROUND_TEXTURE = new ResourceLocation("minecolonytax",
+                                                               ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/capability/PlayerWarDataCapability.java:27: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+    public static final ResourceLocation ID = new ResourceLocation(MineColonyTax.MOD_ID, "player_war_data");
+                                              ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/network/packets/PayDebtPacket.java:90: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                Item currencyItem = ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName()));
+                                                                   ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/network/packets/PayDebtPacket.java:112: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                Item currencyItem = ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName()));
+                                                                   ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/network/packets/ClaimTaxPacket.java:122: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                    Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName()));
+                                                               ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/network/NetworkHandler.java:27: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+                        new ResourceLocation(MineColonyTax.MOD_ID, "main"),
+                        ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/datagen/DisabledRecipeProvider.java:116: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+                ResourceLocation recipeId = new ResourceLocation("minecolonytax", "disabled_" + blockId.getPath());
+                                            ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/datagen/DisabledRecipeProvider.java:138: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                        return new ResourceLocation("");
+                               ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/MineColonyTax.java:42: warning: [removal] get() in ModLoadingContext has been deprecated and marked for removal
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, TaxConfig.CONFIG, "warntax/minecolonytax.toml");
+                         ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/MineColonyTax.java:45: warning: [removal] get() in FMLJavaModLoadingContext has been deprecated and marked for removal
+        ModRecipeSerializers.RECIPE_SERIALIZERS.register(FMLJavaModLoadingContext.get().getModEventBus());
+                                                                                 ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/MineColonyTax.java:48: warning: [removal] get() in FMLJavaModLoadingContext has been deprecated and marked for removal
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
+                                ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/MineColonyTax.java:49: warning: [removal] get() in FMLJavaModLoadingContext has been deprecated and marked for removal
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::clientSetup);
+                                ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/util/ItemUtils.java:34: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+        Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(itemName));
+                                                   ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/pvp/PvPMapManager.java:179: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, new ResourceLocation(mapData.dimension));
+                                                                                        ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/commands/WntCommands.java:1688: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                                                                                new net.minecraft.resources.ResourceLocation(
+                                                                                ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/commands/ClaimTaxCommand.java:151: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                                        new net.minecraft.resources.ResourceLocation("minecolonytax:codex/claim_tax"));
+                                        ^
+/run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/commands/ClaimTaxCommand.java:168: warning: [removal] ResourceLocation(String) in ResourceLocation has been deprecated and marked for removal
+                                .getValue(new ResourceLocation(TaxConfig.getCurrencyItemName()));
+                                          ^
+Note: /run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/src/main/java/net/machiavelli/minecolonytax/raid/RaidManager.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+27 warnings
+
+> Task :processResources
+> Task :classes
+> Task :jar
+> Task :downloadMcpConfig
+> Task :extractSrg
+> Task :createMcpToSrg
+> Task :reobfJar
+> Task :jarJar SKIPPED
+> Task :reobfJarJar SKIPPED
+> Task :assemble
+> Task :compileTestJava NO-SOURCE
+> Task :processTestResources NO-SOURCE
+> Task :testClasses UP-TO-DATE
+> Task :test NO-SOURCE
+> Task :check UP-TO-DATE
+> Task :build
+
+[Incubating] Problems report is available at: file:///run/media/asephs/b147e4d3-826a-5c47-9a73-5b2b9a19cd71/War-N-Taxes-Mod---Minecolonies-Addon/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.12.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 6s
+8 actionable tasks: 8 executed
