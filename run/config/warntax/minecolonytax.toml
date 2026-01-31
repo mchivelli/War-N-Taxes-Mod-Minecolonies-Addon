@@ -97,10 +97,13 @@ TaxStealPerGuard = 200
 	#Range: 1 ~ 100
 	PlayerLivesInWar = 5
 	#Actions permitted during a War. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.
+	#Note: GUARDS_ATTACK was removed from Minecolonies API - hostility is now controlled by Rank.isHostile()
 	WarActions = ["PLACE_BLOCKS", "BREAK_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY", "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN", "HURT_VISITOR", "THROW_POTION"]
 	#Actions permitted during a Raid. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.
+	#Note: GUARDS_ATTACK was removed from Minecolonies API - hostility is now controlled by Rank.isHostile()
 	RaidActions = ["TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY", "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN", "HURT_VISITOR", "THROW_POTION"]
 	#Actions permitted during Abandoned Colony Claiming raids. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.
+	#Note: GUARDS_ATTACK was removed from Minecolonies API - hostility is now controlled by Rank.isHostile()
 	ClaimingActions = ["PLACE_BLOCKS", "BREAK_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN", "GUARDS_ATTACK", "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY", "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN", "HURT_VISITOR", "THROW_POTION", "OPEN_CONTAINER"]
 	#Number of Guard Towers required to activate a tax boost for all buildings in a colony.
 	#Range: 1 ~ 100
@@ -256,6 +259,13 @@ TaxStealPerGuard = 200
 		#When FALSE (default): Only OPs (permission level 2+) can view abandoned colonies.
 		#When TRUE: Any player can view the list of abandoned colonies available for claiming.
 		EnableListAbandonedForAll = false
+		#EXPERIMENTAL: Reset abandonment timer when officers/owners log into the server.
+		#When FALSE (default): Timer only resets when officers PHYSICALLY VISIT the colony (chunk-based detection).
+		#When TRUE: Timer resets for ALL colonies an officer manages just by logging in (easier but defeats the purpose).
+		#
+		#RECOMMENDED: Keep this FALSE to ensure officers actually visit their colonies to prevent abandonment.
+		#Setting this to TRUE will prevent colonies from ever being abandoned if officers log in regularly.
+		ResetTimerOnOfficerLogin = false
 
 	["War Settings"."Abandoned Colony Claiming"]
 		#Enable claiming of abandoned colonies using the /wnt claimcolony command. When enabled, players can claim abandoned colonies, triggering a raid where all citizens become hostile militia.

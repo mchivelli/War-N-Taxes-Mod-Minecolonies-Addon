@@ -14,6 +14,7 @@ import net.machiavelli.minecolonytax.network.packets.OpenTaxGUIPacket;
 import net.machiavelli.minecolonytax.network.packets.RequestWarChestDataPacket;
 import net.machiavelli.minecolonytax.network.packets.WarChestDataResponsePacket;
 import net.machiavelli.minecolonytax.network.packets.WarChestActionPacket;
+import net.machiavelli.minecolonytax.network.packets.SetTaxPolicyPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkDirection;
@@ -123,6 +124,13 @@ public class NetworkHandler {
                                 .decoder(WarChestActionPacket::new)
                                 .encoder(WarChestActionPacket::toBytes)
                                 .consumerMainThread(WarChestActionPacket::handle)
+                                .add();
+
+                // Tax Policy packet
+                CHANNEL.messageBuilder(SetTaxPolicyPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                                .decoder(SetTaxPolicyPacket::new)
+                                .encoder(SetTaxPolicyPacket::toBytes)
+                                .consumerMainThread(SetTaxPolicyPacket::handle)
                                 .add();
 
                 MineColonyTax.LOGGER.info("Network channel registered with {} packets", packetId);

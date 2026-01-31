@@ -13,7 +13,10 @@ import net.machiavelli.minecolonytax.network.packets.UpdatePlayerTaxPermissionPa
 import net.machiavelli.minecolonytax.network.packets.RequestOfficerDataPacket;
 import net.machiavelli.minecolonytax.network.packets.RequestWarChestDataPacket;
 import net.machiavelli.minecolonytax.network.packets.WarChestActionPacket;
+import net.machiavelli.minecolonytax.network.packets.SetTaxPolicyPacket;
 import net.machiavelli.minecolonytax.permissions.TaxPermissionManager;
+import net.machiavelli.minecolonytax.economy.policy.TaxPolicy;
+import net.machiavelli.minecolonytax.TaxConfig;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -101,7 +104,9 @@ public class TaxManagementScreen extends Screen {
         // Tab buttons - centered for better visual alignment with parchment background
         int tabButtonWidth = 70;
         int tabButtonHeight = 20;
-        int totalTabWidth = tabButtonWidth * 3 + 10; // 3 buttons + 2 gaps of 5px
+        boolean warChestEnabled = TaxConfig.isWarChestEnabled();
+        int numTabs = warChestEnabled ? 4 : 3; // 4 tabs if War Chest enabled, 3 otherwise
+        int totalTabWidth = tabButtonWidth * numTabs + (numTabs - 1) * 5; // buttons + gaps
         int tabStartX = guiLeft + (GUI_WIDTH - totalTabWidth) / 2;
 
         this.coloniesTabButton = Button.builder(
@@ -125,13 +130,15 @@ public class TaxManagementScreen extends Screen {
                 .build();
         this.addRenderableWidget(permissionsTabButton);
 
-        // War Chest tab button
-        this.warChestTabButton = Button.builder(
-                Component.literal("War Chest"),
-                button -> switchToWarChest())
-                .bounds(tabStartX + (tabButtonWidth + 5) * 3, guiTop + 25, tabButtonWidth, tabButtonHeight)
-                .build();
-        this.addRenderableWidget(warChestTabButton);
+        // War Chest tab button - only show if feature is enabled
+        if (warChestEnabled) {
+            this.warChestTabButton = Button.builder(
+                    Component.literal("War Chest"),
+                    button -> switchToWarChest())
+                    .bounds(tabStartX + (tabButtonWidth + 5) * 3, guiTop + 25, tabButtonWidth, tabButtonHeight)
+                    .build();
+            this.addRenderableWidget(warChestTabButton);
+        }
 
         // Bottom action buttons - centered and properly spaced with proper margins
         int buttonHeight = 20;
@@ -333,10 +340,15 @@ public class TaxManagementScreen extends Screen {
 
         // Highlight active tab - centered positioning
         int tabButtonWidth = 70;
-        int totalTabWidth = tabButtonWidth * 4 + 15; // 4 tabs now
+        boolean warChestEnabled = TaxConfig.isWarChestEnabled();
+        int numTabs = warChestEnabled ? 4 : 3;
+        int totalTabWidth = tabButtonWidth * numTabs + (numTabs - 1) * 5;
         int tabStartX = guiLeft + (GUI_WIDTH - totalTabWidth) / 2;
 
-        if (showingPermissions) {
+        if (showingWarChest && warChestEnabled) {
+            guiGraphics.fill(tabStartX + (tabButtonWidth + 5) * 3, guiTop + 47,
+                    tabStartX + (tabButtonWidth + 5) * 3 + tabButtonWidth, guiTop + 49, COLOR_GOLD);
+        } else if (showingPermissions) {
             guiGraphics.fill(tabStartX + (tabButtonWidth + 5) * 2, guiTop + 47,
                     tabStartX + (tabButtonWidth + 5) * 2 + tabButtonWidth, guiTop + 49, COLOR_GOLD);
         } else if (showingVassals) {
@@ -508,6 +520,17 @@ public class TaxManagementScreen extends Screen {
                         COLOR_GREEN);
                 guiGraphics.drawString(font, overlordText, overlordBgX, overlordBgY + 1, COLOR_WHITE);
             }
+
+            // Tax Policy indicator (below status text)
+            if (TaxConfig.isTaxPoliciesEnabled()) {
+                String policyName = colony.getTaxPolicy();
+                TaxPolicy policy = TaxPolicy.fromString(policyName);
+                if (policy != null && policy != TaxPolicy.NORMAL) {
+                    String policyText = policy.getDisplayName();
+                    guiGraphics.drawString(font, "Policy: " + policyText, contentX + 5, entryY + 20,
+                        getPolicyColor(policy));
+                }
+            }
         }
 
         // No colonies message
@@ -517,6 +540,65 @@ public class TaxManagementScreen extends Screen {
             guiGraphics.drawString(font, noColonies,
                     guiLeft + (GUI_WIDTH - textWidth) / 2,
                     guiTop + GUI_HEIGHT / 2, COLOR_GRAY);
+        }
+
+        // Tax Policy selector (when colony selected and feature enabled)
+        if (selectedColony != null && TaxConfig.isTaxPoliciesEnabled() && selectedColony.isOwner()) {
+            renderPolicySelector(guiGraphics, guiLeft, guiTop, mouseX, mouseY);
+        }
+    }
+
+    private void renderPolicySelector(GuiGraphics guiGraphics, int guiLeft, int guiTop, int mouseX, int mouseY) {
+        if (selectedColony == null) return;
+
+        Font font = this.font;
+        int contentMargin = 50;
+        int contentX = guiLeft + contentMargin;
+        int contentWidth = GUI_WIDTH - (contentMargin * 2);
+
+        // Position below colony list
+        int startY = guiTop + 50 + (maxVisibleColonies * 35) + 5;
+
+        // Header
+        guiGraphics.drawString(font, "Tax Policy:", contentX, startY, COLOR_LIGHT_GRAY);
+
+        // Current policy
+        String currentPolicyName = selectedColony.getTaxPolicy();
+        TaxPolicy currentPolicy = TaxPolicy.fromString(currentPolicyName);
+        if (currentPolicy == null) currentPolicy = TaxPolicy.NORMAL;
+
+        String currentText = "Current: " + currentPolicy.getColorCode() + currentPolicy.getDisplayName();
+        guiGraphics.drawString(font, currentText, contentX + 70, startY, COLOR_WHITE);
+
+        // Policy buttons (4 compact buttons)
+        int buttonY = startY + 12;
+        int buttonWidth = 60;
+        int buttonHeight = 12;
+        int buttonSpacing = 5;
+
+        TaxPolicy[] policies = TaxPolicy.values();
+        for (int i = 0; i < policies.length; i++) {
+            TaxPolicy policy = policies[i];
+            int buttonX = contentX + (i * (buttonWidth + buttonSpacing));
+
+            boolean isHovered = mouseX >= buttonX && mouseX < buttonX + buttonWidth &&
+                                mouseY >= buttonY && mouseY < buttonY + buttonHeight;
+            boolean isCurrent = policy == currentPolicy;
+
+            int bgColor = isCurrent ? 0xFF4A4A4A : (isHovered ? 0xFF3A3A3A : 0xFF2A2A2A);
+            int borderColor = isCurrent ? COLOR_GOLD : (isHovered ? COLOR_LIGHT_GRAY : COLOR_GRAY);
+
+            // Draw button
+            guiGraphics.fill(buttonX, buttonY, buttonX + buttonWidth, buttonY + buttonHeight, borderColor);
+            guiGraphics.fill(buttonX + 1, buttonY + 1, buttonX + buttonWidth - 1, buttonY + buttonHeight - 1, bgColor);
+
+            // Button text
+            String buttonText = policy.name().substring(0, Math.min(6, policy.name().length()));
+            int textColor = getPolicyColor(policy);
+            guiGraphics.drawCenteredString(font, buttonText, buttonX + buttonWidth / 2, buttonY + 2, textColor);
+
+            // Store button bounds for click detection
+            if (i == 0) selectedColony.setPermissionButtonBounds(buttonX, buttonY, buttonWidth, buttonHeight);
         }
     }
 
@@ -722,6 +804,15 @@ public class TaxManagementScreen extends Screen {
         return "Healthy";
     }
 
+    private int getPolicyColor(TaxPolicy policy) {
+        return switch (policy) {
+            case LOW -> COLOR_GREEN;
+            case HIGH -> COLOR_ORANGE;
+            case WAR_ECONOMY -> COLOR_RED;
+            default -> COLOR_GRAY;
+        };
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         // Handle scrolling in Officers Tab
@@ -877,8 +968,39 @@ public class TaxManagementScreen extends Screen {
                         requestColonyData(); // Refresh after action
                         return true;
                     }
+                }
 
-                    // Check if clicking on colony row for selection - updated for centered content
+                // Check for policy button clicks (if colony selected and feature enabled)
+                if (selectedColony != null && TaxConfig.isTaxPoliciesEnabled() && selectedColony.isOwner()) {
+                    int policyY = guiTop + 50 + (maxVisibleColonies * 35) + 5 + 12;
+                    int buttonWidth = 60;
+                    int buttonHeight = 12;
+                    int buttonSpacing = 5;
+                    int contentMargin = 50;
+                    int contentX = guiLeft + contentMargin;
+
+                    TaxPolicy[] policies = TaxPolicy.values();
+                    for (int i = 0; i < policies.length; i++) {
+                        int buttonX = contentX + (i * (buttonWidth + buttonSpacing));
+                        if (mouseX >= buttonX && mouseX < buttonX + buttonWidth &&
+                            mouseY >= policyY && mouseY < policyY + buttonHeight) {
+                            // Send policy change to server
+                            NetworkHandler.sendToServer(new SetTaxPolicyPacket(
+                                selectedColony.getColonyId(),
+                                policies[i].name()
+                            ));
+                            requestColonyData(); // Refresh to show new policy
+                            return true;
+                        }
+                    }
+                }
+
+                // Check if clicking on colony row for selection - updated for centered content
+                for (int i = 0; i < Math.min(maxVisibleColonies, colonies.size() - scrollOffset); i++) {
+                    ColonyTaxData colony = colonies.get(i + scrollOffset);
+                    int entryY = startY + i * entryHeight;
+
+                    // Check clicking on colony row for selection - updated for centered content
                     int contentMargin = 50;
                     int contentX = guiLeft + contentMargin;
                     int contentWidth = GUI_WIDTH - (contentMargin * 2);
@@ -1181,6 +1303,11 @@ public class TaxManagementScreen extends Screen {
     }
 
     private void switchToWarChest() {
+        // Don't allow switching to War Chest if feature is disabled
+        if (!TaxConfig.isWarChestEnabled()) {
+            return;
+        }
+
         showingVassals = false;
         showingPermissions = false;
         showingWarChest = true;
@@ -1251,7 +1378,7 @@ public class TaxManagementScreen extends Screen {
 
         // Drain rate info
         guiGraphics.drawString(font, "Drain Rate:", contentX, currentY, COLOR_LIGHT_GRAY);
-        String drainStr = warChestDrainPerMin + " gold/min during war";
+        String drainStr = warChestDrainPerMin + " " + getCurrencyName() + "/min during war";
         guiGraphics.drawString(font, drainStr, contentX + 75, currentY, COLOR_GRAY);
         currentY += 15;
 
@@ -1260,15 +1387,6 @@ public class TaxManagementScreen extends Screen {
         int autoColor = warChestAutoSurrender ? COLOR_RED : COLOR_GREEN;
         guiGraphics.drawString(font, "Auto Surrender:", contentX, currentY, COLOR_LIGHT_GRAY);
         guiGraphics.drawString(font, autoSurrenderStr, contentX + 100, currentY, autoColor);
-        currentY += 15;
-
-        // War requirement info
-        int requiredForWar = (int) Math.ceil(currentTaxBalance * warChestMinPercent);
-        guiGraphics.drawString(font, "Min for War:", contentX, currentY, COLOR_LIGHT_GRAY);
-        String reqStr = String.format("%,d gold (%d%% of target tax)", requiredForWar,
-                (int) (warChestMinPercent * 100));
-        int reqColor = warChestBalance >= requiredForWar ? COLOR_GREEN : COLOR_RED;
-        guiGraphics.drawString(font, reqStr, contentX + 80, currentY, reqColor);
         currentY += 25;
 
         // Separator
@@ -1278,5 +1396,21 @@ public class TaxManagementScreen extends Screen {
         // Interactive GUI replaces text instructions
         guiGraphics.drawCenteredString(font, "Enter amount:", guiLeft + GUI_WIDTH / 2, currentY, COLOR_GRAY);
         // Elements are rendered automatically by addRenderableWidget
+    }
+
+    /**
+     * Gets the appropriate currency name based on config settings
+     * @return the currency name to display
+     */
+    private String getCurrencyName() {
+        if (TaxConfig.isSDMShopConversionEnabled()) {
+            return "$";
+        } else {
+            String currencyName = TaxConfig.getCurrencyItemName();
+            if (currencyName.contains(":")) {
+                currencyName = currencyName.substring(currencyName.indexOf(":") + 1);
+            }
+            return currencyName;
+        }
     }
 }

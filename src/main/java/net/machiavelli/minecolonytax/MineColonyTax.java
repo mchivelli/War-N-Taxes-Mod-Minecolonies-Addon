@@ -7,7 +7,9 @@ import net.machiavelli.minecolonytax.commands.RecipeDisableTestCommand;
 import net.machiavelli.minecolonytax.commands.WarChestCommand;
 import net.machiavelli.minecolonytax.commands.RaidRepairCommand;
 import net.machiavelli.minecolonytax.commands.FactionCommand;
+import net.machiavelli.minecolonytax.commands.TaxPolicyCommand;
 import net.machiavelli.minecolonytax.economy.WarChestManager;
+import net.machiavelli.minecolonytax.economy.policy.TaxPolicyManager;
 import net.machiavelli.minecolonytax.raid.GuardResistanceHandler;
 import net.machiavelli.minecolonytax.webapi.WebAPIServer;
 import net.machiavelli.minecolonytax.faction.FactionManager;
@@ -87,12 +89,23 @@ public class MineColonyTax {
         WarChestCommand.register(event.getServer().getCommands().getDispatcher());
         RaidRepairCommand.register(event.getServer().getCommands().getDispatcher());
         FactionCommand.register(event.getServer().getCommands().getDispatcher());
+        TaxPolicyCommand.register(event.getServer().getCommands().getDispatcher());
         LOGGER.info("WarChestCommand registered");
+        LOGGER.info("TaxPolicyCommand registered");
 
         LOGGER.info("Server starting - initializing TaxManager with configured interval of {} minutes",
                 TaxConfig.getTaxIntervalInMinutes());
         TaxManager.initialize(event.getServer());
         LOGGER.info("TaxManager initialization complete");
+
+        // Initialize FirstColonyTracker to manage primary colony ownership
+        FirstColonyTracker.loadData();
+        LOGGER.info("FirstColonyTracker initialization complete");
+
+        // Register colony ownership event handler for multi-colony support
+        // TODO: Fix ColonyOwnershipHandler - MineColonies API events changed
+        // net.machiavelli.minecolonytax.event.ColonyOwnershipHandler.register();
+        // LOGGER.info("ColonyOwnershipHandler registered");
 
         // Initialize War Exhaustion Manager for penalty tracking
         net.machiavelli.minecolonytax.economy.WarExhaustionManager.initialize(event.getServer());
@@ -148,6 +161,10 @@ public class MineColonyTax {
         // Initialize FactionManager
         FactionManager.init();
         LOGGER.info("FactionManager initialized");
+
+        // Initialize TaxPolicyManager
+        TaxPolicyManager.initialize(event.getServer());
+        LOGGER.info("TaxPolicyManager initialized");
 
         // Emergency cleanup of guard resistance effects on startup
         GuardResistanceHandler.emergencyCleanup();
@@ -206,6 +223,13 @@ public class MineColonyTax {
             LOGGER.info("FactionManager data saved");
         } catch (Throwable t) {
             LOGGER.warn("Error saving FactionManager data: {}", t.toString());
+        }
+
+        try {
+            TaxPolicyManager.shutdown();
+            LOGGER.info("TaxPolicyManager shutdown complete");
+        } catch (Throwable t) {
+            LOGGER.warn("Error during TaxPolicyManager shutdown: {}", t.toString());
         }
     }
 }

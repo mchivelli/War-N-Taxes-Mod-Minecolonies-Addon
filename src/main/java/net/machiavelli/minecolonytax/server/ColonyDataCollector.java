@@ -7,6 +7,7 @@ import com.minecolonies.api.colony.buildings.IBuilding;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.WarSystem;
+import net.machiavelli.minecolonytax.economy.policy.TaxPolicyManager;
 import net.machiavelli.minecolonytax.gui.data.ColonyTaxData;
 import net.machiavelli.minecolonytax.gui.data.VassalIncomeData;
 import net.machiavelli.minecolonytax.raid.RaidManager;
@@ -207,13 +208,17 @@ public class ColonyDataCollector {
             
             // Check if player is owner (colony founder)
             boolean isOwner = colony.getPermissions().getOwner().equals(playerId);
-            
+
+            // Get active tax policy
+            String taxPolicy = TaxPolicyManager.getPolicy(colonyId).name();
+
             return new ColonyTaxData(
                 colonyId, colonyName, taxBalance, maxTaxRevenue,
                 buildingCount, guardCount, guardTowerCount,
                 canClaimTax, isAtWar, isBeingRaided,
                 isVassal, vassalTributeRate, hasVassals, vassalCount,
-                lastTaxGeneration, debtAmount, approximateRevenue, isOwner
+                lastTaxGeneration, debtAmount, approximateRevenue, isOwner,
+                taxPolicy
             );
             
         } catch (Exception e) {

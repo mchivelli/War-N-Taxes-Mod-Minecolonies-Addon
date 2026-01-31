@@ -22,7 +22,8 @@ public class ColonyTaxData {
     private final int debtAmount;
     private final int approximateRevenuePerInterval;
     private final boolean isOwner;
-    
+    private final String taxPolicy; // Tax policy name (NORMAL, LOW, HIGH, WAR_ECONOMY)
+
     // UI state
     private int claimButtonX, claimButtonY, claimButtonWidth, claimButtonHeight;
     private int permissionButtonX, permissionButtonY, permissionButtonWidth, permissionButtonHeight;
@@ -31,7 +32,8 @@ public class ColonyTaxData {
                         int buildingCount, int guardCount, int guardTowerCount,
                         boolean canClaimTax, boolean isAtWar, boolean isBeingRaided,
                         boolean isVassal, int vassalTributeRate, boolean hasVassals, int vassalCount,
-                        long lastTaxGeneration, int debtAmount, int approximateRevenuePerInterval, boolean isOwner) {
+                        long lastTaxGeneration, int debtAmount, int approximateRevenuePerInterval, boolean isOwner,
+                        String taxPolicy) {
         this.colonyId = colonyId;
         this.colonyName = colonyName;
         this.taxBalance = taxBalance;
@@ -50,6 +52,7 @@ public class ColonyTaxData {
         this.debtAmount = debtAmount;
         this.approximateRevenuePerInterval = approximateRevenuePerInterval;
         this.isOwner = isOwner;
+        this.taxPolicy = taxPolicy;
     }
 
     // Getters
@@ -119,7 +122,8 @@ public class ColonyTaxData {
     public int getDebtAmount() { return debtAmount; }
     public int getApproximateRevenuePerInterval() { return approximateRevenuePerInterval; }
     public boolean isOwner() { return isOwner; }
-    
+    public String getTaxPolicy() { return taxPolicy; }
+
     /**
      * Checks if colony has debt (negative tax balance)
      */

@@ -29,14 +29,22 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Tracks owner/officer physical presence to reset colony abandonment timers.
- * 
- * Timer is reset ONLY when an owner or officer physically ENTERS their colony.
- * This is detected via chunk-based tracking - efficient and non-invasive.
- * 
+ * Tracks owner/officer activity to reset colony abandonment timers.
+ *
+ * DEFAULT BEHAVIOR: Timer resets when an owner or officer physically ENTERS their colony (chunk-based detection).
+ * This ensures officers must actually visit their colonies to prevent abandonment.
+ *
+ * OPTIONAL: Login tracking can be enabled via config (ResetTimerOnOfficerLogin = true).
+ * When enabled, timer also resets when officers log into the server (for ALL colonies they manage).
+ * NOT RECOMMENDED: This defeats the purpose of requiring actual visits.
+ *
+ * This replaces MineColonies' internal timer system to provide more accurate
+ * abandonment tracking that includes all officers, not just owners.
+ *
  * Efficiency guarantees:
- * - Colony lookup only happens when player changes chunks (not every tick)
- * - File I/O is batched: saves every 5 minutes OR on shutdown, not on every entry
+ * - Physical visit detection only checks on chunk change (not every tick)
+ * - Optional login tracking iterates colonies only on login (rare event)
+ * - File I/O is batched: saves every 5 minutes OR on shutdown
  * - Uses dirty flag to avoid unnecessary writes
  * - Minimal memory: only tracks online players' chunk positions
  */
@@ -64,12 +72,71 @@ public class OfficerColonyVisitTracker {
     private static int tickCounter = 0;
     
     /**
-     * Load persisted data on server start.
+     * Load persisted data on server start and migrate existing colonies.
      */
     @SubscribeEvent
     public static void onServerStarting(ServerStartingEvent event) {
         loadData();
         LOGGER.info("✅ OfficerColonyVisitTracker initialized - tracking {} colonies", lastOfficerVisit.size());
+
+        // Perform data migration: initialize tracking for existing colonies without WnT data
+        // This is delayed to ensure MineColonies has fully loaded
+        event.getServer().execute(() -> {
+            try {
+                Thread.sleep(5000); // Wait 5 seconds for full server initialization
+                migrateExistingColonies(event.getServer());
+            } catch (InterruptedException e) {
+                LOGGER.warn("Migration thread interrupted: {}", e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Migrate existing colonies to WnT tracking system.
+     * For colonies without WnT data, initializes their timer based on MineColonies' lastContactInHours.
+     * This ensures existing colonies aren't prematurely abandoned due to missing WnT data.
+     */
+    private static void migrateExistingColonies(net.minecraft.server.MinecraftServer server) {
+        try {
+            IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
+            int coloniesMigrated = 0;
+            int coloniesAlreadyTracked = 0;
+
+            for (IColony colony : colonyManager.getAllColonies()) {
+                int colonyId = colony.getID();
+
+                // Check if this colony already has WnT tracking data
+                if (lastOfficerVisit.containsKey(colonyId)) {
+                    coloniesAlreadyTracked++;
+                    continue;
+                }
+
+                // Colony needs migration - initialize with MineColonies timer
+                int mcLastContactHours = colony.getLastContactInHours();
+
+                // Convert hours to milliseconds and backdate the timestamp
+                long hoursInMillis = mcLastContactHours * 60L * 60L * 1000L;
+                long initialTimestamp = System.currentTimeMillis() - hoursInMillis;
+
+                lastOfficerVisit.put(colonyId, initialTimestamp);
+                coloniesMigrated++;
+
+                LOGGER.debug("Migrated colony {} (ID: {}) - initialized WnT timer to {} hours based on MC timer",
+                           colony.getName(), colonyId, mcLastContactHours);
+            }
+
+            if (coloniesMigrated > 0) {
+                markDirty(); // Save migrated data
+                LOGGER.info("✅ MIGRATION: Initialized WnT tracking for {} colonies (MC timer -> WnT timer). {} colonies already tracked.",
+                           coloniesMigrated, coloniesAlreadyTracked);
+            } else {
+                LOGGER.info("✅ MIGRATION: No migration needed - all {} colonies already have WnT tracking",
+                           coloniesAlreadyTracked);
+            }
+
+        } catch (Exception e) {
+            LOGGER.error("Error during colony migration: {}", e.getMessage(), e);
+        }
     }
     
     /**
@@ -82,7 +149,64 @@ public class OfficerColonyVisitTracker {
         }
         LOGGER.info("✅ OfficerColonyVisitTracker data saved on shutdown");
     }
-    
+
+    /**
+     * Track officer/owner logins - resets abandonment timer for all colonies they manage.
+     *
+     * OPTIONAL FEATURE (disabled by default): Controlled by ResetTimerOnOfficerLogin config.
+     * When disabled (default), timers only reset on physical colony visits (chunk-based detection).
+     * When enabled, timers reset for ALL colonies an officer manages just by logging in.
+     *
+     * RECOMMENDED: Keep this disabled to force officers to actually visit their colonies.
+     *
+     * This is efficient because:
+     * - Login events are rare (only happens when player joins server)
+     * - Colony iteration is fast (typically < 100 colonies even on large servers)
+     * - Only updates colonies where player has officer/owner rank
+     */
+    @SubscribeEvent
+    public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+
+        // Skip if feature is disabled
+        if (!TaxConfig.isColonyAutoAbandonEnabled()) {
+            return;
+        }
+
+        // Skip if login tracking is disabled (default behavior)
+        if (!TaxConfig.shouldResetTimerOnOfficerLogin()) {
+            return;
+        }
+
+        UUID playerId = player.getUUID();
+        int coloniesReset = 0;
+
+        try {
+            IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
+
+            // Check all colonies in all dimensions
+            for (IColony colony : colonyManager.getAllColonies()) {
+                // Only reset timer if player is owner or officer of this colony
+                if (isOwnerOrOfficer(colony, playerId)) {
+                    resetColonyContactTime(colony);
+                    coloniesReset++;
+                    LOGGER.debug("✅ {} logged in - reset timer for colony '{}'",
+                                player.getName().getString(), colony.getName());
+                }
+            }
+
+            if (coloniesReset > 0) {
+                LOGGER.info("✅ {} logged in - reset abandonment timers for {} colonies",
+                           player.getName().getString(), coloniesReset);
+            }
+
+        } catch (Exception e) {
+            LOGGER.error("Error resetting colony timers on player login: {}", e.getMessage());
+        }
+    }
+
     /**
      * Periodic save handler - saves dirty data every 5 minutes.
      * This batches I/O to avoid constant file writes.

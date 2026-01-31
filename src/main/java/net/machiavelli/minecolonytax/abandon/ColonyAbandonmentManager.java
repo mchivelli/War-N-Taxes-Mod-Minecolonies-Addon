@@ -88,43 +88,57 @@ public class ColonyAbandonmentManager {
     
     /**
      * Check if a specific colony should be abandoned or warned.
-     * FIXED: Now considers officer visit data from OfficerColonyVisitTracker in addition to MineColonies' internal tracking.
+     *
+     * Uses War-N-Taxes' timer system (OfficerColonyVisitTracker) as the EXCLUSIVE source
+     * for abandonment decisions. This replaces MineColonies' internal timer which only
+     * tracks owner activity.
+     *
+     * WnT tracks:
+     * - Officer/owner physical colony visits (chunk-based detection) - DEFAULT
+     * - Officer/owner logins (anywhere on server) - OPTIONAL (config: ResetTimerOnOfficerLogin)
+     *
+     * If no WnT data exists for a colony, falls back to MineColonies' timer as a safety measure.
      */
     public static AbandonmentStatus checkColonyAbandonmentStatus(IColony colony) {
         if (colony == null || colony.getPermissions() == null) {
             return AbandonmentStatus.ACTIVE;
         }
-        
+
         // Skip if colony is already abandoned or has no owner
         UUID owner = colony.getPermissions().getOwner();
         if (owner == null || isColonyAbandoned(colony)) {
             return AbandonmentStatus.ACTIVE;
         }
-        
-        int lastContactHours = colony.getLastContactInHours();
-        
-        // CRITICAL FIX: Also check officer visit tracking data
-        // Officers logging in resets the abandonment timer even if they don't physically visit the colony
+
+        // PRIMARY: Use WnT officer tracking as the authoritative timer
         long officerVisitHours = net.machiavelli.minecolonytax.event.OfficerColonyVisitTracker.getHoursSinceOfficerVisit(colony.getID());
-        if (officerVisitHours >= 0 && officerVisitHours < lastContactHours) {
-            // Officers visited more recently than MineColonies' internal tracking shows - use the officer visit time
+        int lastContactHours;
+
+        if (officerVisitHours >= 0) {
+            // WnT tracking data exists - use it exclusively
             lastContactHours = (int) officerVisitHours;
-            LOGGER.debug("Colony {} using officer visit hours ({}) instead of MineColonies contact hours for abandonment check", 
-                        colony.getName(), officerVisitHours);
+            LOGGER.debug("Colony {} abandonment check using WnT timer: {} hours since last officer activity",
+                        colony.getName(), lastContactHours);
+        } else {
+            // FALLBACK: No WnT data yet - use MineColonies timer until first officer activity is tracked
+            // This handles newly created colonies or colonies from before WnT tracking was enabled
+            lastContactHours = colony.getLastContactInHours();
+            LOGGER.debug("Colony {} using MineColonies fallback timer: {} hours (no WnT data yet)",
+                        colony.getName(), lastContactHours);
         }
-        
+
         int abandonDays = TaxConfig.getColonyAutoAbandonDays();
         int warningDays = TaxConfig.getAbandonWarningDays();
-        
+
         int abandonHours = abandonDays * 24;
         int warningHours = (abandonDays - warningDays) * 24;
-        
+
         if (lastContactHours >= abandonHours) {
             return AbandonmentStatus.SHOULD_ABANDON;
         } else if (lastContactHours >= warningHours && TaxConfig.shouldNotifyOwnersBeforeAbandon()) {
             return AbandonmentStatus.SHOULD_WARN;
         }
-        
+
         return AbandonmentStatus.ACTIVE;
     }
     
@@ -133,8 +147,14 @@ public class ColonyAbandonmentManager {
      */
     private static boolean abandonColony(IColony colony, MinecraftServer server) {
         try {
-            LOGGER.info("Abandoning colony {} ({}) due to {} hours of inactivity", 
-                       colony.getName(), colony.getID(), colony.getLastContactInHours());
+            // Get the actual inactivity hours used for the abandonment decision
+            long officerVisitHours = net.machiavelli.minecolonytax.event.OfficerColonyVisitTracker.getHoursSinceOfficerVisit(colony.getID());
+            int actualInactivityHours = (officerVisitHours >= 0) ? (int) officerVisitHours : colony.getLastContactInHours();
+
+            LOGGER.info("Abandoning colony {} ({}) due to {} hours of inactivity (WnT timer: {}, MC timer: {})",
+                       colony.getName(), colony.getID(), actualInactivityHours,
+                       officerVisitHours >= 0 ? officerVisitHours + "h" : "no data",
+                       colony.getLastContactInHours() + "h");
             
             IPermissions permissions = colony.getPermissions();
             
@@ -310,8 +330,11 @@ public class ColonyAbandonmentManager {
         }
         
         try {
-            int daysUntilAbandon = TaxConfig.getColonyAutoAbandonDays() - (colony.getLastContactInHours() / 24);
-            
+            // Use WnT timer for accurate days until abandonment
+            long officerVisitHours = net.machiavelli.minecolonytax.event.OfficerColonyVisitTracker.getHoursSinceOfficerVisit(colony.getID());
+            int actualInactivityHours = (officerVisitHours >= 0) ? (int) officerVisitHours : colony.getLastContactInHours();
+            int daysUntilAbandon = TaxConfig.getColonyAutoAbandonDays() - (actualInactivityHours / 24);
+
             Component warningMessage = Component.literal("WARNING: Your colony ")
                     .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
                     .append(Component.literal(colony.getName()).withStyle(ChatFormatting.GOLD))

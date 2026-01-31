@@ -153,6 +153,7 @@ public class TaxConfig {
         public static final ForgeConfigSpec.BooleanValue NOTIFY_OWNERS_BEFORE_ABANDON;
         public static final ForgeConfigSpec.IntValue ABANDON_WARNING_DAYS;
         public static final ForgeConfigSpec.BooleanValue ENABLE_LIST_ABANDONED_FOR_ALL;
+        public static final ForgeConfigSpec.BooleanValue RESET_TIMER_ON_OFFICER_LOGIN;
 
         // Abandoned Colony Claiming Configuration
         public static final ForgeConfigSpec.BooleanValue ENABLE_ABANDONED_COLONY_CLAIMING;
@@ -647,6 +648,15 @@ public class TaxConfig {
                                                 +
                                                 "When TRUE: Any player can view the list of abandoned colonies available for claiming.")
                                 .define("EnableListAbandonedForAll", false);
+
+                RESET_TIMER_ON_OFFICER_LOGIN = BUILDER.comment(
+                                "EXPERIMENTAL: Reset abandonment timer when officers/owners log into the server.\n" +
+                                                "When FALSE (default): Timer only resets when officers PHYSICALLY VISIT the colony (chunk-based detection).\n" +
+                                                "When TRUE: Timer resets for ALL colonies an officer manages just by logging in (easier but defeats the purpose).\n" +
+                                                "\n" +
+                                                "RECOMMENDED: Keep this FALSE to ensure officers actually visit their colonies to prevent abandonment.\n" +
+                                                "Setting this to TRUE will prevent colonies from ever being abandoned if officers log in regularly.")
+                                .define("ResetTimerOnOfficerLogin", false);
 
                 BUILDER.pop();
 
@@ -2191,6 +2201,10 @@ public class TaxConfig {
 
         public static int getAbandonWarningDays() {
                 return ABANDON_WARNING_DAYS.get();
+        }
+
+        public static boolean shouldResetTimerOnOfficerLogin() {
+                return RESET_TIMER_ON_OFFICER_LOGIN.get();
         }
 
         // Abandoned Colony Claiming Configuration Getters

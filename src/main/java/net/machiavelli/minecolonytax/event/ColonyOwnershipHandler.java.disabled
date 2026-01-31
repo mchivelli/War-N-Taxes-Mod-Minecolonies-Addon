@@ -1,0 +1,233 @@
+package net.machiavelli.minecolonytax.event;
+
+import com.minecolonies.api.IMinecoloniesAPI;
+import com.minecolonies.api.colony.IColony;
+import com.minecolonies.api.colony.IColonyManager;
+import com.minecolonies.api.colony.permissions.Rank;
+import com.minecolonies.api.eventbus.events.colony.ColonyCreatedModEvent;
+import com.minecolonies.api.eventbus.events.colony.ColonyDeletedModEvent;
+import net.machiavelli.minecolonytax.FirstColonyTracker;
+import net.minecraft.server.level.ServerPlayer;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.util.UUID;
+
+/**
+ * Handles colony ownership management to ensure that players maintain ownership of their first colony
+ * and are assigned as officers in subsequent colonies.
+ *
+ * This prevents the first colony from being abandoned when a player creates additional colonies.
+ *
+ * This handler must be manually registered to the Minecolonies event bus during server startup.
+ */
+public class ColonyOwnershipHandler {
+
+    private static final Logger LOGGER = LogManager.getLogger(ColonyOwnershipHandler.class);
+
+    /**
+     * Registers this handler to the Minecolonies event bus.
+     * Call this during server startup.
+     */
+    public static void register() {
+        IMinecoloniesAPI.getInstance().getEventBus().subscribe(
+            ColonyCreatedModEvent.class,
+            ColonyOwnershipHandler::onColonyCreated
+        );
+
+        IMinecoloniesAPI.getInstance().getEventBus().subscribe(
+            ColonyDeletedModEvent.class,
+            ColonyOwnershipHandler::onColonyDeleted
+        );
+
+        LOGGER.info("ColonyOwnershipHandler registered to Minecolonies event bus");
+    }
+
+    /**
+     * Handles colony creation events.
+     * When a player creates a colony:
+     * - If it's their first colony, they become the owner (Minecolonies default behavior)
+     * - If it's their 2nd+ colony, they are demoted to Officer rank and kept as owner of first colony
+     */
+    private static void onColonyCreated(ColonyCreatedModEvent event) {
+        try {
+            IColony colony = event.getColony();
+            if (colony == null) {
+                LOGGER.warn("Colony creation event received with null colony");
+                return;
+            }
+
+            UUID ownerUUID = colony.getPermissions().getOwner();
+            if (ownerUUID == null) {
+                LOGGER.warn("Colony {} created with null owner, skipping ownership management", colony.getID());
+                return;
+            }
+
+            int colonyID = colony.getID();
+
+            // Track this colony and check if it's the player's first
+            boolean isFirstColony = FirstColonyTracker.addColony(ownerUUID, colonyID);
+
+            if (isFirstColony) {
+                // First colony - player remains owner (default Minecolonies behavior)
+                LOGGER.info("Colony {} is the first colony for player {}. Player remains as owner.",
+                    colonyID, ownerUUID);
+            } else {
+                // Secondary colony - demote player to officer and restore first colony ownership
+                handleSecondaryColonyCreation(colony, ownerUUID);
+            }
+
+        } catch (Exception e) {
+            LOGGER.error("Error handling colony creation event", e);
+        }
+    }
+
+    /**
+     * Handles the creation of a secondary (2nd+) colony.
+     * Ensures the player remains owner of their first colony and becomes an officer in the new colony.
+     */
+    private static void handleSecondaryColonyCreation(IColony newColony, UUID playerUUID) {
+        int newColonyID = newColony.getID();
+        Integer firstColonyID = FirstColonyTracker.getFirstColony(playerUUID);
+
+        if (firstColonyID == null) {
+            LOGGER.error("Player {} has no first colony tracked despite creating secondary colony {}",
+                playerUUID, newColonyID);
+            return;
+        }
+
+        LOGGER.info("Player {} created secondary colony {}. First colony is {}. Managing ownership...",
+            playerUUID, newColonyID, firstColonyID);
+
+        // Get the first colony
+        IColony firstColony = IColonyManager.getInstance().getAllColonies().stream()
+            .filter(c -> c.getID() == firstColonyID)
+            .findFirst()
+            .orElse(null);
+
+        if (firstColony == null) {
+            LOGGER.warn("Could not find first colony {} for player {}. Cannot manage ownership.",
+                firstColonyID, playerUUID);
+            return;
+        }
+
+        // Try to get the player if they're online
+        ServerPlayer player = newColony.getWorld().getServer().getPlayerList().getPlayer(playerUUID);
+
+        if (player == null) {
+            LOGGER.warn("Player {} is offline during colony creation. Ownership management will be delayed.", playerUUID);
+            // Could queue this for later when player logs in, but for now just log it
+            return;
+        }
+
+        // Step 1: Ensure player is owner of first colony
+        UUID firstColonyOwner = firstColony.getPermissions().getOwner();
+        if (!playerUUID.equals(firstColonyOwner)) {
+            LOGGER.info("Restoring player {} as owner of first colony {} (current owner: {})",
+                playerUUID, firstColonyID, firstColonyOwner);
+            firstColony.getPermissions().setOwner(player);
+
+            // Immediately cleanup any [abandoned] entries created during ownership transition
+            LOGGER.debug("Running cleanup to remove any transient [abandoned] entries for colony {}",
+                firstColonyID);
+            net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.cleanupAbandonedEntries(
+                firstColony.getPermissions());
+        } else {
+            LOGGER.debug("Player {} is already owner of first colony {}", playerUUID, firstColonyID);
+        }
+
+        // Step 2: Set player as officer in the new colony
+        Rank officerRank = newColony.getPermissions().getRankOfficer();
+        if (officerRank != null) {
+            LOGGER.info("Setting player {} to OFFICER rank in secondary colony {}", playerUUID, newColonyID);
+            newColony.getPermissions().setPlayerRank(playerUUID, officerRank, newColony.getWorld());
+            LOGGER.info("Successfully set player {} as OFFICER in colony {} (first colony: {})",
+                playerUUID, newColonyID, firstColonyID);
+        } else {
+            LOGGER.error("Could not get OFFICER rank for colony {}", newColonyID);
+        }
+
+        LOGGER.info("Ownership management complete for player {}. First colony: {}, New colony: {}",
+            playerUUID, firstColonyID, newColonyID);
+    }
+
+    /**
+     * Handles colony deletion events.
+     * If the deleted colony was the player's first colony, promotes the next-oldest colony to be the new first.
+     */
+    private static void onColonyDeleted(ColonyDeletedModEvent event) {
+        try {
+            IColony colony = event.getColony();
+            if (colony == null) {
+                LOGGER.warn("Colony deletion event received with null colony");
+                return;
+            }
+
+            UUID ownerUUID = colony.getPermissions().getOwner();
+            if (ownerUUID == null) {
+                LOGGER.debug("Colony {} deleted with null owner, skipping tracking removal", colony.getID());
+                return;
+            }
+
+            int colonyID = colony.getID();
+
+            // Remove from tracking and check if we need to promote a new first colony
+            Integer newFirstColonyID = FirstColonyTracker.removeColony(ownerUUID, colonyID);
+
+            if (newFirstColonyID != null) {
+                // The deleted colony was the first, and we have a new first colony
+                LOGGER.info("Colony {} (first colony) was deleted for player {}. Promoting colony {} to first colony.",
+                    colonyID, ownerUUID, newFirstColonyID);
+
+                // Ensure the player is owner of the new first colony
+                promoteToFirstColony(newFirstColonyID, ownerUUID);
+            } else {
+                LOGGER.info("Colony {} deleted for player {}. No promotion needed.",
+                    colonyID, ownerUUID);
+            }
+
+        } catch (Exception e) {
+            LOGGER.error("Error handling colony deletion event", e);
+        }
+    }
+
+    /**
+     * Promotes a colony to be the player's first colony by ensuring they are the owner.
+     */
+    private static void promoteToFirstColony(int colonyID, UUID playerUUID) {
+        IColony colony = IColonyManager.getInstance().getAllColonies().stream()
+            .filter(c -> c.getID() == colonyID)
+            .findFirst()
+            .orElse(null);
+
+        if (colony == null) {
+            LOGGER.warn("Could not find colony {} to promote to first colony for player {}",
+                colonyID, playerUUID);
+            return;
+        }
+
+        // Try to get the player
+        ServerPlayer player = colony.getWorld().getServer().getPlayerList().getPlayer(playerUUID);
+
+        if (player == null) {
+            LOGGER.warn("Player {} is offline. Cannot promote colony {} to first colony while offline.",
+                playerUUID, colonyID);
+            return;
+        }
+
+        UUID currentOwner = colony.getPermissions().getOwner();
+        if (!playerUUID.equals(currentOwner)) {
+            LOGGER.info("Setting player {} as owner of promoted first colony {} (previous owner: {})",
+                playerUUID, colonyID, currentOwner);
+            colony.getPermissions().setOwner(player);
+
+            // Immediately cleanup any [abandoned] entries created during ownership transition
+            LOGGER.debug("Running cleanup to remove any transient [abandoned] entries for colony {}",
+                colonyID);
+            net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.cleanupAbandonedEntries(
+                colony.getPermissions());
+        } else {
+            LOGGER.debug("Player {} is already owner of promoted first colony {}", playerUUID, colonyID);
+        }
+    }
+}

@@ -5,6 +5,183 @@ All notable changes to the War N Tax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-01-29
+
+### Fixed
+- **War Chest UI**: Fixed hardcoded "gold" currency labels - now displays configured currency (SDMShop $ or item name)
+- **War Chest UI**: Removed misleading "Min for War" calculation that incorrectly used player's own colony balance instead of target's
+- **War Chest UI**: War Chest tab now properly hides when `ENABLE_WAR_CHEST` config is disabled
+- **Tax Report**: Fixed confusing tax report that made players think happiness bonus was added on top of generated revenue (it was already included)
+- **Tax Report**: Added missing War Chest Auto-Deposit and Faction Pool deductions to player reports (previously only logged to server)
+- **Tax Report**: Fixed misleading "Final Balance" that showed total stored tax instead of net change from the tax cycle
+
+### 💰 Tax Report Overhaul
+
+- **MAJOR IMPROVEMENT**: Complete redesign of tax report with "Colonial Ledger" theme
+- **NEW LAYOUT**: Professional ledger-style format with box-drawing characters and organized sections
+  ```
+  ╔═══════════════════════════════════╗
+  ║    COLONY LEDGER - YourColony     ║
+  ╚═══════════════════════════════════╝
+
+  » Income Recorded «
+    58 buildings produced........329 coins
+    Worker morale boost..........+52 coins
+    ─────────────────────────────────
+    Total collected..............381 coins
+
+  » Expenses Deducted «
+    Building upkeep..............59 coins
+    War chest reserves...........38 coins
+
+  ══════════════════════════════════
+  Net profit this cycle: +284 coins
+  Vault holds unclaimed: 384 coins
+  Settlement thriving
+  ══════════════════════════════════
+  ```
+- **IMPROVED CLARITY**: Shows clear breakdown of base revenue → happiness bonus → total revenue → expenses
+- **ALL DEDUCTIONS VISIBLE**: Now shows War Chest Auto-Deposit (10% default) and Faction Pool contributions
+- **NET VS TOTAL**: Separates "Net profit this cycle" from "Vault holds unclaimed" to avoid confusion
+- **COLONIAL VOCABULARY**: Medieval/colonial terminology fits Minecolonies theme
+  - "Worker morale boost" instead of "Happiness Modifier"
+  - "Settlement thriving" instead of "Colony finances stable"
+  - "Vault holds unclaimed" instead of "Total Stored (Unclaimed)"
+- **MINIMAL COLORS**: Restrained color palette (gray/white base, green for profits, red for debts)
+- **ENHANCED SERVER LOGS**: Debug logs now show complete calculation breakdown including starting balance, net change, and war chest deductions
+
+### 🏚️ Colony Abandonment System Overhaul
+
+- **MAJOR IMPROVEMENT**: **War-N-Taxes Timer Now Controls Abandonment** - Colony abandonment now uses WnT's physical visit tracking system instead of MineColonies' owner-only login timer
+- **WHY THIS MATTERS**: Previously, colonies would NEVER be abandoned if any officer logged into the server within the threshold period, even if they never visited the colony. MineColonies' internal timer only tracked owner logins and didn't account for officers.
+- **NEW DEFAULT BEHAVIOR**: Abandonment timer resets ONLY when officers/owners **physically enter their colony chunks** (chunk-based detection)
+  - This forces officers to actually visit their colonies to prevent abandonment
+  - More efficient: Only checks when players change chunks (not every tick or login)
+  - More realistic: Officers must actively manage their colonies, not just log into the server
+- **OPTIONAL LOGIN TRACKING**: New config option `ResetTimerOnOfficerLogin` (default: **false**)
+  - When enabled, timer also resets when officers log in (for ALL colonies they manage)
+  - **NOT RECOMMENDED**: This defeats the purpose of requiring actual colony visits
+  - Only enable this if you want the old MineColonies behavior (easier but less meaningful)
+- **Technical Implementation**:
+  - `OfficerColonyVisitTracker.java`: Chunk-based physical visit detection (primary), optional login tracking (disabled by default)
+  - `ColonyAbandonmentManager.java`: Modified `checkColonyAbandonmentStatus()` to use WnT timer as the authoritative source (with MineColonies timer as fallback for colonies without WnT data yet)
+  - Efficient: Physical visit detection uses chunk-change tracking (not every tick), optional login tracking only runs on rare login events
+- **Data Migration**: Automatic one-time migration on server start initializes WnT tracking for existing colonies using their current MineColonies timer values (prevents premature abandonment)
+- **Command Renamed**: `/wnt officertracking [colonyId]` → `/wnt abandonmentcheck [colonyId]`
+  - Enhanced display now shows both timer sources, effective timer used for abandonment, and clear status indicators (ACTIVE/WARNING/READY TO ABANDON)
+  - Added countdown displays (e.g., "7 days until warning" or "2 days until abandonment")
+  - Shows all officers and their online/offline status
+  - Tip message adapts based on config: Shows "must physically visit" by default, or "login OR visit" if login tracking enabled
+
+### ⚙️ New Configuration Options
+
+- **`ResetTimerOnOfficerLogin`** (default: `false`) - Controls whether officer logins reset abandonment timers
+  - **When FALSE (recommended)**: Timer only resets when officers physically enter colony chunks
+  - **When TRUE (not recommended)**: Timer resets for ALL colonies an officer manages just by logging into the server
+  - Location: `Colony Auto-Abandon` section in config
+  - **WARNING**: Enabling this defeats the purpose of requiring actual colony visits and may prevent colonies from ever being abandoned
+
+### 🏘️ Multi-Colony Support (Requires Minecolonies Multiple Colonies Enabled)
+
+- **NEW FEATURE**: **First Colony Tracking System** - Prevents colony abandonment when creating multiple colonies
+- **THE PROBLEM**: When a player created a second colony in Minecolonies, they would become owner of the new colony, causing the first colony to be marked as abandoned (since they were no longer actively visiting it)
+- **THE SOLUTION**:
+  - The mod now tracks which colony is each player's "first" (primary) colony
+  - When creating a **second+ colony**: Player remains **owner of their first colony** and becomes **officer in the new colony**
+  - This prevents the first colony from being abandoned since the player is still the owner
+- **DYNAMIC PROMOTION**: If the first colony is deleted, the next-oldest colony is automatically promoted to "first" and the player becomes its owner
+- **CLEAN NAMING**: Fixed issue where colonies showed "Abandoned" prefix during ownership transitions
+  - Ownership changes now trigger immediate cleanup of any transient `[abandoned]` permission entries
+  - Prevents misleading "Abandoned" prefix from appearing on active colonies
+- **PERSISTENT TRACKING**: First colony data is saved to `config/warntax/firstColonyData.json` and persists across server restarts
+- **AUTOMATIC**: Works automatically when Minecolonies' multiple colonies feature is enabled - no additional configuration needed
+- **Technical Implementation**:
+  - `FirstColonyTracker.java`: Tracks player UUID → colony IDs in creation order, handles deletion and promotion
+  - `ColonyOwnershipHandler.java`: Subscribes to Minecolonies events (`ColonyCreatedModEvent`, `ColonyDeletedModEvent`) to manage ownership
+  - Integrates with existing `ColonyAbandonmentManager.cleanupAbandonedEntries()` to remove problematic permission entries
+
+### 📝 Technical Changes
+
+**Modified Files (Tax Report):**
+- `src/main/java/net/machiavelli/minecolonytax/TaxManager.java`
+  - Added tracking for `startingBalance` before each tax cycle to calculate net change
+  - Added `warChestDeposit` and `factionPoolContribution` tracking variables
+  - Completely restructured player tax report with box-drawing header and section separators
+  - Split income and expenses into separate "» Income Recorded «" and "» Expenses Deducted «" sections
+  - Moved happiness from confusing "+bonus" format to clear base → morale boost → total flow
+  - Added dotted alignment for ledger-style formatting (e.g., "Building upkeep..............59 coins")
+  - Updated colors to minimal palette (GRAY/WHITE base, GREEN profits, RED debts)
+  - Enhanced server logs to show full calculation: starting + base + happiness - maintenance - war chest = final
+  - Fixed guard tower boost display (removed duplicate translation key)
+- `src/main/resources/assets/minecolonytax/lang/en_us.json`
+  - Renamed `tax_report_header` to "COLONY LEDGER - %s"
+  - Added `tax_report_subseparator` for dotted separator lines
+  - Added `tax_report_income_header` and `tax_report_expenses_header` section titles
+  - Updated all line items to ledger format with dotted alignment
+  - Changed vocabulary to colonial theme (e.g., "Worker morale boost", "Settlement thriving")
+  - Added `tax_report_net_change` and `tax_report_total_stored` to separate net vs total
+  - Updated `debt_warning` to remove colony name parameter (now shown in context)
+  - Removed duplicate `tax_report_guard_boost` entry at line 157
+
+**Modified Files (Abandonment):**
+- `src/main/java/net/machiavelli/minecolonytax/event/OfficerColonyVisitTracker.java`
+  - Updated class documentation to clarify physical visits are default, login tracking is optional
+  - Added `onPlayerLogin()` event handler (only runs if `ResetTimerOnOfficerLogin` config enabled)
+  - Added `migrateExistingColonies()` method for automatic data migration on server start
+- `src/main/java/net/machiavelli/minecolonytax/abandon/ColonyAbandonmentManager.java`
+  - Modified `checkColonyAbandonmentStatus()` to use WnT timer exclusively (with fallback)
+  - Updated documentation to reflect physical visits as default, login tracking as optional
+  - Updated logging in `abandonColony()` and `warnColonyOwnersAndOfficers()` to show both timer values
+- `src/main/java/net/machiavelli/minecolonytax/commands/AbandonmentCheckCommand.java` (NEW)
+  - Complete rewrite of debug command with enhanced status display
+  - Shows WnT timer (authoritative), MineColonies timer (reference), and effective timer
+  - Color-coded status indicators and countdown timers
+  - Dynamic tip message that changes based on `ResetTimerOnOfficerLogin` config setting
+- `src/main/java/net/machiavelli/minecolonytax/TaxConfig.java`
+  - Added `RESET_TIMER_ON_OFFICER_LOGIN` config option (default: false)
+  - Added `shouldResetTimerOnOfficerLogin()` getter method
+- `src/main/java/net/machiavelli/minecolonytax/pvp/PvPEventHandler.java`
+  - Updated command registration to use `AbandonmentCheckCommand` instead of `OfficerTrackingDebugCommand`
+
+**New Files (Multi-Colony Support):**
+- `src/main/java/net/machiavelli/minecolonytax/FirstColonyTracker.java` (NEW)
+  - Tracks each player's colonies in creation order (oldest to newest)
+  - Persists data to `config/warntax/firstColonyData.json`
+  - Provides methods: `addColony()`, `removeColony()`, `getFirstColony()`, `isFirstColony()`, `getPlayerColonies()`
+  - Automatically promotes next-oldest colony to "first" when first colony is deleted
+- `src/main/java/net/machiavelli/minecolonytax/event/ColonyOwnershipHandler.java` (NEW)
+  - Event handler that subscribes to Minecolonies event bus for colony creation/deletion
+  - `onColonyCreated()`: Tracks new colonies and manages ownership for secondary colonies
+  - `handleSecondaryColonyCreation()`: Sets player as officer in new colony, restores ownership to first colony
+  - `onColonyDeleted()`: Handles promotion when first colony is deleted
+  - `promoteToFirstColony()`: Sets player as owner of promoted colony
+  - Calls `ColonyAbandonmentManager.cleanupAbandonedEntries()` immediately after ownership changes to prevent "Abandoned" prefix
+
+**Modified Files (Multi-Colony Support):**
+- `src/main/java/net/machiavelli/minecolonytax/MineColonyTax.java`
+  - Added initialization: `FirstColonyTracker.loadData()` on server start (line 102-103)
+  - Added registration: `ColonyOwnershipHandler.register()` to Minecolonies event bus (line 106-107)
+
+**Deprecated Files:**
+- `src/main/java/net/machiavelli/minecolonytax/commands/OfficerTrackingDebugCommand.java` - Replaced by `AbandonmentCheckCommand.java`
+
+---
+
+## [4.0.2] - 2026-01-27
+
+### 🐛 Bug Fixes
+
+- **FIXED**: **GUARDS_ATTACK NoSuchFieldError Server Crash** - Fixed critical `java.lang.NoSuchFieldError` causing server crashes when colonies were abandoned or claiming raids were managed
+- **Root Cause**: The `GUARDS_ATTACK` permission was removed from the Minecolonies API (`Action` enum), but the addon was still referencing it in three locations
+- **Solution**: Removed all `Action.GUARDS_ATTACK` references from the codebase:
+  - `ColonyAbandonmentManager.java:258` - Removed from neutral rank permission setting during abandonment
+  - `ColonyClaimingRaidManager.java:1313` - Removed from neutral rank permission grant during claiming raids
+  - `ColonyClaimingRaidManager.java:1324` - Removed from neutral rank permission revoke after claiming raids
+  - `TaxConfig.java` - Removed `"GUARDS_ATTACK"` from default WarActions, RaidActions, and ClaimingActions config lists
+- **Technical Details**: Guard attack behavior is now controlled by `Rank.isHostile()` in the Minecolonies API rather than a granular permission flag
+
+---
+
 ## [4.0.1] - 2026-01-12
 
 ### 🐛 Bug Fixes

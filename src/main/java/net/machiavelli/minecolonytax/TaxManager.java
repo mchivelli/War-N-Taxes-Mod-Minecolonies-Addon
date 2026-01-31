@@ -23,6 +23,8 @@ import net.machiavelli.minecolonytax.raid.RaidManager;
 import net.machiavelli.minecolonytax.data.WarData;
 import net.machiavelli.minecolonytax.economy.RaidPenaltyManager;
 import net.machiavelli.minecolonytax.economy.WarChestManager;
+import net.machiavelli.minecolonytax.economy.policy.TaxPolicyManager;
+import net.machiavelli.minecolonytax.economy.policy.TaxPolicy;
 
 import java.io.File;
 import java.io.FileReader;
@@ -420,6 +422,7 @@ public class TaxManager {
                     }
 
                     // Track colony-level statistics
+                    int startingBalance = colonyTaxMap.getOrDefault(colonyId, 0); // Balance BEFORE this cycle
                     int totalGeneratedTax = 0;
                     int totalBaseTax = 0; // Tax before happiness modifier
                     int totalMaintenance = 0;
@@ -429,6 +432,8 @@ public class TaxManager {
                     int finalTaxBalance;
                     int guardTowerCount = 0;
                     int requiredGuardTowers = TaxConfig.getRequiredGuardTowersForBoost();
+                    int warChestDeposit = 0; // Track war chest auto-deposit
+                    int factionPoolContribution = 0; // Track faction pool contribution
 
                     // Calculate colony happiness for tax modifier
                     double colonyAvgHappiness = calculateColonyAverageHappiness(colony);
@@ -450,6 +455,16 @@ public class TaxManager {
                                 colony.getName(), (1.0 - warExhaustionMultiplier) * 100);
                     }
 
+                    // Apply Tax Policy Multiplier
+                    double taxPolicyMultiplier = TaxPolicyManager.getRevenueMultiplier(colonyId);
+                    TaxPolicy activePolicy = TaxPolicyManager.getPolicy(colonyId);
+                    if (taxPolicyMultiplier != 1.0 && TaxConfig.showTaxGenerationLogs()) {
+                        String policyEffect = taxPolicyMultiplier > 1.0 ? "increased" : "reduced";
+                        LOGGER.info("Colony {} has {} tax policy. Tax {} by {:.0f}%",
+                                colony.getName(), activePolicy.name(), policyEffect,
+                                Math.abs(1.0 - taxPolicyMultiplier) * 100);
+                    }
+
                     for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
                         if (building.getBuildingLevel() > 0 && building.isBuilt()) {
                             buildingCount++;
@@ -464,9 +479,9 @@ public class TaxManager {
                             // Apply happiness modifier to tax generation
                             double taxWithHappiness = rawTax * happinessMultiplier;
 
-                            // Apply raid penalty and war exhaustion modifiers
+                            // Apply raid penalty, war exhaustion, and tax policy modifiers
                             int generatedTax = (int) (taxWithHappiness * raidPenaltyMultiplier
-                                    * warExhaustionMultiplier);
+                                    * warExhaustionMultiplier * taxPolicyMultiplier);
 
                             totalBaseTax += (int) rawTax; // Track base tax before happiness modifier
                             totalGeneratedTax += generatedTax; // Track actual modified tax for reporting
@@ -556,6 +571,7 @@ public class TaxManager {
                             // improperly here
                             adjustTax(colony, -depositAmount);
                             WarChestManager.addToWarChest(colonyId, depositAmount);
+                            warChestDeposit = depositAmount; // Track for reporting
 
                             finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0); // Update final balance for
                                                                                       // logging
@@ -573,6 +589,7 @@ public class TaxManager {
                                 .processFactionTax(colonyId, totalGeneratedTax);
                         if (divertedAmount > 0) {
                             adjustTax(colony, -(int) divertedAmount);
+                            factionPoolContribution = (int) divertedAmount; // Track for reporting
                             finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
 
                             if (TaxConfig.showTaxGenerationLogs()) {
@@ -584,9 +601,10 @@ public class TaxManager {
 
                     // Consolidated logging per colony
                     if (TaxConfig.showTaxGenerationLogs()) {
+                        int netChangeThisCycle = finalTaxBalance - startingBalance;
                         LOGGER.info(
-                                "Tax cycle completed for colony {} - Buildings: {}, Generated: {}, Maintenance: {}, Final Balance: {}",
-                                colony.getName(), buildingCount, totalGeneratedTax, totalMaintenance, finalTaxBalance);
+                                "Tax cycle completed for colony {} - Buildings: {}, Base: {}, Generated: {}, Maintenance: {}, WarChest: {}, Starting: {}, Net Change: {}, Final: {}",
+                                colony.getName(), buildingCount, totalBaseTax, totalGeneratedTax, totalMaintenance, warChestDeposit, startingBalance, netChangeThisCycle, finalTaxBalance);
 
                         // Log happiness impact if enabled
                         if (TaxConfig.isHappinessTaxModifierEnabled()) {
@@ -597,6 +615,10 @@ public class TaxManager {
                                     colonyId, String.format("%.1f", colonyAvgHappiness), happinessTaxImpact,
                                     impactType);
                         }
+
+                        // Log calculation breakdown for clarity
+                        LOGGER.info("Colony {} - Calculation: {} (starting) + {} (base) + {} (happiness) - {} (maintenance) - {} (war chest) = {} (final)",
+                                colony.getName(), startingBalance, totalBaseTax, (totalGeneratedTax - totalBaseTax), totalMaintenance, warChestDeposit, finalTaxBalance);
 
                         if (maxLimitHits > 0) {
                             LOGGER.info(
@@ -623,32 +645,30 @@ public class TaxManager {
                     for (UUID playerId : recipients) {
                         ServerPlayer player = serverInstance.getPlayerList().getPlayer(playerId);
                         if (player != null) {
-                            // Send main tax report header
-                            player.sendSystemMessage(Component.translatable(
-                                    "message.minecolonytax.tax_report_header",
-                                    colony.getName())
-                                    .withStyle(net.minecraft.ChatFormatting.GOLD, net.minecraft.ChatFormatting.BOLD));
-
-                            // Send separator line
-                            player.sendSystemMessage(Component.translatable(
-                                    "message.minecolonytax.tax_report_separator")
+                            // Send main tax report header with box drawing
+                            player.sendSystemMessage(Component.literal("╔═══════════════════════════════════╗")
                                     .withStyle(net.minecraft.ChatFormatting.GRAY));
+                            player.sendSystemMessage(Component.literal("║")
+                                    .append(Component.translatable("message.minecolonytax.tax_report_header", colony.getName())
+                                            .withStyle(net.minecraft.ChatFormatting.GOLD))
+                                    .append(Component.literal("║").withStyle(net.minecraft.ChatFormatting.GRAY)));
+                            player.sendSystemMessage(Component.literal("╚═══════════════════════════════════╝")
+                                    .withStyle(net.minecraft.ChatFormatting.GRAY));
+                            player.sendSystemMessage(Component.literal(""));
 
-                            // Send tax generation info
+                            // Income Section Header
                             player.sendSystemMessage(Component.translatable(
-                                    "message.minecolonytax.tax_report_generation",
-                                    buildingCount,
-                                    totalGeneratedTax).withStyle(net.minecraft.ChatFormatting.GREEN));
+                                    "message.minecolonytax.tax_report_income_header")
+                                    .withStyle(net.minecraft.ChatFormatting.WHITE));
 
-                            // Send maintenance info
-                            if (totalMaintenance > 0) {
-                                player.sendSystemMessage(Component.translatable(
-                                        "message.minecolonytax.tax_report_maintenance",
-                                        totalMaintenance).withStyle(net.minecraft.ChatFormatting.RED));
-                            }
-
-                            // Show happiness modifier if applicable
+                            // Show base revenue (before happiness modifier)
                             if (TaxConfig.isHappinessTaxModifierEnabled()) {
+                                player.sendSystemMessage(Component.translatable(
+                                        "message.minecolonytax.tax_report_base_revenue",
+                                        buildingCount,
+                                        totalBaseTax).withStyle(net.minecraft.ChatFormatting.GRAY));
+
+                                // Show happiness modifier
                                 int happinessTaxImpact = totalGeneratedTax - totalBaseTax;
                                 net.minecraft.ChatFormatting happinessColor = happinessTaxImpact > 0
                                         ? net.minecraft.ChatFormatting.GREEN
@@ -656,51 +676,118 @@ public class TaxManager {
                                                 : net.minecraft.ChatFormatting.YELLOW);
                                 String impactSign = happinessTaxImpact > 0 ? "+" : "";
                                 player.sendSystemMessage(Component.translatable(
-                                        "message.minecolonytax.tax_report_happiness",
-                                        String.format("%.1f", colonyAvgHappiness),
+                                        "message.minecolonytax.tax_report_happiness_modifier",
                                         impactSign + happinessTaxImpact).withStyle(happinessColor));
+
+                                // Show subseparator before total
+                                player.sendSystemMessage(Component.translatable(
+                                        "message.minecolonytax.tax_report_subseparator")
+                                        .withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+
+                                // Show total after happiness
+                                player.sendSystemMessage(Component.translatable(
+                                        "message.minecolonytax.tax_report_total_revenue",
+                                        totalGeneratedTax).withStyle(net.minecraft.ChatFormatting.WHITE));
+                            } else {
+                                // If happiness is disabled, just show total
+                                player.sendSystemMessage(Component.translatable(
+                                        "message.minecolonytax.tax_report_generation",
+                                        buildingCount,
+                                        totalGeneratedTax).withStyle(net.minecraft.ChatFormatting.GREEN));
                             }
 
-                            // Show guard tower boost if applicable
-                            if (guardTowerCount >= requiredGuardTowers) {
-                                double boostPercentage = TaxConfig.getGuardTowerTaxBoostPercentage();
-                                int boostAmount = (int) (totalGeneratedTax * boostPercentage);
+                            player.sendSystemMessage(Component.literal(""));
+
+                            // Expenses Section Header
+                            player.sendSystemMessage(Component.translatable(
+                                    "message.minecolonytax.tax_report_expenses_header")
+                                    .withStyle(net.minecraft.ChatFormatting.WHITE));
+
+                            // Show maintenance info
+                            if (totalMaintenance > 0) {
                                 player.sendSystemMessage(Component.translatable(
-                                        "message.minecolonytax.tax_report_guard_boost",
-                                        guardTowerCount,
-                                        (int) (boostPercentage * 100),
-                                        boostAmount).withStyle(net.minecraft.ChatFormatting.BLUE));
+                                        "message.minecolonytax.tax_report_maintenance",
+                                        totalMaintenance).withStyle(net.minecraft.ChatFormatting.GRAY));
                             }
 
                             // Show tribute paid if applicable
                             if (tributePaid > 0) {
                                 player.sendSystemMessage(Component.translatable(
                                         "message.minecolonytax.tax_report_tribute",
-                                        tributePaid).withStyle(net.minecraft.ChatFormatting.DARK_PURPLE));
+                                        tributePaid).withStyle(net.minecraft.ChatFormatting.GRAY));
+                            }
+
+                            // Show war chest auto-deposit if applicable
+                            if (warChestDeposit > 0) {
+                                player.sendSystemMessage(Component.translatable(
+                                        "message.minecolonytax.tax_report_war_chest",
+                                        warChestDeposit).withStyle(net.minecraft.ChatFormatting.GRAY));
+                            }
+
+                            // Show faction pool contribution if applicable
+                            if (factionPoolContribution > 0) {
+                                player.sendSystemMessage(Component.translatable(
+                                        "message.minecolonytax.tax_report_faction_pool",
+                                        factionPoolContribution).withStyle(net.minecraft.ChatFormatting.GRAY));
+                            }
+
+                            // Show tax policy if not NORMAL (optional info, not in expenses)
+                            if (TaxConfig.isTaxPoliciesEnabled() && activePolicy != TaxPolicy.NORMAL) {
+                                net.minecraft.ChatFormatting policyColor = taxPolicyMultiplier > 1.0
+                                        ? net.minecraft.ChatFormatting.GREEN
+                                        : net.minecraft.ChatFormatting.RED;
+                                String policyImpactSign = taxPolicyMultiplier > 1.0 ? "+" : "";
+                                int policyPercentage = (int) ((taxPolicyMultiplier - 1.0) * 100);
+                                player.sendSystemMessage(Component.literal(
+                                        "§7Tax Policy: " + activePolicy.getColorCode() + activePolicy.getDisplayName() +
+                                        " §7(" + policyImpactSign + policyPercentage + "% revenue)")
+                                        .withStyle(policyColor));
+                            }
+
+                            // Show guard tower boost if applicable (shown as note, not expense)
+                            if (guardTowerCount >= requiredGuardTowers) {
+                                double boostPercentage = TaxConfig.getGuardTowerTaxBoostPercentage();
+                                int boostAmount = (int) (totalGeneratedTax * boostPercentage);
+                                player.sendSystemMessage(Component.translatable(
+                                        "message.minecolonytax.tax_report_guard_boost",
+                                        boostAmount).withStyle(net.minecraft.ChatFormatting.AQUA));
                             }
 
                             // Send separator line
+                            player.sendSystemMessage(Component.literal(""));
                             player.sendSystemMessage(Component.translatable(
                                     "message.minecolonytax.tax_report_separator")
                                     .withStyle(net.minecraft.ChatFormatting.GRAY));
 
-                            // Send current balance with appropriate color
+                            // Calculate net change this cycle
+                            int netChangeThisCycle = finalTaxBalance - startingBalance;
+
+                            // Show net change for this cycle
+                            net.minecraft.ChatFormatting netChangeColor = netChangeThisCycle >= 0
+                                    ? net.minecraft.ChatFormatting.GREEN
+                                    : net.minecraft.ChatFormatting.RED;
+                            String netChangeSign = netChangeThisCycle >= 0 ? "+" : "";
+                            player.sendSystemMessage(Component.translatable(
+                                    "message.minecolonytax.tax_report_net_change",
+                                    netChangeSign + netChangeThisCycle).withStyle(netChangeColor));
+
+                            // Send current total balance
                             net.minecraft.ChatFormatting balanceColor;
                             String statusKey;
                             if (finalTaxBalance < 0) {
-                                balanceColor = net.minecraft.ChatFormatting.DARK_RED;
+                                balanceColor = net.minecraft.ChatFormatting.RED;
                                 statusKey = "message.minecolonytax.tax_report_status_debt";
                             } else if (finalTaxBalance >= TaxConfig.getMaxTaxRevenue() * 0.9) {
                                 balanceColor = net.minecraft.ChatFormatting.YELLOW;
                                 statusKey = "message.minecolonytax.tax_report_status_near_max";
                             } else {
-                                balanceColor = net.minecraft.ChatFormatting.GREEN;
+                                balanceColor = net.minecraft.ChatFormatting.WHITE;
                                 statusKey = "message.minecolonytax.tax_report_status_healthy";
                             }
 
                             player.sendSystemMessage(Component.translatable(
-                                    "message.minecolonytax.tax_report_balance",
-                                    finalTaxBalance).withStyle(balanceColor, net.minecraft.ChatFormatting.BOLD));
+                                    "message.minecolonytax.tax_report_total_stored",
+                                    finalTaxBalance).withStyle(net.minecraft.ChatFormatting.WHITE));
 
                             player.sendSystemMessage(Component.translatable(
                                     statusKey,
@@ -709,7 +796,7 @@ public class TaxManager {
 
                             // Send footer
                             player.sendSystemMessage(Component.translatable(
-                                    "message.minecolonytax.tax_report_footer")
+                                    "message.minecolonytax.tax_report_separator")
                                     .withStyle(net.minecraft.ChatFormatting.GRAY));
                         }
                     }
@@ -721,7 +808,8 @@ public class TaxManager {
                             if (player != null) {
                                 player.sendSystemMessage(Component.translatable(
                                         "message.minecolonytax.debt_warning",
-                                        colony.getName(), totalMaintenance, totalGeneratedTax));
+                                        totalMaintenance, totalGeneratedTax)
+                                        .withStyle(net.minecraft.ChatFormatting.RED));
                             }
                         }
                     }

@@ -63,9 +63,9 @@ public class PvPEventHandler {
         
         // Colony Activity Commands
         net.machiavelli.minecolonytax.commands.ColonyActivityCommand.register(event.getDispatcher());
-        
-        // Officer Tracking Debug Command
-        net.machiavelli.minecolonytax.commands.OfficerTrackingDebugCommand.register(event.getDispatcher());
+
+        // Abandonment Check Command (WnT timer status)
+        net.machiavelli.minecolonytax.commands.AbandonmentCheckCommand.register(event.getDispatcher());
         
         // CRITICAL FIX: Register all WNT and core commands
         // NOTE: WarCommands should NOT be registered separately - they should be part of WntCommands structure

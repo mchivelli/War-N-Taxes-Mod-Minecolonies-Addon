@@ -52,13 +52,14 @@ public class ColonyDataResponsePacket {
             int debtAmount = buf.readInt();
             int approximateRevenuePerInterval = buf.readInt();
             boolean isOwner = buf.readBoolean();
-            
+            String taxPolicy = buf.readUtf();
+
             this.colonyData.add(new ColonyTaxData(
                 colonyId, colonyName, taxBalance, maxTaxRevenue,
                 buildingCount, guardCount, guardTowerCount,
                 canClaimTax, isAtWar, isBeingRaided,
                 isVassal, vassalTributeRate, hasVassals, vassalCount,
-                lastTaxGeneration, debtAmount, approximateRevenuePerInterval, isOwner
+                lastTaxGeneration, debtAmount, approximateRevenuePerInterval, isOwner, taxPolicy
             ));
         }
         
@@ -104,6 +105,7 @@ public class ColonyDataResponsePacket {
             buf.writeInt(data.getDebtAmount());
             buf.writeInt(data.getApproximateRevenuePerInterval());
             buf.writeBoolean(data.isOwner());
+            buf.writeUtf(data.getTaxPolicy());
         }
         
         // Write vassal data
