@@ -317,6 +317,24 @@ public class TaxConfig {
         public static final ForgeConfigSpec.DoubleValue RANDOM_EVENT_BASE_CHANCE_MULTIPLIER;
         public static final ForgeConfigSpec.IntValue RANDOM_EVENT_PROTECT_NEW_COLONIES_HOURS;
 
+        // Individual Event Toggles
+        public static final ForgeConfigSpec.BooleanValue ENABLE_MERCHANT_CARAVAN;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_BOUNTIFUL_HARVEST;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_CULTURAL_FESTIVAL;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_SUCCESSFUL_RECRUITMENT;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_FOOD_SHORTAGE;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_DISEASE_OUTBREAK;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_BANDIT_HARASSMENT;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_CORRUPT_OFFICIAL;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_WANDERING_TRADER_OFFER;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_NEIGHBORING_ALLIANCE;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_WAR_PROFITEERING;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_GUARD_DESERTION;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_LABOR_STRIKE;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_PLAGUE_OUTBREAK;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_ROYAL_FEAST;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_CROP_BLIGHT;
+
         static {
 
                 // Define general settings
@@ -1292,6 +1310,73 @@ public class TaxConfig {
                 RANDOM_EVENT_PROTECT_NEW_COLONIES_HOURS = BUILDER
                                 .comment("Prevent events for colonies younger than X hours")
                                 .defineInRange("RandomEventProtectNewColoniesHours", 24, 0, 168);
+
+                // Individual Event Toggles
+                BUILDER.comment("Individual event toggles - disable specific events you don't want");
+
+                ENABLE_MERCHANT_CARAVAN = BUILDER
+                                .comment("Enable Merchant Caravan event (+15% tax, +0.3 happiness)")
+                                .define("EnableMerchantCaravan", true);
+
+                ENABLE_BOUNTIFUL_HARVEST = BUILDER
+                                .comment("Enable Bountiful Harvest event (+20% tax, +0.4 happiness)")
+                                .define("EnableBountifulHarvest", true);
+
+                ENABLE_CULTURAL_FESTIVAL = BUILDER
+                                .comment("Enable Cultural Festival event (-5% tax, +0.5 happiness)")
+                                .define("EnableCulturalFestival", true);
+
+                ENABLE_SUCCESSFUL_RECRUITMENT = BUILDER
+                                .comment("Enable Successful Recruitment event (+10% tax, +0.2 happiness)")
+                                .define("EnableSuccessfulRecruitment", true);
+
+                ENABLE_FOOD_SHORTAGE = BUILDER
+                                .comment("Enable Food Shortage event (-15% tax, -0.3 happiness)")
+                                .define("EnableFoodShortage", true);
+
+                ENABLE_DISEASE_OUTBREAK = BUILDER
+                                .comment("Enable Disease Outbreak event (-20% tax, -0.4 happiness)")
+                                .define("EnableDiseaseOutbreak", true);
+
+                ENABLE_BANDIT_HARASSMENT = BUILDER
+                                .comment("Enable Bandit Harassment event (-10% tax, -0.2 happiness)")
+                                .define("EnableBanditHarassment", true);
+
+                ENABLE_CORRUPT_OFFICIAL = BUILDER
+                                .comment("Enable Corrupt Official event (-25% tax, -0.1 happiness)")
+                                .define("EnableCorruptOfficial", true);
+
+                ENABLE_WANDERING_TRADER_OFFER = BUILDER
+                                .comment("Enable Wandering Trader Offer event (choice-based)")
+                                .define("EnableWanderingTraderOffer", true);
+
+                ENABLE_NEIGHBORING_ALLIANCE = BUILDER
+                                .comment("Enable Neighboring Alliance event (choice-based)")
+                                .define("EnableNeighboringAlliance", true);
+
+                ENABLE_WAR_PROFITEERING = BUILDER
+                                .comment("Enable War Profiteering event (+35% tax, -0.5 happiness)")
+                                .define("EnableWarProfiteering", true);
+
+                ENABLE_GUARD_DESERTION = BUILDER
+                                .comment("Enable Guard Desertion event (-30% tax, -0.6 happiness)")
+                                .define("EnableGuardDesertion", true);
+
+                ENABLE_LABOR_STRIKE = BUILDER
+                                .comment("Enable Labor Strike event (-40% tax, -0.7 happiness, citizens stop working)")
+                                .define("EnableLaborStrike", true);
+
+                ENABLE_PLAGUE_OUTBREAK = BUILDER
+                                .comment("Enable Plague Outbreak event (-35% tax, -0.8 happiness, citizens get diseased)")
+                                .define("EnablePlagueOutbreak", true);
+
+                ENABLE_ROYAL_FEAST = BUILDER
+                                .comment("Enable Royal Feast event (+10% tax, +0.6 happiness, citizens fed)")
+                                .define("EnableRoyalFeast", true);
+
+                ENABLE_CROP_BLIGHT = BUILDER
+                                .comment("Enable Crop Blight event (-25% tax, -0.5 happiness, citizens hungry)")
+                                .define("EnableCropBlight", true);
 
                 BUILDER.pop(); // End Random Events
 
@@ -2711,5 +2796,70 @@ public class TaxConfig {
 
         public static int getNewColonyProtectionHours() {
                 return RANDOM_EVENT_PROTECT_NEW_COLONIES_HOURS.get();
+        }
+
+        // Individual Event Toggles
+        public static boolean isMerchantCaravanEnabled() {
+                return ENABLE_MERCHANT_CARAVAN.get();
+        }
+
+        public static boolean isBountifulHarvestEnabled() {
+                return ENABLE_BOUNTIFUL_HARVEST.get();
+        }
+
+        public static boolean isCulturalFestivalEnabled() {
+                return ENABLE_CULTURAL_FESTIVAL.get();
+        }
+
+        public static boolean isSuccessfulRecruitmentEnabled() {
+                return ENABLE_SUCCESSFUL_RECRUITMENT.get();
+        }
+
+        public static boolean isFoodShortageEnabled() {
+                return ENABLE_FOOD_SHORTAGE.get();
+        }
+
+        public static boolean isDiseaseOutbreakEnabled() {
+                return ENABLE_DISEASE_OUTBREAK.get();
+        }
+
+        public static boolean isBanditHarassmentEnabled() {
+                return ENABLE_BANDIT_HARASSMENT.get();
+        }
+
+        public static boolean isCorruptOfficialEnabled() {
+                return ENABLE_CORRUPT_OFFICIAL.get();
+        }
+
+        public static boolean isWanderingTraderOfferEnabled() {
+                return ENABLE_WANDERING_TRADER_OFFER.get();
+        }
+
+        public static boolean isNeighboringAllianceEnabled() {
+                return ENABLE_NEIGHBORING_ALLIANCE.get();
+        }
+
+        public static boolean isWarProfiteeringEnabled() {
+                return ENABLE_WAR_PROFITEERING.get();
+        }
+
+        public static boolean isGuardDesertionEnabled() {
+                return ENABLE_GUARD_DESERTION.get();
+        }
+
+        public static boolean isLaborStrikeEnabled() {
+                return ENABLE_LABOR_STRIKE.get();
+        }
+
+        public static boolean isPlagueOutbreakEnabled() {
+                return ENABLE_PLAGUE_OUTBREAK.get();
+        }
+
+        public static boolean isRoyalFeastEnabled() {
+                return ENABLE_ROYAL_FEAST.get();
+        }
+
+        public static boolean isCropBlightEnabled() {
+                return ENABLE_CROP_BLIGHT.get();
         }
 }

@@ -185,6 +185,11 @@ public class RandomEventManager {
 
         // Try to trigger each event type
         for (RandomEventType eventType : RandomEventType.values()) {
+            // Check if event is enabled in config
+            if (!isEventEnabled(eventType)) {
+                continue;
+            }
+
             // Check event-specific cooldown
             if (isOnCooldown(colonyId, eventType)) {
                 continue;
@@ -481,6 +486,51 @@ public class RandomEventManager {
         return ACTIVE_EVENTS.values().stream()
             .mapToInt(List::size)
             .sum();
+    }
+
+    /**
+     * Check if a specific event type is enabled in the configuration.
+     *
+     * @param eventType The event type to check
+     * @return true if the event is enabled
+     */
+    private static boolean isEventEnabled(RandomEventType eventType) {
+        switch (eventType) {
+            case MERCHANT_CARAVAN:
+                return TaxConfig.isMerchantCaravanEnabled();
+            case BOUNTIFUL_HARVEST:
+                return TaxConfig.isBountifulHarvestEnabled();
+            case CULTURAL_FESTIVAL:
+                return TaxConfig.isCulturalFestivalEnabled();
+            case SUCCESSFUL_RECRUITMENT:
+                return TaxConfig.isSuccessfulRecruitmentEnabled();
+            case FOOD_SHORTAGE:
+                return TaxConfig.isFoodShortageEnabled();
+            case DISEASE_OUTBREAK:
+                return TaxConfig.isDiseaseOutbreakEnabled();
+            case BANDIT_HARASSMENT:
+                return TaxConfig.isBanditHarassmentEnabled();
+            case CORRUPT_OFFICIAL:
+                return TaxConfig.isCorruptOfficialEnabled();
+            case WANDERING_TRADER_OFFER:
+                return TaxConfig.isWanderingTraderOfferEnabled();
+            case NEIGHBORING_ALLIANCE:
+                return TaxConfig.isNeighboringAllianceEnabled();
+            case WAR_PROFITEERING:
+                return TaxConfig.isWarProfiteeringEnabled();
+            case GUARD_DESERTION:
+                return TaxConfig.isGuardDesertionEnabled();
+            case LABOR_STRIKE:
+                return TaxConfig.isLaborStrikeEnabled();
+            case PLAGUE_OUTBREAK:
+                return TaxConfig.isPlagueOutbreakEnabled();
+            case ROYAL_FEAST:
+                return TaxConfig.isRoyalFeastEnabled();
+            case CROP_BLIGHT:
+                return TaxConfig.isCropBlightEnabled();
+            default:
+                return true; // Default to enabled for unknown events
+        }
     }
 
     /**
