@@ -1,0 +1,32 @@
+{
+    "name": "minecolonytax.entry.deep_integration.name",
+    "icon": "minecraft:chainmail_chestplate",
+    "category": "minecolonytax:random_events",
+    "sortnum": 3,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.deep_integration.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.deep_integration.labor_strike.title",
+            "text": "minecolonytax.entry.deep_integration.labor_strike"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.deep_integration.plague_outbreak.title",
+            "text": "minecolonytax.entry.deep_integration.plague_outbreak"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.deep_integration.royal_feast.title",
+            "text": "minecolonytax.entry.deep_integration.royal_feast"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.deep_integration.crop_blight.title",
+            "text": "minecolonytax.entry.deep_integration.crop_blight"
+        }
+    ]
+}

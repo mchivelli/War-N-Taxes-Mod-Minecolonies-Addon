@@ -1,0 +1,6 @@
+{
+    "name": "minecolonytax.category.random_events.name",
+    "description": "minecolonytax.category.random_events.desc",
+    "icon": "minecraft:wheat",
+    "sortnum": 15
+}

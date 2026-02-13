@@ -5,6 +5,104 @@ All notable changes to the War N Tax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] - 2026-02-13
+
+### Added - Random Events System
+
+- **NEW FEATURE**: **Random Events System** - Dynamic, context-aware events that trigger based on colony conditions
+  - **16 Unique Events**: 6 positive, 7 negative, 2 neutral/choice, 1 special war event
+  - **Event Categories**:
+    - **Positive**: Merchant Caravan, Bountiful Harvest, Cultural Festival, Successful Recruitment, Royal Feast, War Profiteering
+    - **Negative**: Food Shortage, Disease Outbreak, Bandit Harassment, Corrupt Official, Guard Desertion, Labor Strike, Plague Outbreak, Crop Blight
+    - **Neutral/Choice**: Wandering Trader Offer, Neighboring Alliance
+  - **Tax & Happiness Impacts**: Events modify tax multipliers (-40% to +35%) and happiness (-0.8 to +0.6)
+  - **Duration System**: Events last 1-3 tax cycles based on severity
+  - **Cooldown System**: Prevents event spam (4-10 cycles between same event)
+  - **Condition-Based Triggering**: Events only trigger when specific colony conditions met (happiness, buildings, citizens, tax policy)
+
+### Added - Deep Citizen Integration
+
+- **NEW FEATURE**: **CitizenManipulator System** - Reflection-based deep integration with MineColonies citizen states
+  - Uses Java reflection to access MineColonies internal APIs safely
+  - Graceful fallback if MineColonies internals change
+  - Thread-safe operations with error handling
+
+- **4 Deep Integration Events** that directly manipulate citizen states:
+
+  1. **LABOR_STRIKE** (Happiness <3.5, HIGH/WAR_ECONOMY policy, 30+ citizens)
+     - Sets 30-50% of workers to STUCK job status (prevents working)
+     - -40% tax, -0.7 happiness, 2 cycles
+     - **Restoration**: All affected citizens returned to WORKING status on expiration
+
+  2. **PLAGUE_OUTBREAK** (50+ citizens, no Hospital L3+)
+     - Infects 20-40% of citizens with random diseases
+     - Visible disease particles in-game
+     - -35% tax, -0.8 happiness, 3 cycles
+     - **Restoration**: ALL sick citizens cured on expiration
+
+  3. **ROYAL_FEAST** (Happiness >7.0, not at war)
+     - Sets ALL citizens' saturation to max (20.0) - instant feast
+     - +10% tax, +0.6 happiness, 1 cycle
+     - No restoration needed (saturation naturally decreases)
+
+  4. **CROP_BLIGHT** (5+ farms)
+     - Sets ALL citizens' saturation to near-starvation (3.0)
+     - -25% tax, -0.5 happiness, 2 cycles
+     - No restoration needed (saturation can naturally recover)
+
+### Added - Event Management Features
+
+- **Active Event Tracking**: Stores active events with remaining cycles and affected citizens
+- **Data Persistence**: Events and cooldowns persist across server restarts
+  - `config/warntax/events.json` - Active events and affected citizen IDs
+  - `config/warntax/eventCooldowns.json` - Cooldown expiration timestamps
+- **Integration with Tax System**: Event tax multipliers applied during tax calculation
+- **Integration with Happiness System**: Event happiness modifiers stack additively
+
+### Added - Event Commands
+
+- `/wnt events <colonyId>` - View all active events for a colony (name, description, remaining cycles, impacts, affected citizens)
+- `/wnt triggerevent <colonyId> <eventType>` - (Admin) Manually trigger specific event for testing (bypasses conditions/probability/cooldowns)
+
+### Technical Implementation
+
+- **Core Classes**:
+  - `RandomEventType.java` - Enum of 16 events with properties and condition logic
+  - `RandomEventManager.java` - Event lifecycle manager (triggering, persistence, restoration)
+  - `ActiveEvent.java` - Data model for tracking active events
+  - `CitizenManipulator.java` - Reflection utility for citizen state manipulation
+- **Probability System**: Weighted probability with base chance per event, modified by conditions
+- **Trigger Timing**: Checked during tax cycles, only if owner/officer online
+- **Cooldown Prevention**: Events cannot re-trigger immediately (stored per-colony)
+
+### Documentation
+
+- **NEW**: `docs/RANDOM_EVENTS_SYSTEM.md` - Comprehensive documentation:
+  - System architecture and event lifecycle
+  - Complete event table with conditions and impacts
+  - Deep integration technical details
+  - CitizenManipulator implementation using reflection
+  - Data persistence format
+  - Testing guide for deep integration events
+  - Developer notes for adding new events
+
+### Known Limitations
+
+- Deep integration depends on MineColonies internal APIs (may need updates if MineColonies changes)
+- No per-event configuration via config file (requires code changes to disable individual events)
+- Neutral/choice events (WANDERING_TRADER_OFFER, NEIGHBORING_ALLIANCE) are informational only (no player choice system yet)
+- Several events check for "at war" status, but WarManager integration is pending
+
+### Future Enhancements
+
+- JSON-based event configuration (enable/disable, adjust probabilities, modify effects)
+- Player choice system for neutral events
+- WarManager integration for war-dependent events
+- Colony news feed GUI
+- Event chains (one event triggers another)
+
+---
+
 ## [4.1.0] - 2026-01-29
 
 ### Fixed

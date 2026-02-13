@@ -1,0 +1,27 @@
+{
+    "name": "minecolonytax.entry.managing_events.name",
+    "icon": "minecraft:command_block",
+    "category": "minecolonytax:random_events",
+    "sortnum": 4,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.managing_events.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.managing_events.view_events.title",
+            "text": "minecolonytax.entry.managing_events.view_events"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.managing_events.trigger_events.title",
+            "text": "minecolonytax.entry.managing_events.trigger_events"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.managing_events.configuration.title",
+            "text": "minecolonytax.entry.managing_events.configuration"
+        }
+    ]
+}

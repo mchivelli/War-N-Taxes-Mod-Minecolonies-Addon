@@ -25,6 +25,7 @@ import net.machiavelli.minecolonytax.economy.RaidPenaltyManager;
 import net.machiavelli.minecolonytax.economy.WarChestManager;
 import net.machiavelli.minecolonytax.economy.policy.TaxPolicyManager;
 import net.machiavelli.minecolonytax.economy.policy.TaxPolicy;
+import net.machiavelli.minecolonytax.events.random.RandomEventManager;
 
 import java.io.File;
 import java.io.FileReader;
@@ -382,7 +383,9 @@ public class TaxManager {
             }
 
             if (adultCitizenCount > 0) {
-                return totalHappiness / adultCitizenCount;
+                double baseHappiness = totalHappiness / adultCitizenCount;
+                double eventModifier = RandomEventManager.getHappinessModifier(colony.getID());
+                return Math.max(0.0, Math.min(10.0, baseHappiness + eventModifier));
             } else {
                 return 5.0; // Default to neutral happiness if no adult citizens
             }
@@ -479,9 +482,11 @@ public class TaxManager {
                             // Apply happiness modifier to tax generation
                             double taxWithHappiness = rawTax * happinessMultiplier;
 
-                            // Apply raid penalty, war exhaustion, and tax policy modifiers
+                            // Apply raid penalty, war exhaustion, tax policy, and random event modifiers
+                            double randomEventMultiplier = RandomEventManager.getTaxMultiplier(colonyId);
                             int generatedTax = (int) (taxWithHappiness * raidPenaltyMultiplier
-                                    * warExhaustionMultiplier * taxPolicyMultiplier);
+                                    * warExhaustionMultiplier * taxPolicyMultiplier
+                                    * randomEventMultiplier);
 
                             totalBaseTax += (int) rawTax; // Track base tax before happiness modifier
                             totalGeneratedTax += generatedTax; // Track actual modified tax for reporting
@@ -812,6 +817,11 @@ public class TaxManager {
                                         .withStyle(net.minecraft.ChatFormatting.RED));
                             }
                         }
+                    }
+
+                    // Trigger random events after tax cycle
+                    if (TaxConfig.isRandomEventsEnabled()) {
+                        RandomEventManager.onTaxCycle(colony);
                     }
                 });
             });

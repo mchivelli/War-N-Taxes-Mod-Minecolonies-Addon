@@ -22,5 +22,16 @@ eclipse
 
 # Files from Forge MDK
 forge*changelog.txt
-run
-docs
+run/
+docs/
+
+# Claude Code
+.claude/
+
+# Other mods/repositories
+MapFrontiers/
+journeymap-api/
+
+# Build logs
+build_error.log
+*.log
