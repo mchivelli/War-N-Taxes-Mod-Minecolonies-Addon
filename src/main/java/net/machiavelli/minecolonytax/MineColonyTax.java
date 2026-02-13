@@ -8,6 +8,7 @@ import net.machiavelli.minecolonytax.commands.WarChestCommand;
 import net.machiavelli.minecolonytax.commands.RaidRepairCommand;
 import net.machiavelli.minecolonytax.commands.FactionCommand;
 import net.machiavelli.minecolonytax.commands.TaxPolicyCommand;
+import net.machiavelli.minecolonytax.commands.RandomEventsCommand;
 import net.machiavelli.minecolonytax.economy.WarChestManager;
 import net.machiavelli.minecolonytax.economy.policy.TaxPolicyManager;
 import net.machiavelli.minecolonytax.raid.GuardResistanceHandler;
@@ -90,8 +91,10 @@ public class MineColonyTax {
         RaidRepairCommand.register(event.getServer().getCommands().getDispatcher());
         FactionCommand.register(event.getServer().getCommands().getDispatcher());
         TaxPolicyCommand.register(event.getServer().getCommands().getDispatcher());
+        RandomEventsCommand.register(event.getServer().getCommands().getDispatcher());
         LOGGER.info("WarChestCommand registered");
         LOGGER.info("TaxPolicyCommand registered");
+        LOGGER.info("RandomEventsCommand registered");
 
         LOGGER.info("Server starting - initializing TaxManager with configured interval of {} minutes",
                 TaxConfig.getTaxIntervalInMinutes());
@@ -166,6 +169,10 @@ public class MineColonyTax {
         TaxPolicyManager.initialize(event.getServer());
         LOGGER.info("TaxPolicyManager initialized");
 
+        // Initialize RandomEventManager
+        net.machiavelli.minecolonytax.events.random.RandomEventManager.initialize(event.getServer());
+        LOGGER.info("RandomEventManager initialized");
+
         // Emergency cleanup of guard resistance effects on startup
         GuardResistanceHandler.emergencyCleanup();
         LOGGER.info("Guard resistance effects cleanup completed");
@@ -230,6 +237,13 @@ public class MineColonyTax {
             LOGGER.info("TaxPolicyManager shutdown complete");
         } catch (Throwable t) {
             LOGGER.warn("Error during TaxPolicyManager shutdown: {}", t.toString());
+        }
+
+        try {
+            net.machiavelli.minecolonytax.events.random.RandomEventManager.shutdown();
+            LOGGER.info("RandomEventManager shutdown complete");
+        } catch (Throwable t) {
+            LOGGER.warn("Error during RandomEventManager shutdown: {}", t.toString());
         }
     }
 }

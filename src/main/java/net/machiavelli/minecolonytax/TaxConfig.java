@@ -309,6 +309,14 @@ public class TaxConfig {
         public static final ForgeConfigSpec.DoubleValue INVESTMENT_RESEARCH_SPY_DEFENSE_BONUS;
         public static final ForgeConfigSpec.IntValue INVESTMENT_RESEARCH_DURATION_DAYS;
 
+        // ==================== RANDOM EVENTS SYSTEM ====================
+        public static final ForgeConfigSpec.BooleanValue ENABLE_RANDOM_EVENTS;
+        public static final ForgeConfigSpec.IntValue RANDOM_EVENT_CHECK_FREQUENCY;
+        public static final ForgeConfigSpec.IntValue RANDOM_EVENT_GLOBAL_COOLDOWN_CYCLES;
+        public static final ForgeConfigSpec.IntValue RANDOM_EVENT_MAX_SIMULTANEOUS;
+        public static final ForgeConfigSpec.DoubleValue RANDOM_EVENT_BASE_CHANCE_MULTIPLIER;
+        public static final ForgeConfigSpec.IntValue RANDOM_EVENT_PROTECT_NEW_COLONIES_HOURS;
+
         static {
 
                 // Define general settings
@@ -1255,6 +1263,37 @@ public class TaxConfig {
                 BUILDER.pop();
 
                 BUILDER.pop(); // End Tax Expansion - Money Sinks
+
+                // ============================================================
+                // Random Events System
+                // ============================================================
+                BUILDER.push("Random Events");
+
+                ENABLE_RANDOM_EVENTS = BUILDER
+                                .comment("Enable the random events system for dynamic colony events")
+                                .define("EnableRandomEvents", true);
+
+                RANDOM_EVENT_CHECK_FREQUENCY = BUILDER
+                                .comment("How often to check for events (1 = every tax cycle, 2 = every other)")
+                                .defineInRange("RandomEventCheckFrequency", 1, 1, 10);
+
+                RANDOM_EVENT_GLOBAL_COOLDOWN_CYCLES = BUILDER
+                                .comment("Minimum tax cycles between any events for a colony")
+                                .defineInRange("RandomEventGlobalCooldownCycles", 2, 0, 10);
+
+                RANDOM_EVENT_MAX_SIMULTANEOUS = BUILDER
+                                .comment("Maximum events active simultaneously per colony")
+                                .defineInRange("RandomEventMaxSimultaneous", 2, 1, 5);
+
+                RANDOM_EVENT_BASE_CHANCE_MULTIPLIER = BUILDER
+                                .comment("Global multiplier for all event probabilities")
+                                .defineInRange("RandomEventBaseChanceMultiplier", 1.0, 0.0, 5.0);
+
+                RANDOM_EVENT_PROTECT_NEW_COLONIES_HOURS = BUILDER
+                                .comment("Prevent events for colonies younger than X hours")
+                                .defineInRange("RandomEventProtectNewColoniesHours", 24, 0, 168);
+
+                BUILDER.pop(); // End Random Events
 
                 WAR_DURATION_MINUTES = BUILDER.comment("War duration (minutes)")
                                 .defineInRange("WarDurationMinutes", 120, 1, 1440);
@@ -2646,5 +2685,31 @@ public class TaxConfig {
 
         public static boolean isListAbandonedForAllEnabled() {
                 return ENABLE_LIST_ABANDONED_FOR_ALL.get();
+        }
+
+        // ==================== RANDOM EVENTS GETTERS ====================
+
+        public static boolean isRandomEventsEnabled() {
+                return ENABLE_RANDOM_EVENTS.get();
+        }
+
+        public static int getEventCheckFrequency() {
+                return RANDOM_EVENT_CHECK_FREQUENCY.get();
+        }
+
+        public static int getGlobalCooldownCycles() {
+                return RANDOM_EVENT_GLOBAL_COOLDOWN_CYCLES.get();
+        }
+
+        public static int getMaxSimultaneousEvents() {
+                return RANDOM_EVENT_MAX_SIMULTANEOUS.get();
+        }
+
+        public static double getBaseChanceMultiplier() {
+                return RANDOM_EVENT_BASE_CHANCE_MULTIPLIER.get();
+        }
+
+        public static int getNewColonyProtectionHours() {
+                return RANDOM_EVENT_PROTECT_NEW_COLONIES_HOURS.get();
         }
 }
