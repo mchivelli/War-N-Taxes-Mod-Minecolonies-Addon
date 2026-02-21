@@ -523,6 +523,35 @@ public class TaxManager {
 
                     finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
 
+                    // --- Espionage: Deduct pending spy costs ---
+                    if (TaxConfig.isSpySystemEnabled()) {
+                        int pendingCost = net.machiavelli.minecolonytax.espionage.SpyManager
+                                .consumePendingCost(colonyId);
+                        if (pendingCost > 0) {
+                            adjustTax(colony, -pendingCost);
+                            finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
+
+                            if (TaxConfig.showTaxGenerationLogs()) {
+                                LOGGER.info("Deducted {} pending spy cost from colony {}", pendingCost, colonyId);
+                            }
+                        }
+
+                        // Apply sabotage reduction if active
+                        double sabotageReduction = net.machiavelli.minecolonytax.espionage.SpyManager
+                                .getSabotageReduction(colonyId);
+                        if (sabotageReduction > 0) {
+                            int reduction = (int) (totalGeneratedTax * sabotageReduction);
+                            adjustTax(colony, -reduction);
+                            finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
+                            net.machiavelli.minecolonytax.espionage.SpyManager.clearSabotageEffect(colonyId); // One-time
+                                                                                                              // effect
+
+                            if (TaxConfig.showTaxGenerationLogs()) {
+                                LOGGER.info("Sabotage reduced tax by {} for colony {}", reduction, colonyId);
+                            }
+                        }
+                    }
+
                     // --- Guard Tower Tax Boost Processing ---
                     for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
                         if (building.getBuildingLevel() > 0 && building.isBuilt()) {
@@ -609,7 +638,8 @@ public class TaxManager {
                         int netChangeThisCycle = finalTaxBalance - startingBalance;
                         LOGGER.info(
                                 "Tax cycle completed for colony {} - Buildings: {}, Base: {}, Generated: {}, Maintenance: {}, WarChest: {}, Starting: {}, Net Change: {}, Final: {}",
-                                colony.getName(), buildingCount, totalBaseTax, totalGeneratedTax, totalMaintenance, warChestDeposit, startingBalance, netChangeThisCycle, finalTaxBalance);
+                                colony.getName(), buildingCount, totalBaseTax, totalGeneratedTax, totalMaintenance,
+                                warChestDeposit, startingBalance, netChangeThisCycle, finalTaxBalance);
 
                         // Log happiness impact if enabled
                         if (TaxConfig.isHappinessTaxModifierEnabled()) {
@@ -622,8 +652,10 @@ public class TaxManager {
                         }
 
                         // Log calculation breakdown for clarity
-                        LOGGER.info("Colony {} - Calculation: {} (starting) + {} (base) + {} (happiness) - {} (maintenance) - {} (war chest) = {} (final)",
-                                colony.getName(), startingBalance, totalBaseTax, (totalGeneratedTax - totalBaseTax), totalMaintenance, warChestDeposit, finalTaxBalance);
+                        LOGGER.info(
+                                "Colony {} - Calculation: {} (starting) + {} (base) + {} (happiness) - {} (maintenance) - {} (war chest) = {} (final)",
+                                colony.getName(), startingBalance, totalBaseTax, (totalGeneratedTax - totalBaseTax),
+                                totalMaintenance, warChestDeposit, finalTaxBalance);
 
                         if (maxLimitHits > 0) {
                             LOGGER.info(
@@ -654,7 +686,8 @@ public class TaxManager {
                             player.sendSystemMessage(Component.literal("╔═══════════════════════════════════╗")
                                     .withStyle(net.minecraft.ChatFormatting.GRAY));
                             player.sendSystemMessage(Component.literal("║")
-                                    .append(Component.translatable("message.minecolonytax.tax_report_header", colony.getName())
+                                    .append(Component
+                                            .translatable("message.minecolonytax.tax_report_header", colony.getName())
                                             .withStyle(net.minecraft.ChatFormatting.GOLD))
                                     .append(Component.literal("║").withStyle(net.minecraft.ChatFormatting.GRAY)));
                             player.sendSystemMessage(Component.literal("╚═══════════════════════════════════╝")
@@ -745,7 +778,7 @@ public class TaxManager {
                                 int policyPercentage = (int) ((taxPolicyMultiplier - 1.0) * 100);
                                 player.sendSystemMessage(Component.literal(
                                         "§7Tax Policy: " + activePolicy.getColorCode() + activePolicy.getDisplayName() +
-                                        " §7(" + policyImpactSign + policyPercentage + "% revenue)")
+                                                " §7(" + policyImpactSign + policyPercentage + "% revenue)")
                                         .withStyle(policyColor));
                             }
 

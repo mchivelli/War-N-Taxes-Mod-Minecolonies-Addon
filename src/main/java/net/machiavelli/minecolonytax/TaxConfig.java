@@ -230,6 +230,8 @@ public class TaxConfig {
         public static final ForgeConfigSpec.BooleanValue ENABLE_SPY_SYSTEM;
         public static final ForgeConfigSpec.IntValue SPY_COOLDOWN_MINUTES;
         public static final ForgeConfigSpec.DoubleValue SPY_DETECTION_BASE_CHANCE;
+        public static final ForgeConfigSpec.IntValue SPY_MAX_ACTIVE_PER_PLAYER;
+        public static final ForgeConfigSpec.IntValue SPY_SCOUT_MAX_DURATION_HOURS;
 
         // Spy Action Costs
         public static final ForgeConfigSpec.IntValue SPY_SCOUT_COST;
@@ -677,10 +679,13 @@ public class TaxConfig {
 
                 RESET_TIMER_ON_OFFICER_LOGIN = BUILDER.comment(
                                 "EXPERIMENTAL: Reset abandonment timer when officers/owners log into the server.\n" +
-                                                "When FALSE (default): Timer only resets when officers PHYSICALLY VISIT the colony (chunk-based detection).\n" +
-                                                "When TRUE: Timer resets for ALL colonies an officer manages just by logging in (easier but defeats the purpose).\n" +
+                                                "When FALSE (default): Timer only resets when officers PHYSICALLY VISIT the colony (chunk-based detection).\n"
+                                                +
+                                                "When TRUE: Timer resets for ALL colonies an officer manages just by logging in (easier but defeats the purpose).\n"
+                                                +
                                                 "\n" +
-                                                "RECOMMENDED: Keep this FALSE to ensure officers actually visit their colonies to prevent abandonment.\n" +
+                                                "RECOMMENDED: Keep this FALSE to ensure officers actually visit their colonies to prevent abandonment.\n"
+                                                +
                                                 "Setting this to TRUE will prevent colonies from ever being abandoned if officers log in regularly.")
                                 .define("ResetTimerOnOfficerLogin", false);
 
@@ -1012,7 +1017,13 @@ public class TaxConfig {
                 SPY_DETECTION_BASE_CHANCE = BUILDER.comment(
                                 "Base chance (0.0-1.0) of being detected when performing spy actions. " +
                                                 "Each action adds its own detection modifier.")
-                                .defineInRange("SpyDetectionBaseChance", 0.15, 0.0, 1.0);
+                                .defineInRange("SpyDetectionBaseChance", 0.05, 0.0, 1.0);
+
+                SPY_MAX_ACTIVE_PER_PLAYER = BUILDER.comment("Maximum number of active spy missions per player.")
+                                .defineInRange("MaxActiveSpiesPerPlayer", 3, 1, 10);
+                SPY_SCOUT_MAX_DURATION_HOURS = BUILDER
+                                .comment("Maximum duration in hours for a SCOUT mission before spy auto-recalls.")
+                                .defineInRange("ScoutMaxDurationHours", 24, 1, 168);
 
                 // --- Spy Action Costs ---
                 BUILDER.push("Action Costs");
@@ -1409,8 +1420,9 @@ public class TaxConfig {
                                 .defineInRange("PlayerLivesInWar", 5, 1, 100); // Default 5 lives
 
                 CONFIGURABLE_WAR_ACTIONS = BUILDER.comment(
-                                "Actions permitted during a War. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.\n" +
-                                "Note: GUARDS_ATTACK was removed from Minecolonies API - hostility is now controlled by Rank.isHostile()")
+                                "Actions permitted during a War. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.\n"
+                                                +
+                                                "Note: GUARDS_ATTACK was removed from Minecolonies API - hostility is now controlled by Rank.isHostile()")
                                 .defineList("WarActions",
                                                 List.of("PLACE_BLOCKS", "BREAK_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM",
                                                                 "ATTACK_CITIZEN", "FILL_BUCKET",
@@ -1420,8 +1432,9 @@ public class TaxConfig {
                                                 obj -> obj instanceof String);
 
                 CONFIGURABLE_RAID_ACTIONS = BUILDER.comment(
-                                "Actions permitted during a Raid. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.\n" +
-                                "Note: GUARDS_ATTACK was removed from Minecolonies API - hostility is now controlled by Rank.isHostile()")
+                                "Actions permitted during a Raid. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.\n"
+                                                +
+                                                "Note: GUARDS_ATTACK was removed from Minecolonies API - hostility is now controlled by Rank.isHostile()")
                                 .defineList("RaidActions",
                                                 List.of("TOSS_ITEM", "PICKUP_ITEM", "ATTACK_CITIZEN",
                                                                 "FILL_BUCKET", "SHOOT_ARROW", "RIGHTCLICK_BLOCK",
@@ -1430,8 +1443,9 @@ public class TaxConfig {
                                                 obj -> obj instanceof String);
 
                 CONFIGURABLE_CLAIMING_ACTIONS = BUILDER.comment(
-                                "Actions permitted during Abandoned Colony Claiming raids. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.\n" +
-                                "Note: GUARDS_ATTACK was removed from Minecolonies API - hostility is now controlled by Rank.isHostile()")
+                                "Actions permitted during Abandoned Colony Claiming raids. See https://ldtteam.github.io/MineColoniesAPI/com/minecolonies/api/colony/permissions/Action.html for a list of possible actions.\n"
+                                                +
+                                                "Note: GUARDS_ATTACK was removed from Minecolonies API - hostility is now controlled by Rank.isHostile()")
                                 .defineList("ClaimingActions",
                                                 List.of("PLACE_BLOCKS", "BREAK_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM",
                                                                 "ATTACK_CITIZEN", "FILL_BUCKET",
@@ -2571,8 +2585,7 @@ public class TaxConfig {
                 return SPY_STEAL_SECRETS_COST.get();
         }
 
-        // Spy Action Effects
-        public static double getSpySabotageTaxReductionPercent() {
+        public static double getSpySabotageTaxReduction() {
                 return SPY_SABOTAGE_TAX_REDUCTION_PERCENT.get();
         }
 
@@ -2582,6 +2595,19 @@ public class TaxConfig {
 
         public static int getSpyStealSecretsDurationHours() {
                 return SPY_STEAL_SECRETS_DURATION_HOURS.get();
+        }
+
+        public static int getSpyScoutMaxDurationHours() {
+                return SPY_SCOUT_MAX_DURATION_HOURS.get();
+        }
+
+        public static int getSpyMaxActivePerPlayer() {
+                return SPY_MAX_ACTIVE_PER_PLAYER.get();
+        }
+
+        // Spy Action Effects
+        public static double getSpySabotageTaxReductionPercent() {
+                return SPY_SABOTAGE_TAX_REDUCTION_PERCENT.get();
         }
 
         // Spy Action Detection Chances

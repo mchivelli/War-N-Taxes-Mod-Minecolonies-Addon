@@ -58,6 +58,14 @@ public class TaxManagementScreen extends Screen {
     private boolean showingPermissions = false;
     private boolean showingWarChest = false;
 
+    // Espionage fields
+    private boolean showingEspionage = false;
+    private Button espionageTabButton;
+    private List<net.machiavelli.minecolonytax.gui.data.SpyMissionData> spyMissions = new ArrayList<>();
+    private int selectedTargetColonyIndex = 0;
+    private int selectedMissionTypeIndex = 0;
+    private static final String[] MISSION_TYPES = { "SCOUT", "SABOTAGE", "BRIBE", "STEAL" };
+
     // War Chest UI Elements
     private EditBox amountInput;
     private Button depositButton;
@@ -138,6 +146,18 @@ public class TaxManagementScreen extends Screen {
                     .bounds(tabStartX + (tabButtonWidth + 5) * 3, guiTop + 25, tabButtonWidth, tabButtonHeight)
                     .build();
             this.addRenderableWidget(warChestTabButton);
+        }
+
+        // Espionage tab button - only show if feature enabled
+        if (TaxConfig.isSpySystemEnabled()) {
+            int spyTabIndex = warChestEnabled ? 4 : 3;
+            this.espionageTabButton = Button.builder(
+                    Component.literal("Espionage"),
+                    button -> switchToEspionage())
+                    .bounds(tabStartX + (tabButtonWidth + 5) * spyTabIndex, guiTop + 25, tabButtonWidth,
+                            tabButtonHeight)
+                    .build();
+            this.addRenderableWidget(espionageTabButton);
         }
 
         // Bottom action buttons - centered and properly spaced with proper margins
@@ -341,7 +361,12 @@ public class TaxManagementScreen extends Screen {
         // Highlight active tab - centered positioning
         int tabButtonWidth = 70;
         boolean warChestEnabled = TaxConfig.isWarChestEnabled();
-        int numTabs = warChestEnabled ? 4 : 3;
+        boolean spyEnabled = TaxConfig.isSpySystemEnabled();
+        int numTabs = 3;
+        if (warChestEnabled)
+            numTabs++;
+        if (spyEnabled)
+            numTabs++;
         int totalTabWidth = tabButtonWidth * numTabs + (numTabs - 1) * 5;
         int tabStartX = guiLeft + (GUI_WIDTH - totalTabWidth) / 2;
 
@@ -361,6 +386,8 @@ public class TaxManagementScreen extends Screen {
         // Draw appropriate content based on active tab
         if (showingWarChest) {
             renderWarChest(guiGraphics, guiLeft, guiTop, mouseX, mouseY);
+        } else if (showingEspionage) {
+            renderEspionage(guiGraphics, guiLeft, guiTop, mouseX, mouseY);
         } else if (showingPermissions) {
             renderPermissionsManagement(guiGraphics, guiLeft, guiTop, mouseX, mouseY);
         } else if (showingVassals) {
@@ -528,7 +555,7 @@ public class TaxManagementScreen extends Screen {
                 if (policy != null && policy != TaxPolicy.NORMAL) {
                     String policyText = policy.getDisplayName();
                     guiGraphics.drawString(font, "Policy: " + policyText, contentX + 5, entryY + 20,
-                        getPolicyColor(policy));
+                            getPolicyColor(policy));
                 }
             }
         }
@@ -549,7 +576,8 @@ public class TaxManagementScreen extends Screen {
     }
 
     private void renderPolicySelector(GuiGraphics guiGraphics, int guiLeft, int guiTop, int mouseX, int mouseY) {
-        if (selectedColony == null) return;
+        if (selectedColony == null)
+            return;
 
         Font font = this.font;
         int contentMargin = 50;
@@ -565,7 +593,8 @@ public class TaxManagementScreen extends Screen {
         // Current policy
         String currentPolicyName = selectedColony.getTaxPolicy();
         TaxPolicy currentPolicy = TaxPolicy.fromString(currentPolicyName);
-        if (currentPolicy == null) currentPolicy = TaxPolicy.NORMAL;
+        if (currentPolicy == null)
+            currentPolicy = TaxPolicy.NORMAL;
 
         String currentText = "Current: " + currentPolicy.getColorCode() + currentPolicy.getDisplayName();
         guiGraphics.drawString(font, currentText, contentX + 70, startY, COLOR_WHITE);
@@ -582,7 +611,7 @@ public class TaxManagementScreen extends Screen {
             int buttonX = contentX + (i * (buttonWidth + buttonSpacing));
 
             boolean isHovered = mouseX >= buttonX && mouseX < buttonX + buttonWidth &&
-                                mouseY >= buttonY && mouseY < buttonY + buttonHeight;
+                    mouseY >= buttonY && mouseY < buttonY + buttonHeight;
             boolean isCurrent = policy == currentPolicy;
 
             int bgColor = isCurrent ? 0xFF4A4A4A : (isHovered ? 0xFF3A3A3A : 0xFF2A2A2A);
@@ -598,7 +627,8 @@ public class TaxManagementScreen extends Screen {
             guiGraphics.drawCenteredString(font, buttonText, buttonX + buttonWidth / 2, buttonY + 2, textColor);
 
             // Store button bounds for click detection
-            if (i == 0) selectedColony.setPermissionButtonBounds(buttonX, buttonY, buttonWidth, buttonHeight);
+            if (i == 0)
+                selectedColony.setPermissionButtonBounds(buttonX, buttonY, buttonWidth, buttonHeight);
         }
     }
 
@@ -948,6 +978,60 @@ public class TaxManagementScreen extends Screen {
                         }
                     }
                 }
+            } else if (showingEspionage) {
+                int contentMargin = 50;
+                int contentX = guiLeft + contentMargin;
+                int contentWidth = GUI_WIDTH - (contentMargin * 2);
+                int currentY = guiTop + 50 + 15; // Start of active missions
+
+                if (spyMissions.isEmpty()) {
+                    currentY += 20;
+                } else {
+                    for (net.machiavelli.minecolonytax.gui.data.SpyMissionData mission : spyMissions) {
+                        int btnX = contentX + contentWidth - 45;
+                        if (mouseX >= btnX && mouseX <= btnX + 40 && mouseY >= currentY && mouseY <= currentY + 15) {
+                            net.machiavelli.minecolonytax.network.NetworkHandler
+                                    .sendToServer(new net.machiavelli.minecolonytax.network.packets.RecallSpyPacket(
+                                            mission.getMissionId()));
+                            return true;
+                        }
+                        currentY += 25;
+                    }
+                }
+
+                currentY += 25; // Skip separator and "Deploy New Spy"
+
+                // Target cycle button
+                int tgtBtnX = contentX + contentWidth - 25;
+                if (mouseX >= tgtBtnX && mouseX <= tgtBtnX + 20 && mouseY >= currentY && mouseY <= currentY + 10) {
+                    if (!colonies.isEmpty()) {
+                        selectedTargetColonyIndex = (selectedTargetColonyIndex + 1) % colonies.size();
+                    }
+                    return true;
+                }
+                currentY += 15;
+
+                // Type cycle button
+                int typBtnX = contentX + contentWidth - 25;
+                if (mouseX >= typBtnX && mouseX <= typBtnX + 20 && mouseY >= currentY && mouseY <= currentY + 10) {
+                    selectedMissionTypeIndex = (selectedMissionTypeIndex + 1) % MISSION_TYPES.length;
+                    return true;
+                }
+                currentY += 15;
+
+                // Deploy button
+                int dBtnX = contentX + 10;
+                if (mouseX >= dBtnX && mouseX <= dBtnX + 60 && mouseY >= currentY && mouseY <= currentY + 15) {
+                    if (!colonies.isEmpty() && selectedTargetColonyIndex >= 0
+                            && selectedTargetColonyIndex < colonies.size()) {
+                        ColonyTaxData target = colonies.get(selectedTargetColonyIndex);
+                        String type = MISSION_TYPES[selectedMissionTypeIndex];
+                        net.machiavelli.minecolonytax.network.NetworkHandler.sendToServer(
+                                new net.machiavelli.minecolonytax.network.packets.DeploySpyPacket(target.getColonyId(),
+                                        type));
+                    }
+                    return true;
+                }
             } else {
                 // Colony selection and action buttons
                 int startY = guiTop + 50;
@@ -983,12 +1067,11 @@ public class TaxManagementScreen extends Screen {
                     for (int i = 0; i < policies.length; i++) {
                         int buttonX = contentX + (i * (buttonWidth + buttonSpacing));
                         if (mouseX >= buttonX && mouseX < buttonX + buttonWidth &&
-                            mouseY >= policyY && mouseY < policyY + buttonHeight) {
+                                mouseY >= policyY && mouseY < policyY + buttonHeight) {
                             // Send policy change to server
                             NetworkHandler.sendToServer(new SetTaxPolicyPacket(
-                                selectedColony.getColonyId(),
-                                policies[i].name()
-                            ));
+                                    selectedColony.getColonyId(),
+                                    policies[i].name()));
                             requestColonyData(); // Refresh to show new policy
                             return true;
                         }
@@ -1027,6 +1110,16 @@ public class TaxManagementScreen extends Screen {
         }
 
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    public void updateSpyData(List<net.machiavelli.minecolonytax.gui.data.SpyMissionData> missions) {
+        this.spyMissions.clear();
+        this.spyMissions.addAll(missions);
+        // Reset selection if out of bounds or data changed
+        if (this.spyMissions.isEmpty()) {
+            this.selectedMissionTypeIndex = 0;
+            this.selectedTargetColonyIndex = 0;
+        }
     }
 
     public void updateColonyData(List<ColonyTaxData> newData) {
@@ -1400,6 +1493,7 @@ public class TaxManagementScreen extends Screen {
 
     /**
      * Gets the appropriate currency name based on config settings
+     * 
      * @return the currency name to display
      */
     private String getCurrencyName() {
@@ -1412,5 +1506,81 @@ public class TaxManagementScreen extends Screen {
             }
             return currencyName;
         }
+    }
+
+    private void switchToEspionage() {
+        showingVassals = false;
+        showingPermissions = false;
+        showingWarChest = false;
+        showingEspionage = true;
+        scrollOffset = 0;
+        setWarChestElementsVisible(false);
+        net.machiavelli.minecolonytax.network.NetworkHandler
+                .sendToServer(new net.machiavelli.minecolonytax.network.packets.RequestSpyDataPacket());
+    }
+
+    private void renderEspionage(GuiGraphics guiGraphics, int guiLeft, int guiTop, int mouseX, int mouseY) {
+        if (!TaxConfig.isSpySystemEnabled()) {
+            guiGraphics.drawCenteredString(font, "Espionage is disabled.", guiLeft + GUI_WIDTH / 2, guiTop + 60,
+                    COLOR_RED);
+            return;
+        }
+
+        int contentMargin = 50;
+        int contentX = guiLeft + contentMargin;
+        int contentWidth = GUI_WIDTH - (contentMargin * 2);
+        int currentY = guiTop + 50;
+
+        guiGraphics.drawString(font, "Active Missions (" + spyMissions.size() + ")", contentX, currentY, COLOR_GOLD);
+        currentY += 15;
+
+        if (spyMissions.isEmpty()) {
+            guiGraphics.drawString(font, "No active missions.", contentX + 10, currentY, COLOR_GRAY);
+            currentY += 20;
+        } else {
+            for (net.machiavelli.minecolonytax.gui.data.SpyMissionData mission : spyMissions) {
+                String desc = mission.getMissionType() + " -> " + mission.getTargetColonyName();
+                guiGraphics.drawString(font, desc, contentX + 10, currentY, COLOR_WHITE);
+                String status = "Status: " + mission.getStatus();
+                guiGraphics.drawString(font, status, contentX + 10, currentY + 10, 0xFFAAAAAA);
+
+                // Draw Recall Button
+                int btnX = contentX + contentWidth - 45;
+                guiGraphics.fill(btnX, currentY, btnX + 40, currentY + 15, 0xFF880000);
+                guiGraphics.drawCenteredString(font, "Recall", btnX + 20, currentY + 4, COLOR_WHITE);
+                currentY += 25;
+            }
+        }
+
+        guiGraphics.fill(contentX, currentY, contentX + contentWidth, currentY + 1, 0xFF555555);
+        currentY += 10;
+
+        guiGraphics.drawString(font, "Deploy New Spy", contentX, currentY, COLOR_GOLD);
+        currentY += 15;
+
+        // Target Selector
+        String curTarget = "None";
+        if (!colonies.isEmpty() && selectedTargetColonyIndex >= 0 && selectedTargetColonyIndex < colonies.size()) {
+            ColonyTaxData target = colonies.get(selectedTargetColonyIndex);
+            curTarget = target.getColonyName();
+        }
+        guiGraphics.drawString(font, "Target: " + curTarget, contentX + 10, currentY, COLOR_WHITE);
+        int tgtBtnX = contentX + contentWidth - 25;
+        guiGraphics.fill(tgtBtnX, currentY, tgtBtnX + 20, currentY + 10, 0xFF444444);
+        guiGraphics.drawCenteredString(font, ">", tgtBtnX + 10, currentY + 1, COLOR_WHITE);
+        currentY += 15;
+
+        // Type Selector
+        String curType = MISSION_TYPES[selectedMissionTypeIndex];
+        guiGraphics.drawString(font, "Mission: " + curType, contentX + 10, currentY, COLOR_WHITE);
+        int typBtnX = contentX + contentWidth - 25;
+        guiGraphics.fill(typBtnX, currentY, typBtnX + 20, currentY + 10, 0xFF444444);
+        guiGraphics.drawCenteredString(font, ">", typBtnX + 10, currentY + 1, COLOR_WHITE);
+        currentY += 15;
+
+        // Deploy Button
+        int dBtnX = contentX + 10;
+        guiGraphics.fill(dBtnX, currentY, dBtnX + 60, currentY + 15, 0xFF006600);
+        guiGraphics.drawCenteredString(font, "DEPLOY", dBtnX + 30, currentY + 4, COLOR_WHITE);
     }
 }

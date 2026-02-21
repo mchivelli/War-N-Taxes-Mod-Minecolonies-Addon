@@ -15,6 +15,10 @@ import net.machiavelli.minecolonytax.network.packets.RequestWarChestDataPacket;
 import net.machiavelli.minecolonytax.network.packets.WarChestDataResponsePacket;
 import net.machiavelli.minecolonytax.network.packets.WarChestActionPacket;
 import net.machiavelli.minecolonytax.network.packets.SetTaxPolicyPacket;
+import net.machiavelli.minecolonytax.network.packets.RequestSpyDataPacket;
+import net.machiavelli.minecolonytax.network.packets.SpyDataResponsePacket;
+import net.machiavelli.minecolonytax.network.packets.DeploySpyPacket;
+import net.machiavelli.minecolonytax.network.packets.RecallSpyPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkDirection;
@@ -131,6 +135,31 @@ public class NetworkHandler {
                                 .decoder(SetTaxPolicyPacket::new)
                                 .encoder(SetTaxPolicyPacket::toBytes)
                                 .consumerMainThread(SetTaxPolicyPacket::handle)
+                                .add();
+
+                // Espionage packets
+                CHANNEL.messageBuilder(RequestSpyDataPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                                .decoder(RequestSpyDataPacket::new)
+                                .encoder(RequestSpyDataPacket::toBytes)
+                                .consumerMainThread(RequestSpyDataPacket::handle)
+                                .add();
+
+                CHANNEL.messageBuilder(SpyDataResponsePacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
+                                .decoder(SpyDataResponsePacket::new)
+                                .encoder(SpyDataResponsePacket::toBytes)
+                                .consumerMainThread(SpyDataResponsePacket::handle)
+                                .add();
+
+                CHANNEL.messageBuilder(DeploySpyPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                                .decoder(DeploySpyPacket::new)
+                                .encoder(DeploySpyPacket::toBytes)
+                                .consumerMainThread(DeploySpyPacket::handle)
+                                .add();
+
+                CHANNEL.messageBuilder(RecallSpyPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                                .decoder(RecallSpyPacket::new)
+                                .encoder(RecallSpyPacket::toBytes)
+                                .consumerMainThread(RecallSpyPacket::handle)
                                 .add();
 
                 MineColonyTax.LOGGER.info("Network channel registered with {} packets", packetId);

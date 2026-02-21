@@ -47,6 +47,10 @@ public class MineColonyTax {
         // Register recipe serializers
         ModRecipeSerializers.RECIPE_SERIALIZERS.register(FMLJavaModLoadingContext.get().getModEventBus());
 
+        // Register entities
+        net.machiavelli.minecolonytax.espionage.ModEntities.ENTITIES
+                .register(FMLJavaModLoadingContext.get().getModEventBus());
+
         // Register event listeners
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::clientSetup);
@@ -173,6 +177,12 @@ public class MineColonyTax {
         net.machiavelli.minecolonytax.events.random.RandomEventManager.initialize(event.getServer());
         LOGGER.info("RandomEventManager initialized");
 
+        // Initialize SpyManager
+        if (TaxConfig.isSpySystemEnabled()) {
+            net.machiavelli.minecolonytax.espionage.SpyManager.initialize(event.getServer());
+            LOGGER.info("SpyManager initialized");
+        }
+
         // Emergency cleanup of guard resistance effects on startup
         GuardResistanceHandler.emergencyCleanup();
         LOGGER.info("Guard resistance effects cleanup completed");
@@ -244,6 +254,13 @@ public class MineColonyTax {
             LOGGER.info("RandomEventManager shutdown complete");
         } catch (Throwable t) {
             LOGGER.warn("Error during RandomEventManager shutdown: {}", t.toString());
+        }
+
+        try {
+            net.machiavelli.minecolonytax.espionage.SpyManager.shutdown();
+            LOGGER.info("SpyManager shutdown complete");
+        } catch (Throwable t) {
+            LOGGER.warn("Error during SpyManager shutdown: {}", t.toString());
         }
     }
 }

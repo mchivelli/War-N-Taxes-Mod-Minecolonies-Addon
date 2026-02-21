@@ -15,8 +15,10 @@
     "criteria": {
       "minecraft:sunflower_plains": "2025-04-24 02:26:52 +0200",
       "minecraft:cherry_grove": "2025-05-01 04:00:37 +0200",
+      "minecraft:savanna_plateau": "2026-02-20 22:27:22 +0100",
       "minecraft:river": "2025-05-01 04:00:21 +0200",
       "minecraft:forest": "2025-04-20 16:10:55 +0200",
+      "minecraft:savanna": "2026-02-20 22:30:42 +0100",
       "minecraft:plains": "2024-10-02 10:40:39 +0200"
     },
     "done": false
@@ -931,12 +933,6 @@
     },
     "done": true
   },
-  "minecolonies:minecolonies/colony_population_5": {
-    "criteria": {
-      "population_5": "2026-01-31 01:30:18 +0100"
-    },
-    "done": true
-  },
   "minecraft:recipes/decorations/stone_brick_walls_from_stone_stonecutting": {
     "criteria": {
       "has_stone": "2026-01-31 01:19:36 +0100"
@@ -946,6 +942,12 @@
   "minecraft:recipes/building_blocks/stone_stairs": {
     "criteria": {
       "has_stone": "2026-01-31 01:19:36 +0100"
+    },
+    "done": true
+  },
+  "minecolonies:minecolonies/colony_population_5": {
+    "criteria": {
+      "population_5": "2026-01-31 01:30:18 +0100"
     },
     "done": true
   },

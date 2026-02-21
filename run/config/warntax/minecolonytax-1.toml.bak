@@ -422,6 +422,12 @@ TaxStealPerGuard = 200
 		#Base chance (0.0-1.0) of being detected when performing spy actions. Each action adds its own detection modifier.
 		#Range: 0.0 ~ 1.0
 		SpyDetectionBaseChance = 0.15
+		#Maximum number of active spy missions per player.
+		#Range: 1 ~ 10
+		MaxActiveSpiesPerPlayer = 3
+		#Maximum duration in hours for a SCOUT mission before spy auto-recalls.
+		#Range: 1 ~ 168
+		ScoutMaxDurationHours = 24
 
 		["War Settings"."Tax Expansion - Espionage [WIP]"."Action Costs"]
 			#Tax cost for SCOUT action (reveals enemy colony's current tax balance).
@@ -591,6 +597,58 @@ TaxStealPerGuard = 200
 			#Duration in days that research spy defense bonus lasts.
 			#Range: 1 ~ 30
 			ResearchDurationDays = 7
+
+	["War Settings"."Random Events"]
+		#Enable the random events system for dynamic colony events
+		EnableRandomEvents = true
+		#How often to check for events (1 = every tax cycle, 2 = every other)
+		#Range: 1 ~ 10
+		RandomEventCheckFrequency = 1
+		#Minimum tax cycles between any events for a colony
+		#Range: 0 ~ 10
+		RandomEventGlobalCooldownCycles = 2
+		#Maximum events active simultaneously per colony
+		#Range: 1 ~ 5
+		RandomEventMaxSimultaneous = 2
+		#Global multiplier for all event probabilities
+		#Range: 0.0 ~ 5.0
+		RandomEventBaseChanceMultiplier = 1.0
+		#Prevent events for colonies younger than X hours
+		#Range: 0 ~ 168
+		RandomEventProtectNewColoniesHours = 24
+		#Individual event toggles - disable specific events you don't want
+		#Enable Merchant Caravan event (+15% tax, +0.3 happiness)
+		EnableMerchantCaravan = true
+		#Enable Bountiful Harvest event (+20% tax, +0.4 happiness)
+		EnableBountifulHarvest = true
+		#Enable Cultural Festival event (-5% tax, +0.5 happiness)
+		EnableCulturalFestival = true
+		#Enable Successful Recruitment event (+10% tax, +0.2 happiness)
+		EnableSuccessfulRecruitment = true
+		#Enable Food Shortage event (-15% tax, -0.3 happiness)
+		EnableFoodShortage = true
+		#Enable Disease Outbreak event (-20% tax, -0.4 happiness)
+		EnableDiseaseOutbreak = true
+		#Enable Bandit Harassment event (-10% tax, -0.2 happiness)
+		EnableBanditHarassment = true
+		#Enable Corrupt Official event (-25% tax, -0.1 happiness)
+		EnableCorruptOfficial = true
+		#Enable Wandering Trader Offer event (choice-based)
+		EnableWanderingTraderOffer = true
+		#Enable Neighboring Alliance event (choice-based)
+		EnableNeighboringAlliance = true
+		#Enable War Profiteering event (+35% tax, -0.5 happiness)
+		EnableWarProfiteering = true
+		#Enable Guard Desertion event (-30% tax, -0.6 happiness)
+		EnableGuardDesertion = true
+		#Enable Labor Strike event (-40% tax, -0.7 happiness, citizens stop working)
+		EnableLaborStrike = true
+		#Enable Plague Outbreak event (-35% tax, -0.8 happiness, citizens get diseased)
+		EnablePlagueOutbreak = true
+		#Enable Royal Feast event (+10% tax, +0.6 happiness, citizens fed)
+		EnableRoyalFeast = true
+		#Enable Crop Blight event (-25% tax, -0.5 happiness, citizens hungry)
+		EnableCropBlight = true
 
 ["PvP Arena Settings"]
 	#Allow players to use commands while in a PvP battle. It's recommended to keep this false to prevent exploits.
