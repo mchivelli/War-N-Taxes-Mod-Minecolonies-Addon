@@ -1,0 +1,11 @@
+# Navigation
+* [Home](Home)
+* [Features & Mechanics (Overview)](Features_&_Mechanics)
+* [Taxation & Economy](Taxation_System)
+* [War & PvP](War_System)
+* [Raids & Combat](Raid_System)
+* [Espionage System](Espionage_System)
+* [Random Events](Random_Events)
+* [Colony Abandonment](Colony_Abandonment)
+* [Commands & Permissions](Commands_&_Permissions)
+* [Configuration Guide](Configuration_Guide)
