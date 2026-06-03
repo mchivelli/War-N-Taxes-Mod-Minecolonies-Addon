@@ -96,9 +96,15 @@ public class MineColonyTax {
             SpyManager.initialize(event.getServer());
         }
 
-        // Restore war state
+        // Restore war state: reset all colony war/raid permissions to config defaults first,
+        // then resume any wars persisted on the previous shutdown (which re-enables permissions
+        // for colonies that are still at war).
         WarSystem.restoreAllColonyPermissionsToDefaults();
-        // TODO: port WarSystem.loadAndResumeActiveWars() from 1.20.1 for war persistence across restarts
+        try {
+            WarSystem.loadAndResumeActiveWars();
+        } catch (Throwable t) {
+            LOGGER.error("Failed to load/resume active wars: {}", t.toString());
+        }
 
         // Occupation
         try {
@@ -152,7 +158,8 @@ public class MineColonyTax {
             try { webAPIServer.stop(); } catch (Throwable t) { LOGGER.warn("WebAPI stop error: {}", t.toString()); }
         }
 
-        // TODO: port WarSystem.saveActiveWars() from 1.20.1 for war persistence across restarts
+        // Persist in-progress wars before anything else shuts down, while ACTIVE_WARS is intact.
+        try { WarSystem.saveActiveWars(); }         catch (Throwable t) { LOGGER.warn("WarSystem saveActiveWars error: {}", t.toString()); }
 
         try { VassalManager.shutdown(); }          catch (Throwable t) { LOGGER.warn("VassalManager shutdown error: {}", t.toString()); }
         try { WarChestManager.shutdown(); }         catch (Throwable t) { LOGGER.warn("WarChestManager shutdown error: {}", t.toString()); }

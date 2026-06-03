@@ -89,6 +89,64 @@ public class WarData {
         }
     }
 
+    /**
+     * Restoration constructor used by {@code WarSystem.loadAndResumeActiveWars()} to rebuild a
+     * persisted war from disk. Unlike the primary constructor it does NOT recompute guard counts
+     * or guard IDs from live citizens — all state is supplied from the save entry.
+     *
+     * <p>Note: this NeoForge port's data model carries a single {@code guardIDs} set (the 1.20.1
+     * line splits attacker/defender) and has no {@code offlineOutpostWar} flag, so this signature
+     * intentionally differs from the 1.20.1 27-parameter constructor.
+     */
+    public WarData(UUID warID, UUID attacker, UUID defender, UUID attackerTeamID, UUID defenderTeamID,
+                   long warStartTime, long joinPhaseEndTime, ServerBossEvent bossEvent,
+                   IColony colony, IColony attackerColony, WarStatus status, boolean accepted,
+                   int initialAttackerGuards, int remainingAttackerGuards,
+                   int initialDefenderGuards, int remainingDefenderGuards,
+                   int initialAttackerTotalLives, int initialDefenderTotalLives,
+                   Map<UUID, Integer> attackerLivesData, Map<UUID, Integer> defenderLivesData,
+                   Set<Integer> guardIDsData,
+                   Set<UUID> attackerAlliesData, Set<UUID> defenderAlliesData,
+                   Set<UUID> spectatorsData, Set<UUID> lastLifeData,
+                   String penaltyReport, boolean stalemateTriggered,
+                   Map<Action, Boolean> originalHostilePerms,
+                   Map<Action, Boolean> originalHostilePermsForAttacker,
+                   Set<UUID> acceptedAlliesData, Set<UUID> declinedAlliesData,
+                   PeaceProposal activeProposal) {
+        this.warID = warID;
+        this.attacker = attacker;
+        this.defender = defender;
+        this.attackerTeamID = attackerTeamID;
+        this.defenderTeamID = defenderTeamID;
+        this.colony = colony;
+        this.attackerColony = attackerColony;
+        this.warStartTime = warStartTime;
+        this.joinPhaseEndTime = joinPhaseEndTime;
+        this.bossEvent = bossEvent;
+        this.status = status;
+        this.accepted = accepted;
+        this.initialAttackerGuards = initialAttackerGuards;
+        this.remainingAttackerGuards = remainingAttackerGuards;
+        this.initialDefenderGuards = initialDefenderGuards;
+        this.remainingDefenderGuards = remainingDefenderGuards;
+        this.initialAttackerTotalLives = initialAttackerTotalLives;
+        this.initialDefenderTotalLives = initialDefenderTotalLives;
+        this.penaltyReport = penaltyReport != null ? penaltyReport : "";
+        this.stalemateTriggered = stalemateTriggered;
+        if (attackerLivesData != null) this.attackerLives.putAll(attackerLivesData);
+        if (defenderLivesData != null) this.defenderLives.putAll(defenderLivesData);
+        if (guardIDsData != null) this.guardIDs.addAll(guardIDsData);
+        if (attackerAlliesData != null) this.attackerAllies.addAll(attackerAlliesData);
+        if (defenderAlliesData != null) this.defenderAllies.addAll(defenderAlliesData);
+        if (spectatorsData != null) this.spectators.addAll(spectatorsData);
+        if (lastLifeData != null) this.lastLifeInventoryPreservation.addAll(lastLifeData);
+        if (originalHostilePerms != null) this.originalHostilePerms = new HashMap<>(originalHostilePerms);
+        if (originalHostilePermsForAttacker != null) this.originalHostilePermsForAttacker = new HashMap<>(originalHostilePermsForAttacker);
+        if (acceptedAlliesData != null) this.acceptedAllies.addAll(acceptedAlliesData);
+        if (declinedAlliesData != null) this.declinedAllies.addAll(declinedAlliesData);
+        this.activeProposal = activeProposal;
+    }
+
     private void initializeGuards(IColony colony) {
         colony.getCitizenManager().getCitizens().stream()
                 .filter(citizen -> citizen.getJob() != null && citizen.getJob().isGuard())

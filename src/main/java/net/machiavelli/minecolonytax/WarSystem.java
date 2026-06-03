@@ -42,6 +42,16 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import net.machiavelli.minecolonytax.peace.PeaceProposal;
 
 public class WarSystem {
 
@@ -2855,6 +2865,414 @@ public class WarSystem {
                 .append(createPayExtortionButton(targetColony, extortionPercent));
 
         owner.sendSystemMessage(message);
+    }
+
+    // ==================== WAR PERSISTENCE ====================
+    // Saves in-progress wars on server stop and resumes them on start, so wars survive
+    // restarts. Ported from the 1.20.1 line but adapted to this NeoForge model: a single
+    // guardIDs set (no attacker/defender split), no offlineOutpostWar flag, and the
+    // WarChestManager (not TreasuryManager) defender-role API.
+
+    private static final Gson WAR_GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final String WAR_STORAGE_FILE = "config/warntax/active_wars.json";
+    /** Sentinel UUID written when an attacker/defender team ID was null at save time. */
+    private static final UUID NULL_TEAM_ID_SENTINEL = new UUID(0L, 0L);
+
+    private static class WarSaveEntry {
+        String warID;
+        String attacker;
+        String defender;
+        String attackerTeamID;
+        String defenderTeamID;
+        int defenderColonyId;
+        int attackerColonyId;
+        long warStartTime;
+        long joinPhaseEndTime;
+        String status;
+        boolean accepted;
+        boolean stalemateTriggered;
+        Map<String, Integer> attackerLives;
+        Map<String, Integer> defenderLives;
+        List<Integer> guardIDs;
+        List<String> attackerAllies;
+        List<String> defenderAllies;
+        List<String> spectators;
+        List<String> lastLifeInventoryPreservation;
+        int initialAttackerGuards;
+        int remainingAttackerGuards;
+        int initialDefenderGuards;
+        int remainingDefenderGuards;
+        int initialAttackerTotalLives;
+        int initialDefenderTotalLives;
+        String penaltyReport;
+        Map<String, Boolean> originalHostilePerms;            // Action.name() -> boolean
+        Map<String, Boolean> originalHostilePermsForAttacker;
+        List<String> acceptedAllies;
+        List<String> declinedAllies;
+        ProposalSaveEntry activeProposal;                     // null if no proposal in flight
+    }
+
+    private static class ProposalSaveEntry {
+        String type;     // PeaceProposal.Type.name()
+        int amount;
+        String proposer; // UUID.toString()
+    }
+
+    private static class WarSaveData {
+        List<WarSaveEntry> wars;
+    }
+
+    /** Persists all in-progress wars to {@code config/warntax/active_wars.json}. Called on server stop. */
+    public static void saveActiveWars() {
+        try {
+            Path path = Paths.get(WAR_STORAGE_FILE);
+            Files.createDirectories(path.getParent());
+
+            WarSaveData saveData = new WarSaveData();
+            saveData.wars = new ArrayList<>();
+
+            for (Map.Entry<Integer, WarData> entry : ACTIVE_WARS.entrySet()) {
+                WarData war = entry.getValue();
+
+                // defenderTeamID can be null for wars against abandoned colonies; persist a
+                // sentinel UUID instead of NPE-ing and dropping every subsequent war.
+                UUID atkTid = war.getAttackerTeamID();
+                UUID defTid = war.getDefenderTeamID();
+                if (atkTid == null) atkTid = NULL_TEAM_ID_SENTINEL;
+                if (defTid == null) defTid = NULL_TEAM_ID_SENTINEL;
+
+                WarSaveEntry e = new WarSaveEntry();
+                e.warID = war.getWarID().toString();
+                e.attacker = war.getAttacker().toString();
+                e.defender = war.getDefender().toString();
+                e.attackerTeamID = atkTid.toString();
+                e.defenderTeamID = defTid.toString();
+                e.defenderColonyId = entry.getKey();
+                e.attackerColonyId = war.getAttackerColony() != null ? war.getAttackerColony().getID() : -1;
+                e.warStartTime = war.warStartTime;
+                e.joinPhaseEndTime = war.joinPhaseEndTime;
+                e.status = war.getStatus().name();
+                e.accepted = war.isAccepted();
+                e.stalemateTriggered = war.isStalemateTriggered();
+                e.penaltyReport = war.getPenaltyReport();
+                e.initialAttackerGuards = war.initialAttackerGuards;
+                e.remainingAttackerGuards = war.remainingAttackerGuards;
+                e.initialDefenderGuards = war.initialDefenderGuards;
+                e.remainingDefenderGuards = war.remainingDefenderGuards;
+                e.initialAttackerTotalLives = war.initialAttackerTotalLives;
+                e.initialDefenderTotalLives = war.initialDefenderTotalLives;
+
+                e.attackerLives = new HashMap<>();
+                war.getAttackerLives().forEach((uuid, lives) -> e.attackerLives.put(uuid.toString(), lives));
+                e.defenderLives = new HashMap<>();
+                war.getDefenderLives().forEach((uuid, lives) -> e.defenderLives.put(uuid.toString(), lives));
+
+                e.guardIDs = new ArrayList<>(war.getGuardIDs());
+                e.attackerAllies = new ArrayList<>();
+                war.getAttackerAllies().forEach(uuid -> e.attackerAllies.add(uuid.toString()));
+                e.defenderAllies = new ArrayList<>();
+                war.getDefenderAllies().forEach(uuid -> e.defenderAllies.add(uuid.toString()));
+                e.spectators = new ArrayList<>();
+                war.getSpectators().forEach(uuid -> e.spectators.add(uuid.toString()));
+                e.lastLifeInventoryPreservation = new ArrayList<>();
+                war.getLastLifeInventoryPreservation().forEach(uuid -> e.lastLifeInventoryPreservation.add(uuid.toString()));
+
+                if (war.originalHostilePerms != null) {
+                    e.originalHostilePerms = new HashMap<>();
+                    war.originalHostilePerms.forEach((a, b) -> e.originalHostilePerms.put(a.name(), b));
+                }
+                if (war.originalHostilePermsForAttacker != null) {
+                    e.originalHostilePermsForAttacker = new HashMap<>();
+                    war.originalHostilePermsForAttacker.forEach((a, b) -> e.originalHostilePermsForAttacker.put(a.name(), b));
+                }
+                e.acceptedAllies = new ArrayList<>();
+                war.getAcceptedAllies().forEach(uuid -> e.acceptedAllies.add(uuid.toString()));
+                e.declinedAllies = new ArrayList<>();
+                war.getDeclinedAllies().forEach(uuid -> e.declinedAllies.add(uuid.toString()));
+
+                PeaceProposal pp = war.getActiveProposal();
+                if (pp != null) {
+                    ProposalSaveEntry pe = new ProposalSaveEntry();
+                    pe.type = pp.getType().name();
+                    pe.amount = pp.getAmount();
+                    pe.proposer = pp.getProposer() != null ? pp.getProposer().toString() : null;
+                    e.activeProposal = pe;
+                }
+
+                saveData.wars.add(e);
+            }
+
+            // Atomic write: write to a tmp file then atomic-move over the live file
+            // (falls back to a plain replace on filesystems without ATOMIC_MOVE).
+            Path tmp = path.resolveSibling(path.getFileName() + ".tmp");
+            try (Writer writer = new FileWriter(tmp.toFile())) {
+                WAR_GSON.toJson(saveData, writer);
+            }
+            try {
+                Files.move(tmp, path,
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException windowsFallback) {
+                Files.move(tmp, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            WARSYSTEM_LOGGER.info("Saved {} active wars to {}", saveData.wars.size(), WAR_STORAGE_FILE);
+        } catch (Exception ex) {
+            WARSYSTEM_LOGGER.error("Failed to save active wars", ex);
+        }
+    }
+
+    /** Restores wars saved by {@link #saveActiveWars()}. Called on server start; deletes the file on full success. */
+    public static void loadAndResumeActiveWars() {
+        Path path = Paths.get(WAR_STORAGE_FILE);
+        if (!Files.exists(path)) {
+            WARSYSTEM_LOGGER.info("No saved wars file found, skipping war restoration");
+            return;
+        }
+        try (Reader reader = new FileReader(path.toFile())) {
+            WarSaveData saveData = WAR_GSON.fromJson(reader, WarSaveData.class);
+            if (saveData == null || saveData.wars == null || saveData.wars.isEmpty()) {
+                WARSYSTEM_LOGGER.info("No wars to restore from save file");
+                Files.deleteIfExists(path);
+                return;
+            }
+            MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+            if (server == null) {
+                WARSYSTEM_LOGGER.warn("Cannot restore wars: server not available");
+                return;
+            }
+
+            int restored = 0, skipped = 0, total = saveData.wars.size();
+            for (WarSaveEntry e : saveData.wars) {
+                try {
+                    if (resumeWarFromSave(e, server)) restored++; else skipped++;
+                } catch (Exception ex) {
+                    WARSYSTEM_LOGGER.error("Failed to restore war {} for colony {}", e.warID, e.defenderColonyId, ex);
+                    skipped++;
+                }
+            }
+            WARSYSTEM_LOGGER.info("War restoration complete: {} restored, {} skipped", restored, skipped);
+
+            // Only delete the save when EVERY war restored; otherwise preserve it for recovery.
+            if (skipped == 0) {
+                Files.deleteIfExists(path);
+            } else {
+                Path failedPath = path.resolveSibling(path.getFileName() + ".failed-" + System.currentTimeMillis());
+                try {
+                    Files.move(path, failedPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    WARSYSTEM_LOGGER.warn("Partial war restore ({} of {} skipped). Original save preserved at {}", skipped, total, failedPath);
+                } catch (Exception moveEx) {
+                    WARSYSTEM_LOGGER.error("Could not move active_wars.json to .failed-<ts>; leaving it at {}", path, moveEx);
+                }
+            }
+        } catch (Exception ex) {
+            WARSYSTEM_LOGGER.error("Failed to load active wars from disk", ex);
+        }
+    }
+
+    private static Set<UUID> parseUUIDList(List<String> list) {
+        Set<UUID> out = new HashSet<>();
+        if (list != null) {
+            for (String s : list) {
+                try { out.add(UUID.fromString(s)); } catch (IllegalArgumentException ignored) {}
+            }
+        }
+        return out;
+    }
+
+    private static boolean resumeWarFromSave(WarSaveEntry e, MinecraftServer server) {
+        IColony defenderColony = null;
+        IColony attackerColony = null;
+        for (Level level : server.getAllLevels()) {
+            if (defenderColony == null) {
+                defenderColony = IColonyManager.getInstance().getColonies(level).stream()
+                        .filter(c -> c.getID() == e.defenderColonyId).findFirst().orElse(null);
+            }
+            if (e.attackerColonyId > 0 && attackerColony == null) {
+                attackerColony = IColonyManager.getInstance().getColonies(level).stream()
+                        .filter(c -> c.getID() == e.attackerColonyId).findFirst().orElse(null);
+            }
+            if (defenderColony != null && (e.attackerColonyId <= 0 || attackerColony != null)) break;
+        }
+        if (defenderColony == null) {
+            WARSYSTEM_LOGGER.warn("Cannot restore war {}: defender colony {} no longer exists", e.warID, e.defenderColonyId);
+            return false;
+        }
+        if (e.attackerColonyId > 0 && attackerColony == null) {
+            WARSYSTEM_LOGGER.warn("Cannot restore war {}: attacker colony {} no longer exists", e.warID, e.attackerColonyId);
+            return false;
+        }
+
+        WarData.WarStatus status;
+        try {
+            status = WarData.WarStatus.valueOf(e.status);
+        } catch (IllegalArgumentException ex) {
+            WARSYSTEM_LOGGER.warn("Cannot restore war {}: invalid status '{}'", e.warID, e.status);
+            return false;
+        }
+
+        Map<UUID, Integer> attackerLives = new HashMap<>();
+        if (e.attackerLives != null) e.attackerLives.forEach((k, v) -> attackerLives.put(UUID.fromString(k), v));
+        Map<UUID, Integer> defenderLives = new HashMap<>();
+        if (e.defenderLives != null) e.defenderLives.forEach((k, v) -> defenderLives.put(UUID.fromString(k), v));
+        Set<Integer> guardIDSet = e.guardIDs != null ? new HashSet<>(e.guardIDs) : new HashSet<>();
+        Set<UUID> attackerAlliesSet = parseUUIDList(e.attackerAllies);
+        Set<UUID> defenderAlliesSet = parseUUIDList(e.defenderAllies);
+        Set<UUID> spectatorsSet = parseUUIDList(e.spectators);
+        Set<UUID> lastLifeSet = parseUUIDList(e.lastLifeInventoryPreservation);
+        Set<UUID> acceptedAlliesSet = parseUUIDList(e.acceptedAllies);
+        Set<UUID> declinedAlliesSet = parseUUIDList(e.declinedAllies);
+
+        long now = System.currentTimeMillis();
+        // Wars that ran out their clock while the server was down: construct + register,
+        // then immediately resolve via the canonical end-of-time handler so rewards/ranks fire.
+        boolean expiredDuringDowntime = false;
+        if (status == WarData.WarStatus.INWAR) {
+            long warDurationMs = TaxConfig.WAR_DURATION_MINUTES.get() * 60L * 1000L;
+            if (now >= e.warStartTime + warDurationMs) {
+                WARSYSTEM_LOGGER.info("War {} expired during server downtime — resolving via handleTimeExpiry", e.warID);
+                expiredDuringDowntime = true;
+            }
+        } else if (status == WarData.WarStatus.JOINING) {
+            if (now >= e.joinPhaseEndTime) {
+                WARSYSTEM_LOGGER.info("War {} join phase expired during downtime, transitioning to INWAR", e.warID);
+                status = WarData.WarStatus.INWAR;
+                e.warStartTime = now;
+            }
+        }
+
+        // Convert sentinel team IDs back into null so callers see the same invariant.
+        UUID atkTid;
+        UUID defTid;
+        try { atkTid = UUID.fromString(e.attackerTeamID); if (NULL_TEAM_ID_SENTINEL.equals(atkTid)) atkTid = null; }
+        catch (IllegalArgumentException iae) { atkTid = null; }
+        try { defTid = UUID.fromString(e.defenderTeamID); if (NULL_TEAM_ID_SENTINEL.equals(defTid)) defTid = null; }
+        catch (IllegalArgumentException iae) { defTid = null; }
+
+        ServerBossEvent bossEvent = new ServerBossEvent(
+                Component.literal("War for " + defenderColony.getName()),
+                BossEvent.BossBarColor.RED,
+                BossEvent.BossBarOverlay.PROGRESS);
+        bossEvent.setProgress(1.0f);
+        bossEvent.setVisible(true);
+
+        Map<Action, Boolean> restoredHostilePerms = null;
+        if (e.originalHostilePerms != null) {
+            restoredHostilePerms = new HashMap<>();
+            for (Map.Entry<String, Boolean> en : e.originalHostilePerms.entrySet()) {
+                try { restoredHostilePerms.put(Action.valueOf(en.getKey()), en.getValue()); }
+                catch (IllegalArgumentException ignored) {} // forward-compat: skip unknown Action names
+            }
+        }
+        Map<Action, Boolean> restoredHostilePermsAtk = null;
+        if (e.originalHostilePermsForAttacker != null) {
+            restoredHostilePermsAtk = new HashMap<>();
+            for (Map.Entry<String, Boolean> en : e.originalHostilePermsForAttacker.entrySet()) {
+                try { restoredHostilePermsAtk.put(Action.valueOf(en.getKey()), en.getValue()); }
+                catch (IllegalArgumentException ignored) {}
+            }
+        }
+
+        PeaceProposal restoredProposal = null;
+        if (e.activeProposal != null && e.activeProposal.type != null && e.activeProposal.proposer != null) {
+            try {
+                restoredProposal = new PeaceProposal(
+                        PeaceProposal.Type.valueOf(e.activeProposal.type),
+                        e.activeProposal.amount,
+                        UUID.fromString(e.activeProposal.proposer));
+            } catch (IllegalArgumentException ignored) {}
+        }
+
+        WarData warData = new WarData(
+                UUID.fromString(e.warID), UUID.fromString(e.attacker), UUID.fromString(e.defender),
+                atkTid, defTid,
+                e.warStartTime, e.joinPhaseEndTime, bossEvent, defenderColony, attackerColony,
+                status, e.accepted,
+                e.initialAttackerGuards, e.remainingAttackerGuards,
+                e.initialDefenderGuards, e.remainingDefenderGuards,
+                e.initialAttackerTotalLives, e.initialDefenderTotalLives,
+                attackerLives, defenderLives, guardIDSet,
+                attackerAlliesSet, defenderAlliesSet, spectatorsSet, lastLifeSet,
+                e.penaltyReport, e.stalemateTriggered,
+                restoredHostilePerms, restoredHostilePermsAtk,
+                acceptedAlliesSet, declinedAlliesSet,
+                restoredProposal);
+
+        ACTIVE_WARS.put(e.defenderColonyId, warData);
+
+        if (expiredDuringDowntime) {
+            try {
+                handleTimeExpiry(warData);
+            } catch (Throwable t) {
+                WARSYSTEM_LOGGER.error("Failed to resolve downtime-expired war {} via handleTimeExpiry; falling back to endWar.", e.warID, t);
+                try { endWar(defenderColony); }
+                catch (Throwable t2) {
+                    WARSYSTEM_LOGGER.error("Fallback endWar also failed for war {}; removing without rewards.", e.warID, t2);
+                    ACTIVE_WARS.remove(e.defenderColonyId);
+                }
+            }
+            return true;
+        }
+
+        // Restore the WarChest defender role (treasury-drain bookkeeping).
+        try { net.machiavelli.minecolonytax.economy.WarChestManager.setColonyAsDefender(e.defenderColonyId); }
+        catch (Throwable t) { WARSYSTEM_LOGGER.warn("Could not restore WarChest defender role for colony {}: {}", e.defenderColonyId, t.toString()); }
+
+        for (UUID uuid : warData.getAttackerLives().keySet()) {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p != null) bossEvent.addPlayer(p);
+        }
+        for (UUID uuid : warData.getDefenderLives().keySet()) {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p != null) bossEvent.addPlayer(p);
+        }
+
+        setWarInteractionPermissions(defenderColony, true);
+        if (attackerColony != null) setWarInteractionPermissions(attackerColony, true);
+
+        if (warData.getStatus() == WarData.WarStatus.INWAR) {
+            applyWarGlowToParticipants(warData);
+            applyGuardGlow(defenderColony);
+            if (attackerColony != null) applyGuardGlow(attackerColony);
+            GuardResistanceHandler.applyResistanceToGuardsForWar(defenderColony);
+            if (attackerColony != null) GuardResistanceHandler.applyResistanceToGuardsForWar(attackerColony);
+
+            startWarCountdown(warData);
+
+            long warDurationMs = TaxConfig.WAR_DURATION_MINUTES.get() * 60L * 1000L;
+            long remaining = warDurationMs - (now - warData.warStartTime);
+            if (remaining > 0) scheduleTimerWarnings(warData, remaining);
+
+            updateBossBar(warData);
+            WARSYSTEM_LOGGER.info("Restored INWAR war {} for colony {} ({} ms remaining)", e.warID, defenderColony.getName(), remaining);
+        } else if (warData.getStatus() == WarData.WarStatus.JOINING) {
+            warData.alliesBossEvent = new ServerBossEvent(
+                    Component.literal("Joining War - " + defenderColony.getName()),
+                    BossEvent.BossBarColor.YELLOW,
+                    BossEvent.BossBarOverlay.PROGRESS);
+            warData.alliesBossEvent.setProgress(1.0f);
+            warData.alliesBossEvent.setVisible(true);
+
+            long remainingJoinMs = warData.getJoinPhaseEndTime() - now;
+            if (remainingJoinMs > 0) {
+                final int colonyId = e.defenderColonyId;
+                net.machiavelli.minecolonytax.util.TickScheduler.scheduleDelayed(() -> {
+                    if (!ACTIVE_WARS.containsKey(colonyId)) return;
+                    WarData w = ACTIVE_WARS.get(colonyId);
+                    if (w == null || w.getStatus() != WarData.WarStatus.JOINING) return;
+                    w.setStatus(WarData.WarStatus.INWAR);
+                    w.warStartTime = System.currentTimeMillis();
+                    finalizeWarStart(w);
+                    setWarInteractionPermissions(w.getColony(), true);
+                    if (w.getAttackerColony() != null) setWarInteractionPermissions(w.getAttackerColony(), true);
+                    startWarCountdown(w);
+                    scheduleTimerWarnings(w, TaxConfig.WAR_DURATION_MINUTES.get() * 60L * 1000L);
+                }, remainingJoinMs);
+            }
+            updateBossBar(warData);
+            WARSYSTEM_LOGGER.info("Restored JOINING war {} for colony {} ({} ms until war starts)", e.warID, defenderColony.getName(), remainingJoinMs);
+        }
+        return true;
     }
 
     /**
