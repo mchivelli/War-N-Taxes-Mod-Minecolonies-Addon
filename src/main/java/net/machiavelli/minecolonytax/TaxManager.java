@@ -719,14 +719,11 @@ public class TaxManager {
         if (TaxConfig.showTaxGenerationLogs()) {
             LOGGER.info("Colony {} tax is frozen for {} hours.", colonyId, freezeHours);
         }
-        // Use a daemon timer so it won't prevent server shutdown
-        new Timer(true).schedule(new TimerTask() {
-            @Override
-            public void run() {
-                FROZEN_COLONIES.remove(colonyId);
-                if (TaxConfig.showTaxGenerationLogs()) {
-                    LOGGER.info("Colony {} tax freeze expired.", colonyId);
-                }
+        // Unfreeze on the MAIN server thread after the freeze window (was a daemon java.util.Timer).
+        net.machiavelli.minecolonytax.util.TickScheduler.scheduleDelayed(() -> {
+            FROZEN_COLONIES.remove(colonyId);
+            if (TaxConfig.showTaxGenerationLogs()) {
+                LOGGER.info("Colony {} tax freeze expired.", colonyId);
             }
         }, TimeUnit.HOURS.toMillis(freezeHours));
     }

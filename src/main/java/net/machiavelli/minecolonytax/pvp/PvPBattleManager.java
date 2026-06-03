@@ -730,34 +730,31 @@ public class PvPBattleManager {
     }
 
     private void startBattleCountdown(ActiveBattle battle) {
-        new Thread(() -> {
-            try {
-                for (int i = 5; i > 0; i--) {
-                    int finalI = i;
-                    ServerLifecycleHooks.getCurrentServer().execute(() -> {
-                        MutableComponent countdown = Component.literal("Battle starts in: ").withStyle(ChatFormatting.GRAY)
-                                .append(Component.literal(String.valueOf(finalI)).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
-                        for (UUID playerId : battle.getAllPlayers()) {
-                            ServerPlayer player = getPlayerByUUID(playerId);
-                            if (player != null) player.sendSystemMessage(countdown);
-                        }
-                    });
-                    Thread.sleep(1000);
+        // 5-second pre-battle countdown then FIGHT, on the MAIN server thread via TickScheduler
+        // (was a raw Thread + Thread.sleep). Messages already ran on the main thread via execute().
+        final int[] secondsLeft = {5};
+        final long[] taskId = {-1L};
+        taskId[0] = net.machiavelli.minecolonytax.util.TickScheduler.scheduleRepeating(() -> {
+            if (secondsLeft[0] > 0) {
+                MutableComponent countdown = Component.literal("Battle starts in: ").withStyle(ChatFormatting.GRAY)
+                        .append(Component.literal(String.valueOf(secondsLeft[0])).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                for (UUID playerId : battle.getAllPlayers()) {
+                    ServerPlayer player = getPlayerByUUID(playerId);
+                    if (player != null) player.sendSystemMessage(countdown);
                 }
-                ServerLifecycleHooks.getCurrentServer().execute(() -> {
-                    MutableComponent fightMessage = Component.literal("FIGHT!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD);
-                    for (UUID playerId : battle.getAllPlayers()) {
-                        ServerPlayer player = getPlayerByUUID(playerId);
-                        if (player != null) {
-                            player.sendSystemMessage(fightMessage);
-                            removeFreezeEffects(player);
-                        }
+                secondsLeft[0]--;
+            } else {
+                MutableComponent fightMessage = Component.literal("FIGHT!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD);
+                for (UUID playerId : battle.getAllPlayers()) {
+                    ServerPlayer player = getPlayerByUUID(playerId);
+                    if (player != null) {
+                        player.sendSystemMessage(fightMessage);
+                        removeFreezeEffects(player);
                     }
-                });
-            } catch (InterruptedException e) {
-                LOGGER.error("Countdown error", e);
+                }
+                net.machiavelli.minecolonytax.util.TickScheduler.cancel(taskId[0]);
             }
-        }).start();
+        }, 1000, 1000);
     }
     
     private void cancelBattleDueToDisconnect(ActiveBattle battle, ServerPlayer disconnectedPlayer) {

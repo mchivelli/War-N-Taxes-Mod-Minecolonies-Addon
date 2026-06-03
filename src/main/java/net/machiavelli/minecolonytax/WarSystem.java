@@ -968,9 +968,9 @@ public class WarSystem {
         // Now remove from active wars
         warData = ACTIVE_WARS.remove(colony.getID());
         if (warData != null) {
-            if (warData.timerTask != null) {
-                warData.timerTask.cancel();
-                warData.timerTask = null;
+            if (warData.warTimerTaskId != -1L) {
+                net.machiavelli.minecolonytax.util.TickScheduler.cancel(warData.warTimerTaskId);
+                warData.warTimerTaskId = -1L;
             }
             if (warData.bossEvent != null) {
                 warData.bossEvent.removeAllPlayers();
@@ -1551,45 +1551,33 @@ public class WarSystem {
     }
 
     public static void scheduleTimerWarnings(WarData war, long warDurationMillis) {
-        Timer warningTimer = new Timer();
         long quarter = warDurationMillis / 4;
         for (int i = 1; i <= 3; i++) {
             long delay = quarter * i;
             if (delay <= 0) continue;
-            warningTimer.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    // Check if war still exists in active wars or if the colony world/server is null
-                    if (!ACTIVE_WARS.containsKey(war.getColony().getID()) || 
-                        war.getColony().getWorld() == null || 
-                        war.getColony().getWorld().getServer() == null || 
-                        war.bossEvent == null) {
-                        this.cancel();
-                        return;
-                    }
-                    
-                    // Check war status - don't process for ended wars
-                    if (war.getStatus() != WarData.WarStatus.INWAR) {
-                        this.cancel();
-                        return;
-                    }
-                    
-                    long elapsedSeconds = (System.currentTimeMillis() - war.warStartTime) / 1000;
-                    long warDurationSeconds = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
-                    long remaining = Math.max(0, warDurationSeconds - elapsedSeconds);
-                    String bossText = String.format("War: Attacker Lives: %d | Defender Lives: %d | Time: %02d:%02d",
-                            war.getAttackerLives().values().stream().mapToInt(Integer::intValue).sum(),
-                            war.getDefenderLives().values().stream().mapToInt(Integer::intValue).sum(),
-                            remaining / 60, remaining % 60);
-                    Component newName = Component.literal(bossText);
-                    float newProgress = (float) remaining / warDurationSeconds;
-                    war.bossEvent.setName(newName);
-                    war.bossEvent.setProgress(newProgress);
-                    war.bossEvent.setVisible(true);
-                    if (remaining <= 0) {
-                        handleTimeExpiry(war);
-                        this.cancel();
-                    }
+            // One-shot warning on the MAIN server thread (was java.util.Timer).
+            net.machiavelli.minecolonytax.util.TickScheduler.scheduleDelayed(() -> {
+                if (!ACTIVE_WARS.containsKey(war.getColony().getID()) ||
+                    war.getColony().getWorld() == null ||
+                    war.getColony().getWorld().getServer() == null ||
+                    war.bossEvent == null) {
+                    return;
+                }
+                if (war.getStatus() != WarData.WarStatus.INWAR) {
+                    return;
+                }
+                long elapsedSeconds = (System.currentTimeMillis() - war.warStartTime) / 1000;
+                long warDurationSeconds = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
+                long remaining = Math.max(0, warDurationSeconds - elapsedSeconds);
+                String bossText = String.format("War: Attacker Lives: %d | Defender Lives: %d | Time: %02d:%02d",
+                        war.getAttackerLives().values().stream().mapToInt(Integer::intValue).sum(),
+                        war.getDefenderLives().values().stream().mapToInt(Integer::intValue).sum(),
+                        remaining / 60, remaining % 60);
+                war.bossEvent.setName(Component.literal(bossText));
+                war.bossEvent.setProgress((float) remaining / warDurationSeconds);
+                war.bossEvent.setVisible(true);
+                if (remaining <= 0) {
+                    handleTimeExpiry(war);
                 }
             }, delay);
         }
@@ -1721,65 +1709,52 @@ public class WarSystem {
 
         // Add countdown sound timer for the last 6 seconds of join phase, but only if join phase is at least 6 seconds long
         if (joinDurationMillis >= 6000) {
-            new Timer().schedule(new TimerTask() {
-                int secondsLeft = 6;
-                @Override
-                public void run() {
-                    try {
-                        if (war == null || war.getColony() == null || !war.isJoinPhaseActive()) { 
-                            this.cancel(); 
-                            return; 
-                        }
-                        
-                        // Play countdown sound to all war participants
-                        Set<UUID> allParticipants = new HashSet<>();
-                        allParticipants.addAll(war.getAttackerLives().keySet());
-                        allParticipants.addAll(war.getDefenderLives().keySet());
-                        
-                        // Only play sound if there are participants
-                        if (!allParticipants.isEmpty()) {
-                            // Play countdown sound using Minecraft's bell sound
-                            for (UUID uuid : allParticipants) {
-                                ServerPlayer player = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(uuid);
-                                if (player != null) {
-                                    player.playSound(net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BELL.value(), 1.0F, 1.0F);
-                                }
+            final int[] secondsLeft = {6};
+            final long[] soundTaskId = {-1L};
+            soundTaskId[0] = net.machiavelli.minecolonytax.util.TickScheduler.scheduleRepeating(() -> {
+                try {
+                    if (war == null || war.getColony() == null || !war.isJoinPhaseActive()) {
+                        net.machiavelli.minecolonytax.util.TickScheduler.cancel(soundTaskId[0]);
+                        return;
+                    }
+                    // Play countdown sound to all war participants
+                    Set<UUID> allParticipants = new HashSet<>();
+                    allParticipants.addAll(war.getAttackerLives().keySet());
+                    allParticipants.addAll(war.getDefenderLives().keySet());
+                    if (!allParticipants.isEmpty()) {
+                        for (UUID uuid : allParticipants) {
+                            ServerPlayer player = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(uuid);
+                            if (player != null) {
+                                player.playSound(net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BELL.value(), 1.0F, 1.0F);
                             }
                         }
-                        
-                        // Notify remaining seconds
-                        notifyWarParticipants(war, 
-                            Component.literal("⏱ " + secondsLeft + (secondsLeft == 1 ? " second" : " seconds") + " until war starts!")
-                                    .withStyle(style -> style.withColor(ChatFormatting.YELLOW).withBold(true)));
-                        
-                        secondsLeft--;
-                        if (secondsLeft < 0) {
-                            this.cancel();
-                        }
-                    } catch (Exception ex) {
-                        // Catch any exceptions to prevent timer from crashing
-                        WARSYSTEM_LOGGER.error("Error in countdown timer: " + ex.getMessage(), ex);
-                        this.cancel();
                     }
+                    notifyWarParticipants(war,
+                        Component.literal("⏱ " + secondsLeft[0] + (secondsLeft[0] == 1 ? " second" : " seconds") + " until war starts!")
+                                .withStyle(style -> style.withColor(ChatFormatting.YELLOW).withBold(true)));
+                    secondsLeft[0]--;
+                    if (secondsLeft[0] < 0) {
+                        net.machiavelli.minecolonytax.util.TickScheduler.cancel(soundTaskId[0]);
+                    }
+                } catch (Exception ex) {
+                    WARSYSTEM_LOGGER.error("Error in countdown timer: " + ex.getMessage(), ex);
+                    net.machiavelli.minecolonytax.util.TickScheduler.cancel(soundTaskId[0]);
                 }
-            }, Math.max(0, joinDurationMillis - 6000), 1000); // Start 6 seconds before join phase ends, repeat every 1 second
+            }, Math.max(0, joinDurationMillis - 6000), 1000); // Start 6s before join ends, repeat every second
         }
         
-        // Main timer to start the war when join phase ends
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                if (war == null || war.getColony() == null) { this.cancel(); return;} // Null check for war
-                war.setStatus(WarData.WarStatus.INWAR);
-                war.warStartTime = System.currentTimeMillis();
-                finalizeWarStart(war);
-                // Enable war actions for both sides
-                setWarInteractionPermissions(war.getColony(), true);
-                if (war.getAttackerColony() != null) {
-                    setWarInteractionPermissions(war.getAttackerColony(), true);
-                }
-                startWarCountdown(war);
+        // Main task to start the war when join phase ends (MAIN server thread)
+        net.machiavelli.minecolonytax.util.TickScheduler.scheduleDelayed(() -> {
+            if (war == null || war.getColony() == null) return;
+            war.setStatus(WarData.WarStatus.INWAR);
+            war.warStartTime = System.currentTimeMillis();
+            finalizeWarStart(war);
+            // Enable war actions for both sides
+            setWarInteractionPermissions(war.getColony(), true);
+            if (war.getAttackerColony() != null) {
+                setWarInteractionPermissions(war.getAttackerColony(), true);
             }
+            startWarCountdown(war);
         }, joinDurationMillis);
         war.setAccepted(true);
     }
@@ -1886,42 +1861,36 @@ public class WarSystem {
             return;
         }
         final long warDurationSeconds = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
-        warData.timerTask = new TimerTask() {
-            @Override
-            public void run() {
-                // Check if war still exists in active wars or if the colony world/server is null
-                if (!ACTIVE_WARS.containsKey(warData.getColony().getID()) || 
-                    warData.getColony().getWorld() == null || 
-                    warData.getColony().getWorld().getServer() == null || 
-                    warData.bossEvent == null) {
-                    this.cancel();
-                    return;
-                }
-                
-                // Check war status - don't process for ended wars
-                if (warData.getStatus() != WarData.WarStatus.INWAR) {
-                    this.cancel();
-                    return;
-                }
-                
-                long elapsedSeconds = (System.currentTimeMillis() - warData.warStartTime) / 1000;
-                long remaining = Math.max(0, warDurationSeconds - elapsedSeconds);
-                String bossText = String.format("War: Attacker Lives: %d | Defender Lives: %d | Time: %02d:%02d",
-                        warData.getAttackerLives().values().stream().mapToInt(Integer::intValue).sum(),
-                        warData.getDefenderLives().values().stream().mapToInt(Integer::intValue).sum(),
-                        remaining / 60, remaining % 60);
-                Component newName = Component.literal(bossText);
-                float newProgress = (float) remaining / warDurationSeconds;
-                warData.bossEvent.setName(newName);
-                warData.bossEvent.setProgress(newProgress);
-                warData.bossEvent.setVisible(true);
-                if (remaining <= 0) {
-                    handleTimeExpiry(warData);
-                    this.cancel();
-                }
+        // Runs every second on the MAIN server thread via TickScheduler (was java.util.Timer,
+        // which mutated war/boss state off-thread). Timing is wall-clock based so behaviour is unchanged.
+        warData.warTimerTaskId = net.machiavelli.minecolonytax.util.TickScheduler.scheduleRepeating(() -> {
+            // Stop if war no longer active or colony/world/server/boss bar is gone
+            if (!ACTIVE_WARS.containsKey(warData.getColony().getID()) ||
+                warData.getColony().getWorld() == null ||
+                warData.getColony().getWorld().getServer() == null ||
+                warData.bossEvent == null) {
+                net.machiavelli.minecolonytax.util.TickScheduler.cancel(warData.warTimerTaskId);
+                return;
             }
-        };
-        new Timer().scheduleAtFixedRate(warData.timerTask, 1000, 1000);
+            // Don't process for ended wars
+            if (warData.getStatus() != WarData.WarStatus.INWAR) {
+                net.machiavelli.minecolonytax.util.TickScheduler.cancel(warData.warTimerTaskId);
+                return;
+            }
+            long elapsedSeconds = (System.currentTimeMillis() - warData.warStartTime) / 1000;
+            long remaining = Math.max(0, warDurationSeconds - elapsedSeconds);
+            String bossText = String.format("War: Attacker Lives: %d | Defender Lives: %d | Time: %02d:%02d",
+                    warData.getAttackerLives().values().stream().mapToInt(Integer::intValue).sum(),
+                    warData.getDefenderLives().values().stream().mapToInt(Integer::intValue).sum(),
+                    remaining / 60, remaining % 60);
+            warData.bossEvent.setName(Component.literal(bossText));
+            warData.bossEvent.setProgress((float) remaining / warDurationSeconds);
+            warData.bossEvent.setVisible(true);
+            if (remaining <= 0) {
+                handleTimeExpiry(warData);
+                net.machiavelli.minecolonytax.util.TickScheduler.cancel(warData.warTimerTaskId);
+            }
+        }, 1000, 1000);
     }
 
     public static void sendColonyMessage(IColony colony, Component message) {
@@ -2026,30 +1995,27 @@ public class WarSystem {
             broadcastToServer(warDeclarationMsg);
         }
         pendingWarRequests.put(targetColony.getID(), new WarRequest(attacker.getUUID(), targetColony.getID()));
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                Object removedRequest = pendingWarRequests.remove(targetColony.getID());
-                if (removedRequest != null) { 
-                    if (targetColony.getWorld() != null && targetColony.getWorld().getServer() != null) {
-                        ServerPlayer targetOwner = targetColony.getWorld().getServer().getPlayerList().getPlayer(targetColony.getPermissions().getOwner());
-                        if (targetOwner != null) {
-                            targetOwner.sendSystemMessage(
-                                    Component.translatable("war.request.expired.defender")
-                                            .withStyle(style -> style.withColor(ChatFormatting.RED))
-                            );
-                        }
-                        ServerPlayer attackerPlayer = targetColony.getWorld().getServer().getPlayerList().getPlayer(attacker.getUUID());
-                        if (attackerPlayer != null) {
-                            attackerPlayer.sendSystemMessage(
-                                    Component.translatable("war.request.expired.attacker", targetColony.getName())
-                                            .withStyle(style -> style.withColor(ChatFormatting.RED))
-                            );
-                        }
+        net.machiavelli.minecolonytax.util.TickScheduler.scheduleDelayed(() -> {
+            Object removedRequest = pendingWarRequests.remove(targetColony.getID());
+            if (removedRequest != null) {
+                if (targetColony.getWorld() != null && targetColony.getWorld().getServer() != null) {
+                    ServerPlayer targetOwner = targetColony.getWorld().getServer().getPlayerList().getPlayer(targetColony.getPermissions().getOwner());
+                    if (targetOwner != null) {
+                        targetOwner.sendSystemMessage(
+                                Component.translatable("war.request.expired.defender")
+                                        .withStyle(style -> style.withColor(ChatFormatting.RED))
+                        );
+                    }
+                    ServerPlayer attackerPlayer = targetColony.getWorld().getServer().getPlayerList().getPlayer(attacker.getUUID());
+                    if (attackerPlayer != null) {
+                        attackerPlayer.sendSystemMessage(
+                                Component.translatable("war.request.expired.attacker", targetColony.getName())
+                                        .withStyle(style -> style.withColor(ChatFormatting.RED))
+                        );
                     }
                 }
             }
-        }, 30000); 
+        }, 30000);
 
         Rank playerRank = targetColony.getPermissions().getRank(attacker.getUUID());
         if (playerRank == null) {
@@ -2808,35 +2774,29 @@ public class WarSystem {
 
         owner.sendSystemMessage(message);
         
-        // Start timer for auto-war start (daemon thread to avoid blocking shutdown)
-        new Timer(true).schedule(new TimerTask() {
-            @Override
-            public void run() {
-                Object pendingRequest = pendingWarRequests.remove(targetColony.getID());
-                if (pendingRequest instanceof WarRequestWithExtortion) {
-                    // Time expired, start war automatically
-                    WARSYSTEM_LOGGER.info("Extortion time limit expired for colony {}. Starting war automatically.", targetColony.getID());
-                    
-                    if (targetColony.getWorld() != null && targetColony.getWorld().getServer() != null) {
-                        ServerPlayer targetOwner = targetColony.getWorld().getServer().getPlayerList().getPlayer(targetColony.getPermissions().getOwner());
-                        if (targetOwner != null) {
-                            targetOwner.sendSystemMessage(
-                                    Component.literal("⏰ Time expired! War begins automatically!")
-                                            .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
-                            );
-                        }
-                        
-                        ServerPlayer attackerPlayer = targetColony.getWorld().getServer().getPlayerList().getPlayer(attacker.getUUID());
-                        if (attackerPlayer != null) {
-                            attackerPlayer.sendSystemMessage(
-                                    Component.literal("⏰ " + targetColony.getName() + " failed to respond in time. War begins!")
-                                            .withStyle(ChatFormatting.GOLD)
-                            );
-                        }
-                        
-                        // Start the war join phase
-                        startJoinPhase(targetColony, attacker, targetOwner);
+        // Auto-war start when the extortion window expires (MAIN server thread)
+        net.machiavelli.minecolonytax.util.TickScheduler.scheduleDelayed(() -> {
+            Object pendingRequest = pendingWarRequests.remove(targetColony.getID());
+            if (pendingRequest instanceof WarRequestWithExtortion) {
+                // Time expired, start war automatically
+                WARSYSTEM_LOGGER.info("Extortion time limit expired for colony {}. Starting war automatically.", targetColony.getID());
+                if (targetColony.getWorld() != null && targetColony.getWorld().getServer() != null) {
+                    ServerPlayer targetOwner = targetColony.getWorld().getServer().getPlayerList().getPlayer(targetColony.getPermissions().getOwner());
+                    if (targetOwner != null) {
+                        targetOwner.sendSystemMessage(
+                                Component.literal("⏰ Time expired! War begins automatically!")
+                                        .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
+                        );
                     }
+                    ServerPlayer attackerPlayer = targetColony.getWorld().getServer().getPlayerList().getPlayer(attacker.getUUID());
+                    if (attackerPlayer != null) {
+                        attackerPlayer.sendSystemMessage(
+                                Component.literal("⏰ " + targetColony.getName() + " failed to respond in time. War begins!")
+                                        .withStyle(ChatFormatting.GOLD)
+                        );
+                    }
+                    // Start the war join phase
+                    startJoinPhase(targetColony, attacker, targetOwner);
                 }
             }
         }, timeLimitMs);

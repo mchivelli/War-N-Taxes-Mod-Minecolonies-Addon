@@ -23,6 +23,8 @@ public class ActiveRaidData {
     final ServerBossEvent bossEvent;
     int elapsedSeconds;
     TimerTask timerTask;
+    /** TickScheduler task id for the per-second raid countdown (-1 = none). */
+    long timerTaskId = -1L;
     boolean isActive;
     boolean warningSent;
     long totalTransferred;
@@ -128,6 +130,14 @@ public class ActiveRaidData {
 
     public void setTimerTask(TimerTask timerTask) {
         this.timerTask = timerTask;
+    }
+
+    public long getTimerTaskId() {
+        return timerTaskId;
+    }
+
+    public void setTimerTaskId(long timerTaskId) {
+        this.timerTaskId = timerTaskId;
     }
 
     public boolean isActive() {

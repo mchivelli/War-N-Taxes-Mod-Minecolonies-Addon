@@ -29,7 +29,8 @@ public class WarData {
     // Set to track players who should keep their inventory on last life
     private final Set<UUID> lastLifeInventoryPreservation = ConcurrentHashMap.newKeySet();
 
-    public TimerTask timerTask;
+    /** TickScheduler task id for the per-second war countdown (-1 = none). */
+    public long warTimerTaskId = -1L;
     public ServerBossEvent bossEvent;
     public ServerBossEvent alliesBossEvent;
     private String penaltyReport = "";

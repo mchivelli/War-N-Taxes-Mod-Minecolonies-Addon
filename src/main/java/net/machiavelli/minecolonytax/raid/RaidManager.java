@@ -680,23 +680,18 @@ public class RaidManager {
     }
 
     private void startRaidCountdown(ActiveRaidData raidData) {
-        raidData.setTimerTask(new TimerTask() {
-            @Override
-            public void run() {
+        // Per-second raid countdown on the MAIN server thread via TickScheduler (was java.util.Timer).
+        raidData.setTimerTaskId(net.machiavelli.minecolonytax.util.TickScheduler.scheduleRepeating(() -> {
                 if (raidData.getColony().getWorld() == null || raidData.getColony().getWorld().getServer() == null) {
                     LOGGER.warn("Raid countdown: Colony world or server is null, cancelling task for raid on colony {}", raidData.getColony().getID());
-                    this.cancel();
+                    net.machiavelli.minecolonytax.util.TickScheduler.cancel(raidData.getTimerTaskId());
                     endRaid(raidData, "Colony world/server became unavailable");
                     return;
                 }
 
-                // Ensure we stop ticking if raid became inactive
-                raidData.getColony().getWorld().getServer().execute(() -> {
-                    if (!raidData.isActive()) {
-                        this.cancel();
-                    }
-                });
+                // Stop ticking if raid became inactive (already on the main thread)
                 if (!raidData.isActive()) {
+                    net.machiavelli.minecolonytax.util.TickScheduler.cancel(raidData.getTimerTaskId());
                     return;
                 }
 
@@ -704,7 +699,7 @@ public class RaidManager {
                 if (raiderPlayer == null) {
                     sendColonyMessage(raidData.getColony(), Component.literal("Raid stopped! Raider disconnected.").withStyle(ChatFormatting.RED));
                     endRaid(raidData, "Raider disconnected");
-                    this.cancel();
+                    net.machiavelli.minecolonytax.util.TickScheduler.cancel(raidData.getTimerTaskId());
                     return;
                 }
                 
@@ -750,7 +745,7 @@ public class RaidManager {
                     
                     // End the raid immediately - raider gains nothing
                     endRaid(raidData, "Raider left colony boundaries and was disqualified");
-                    this.cancel();
+                    net.machiavelli.minecolonytax.util.TickScheduler.cancel(raidData.getTimerTaskId());
                     return;
                 }
                 
@@ -761,7 +756,7 @@ public class RaidManager {
                 // Check if raid time has expired AFTER incrementing (use > not >= to allow full duration)
                 if (raidData.getElapsedSeconds() > RaidManager.getMaxRaidDurationSeconds()) {
                     endRaid(raidData, "Raid completed successfully");
-                    this.cancel();
+                    net.machiavelli.minecolonytax.util.TickScheduler.cancel(raidData.getTimerTaskId());
                     return;
                 }
 
@@ -797,9 +792,7 @@ public class RaidManager {
                 }
 
                 // Tax revenue transfer removed from timer - will only happen after successful raid completion
-            }
-        });
-        new Timer().scheduleAtFixedRate(raidData.getTimerTask(), 1000, 1000);
+        }, 1000, 1000));
     }
 
     public static void updateRaidBossBar(ActiveRaidData raidData) {
@@ -989,7 +982,7 @@ public class RaidManager {
         HistoryManager.getColonyHistory(raidData.getColony().getID()).addEvent(eventString);
         HistoryManager.saveHistory();
 
-        if (raidData.getTimerTask() != null) raidData.getTimerTask().cancel();
+        net.machiavelli.minecolonytax.util.TickScheduler.cancel(raidData.getTimerTaskId());
     }
 
     // Utility methods that might be shared or moved to a more central utility class
