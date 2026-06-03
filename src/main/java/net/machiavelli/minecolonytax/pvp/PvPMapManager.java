@@ -6,6 +6,7 @@ import net.machiavelli.minecolonytax.pvp.model.PvPMap;
 import net.machiavelli.minecolonytax.pvp.persistence.ArenaDataCollection;
 import net.machiavelli.minecolonytax.pvp.persistence.ArenaMapData;
 import net.machiavelli.minecolonytax.pvp.persistence.SpawnPointData;
+import net.machiavelli.minecolonytax.TaxConfig;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.GlobalPos;
@@ -40,7 +41,8 @@ public class PvPMapManager {
             pvpManager.defaultMapName = mapName;
         }
         saveArenaData();
-        context.getSource().sendSuccess(() -> Component.literal("Created PvP map: " + mapName).withStyle(ChatFormatting.GREEN), false);
+        context.getSource().sendSuccess(
+                () -> Component.literal("Created PvP map: " + mapName).withStyle(ChatFormatting.GREEN), false);
         return 1;
     }
 
@@ -49,21 +51,26 @@ public class PvPMapManager {
             context.getSource().sendFailure(Component.literal("Map '" + mapName + "' does not exist!"));
             return 0;
         }
-        boolean inUse = pvpManager.activeBattles.values().stream().anyMatch(battle -> battle.getMapName().equals(mapName));
+        boolean inUse = pvpManager.activeBattles.values().stream()
+                .anyMatch(battle -> battle.getMapName().equals(mapName));
         if (inUse) {
-            context.getSource().sendFailure(Component.literal("Cannot delete map '" + mapName + "' - it's currently in use!"));
+            context.getSource()
+                    .sendFailure(Component.literal("Cannot delete map '" + mapName + "' - it's currently in use!"));
             return 0;
         }
         pvpManager.arenaMapsByName.remove(mapName);
         if (mapName.equals(pvpManager.defaultMapName)) {
-            pvpManager.defaultMapName = pvpManager.arenaMapsByName.isEmpty() ? null : pvpManager.arenaMapsByName.keySet().iterator().next();
+            pvpManager.defaultMapName = pvpManager.arenaMapsByName.isEmpty() ? null
+                    : pvpManager.arenaMapsByName.keySet().iterator().next();
         }
         saveArenaData();
-        context.getSource().sendSuccess(() -> Component.literal("Deleted PvP map: " + mapName).withStyle(ChatFormatting.RED), false);
+        context.getSource().sendSuccess(
+                () -> Component.literal("Deleted PvP map: " + mapName).withStyle(ChatFormatting.RED), false);
         return 1;
     }
 
-    public int addSpawnPoint(CommandContext<CommandSourceStack> context, String mapName, int spawnIndex) throws CommandSyntaxException {
+    public int addSpawnPoint(CommandContext<CommandSourceStack> context, String mapName, int spawnIndex)
+            throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
         PvPMap map = pvpManager.arenaMapsByName.get(mapName);
         if (map == null) {
@@ -80,7 +87,7 @@ public class PvPMapManager {
             // Add placeholder spawn points that will be replaced
             map.getSpawnPoints().add(GlobalPos.of(player.level().dimension(), BlockPos.ZERO));
         }
-        
+
         // Set the spawn point at the specified index (1-based to 0-based conversion)
         if (spawnIndex <= map.getSpawnPoints().size()) {
             map.getSpawnPoints().set(spawnIndex - 1, playerPos);
@@ -88,7 +95,9 @@ public class PvPMapManager {
             map.addSpawnPoint(playerPos);
         }
         saveArenaData();
-        context.getSource().sendSuccess(() -> Component.literal("Set spawn point " + spawnIndex + " for map '" + mapName + "'").withStyle(ChatFormatting.GREEN), false);
+        context.getSource()
+                .sendSuccess(() -> Component.literal("Set spawn point " + spawnIndex + " for map '" + mapName + "'")
+                        .withStyle(ChatFormatting.GREEN), false);
         return 1;
     }
 
@@ -99,7 +108,8 @@ public class PvPMapManager {
         }
         pvpManager.defaultMapName = mapName;
         saveArenaData();
-        context.getSource().sendSuccess(() -> Component.literal("Set default map to: " + mapName).withStyle(ChatFormatting.GREEN), false);
+        context.getSource().sendSuccess(
+                () -> Component.literal("Set default map to: " + mapName).withStyle(ChatFormatting.GREEN), false);
         return 1;
     }
 
@@ -112,7 +122,7 @@ public class PvPMapManager {
         for (PvPMap map : pvpManager.arenaMapsByName.values()) {
             String defaultMarker = map.getName().equals(pvpManager.defaultMapName) ? " [DEFAULT]" : "";
             message.append(Component.literal("- " + map.getName() + defaultMarker +
-                            " (Spawns: " + map.getSpawnPoints().size() + "/" + map.getMaxPlayers() + ")\n")
+                    " (Spawns: " + map.getSpawnPoints().size() + "/" + map.getMaxPlayers() + ")\n")
                     .withStyle(ChatFormatting.WHITE));
         }
         context.getSource().sendSuccess(() -> message, false);
@@ -126,9 +136,14 @@ public class PvPMapManager {
             return 0;
         }
         MutableComponent info = Component.literal("Map: " + mapName + "\n").withStyle(ChatFormatting.GOLD)
-                .append(Component.literal("Dimension: " + map.getDimension().location() + "\n").withStyle(ChatFormatting.GRAY))
-                .append(Component.literal("Spawn Points: " + map.getSpawnPoints().size() + "/" + map.getMaxPlayers() + "\n").withStyle(ChatFormatting.WHITE))
-                .append(Component.literal("Max Teams: " + (map.getSpawnPoints().size() / 2) + "v" + (map.getSpawnPoints().size() / 2)).withStyle(ChatFormatting.GREEN));
+                .append(Component.literal("Dimension: " + map.getDimension().location() + "\n")
+                        .withStyle(ChatFormatting.GRAY))
+                .append(Component
+                        .literal("Spawn Points: " + map.getSpawnPoints().size() + "/" + map.getMaxPlayers() + "\n")
+                        .withStyle(ChatFormatting.WHITE))
+                .append(Component.literal(
+                        "Max Teams: " + (map.getSpawnPoints().size() / 2) + "v" + (map.getSpawnPoints().size() / 2))
+                        .withStyle(ChatFormatting.GREEN));
         context.getSource().sendSuccess(() -> info, false);
         return 1;
     }
@@ -165,7 +180,9 @@ public class PvPMapManager {
 
     public void loadArenaData() {
         if (!PvPManager.ARENA_DATA_FILE.exists()) {
-            LOGGER.info("No PvP arena data file found. Skipping load.");
+            if (TaxConfig.isNormalLogging()) {
+                LOGGER.info("No PvP arena data file found. Skipping load.");
+            }
             return;
         }
         try (FileReader reader = new FileReader(PvPManager.ARENA_DATA_FILE)) {
@@ -176,7 +193,8 @@ public class PvPMapManager {
             }
             pvpManager.arenaMapsByName.clear();
             for (ArenaMapData mapData : data.maps) {
-                ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, new ResourceLocation(mapData.dimension));
+                ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION,
+                        new ResourceLocation(mapData.dimension));
                 PvPMap map = new PvPMap(mapData.name, dimension);
                 map.setMaxPlayers(mapData.maxPlayers);
                 for (SpawnPointData spawnData : mapData.spawnPoints) {
@@ -186,9 +204,11 @@ public class PvPMapManager {
                 pvpManager.arenaMapsByName.put(map.getName(), map);
             }
             pvpManager.defaultMapName = data.defaultMapName;
-            LOGGER.info("Successfully loaded {} PvP arenas.", pvpManager.arenaMapsByName.size());
+            if (TaxConfig.isNormalLogging()) {
+                LOGGER.info("Successfully loaded {} PvP arenas.", pvpManager.arenaMapsByName.size());
+            }
         } catch (Exception e) {
             LOGGER.error("FATAL: Failed to load or parse PvP arena data. Arenas will not be available.", e);
         }
     }
-} 
+}

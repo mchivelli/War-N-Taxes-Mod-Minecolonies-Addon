@@ -1,0 +1,32 @@
+{
+    "name": "minecolonytax.entry.spy_missions.name",
+    "icon": "minecraft:map",
+    "category": "minecolonytax:espionage",
+    "sortnum": 1,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.spy_missions.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.spy_missions.scout.title",
+            "text": "minecolonytax.entry.spy_missions.scout"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.spy_missions.sabotage.title",
+            "text": "minecolonytax.entry.spy_missions.sabotage"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.spy_missions.bribe.title",
+            "text": "minecolonytax.entry.spy_missions.bribe"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.spy_missions.steal.title",
+            "text": "minecolonytax.entry.spy_missions.steal"
+        }
+    ]
+}

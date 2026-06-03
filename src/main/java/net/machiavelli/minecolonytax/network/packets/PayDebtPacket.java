@@ -71,8 +71,15 @@ public class PayDebtPacket {
             }
             
             int currentDebt = Math.abs(currentBalance);
-            int payAmount = packet.amount == -1 ? currentDebt : Math.min(packet.amount, currentDebt);
-            
+            // SECURITY: validate the client-supplied amount. Only -1 (pay all) and strictly positive values
+            // are valid; any other negative value is rejected to prevent malicious deltas.
+            int requested = packet.amount;
+            if (requested != -1 && requested <= 0) {
+                player.sendSystemMessage(Component.literal("Invalid debt payment amount."));
+                return;
+            }
+            int payAmount = requested == -1 ? currentDebt : Math.min(requested, currentDebt);
+
             if (payAmount <= 0) {
                 player.sendSystemMessage(Component.literal("No debt to pay!"));
                 return;

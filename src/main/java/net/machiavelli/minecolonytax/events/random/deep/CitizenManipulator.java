@@ -2,15 +2,18 @@ package net.machiavelli.minecolonytax.events.random.deep;
 
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.ICitizenData;
+import com.minecolonies.api.entity.ai.JobStatus;
 import com.minecolonies.api.entity.citizen.citizenhandlers.ICitizenDiseaseHandler;
 import net.machiavelli.minecolonytax.MineColonyTax;
+import net.machiavelli.minecolonytax.TaxConfig;
 import org.apache.logging.log4j.Logger;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * System for manipulating citizen states for deep integration events.
@@ -52,13 +55,10 @@ public class CitizenManipulator {
             // Only affect employed adult citizens
             if (citizen.getJob() != null && !citizen.isChild()) {
                 try {
-                    // Set job status to STUCK using reflection
                     if (setJobStatus(citizen, "STUCK")) {
                         affectedCitizens.add(citizen.getId());
                         affectedCount++;
-
-                        LOGGER.debug("Labor strike: Set citizen {} to STUCK status in colony {}",
-                                citizen.getName(), colony.getName());
+                        if (TaxConfig.isDebugLogging()) LOGGER.debug("Labor strike: Set citizen {} to STUCK status in colony {}", citizen.getName(), colony.getName());
                     }
                 } catch (Exception e) {
                     LOGGER.warn("Failed to set STUCK status for citizen {} in colony {}: {}",
@@ -67,8 +67,7 @@ public class CitizenManipulator {
             }
         }
 
-        LOGGER.info("Labor strike initiated in colony {}: {} out of {} workers affected",
-                colony.getName(), affectedCount, citizens.size());
+        if (TaxConfig.isNormalLogging()) LOGGER.info("Labor strike initiated in colony {}: {} out of {} workers affected", colony.getName(), affectedCount, citizens.size());
 
         return affectedCitizens;
     }
@@ -87,12 +86,9 @@ public class CitizenManipulator {
             ICitizenData citizen = colony.getCitizenManager().getCivilian(id);
             if (citizen != null && citizen.getJob() != null) {
                 try {
-                    // Restore job status to WORKING using reflection
                     if (setJobStatus(citizen, "WORKING")) {
                         restoredCount++;
-
-                        LOGGER.debug("Restored citizen {} to WORKING status in colony {}",
-                                citizen.getName(), colony.getName());
+                        if (TaxConfig.isDebugLogging()) LOGGER.debug("Restored citizen {} to WORKING status in colony {}", citizen.getName(), colony.getName());
                     }
                 } catch (Exception e) {
                     LOGGER.warn("Failed to restore citizen {} in colony {}: {}",
@@ -101,8 +97,7 @@ public class CitizenManipulator {
             }
         }
 
-        LOGGER.info("Labor strike ended in colony {}: {} workers restored",
-                colony.getName(), restoredCount);
+        if (TaxConfig.isNormalLogging()) LOGGER.info("Labor strike ended in colony {}: {} workers restored", colony.getName(), restoredCount);
 
         return restoredCount;
     }
@@ -144,9 +139,7 @@ public class CitizenManipulator {
                             if (infected) {
                                 infectedCitizens.add(citizen.getId());
                                 infectedCount++;
-
-                                LOGGER.debug("Plague: Infected citizen {} in colony {}",
-                                        citizen.getName(), colony.getName());
+                                if (TaxConfig.isDebugLogging()) LOGGER.debug("Plague: Infected citizen {} in colony {}", citizen.getName(), colony.getName());
                             }
                         }
                     }
@@ -157,8 +150,7 @@ public class CitizenManipulator {
             }
         }
 
-        LOGGER.info("Plague outbreak in colony {}: {} out of {} citizens infected",
-                colony.getName(), infectedCount, citizens.size());
+        if (TaxConfig.isNormalLogging()) LOGGER.info("Plague outbreak in colony {}: {} out of {} citizens infected", colony.getName(), infectedCount, citizens.size());
 
         return infectedCitizens;
     }
@@ -197,9 +189,7 @@ public class CitizenManipulator {
                 if (isCitizenSick(citizen)) {
                     if (cureCitizen(citizen)) {
                         curedCount++;
-
-                        LOGGER.debug("Cured citizen {} in colony {}",
-                                citizen.getName(), colony.getName());
+                        if (TaxConfig.isDebugLogging()) LOGGER.debug("Cured citizen {} in colony {}", citizen.getName(), colony.getName());
                     }
                 }
             } catch (Exception e) {
@@ -208,8 +198,7 @@ public class CitizenManipulator {
             }
         }
 
-        LOGGER.info("Hospital cure in colony {}: {} citizens cured",
-                colony.getName(), curedCount);
+        if (TaxConfig.isNormalLogging()) LOGGER.info("Hospital cure in colony {}: {} citizens cured", colony.getName(), curedCount);
 
         return curedCount;
     }
@@ -232,9 +221,7 @@ public class CitizenManipulator {
                 // Set saturation (verified API: line 1181-1184 in ICitizenData, uses double)
                 citizen.setSaturation(clampedSaturation);
                 affectedCount++;
-
-                LOGGER.debug("Set saturation to {} for citizen {} in colony {}",
-                        clampedSaturation, citizen.getName(), colony.getName());
+                if (TaxConfig.isDebugLogging()) LOGGER.debug("Set saturation to {} for citizen {} in colony {}", clampedSaturation, citizen.getName(), colony.getName());
             } catch (Exception e) {
                 LOGGER.warn("Failed to set saturation for citizen {} in colony {}: {}",
                         citizen.getName(), colony.getName(), e.getMessage());
@@ -242,8 +229,7 @@ public class CitizenManipulator {
         }
 
         String eventType = saturation >= 15.0 ? "feast" : "famine";
-        LOGGER.info("Saturation {} in colony {}: {} citizens affected (saturation set to {})",
-                eventType, colony.getName(), affectedCount, clampedSaturation);
+        if (TaxConfig.isNormalLogging()) LOGGER.info("Saturation {} in colony {}: {} citizens affected (saturation set to {})", eventType, colony.getName(), affectedCount, clampedSaturation);
 
         return affectedCount;
     }
@@ -269,7 +255,7 @@ public class CitizenManipulator {
     }
 
     /**
-     * Set job status for a citizen using reflection.
+     * Set job status for a citizen using the public ICitizenData API.
      *
      * @param citizen The citizen
      * @param statusName The status name (IDLE, WORKING, STUCK)
@@ -277,43 +263,29 @@ public class CitizenManipulator {
      */
     private static boolean setJobStatus(ICitizenData citizen, String statusName) {
         try {
-            // Get JobStatus enum class
-            Class<?> jobStatusClass = Class.forName("com.minecolonies.api.entity.ai.JobStatus");
-
-            // Get the enum value
-            Object statusValue = Enum.valueOf((Class<Enum>) jobStatusClass, statusName);
-
-            // Call setJobStatus method
-            Method setStatusMethod = citizen.getClass().getMethod("setJobStatus", jobStatusClass);
-            setStatusMethod.invoke(citizen, statusValue);
-
+            JobStatus status = JobStatus.valueOf(statusName);
+            citizen.setJobStatus(status);
             return true;
         } catch (Exception e) {
-            LOGGER.warn("Failed to set job status via reflection: {}", e.getMessage());
+            LOGGER.warn("Failed to set job status: {}", e.getMessage());
             return false;
         }
     }
 
     /**
-     * Get job status for a citizen using reflection.
+     * Get job status for a citizen using the public ICitizenData API.
      *
      * @param citizen The citizen
      * @return Status name or null
      */
     private static String getJobStatus(ICitizenData citizen) {
         try {
-            // Call getJobStatus method
-            Method getStatusMethod = citizen.getClass().getMethod("getJobStatus");
-            Object status = getStatusMethod.invoke(citizen);
-
-            if (status != null) {
-                return status.toString();
-            }
+            JobStatus status = citizen.getJobStatus();
+            return status != null ? status.name() : null;
         } catch (Exception e) {
-            LOGGER.warn("Failed to get job status via reflection: {}", e.getMessage());
+            LOGGER.warn("Failed to get job status: {}", e.getMessage());
+            return null;
         }
-
-        return null;
     }
 
     /**
@@ -357,81 +329,91 @@ public class CitizenManipulator {
         return count;
     }
 
+    /**
+     * Permanently remove the strongest guard from a colony (desertion).
+     * Strongest = highest total XP among citizens whose job reports isGuard().
+     * The removal is permanent — the citizen is gone from the colony.
+     *
+     * @param colony Target colony
+     * @return Name of the deserted guard, or null if no guards exist
+     */
+    public static String desertStrongestGuard(IColony colony) {
+        List<ICitizenData> citizens = new ArrayList<>(colony.getCitizenManager().getCitizens());
+
+        Optional<ICitizenData> strongestGuard = citizens.stream()
+            .filter(c -> !c.isChild() && c.getJob() != null && c.getJob().isGuard())
+            .max(Comparator.comparingDouble(c -> c.getCitizenSkillHandler().getTotalXP()));
+
+        if (!strongestGuard.isPresent()) {
+            if (TaxConfig.isDebugLogging()) LOGGER.debug("Guard desertion: No guards found in colony {}", colony.getName());
+            return null;
+        }
+
+        ICitizenData guard = strongestGuard.get();
+        String guardName = guard.getName();
+        try {
+            colony.getCitizenManager().removeCivilian(guard);
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Guard desertion: {} deserted from colony {} (XP: {})",
+                guardName, colony.getName(), guard.getCitizenSkillHandler().getTotalXP());
+        } catch (Exception e) {
+            LOGGER.warn("Guard desertion: Failed to remove {} from colony {}: {}", guardName, colony.getName(), e.getMessage());
+            return null;
+        }
+        return guardName;
+    }
+
     // ==================== Reflection Helper Methods ====================
 
     /**
-     * Check if a citizen is sick using reflection.
+     * Check if a citizen is sick using the public ICitizenData API.
      *
      * @param citizen The citizen to check
      * @return true if citizen is sick
      */
     private static boolean isCitizenSick(ICitizenData citizen) {
         try {
-            // Get disease handler
-            Method getDiseaseHandler = citizen.getClass().getMethod("getCitizenDiseaseHandler");
-            Object handler = getDiseaseHandler.invoke(citizen);
-
-            if (handler != null) {
-                // Check if sick
-                Method isSickMethod = handler.getClass().getMethod("isSick");
-                Object result = isSickMethod.invoke(handler);
-                return result instanceof Boolean && (Boolean) result;
-            }
+            return citizen.getCitizenDiseaseHandler().isSick();
         } catch (Exception e) {
-            LOGGER.debug("Failed to check if citizen is sick via reflection: {}", e.getMessage());
+            if (TaxConfig.isDebugLogging()) LOGGER.debug("Failed to check if citizen is sick: {}", e.getMessage());
+            return false;
         }
-
-        return false;
     }
 
     /**
-     * Cure a citizen using reflection.
+     * Cure a citizen using the public ICitizenData API.
      *
      * @param citizen The citizen to cure
      * @return true if cure succeeded
      */
     private static boolean cureCitizen(ICitizenData citizen) {
         try {
-            // Get disease handler
-            Method getDiseaseHandler = citizen.getClass().getMethod("getCitizenDiseaseHandler");
-            Object handler = getDiseaseHandler.invoke(citizen);
-
-            if (handler != null) {
-                // Cure
-                Method cureMethod = handler.getClass().getMethod("cure");
-                cureMethod.invoke(handler);
-                return true;
-            }
+            citizen.getCitizenDiseaseHandler().cure();
+            return true;
         } catch (Exception e) {
-            LOGGER.warn("Failed to cure citizen via reflection: {}", e.getMessage());
+            LOGGER.warn("Failed to cure citizen: {}", e.getMessage());
+            return false;
         }
-
-        return false;
     }
 
     /**
-     * Infect a citizen with a disease using reflection.
+     * Infect a citizen with a disease.
+     * Gets the handler via public API; uses reflection only for setDisease since
+     * Disease is an internal core class (com.minecolonies.core.datalistener.model.Disease).
      *
      * @param citizen The citizen
-     * @param disease The disease object
+     * @param disease The Disease object returned from DiseasesListener.getRandomDisease()
      * @return true if infection succeeded
      */
     private static boolean infectCitizenWithDisease(ICitizenData citizen, Object disease) {
         try {
-            // Get disease handler
-            Method getDiseaseHandler = citizen.getClass().getMethod("getCitizenDiseaseHandler");
-            Object handler = getDiseaseHandler.invoke(citizen);
-
-            if (handler != null) {
-                // Try setDisease(Disease) method
-                Method setDiseaseMethod = handler.getClass().getMethod("setDisease", disease.getClass());
-                Object result = setDiseaseMethod.invoke(handler, disease);
-                return result instanceof Boolean && (Boolean) result;
-            }
+            ICitizenDiseaseHandler handler = citizen.getCitizenDiseaseHandler();
+            // Disease is an internal core class — use reflection to avoid hard dependency
+            Method setDiseaseMethod = handler.getClass().getMethod("setDisease", disease.getClass());
+            Object result = setDiseaseMethod.invoke(handler, disease);
+            return result instanceof Boolean && (Boolean) result;
         } catch (Exception e) {
-            LOGGER.warn("Failed to infect citizen via reflection: {}", e.getMessage());
+            LOGGER.warn("Failed to infect citizen: {}", e.getMessage());
+            return false;
         }
-
-        return false;
     }
 }

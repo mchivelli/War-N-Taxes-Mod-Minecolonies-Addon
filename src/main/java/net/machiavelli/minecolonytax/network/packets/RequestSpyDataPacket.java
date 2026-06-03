@@ -28,12 +28,8 @@ public class RequestSpyDataPacket {
                 return;
 
             String playerId = player.getUUID().toString();
+            // GUI only shows active deployments; completed missions deliver intel via Written Book
             List<SpyMission> missions = SpyManager.getActiveMissionsForPlayer(playerId);
-
-            // Gather fresh intel for each target
-            for (SpyMission mission : missions) {
-                SpyManager.gatherIntel(mission.getTargetColonyId());
-            }
 
             SpyDataResponsePacket response = new SpyDataResponsePacket(missions);
             net.machiavelli.minecolonytax.network.NetworkHandler.sendToPlayer(player, response);

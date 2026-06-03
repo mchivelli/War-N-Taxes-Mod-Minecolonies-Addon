@@ -18,17 +18,33 @@ import java.util.function.Supplier;
 
 public class PayTaxDebtPacket {
     private final int colonyId;
+    private final int requestedAmount; // -1 = pay full debt, >0 = pay this exact amount
 
+    /** Backwards-compatible: pay the full debt. */
     public PayTaxDebtPacket(int colonyId) {
+        this(colonyId, -1);
+    }
+
+    /** Pay a specific amount; -1 means full debt. */
+    public PayTaxDebtPacket(int colonyId, int requestedAmount) {
         this.colonyId = colonyId;
+        this.requestedAmount = requestedAmount;
     }
 
     public PayTaxDebtPacket(FriendlyByteBuf buf) {
         this.colonyId = buf.readInt();
+        // SECURITY: allow GUI to request a partial-debt payment. -1 means "pay full debt"; any other negative
+        // value is treated as 0 (no-op) to prevent malicious deltas. Validated against actual debt and balance below.
+        int amt = buf.readInt();
+        if (amt < -1) {
+            amt = 0;
+        }
+        this.requestedAmount = amt;
     }
 
     public void toBytes(FriendlyByteBuf buf) {
         buf.writeInt(colonyId);
+        buf.writeInt(requestedAmount);
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {
@@ -72,32 +88,46 @@ public class PayTaxDebtPacket {
             }
             
             int debtAmount = Math.abs(currentTax);
-            
+
+            // SECURITY (audit HIGH): honor the client-requested partial payment amount. Validate:
+            //   - must be > 0 (sentinel -1 means "pay full debt")
+            //   - must be <= remaining debt (can't overpay)
+            //   - must be <= player balance (can't pay more than you have)
+            int payAmount;
+            if (requestedAmount == -1) {
+                payAmount = debtAmount;
+            } else if (requestedAmount > 0) {
+                payAmount = Math.min(requestedAmount, debtAmount);
+            } else {
+                player.sendSystemMessage(Component.literal("Invalid debt payment amount."));
+                return;
+            }
+
             // Check if SDMShop conversion is enabled in config
             if (!TaxConfig.isSDMShopConversionEnabled()) {
                 player.sendSystemMessage(Component.literal("§c✗ SDMShop conversion is disabled in config!"));
                 player.sendSystemMessage(Component.literal("§eDebt payment requires SDMShop integration to be enabled"));
                 return;
             }
-            
+
             // Check if player has sufficient funds and deduct payment
-            long currentBalance = SDMShopIntegration.getMoney(player);
-        
             if (!SDMShopIntegration.isAvailable()) {
                 player.sendSystemMessage(Component.literal("§c✗ SDMShop integration is not available!"));
                 player.sendSystemMessage(Component.literal("§eCheck that SDMShop mod is installed and working"));
                 return;
             }
-        
-            // Check if player has enough balance
-            if (currentBalance < debtAmount) {
+
+            long currentBalance = SDMShopIntegration.getMoney(player);
+
+            // SECURITY: also reject if the requested partial payment exceeds the player's balance
+            if (currentBalance < payAmount) {
                 player.sendSystemMessage(Component.literal("§c✗ Insufficient funds!"));
-                player.sendSystemMessage(Component.literal("§c  Need: " + debtAmount + ", Have: " + currentBalance));
+                player.sendSystemMessage(Component.literal("§c  Need: " + payAmount + ", Have: " + currentBalance));
                 return;
             }
-        
-            // Deduct the debt amount from player's balance
-            int deductedAmount = SDMShopIntegration.deductPlayerBalance(player, debtAmount);
+
+            // Deduct the validated payment amount from player's balance
+            int deductedAmount = SDMShopIntegration.deductPlayerBalance(player, payAmount);
         
             if (deductedAmount <= 0) {
                 player.sendSystemMessage(Component.literal("§c✗ Failed to deduct payment from your balance!"));

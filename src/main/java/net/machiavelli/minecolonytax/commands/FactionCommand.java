@@ -21,6 +21,10 @@ import net.minecraft.server.level.ServerPlayer;
 
 import java.util.UUID;
 
+/**
+ * @deprecated Will be replaced by an external faction/diplomacy mod. Code retained for reference.
+ */
+@Deprecated
 public class FactionCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -35,11 +39,7 @@ public class FactionCommand {
                                         .executes(ctx -> executeJoin(ctx.getSource(),
                                                 StringArgumentType.getString(ctx, "faction")))))
                         .then(Commands.literal("invite")
-                                .then(Commands.argument("colony", StringArgumentType.string()) // Or player name? Colony
-                                                                                               // name is better but
-                                                                                               // harder to resolve.
-                                                                                               // Let's use player name
-                                                                                               // (owner)
+                                .then(Commands.argument("colony", StringArgumentType.string())
                                         .executes(ctx -> executeInvite(ctx.getSource(),
                                                 StringArgumentType.getString(ctx, "colony")))))
                         .then(Commands.literal("leave")
@@ -74,7 +74,6 @@ public class FactionCommand {
         dispatcher.register(command);
     }
 
-    // Helpers
     private static IColony getPlayerColony(ServerPlayer player) {
         IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
         return colonyManager.getIColonyByOwner(player.level(), player.getUUID());
@@ -84,8 +83,6 @@ public class FactionCommand {
         return colony.getPermissions().getRank(player.getUUID()).isColonyManager();
     }
 
-    // Executors
-
     private static int executeCreate(CommandSourceStack source, String name) {
         if (!checkChecks(source))
             return 0;
@@ -93,19 +90,7 @@ public class FactionCommand {
         IColony colony = getPlayerColony(player);
 
         int cost = TaxConfig.getFactionCreationCost();
-        // Check cost? Currently no generic money system in Tax mod, maybe check items?
-        // Or check colony funds if that existed.
-        // The plan said "Tax cost". But tax is generated, not stored in a "colony
-        // balance" except for WarChest.
-        // Let's assume we deduct from War Chest or just free for now if cost > 0 but we
-        // have no payment method?
-        // Actually, let's deduct from the colony's tax "credits" if we had them?
-        // Or "WarChest". If cost > 0, check WarChest.
-
-        // Wait, current system diverts taxes.
-        // I'll skip cost check for now or just log it.
-        // Plan says: "factionCreationCost (Tax credits/items?)"
-
+        // Cost enforcement is deferred until a common payment API is available.
         FactionData faction = FactionManager.createFaction(name, colony.getID());
         if (faction == null) {
             source.sendFailure(Component.literal("Failed to create faction. Name taken or you are already in one."));
@@ -159,16 +144,11 @@ public class FactionCommand {
             return 0;
         }
 
-        // Only owner/officers (handled by checkChecks) - but also needs faction rank?
-        // For now, any member can invite? Or only faction owner?
-        // Let's restrict to Faction Owner (colony owner of faction owner colony).
         if (faction.getOwnerColonyId() != colony.getID()) {
             source.sendFailure(Component.literal("Only the faction leader can invite members."));
             return 0;
         }
 
-        // Resolve target colony
-        // We have player name. Need to find player then their colony.
         ServerPlayer targetPlayer = source.getServer().getPlayerList().getPlayerByName(colonyOwnerName);
         if (targetPlayer == null) {
             source.sendFailure(Component.literal("Player not found online."));
@@ -279,14 +259,11 @@ public class FactionCommand {
         }
 
         if (faction.withdrawTax(amount)) {
-            // Give money to colony or player? "Tax credits" usually implies virtual
-            // currency or War Chest.
-            // Let's add it to the War Chest of the leader colony.
-            net.machiavelli.minecolonytax.economy.WarChestManager.deposit(player, colony.getID(), amount);
+            net.machiavelli.minecolonytax.economy.TreasuryManager.deposit(player, colony.getID(), amount);
 
             FactionManager.saveData();
             source.sendSuccess(
-                    () -> Component.literal("Withdrew " + amount + " to War Chest.").withStyle(ChatFormatting.GREEN),
+                    () -> Component.literal("Withdrew " + amount + " to treasury.").withStyle(ChatFormatting.GREEN),
                     true);
             return Command.SINGLE_SUCCESS;
         } else {
@@ -313,11 +290,9 @@ public class FactionCommand {
             return 0;
         }
 
-        // Alliance limit check
         if (relation == FactionRelation.ALLY && faction.getId() != target.getId()) {
             long currentAllies = faction.getRelations().values().stream().filter(FactionRelation::isAlly).count();
-            if (currentAllies >= TaxConfig.getFactionAllianceLimit()) { // Need to add getFactionAllianceLimit to config
-                                                                        // or FactionData
+            if (currentAllies >= TaxConfig.getFactionAllianceLimit()) {
                 source.sendFailure(Component.literal("Alliance limit reached."));
                 return 0;
             }

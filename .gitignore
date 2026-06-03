@@ -23,15 +23,45 @@ eclipse
 # Files from Forge MDK
 forge*changelog.txt
 run/
+run2/
+run*/
 docs/
 
-# Claude Code
+# Claude Code / tooling state
 .claude/
+.claude-flow/
+.mcp.json
 
-# Other mods/repositories
+# Other mods / nested repos / accidental clones
 MapFrontiers/
 journeymap-api/
+easy_factions/
+gitnexus/
+Patchouli/
+explosiont/
+patches/
+/net/
+/events
+/Databases
+/INK_FAINT
+/INK_GHOST
 
-# Build logs
+# Prototypes / design assets / scratch
+Prototype-TaxGUI/
+WNT_UI_BookMainComponent.png
+/*.html
+
+# Temp / test / scratch source at repo root
+/TestMigration.java
+/test_migration.java
+/temp_*
+/parse_config.ps1
+
+# Build / crash / runtime logs
 build_error.log
+build_*.log
+build_log.txt
 *.log
+hs_err_pid*.log
+crash-*.txt
+.gitnexus

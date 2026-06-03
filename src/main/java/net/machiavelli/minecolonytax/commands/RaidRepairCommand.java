@@ -28,7 +28,6 @@ public class RaidRepairCommand {
 
     private static final Logger LOGGER = LogManager.getLogger(RaidRepairCommand.class);
 
-    // Suggestion provider for colony names (with quotes if needed)
     private static final SuggestionProvider<CommandSourceStack> COLONY_SUGGESTIONS = (context, builder) -> {
         ServerPlayer player;
         try {
@@ -54,8 +53,7 @@ public class RaidRepairCommand {
         dispatcher.register(
                 Commands.literal("wnt")
                         .then(Commands.literal("repair")
-                                .requires(source -> source.hasPermission(0)) // Available to everyone (permission
-                                                                             // checked in execute)
+                                .requires(source -> source.hasPermission(0))
                                 .then(Commands.argument("colony", StringArgumentType.string())
                                         .suggests(COLONY_SUGGESTIONS)
                                         .executes(context -> {
@@ -87,7 +85,6 @@ public class RaidRepairCommand {
             return 0;
         }
 
-        // Check Permissions
         Rank playerRank = targetColony.getPermissions().getRank(player.getUUID());
         if (playerRank == null || !playerRank.isColonyManager()) {
             source.sendFailure(
@@ -98,7 +95,6 @@ public class RaidRepairCommand {
 
         int colonyId = targetColony.getID();
 
-        // Delegate repair logic to manager
         if (RaidPenaltyManager.repair(player, colonyId)) {
             return 1;
         } else {

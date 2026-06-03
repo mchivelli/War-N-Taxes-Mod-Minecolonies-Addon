@@ -2,9 +2,6 @@ package net.machiavelli.minecolonytax.gui.data;
 
 import java.util.UUID;
 
-/**
- * Data container for officer information displayed in the GUI
- */
 public class OfficerData {
     private final UUID playerId;
     private final String playerName;
@@ -29,9 +26,7 @@ public class OfficerData {
     public boolean isOnline() { return isOnline; }
     public long getLastSeen() { return lastSeen; }
     
-    /**
-     * Gets a formatted last seen string
-     */
+    /** Returns a human-readable "last seen" string, e.g. "2h ago". */
     public String getLastSeenText() {
         if (isOnline) {
             return "Online";
@@ -53,27 +48,22 @@ public class OfficerData {
         }
     }
     
-    /**
-     * Gets the status color based on online state and permissions
-     */
+    /** Green = online + can claim; yellow = online but no claim; gray = offline. */
     public int getStatusColor() {
         if (isOnline) {
-            return canClaimTax ? 0x00FF00 : 0xFFFF00; // Green if can claim, yellow if online but can't claim
+            return canClaimTax ? 0x00FF00 : 0xFFFF00;
         } else {
-            return 0x808080; // Gray if offline
+            return 0x808080;
         }
     }
-    
-    /**
-     * Gets the rank color
-     */
+
     public int getRankColor() {
         switch (rank.toLowerCase()) {
-            case "owner": return 0xFFD700; // Gold
-            case "officer": return 0x00BFFF; // DeepSkyBlue
-            case "friend": return 0x32CD32; // LimeGreen
-            case "neutral": return 0xC0C0C0; // Silver
-            default: return 0xFFFFFF; // White
+            case "owner":   return 0xFFD700; // gold
+            case "officer": return 0x00BFFF; // deep sky blue
+            case "friend":  return 0x32CD32; // lime green
+            case "neutral": return 0xC0C0C0; // silver
+            default:        return 0xFFFFFF;
         }
     }
 }

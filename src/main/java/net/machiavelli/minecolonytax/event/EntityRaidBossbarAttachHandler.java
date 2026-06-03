@@ -15,6 +15,10 @@ import org.apache.logging.log4j.Logger;
  * log in, respawn, or change dimensions.
  */
 @Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+/**
+ * @deprecated Entity raid system will be replaced. Code retained for reference.
+ */
+@Deprecated
 public class EntityRaidBossbarAttachHandler {
     private static final Logger LOGGER = LogManager.getLogger(EntityRaidBossbarAttachHandler.class);
 

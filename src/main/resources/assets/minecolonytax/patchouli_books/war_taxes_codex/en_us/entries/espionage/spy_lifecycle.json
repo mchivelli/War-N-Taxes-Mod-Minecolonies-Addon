@@ -1,0 +1,32 @@
+{
+    "name": "minecolonytax.entry.spy_lifecycle.name",
+    "icon": "minecraft:clock",
+    "category": "minecolonytax:espionage",
+    "sortnum": 2,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.spy_lifecycle.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.spy_lifecycle.deploying.title",
+            "text": "minecolonytax.entry.spy_lifecycle.deploying"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.spy_lifecycle.active.title",
+            "text": "minecolonytax.entry.spy_lifecycle.active"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.spy_lifecycle.fleeing.title",
+            "text": "minecolonytax.entry.spy_lifecycle.fleeing"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.spy_lifecycle.recall.title",
+            "text": "minecolonytax.entry.spy_lifecycle.recall"
+        }
+    ]
+}

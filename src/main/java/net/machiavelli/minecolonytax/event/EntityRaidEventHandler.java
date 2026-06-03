@@ -20,6 +20,10 @@ import org.apache.logging.log4j.Logger;
  * This was the missing piece causing entity raids to not work at runtime!
  */
 @Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+/**
+ * @deprecated Entity raid system will be replaced. Code retained for reference.
+ */
+@Deprecated
 public class EntityRaidEventHandler {
 
     private static final Logger LOGGER = LogManager.getLogger(EntityRaidEventHandler.class);

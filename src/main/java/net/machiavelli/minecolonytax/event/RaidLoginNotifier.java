@@ -1,14 +1,22 @@
 package net.machiavelli.minecolonytax.event;
 
 import net.machiavelli.minecolonytax.MineColonyTax;
+import net.machiavelli.minecolonytax.TaxConfig;
+import net.machiavelli.minecolonytax.WarSystem;
+import net.machiavelli.minecolonytax.besiege.BesiegeManager;
+import net.machiavelli.minecolonytax.data.WarData;
+import net.machiavelli.minecolonytax.occupation.OccupationManager;
 import net.machiavelli.minecolonytax.raid.ActiveRaidData;
 import net.machiavelli.minecolonytax.raid.RaidManager;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.server.ServerLifecycleHooks;
 
+import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.permissions.IPermissions;
 import com.minecolonies.api.colony.permissions.ColonyPlayer;
 
@@ -21,10 +29,13 @@ public class RaidLoginNotifier {
     // Keep history of completed (including aborted) raids
     private static final List<ActiveRaidData> completedRaids = Collections.synchronizedList(new ArrayList<>());
 
-    // For each player, track which raids they've already seen
+    // For each player, track which raids/wars/besieges/occupations they've already been notified about
     private static final Map<UUID, Set<UUID>> notifiedRaidsByPlayer = new HashMap<>();
+    private static final Map<UUID, Set<Integer>> notifiedWarsByPlayer = new HashMap<>();
+    private static final Map<UUID, Set<Integer>> notifiedBesiegesByPlayer = new HashMap<>();
+    private static final Map<UUID, Set<Integer>> notifiedOccupationsByPlayer = new HashMap<>();
 
-    /** Call this from your raid‐ending logic in WarCommands (endRaid/stopRaid) */
+    /** Call this from raid-ending logic to record completed raids for offline notification. */
     public static void recordCompletedRaid(ActiveRaidData raid) {
         completedRaids.add(raid);
     }
@@ -34,118 +45,193 @@ public class RaidLoginNotifier {
         ServerPlayer player = (ServerPlayer) event.getEntity();
         UUID playerUUID = player.getUUID();
 
-        // Ensure a set exists
+        // --- Raid notifications ---
         notifiedRaidsByPlayer.computeIfAbsent(playerUUID, k -> new HashSet<>());
-        Set<UUID> notified = notifiedRaidsByPlayer.get(playerUUID);
+        Set<UUID> notifiedRaids = notifiedRaidsByPlayer.get(playerUUID);
 
-        // First check active raids with higher priority - this is critical for officers logging in during a raid
         for (ActiveRaidData raid : RaidManager.getActiveRaids().values()) {
-            // Force notification for active raids to ensure officers get the message
             if (isPlayerOfficerOrOwner(player, raid.getColony().getPermissions())) {
-                notifyPlayer(player, raid, true);
-                // Add to notified to prevent duplicate notifications
+                notifyRaid(player, raid, true);
                 UUID identifier = UUID.nameUUIDFromBytes((raid.getColony().getID() + ":" + raid.getRaider()).getBytes());
-                notified.add(identifier);
+                notifiedRaids.add(identifier);
             } else {
-                notifyIfRelevant(player, raid, notified, true);
+                notifyRaidIfRelevant(player, raid, notifiedRaids, true);
             }
         }
 
-        // Now notify for all past (completed) raids
         synchronized (completedRaids) {
             Iterator<ActiveRaidData> it = completedRaids.iterator();
             while (it.hasNext()) {
                 ActiveRaidData raid = it.next();
-                boolean wasRelevant = notifyIfRelevant(player, raid, notified, false);
-                // Once the owner has been notified, we can drop this history entry
+                boolean wasRelevant = notifyRaidIfRelevant(player, raid, notifiedRaids, false);
                 if (wasRelevant && raid.getColony().getPermissions().getOwner().equals(playerUUID)) {
                     it.remove();
                 }
             }
         }
+
+        // --- War notifications ---
+        notifiedWarsByPlayer.computeIfAbsent(playerUUID, k -> new HashSet<>());
+        Set<Integer> notifiedWars = notifiedWarsByPlayer.get(playerUUID);
+
+        for (WarData war : WarSystem.ACTIVE_WARS.values()) {
+            try {
+                IColony defColony = war.getColony();
+                IColony atkColony = war.getAttackerColony();
+
+                boolean playerIsDefender = defColony != null
+                        && isPlayerOfficerOrOwner(player, defColony.getPermissions());
+                boolean playerIsAttacker = atkColony != null
+                        && isPlayerOfficerOrOwner(player, atkColony.getPermissions());
+
+                if (!playerIsDefender && !playerIsAttacker) continue;
+
+                int warKey = playerIsDefender
+                        ? (defColony != null ? defColony.getID() : -1)
+                        : (atkColony != null ? atkColony.getID() : -1);
+
+                if (warKey < 0 || notifiedWars.contains(warKey)) continue;
+
+                String defName = defColony != null ? defColony.getName() : "unknown";
+                String atkName = atkColony != null ? atkColony.getName() : "unknown";
+                String msg = playerIsDefender
+                        ? "Your colony " + defName + " is at war — attacker: " + atkName + "!"
+                        : "Your colony " + atkName + " is waging war against " + defName + "!";
+
+                player.sendSystemMessage(Component.literal(msg).withStyle(ChatFormatting.RED));
+                sendTitleNotification(player, "AT WAR!", defName + " vs " + atkName, "red");
+                notifiedWars.add(warKey);
+            } catch (Exception ignored) {}
+        }
+
+        // --- Besiege notifications ---
+        if (TaxConfig.isBesiegeSystemEnabled()) {
+            notifiedBesiegesByPlayer.computeIfAbsent(playerUUID, k -> new HashSet<>());
+            Set<Integer> notifiedBesieges = notifiedBesiegesByPlayer.get(playerUUID);
+
+            for (Map.Entry<Integer, BesiegeManager.BesiegeRaidData> entry : BesiegeManager.getActiveRaids().entrySet()) {
+                try {
+                    int colonyId = entry.getKey();
+                    BesiegeManager.BesiegeRaidData raid = entry.getValue();
+
+                    IColony besiegedColony = com.minecolonies.api.IMinecoloniesAPI.getInstance()
+                            .getColonyManager().getAllColonies().stream()
+                            .filter(c -> c.getID() == colonyId).findFirst().orElse(null);
+                    if (besiegedColony == null) continue;
+
+                    if (!isPlayerOfficerOrOwner(player, besiegedColony.getPermissions())) continue;
+                    if (notifiedBesieges.contains(colonyId)) continue;
+
+                    String besiegerName = getPlayerName(raid.besiegingPlayerUUID);
+                    player.sendSystemMessage(Component.literal(
+                            "Your colony " + besiegedColony.getName() + " is being besieged by " + besiegerName + "!")
+                            .withStyle(ChatFormatting.DARK_RED));
+                    sendTitleNotification(player, "BESIEGED!", besiegedColony.getName(), "dark_red");
+                    notifiedBesieges.add(colonyId);
+                } catch (Exception ignored) {}
+            }
+        }
+
+        // --- Occupation notifications ---
+        if (TaxConfig.isOccupationSystemEnabled()) {
+            notifiedOccupationsByPlayer.computeIfAbsent(playerUUID, k -> new HashSet<>());
+            Set<Integer> notifiedOccupations = notifiedOccupationsByPlayer.get(playerUUID);
+
+            for (Map.Entry<Integer, OccupationManager.OccupationData> entry
+                    : OccupationManager.getActiveOccupations().entrySet()) {
+                try {
+                    OccupationManager.OccupationData occ = entry.getValue();
+                    if (occ.isExpired()) continue;
+
+                    boolean isOriginalOwner = occ.getOriginalOwnerUUID().equals(playerUUID);
+                    boolean isOccupier = occ.getOccupierUUID().equals(playerUUID);
+                    if (!isOriginalOwner && !isOccupier) continue;
+                    if (notifiedOccupations.contains(occ.colonyId)) continue;
+
+                    if (isOriginalOwner) {
+                        player.sendSystemMessage(Component.literal(
+                                "Your colony " + occ.colonyName + " is under occupation! Wage a reclamation war to take it back.")
+                                .withStyle(ChatFormatting.RED));
+                        sendTitleNotification(player, "OCCUPIED!", occ.colonyName, "red");
+                    } else {
+                        player.sendSystemMessage(Component.literal(
+                                "You are occupying colony " + occ.colonyName + ".")
+                                .withStyle(ChatFormatting.GOLD));
+                    }
+                    notifiedOccupations.add(occ.colonyId);
+                } catch (Exception ignored) {}
+            }
+        }
     }
 
-    /**
-     * @param ongoing true for active raids, false for completed
-     * @return whether this player was in the notify‐set and got a notification
-     */
-    /**
-     * Checks if a player is an officer or owner of a colony
-     */
     private static boolean isPlayerOfficerOrOwner(ServerPlayer player, IPermissions perms) {
         UUID playerUUID = player.getUUID();
         boolean isOwner = perms.getOwner().equals(playerUUID);
         boolean isOfficer = perms.getPlayersByRank(perms.getRankOfficer())
                 .stream()
                 .anyMatch(cp -> cp.getID().equals(playerUUID));
-        
         return isOwner || isOfficer;
     }
-    
-    /**
-     * Directly notify a player about a raid without checking if they've been notified
-     */
-    private static void notifyPlayer(ServerPlayer player, ActiveRaidData raid, boolean ongoing) {
+
+    private static void notifyRaid(ServerPlayer player, ActiveRaidData raid, boolean ongoing) {
         String raiderName = getRaiderName(raid.getRaider());
         String colonyName = raid.getColony().getName();
-        
-        // Send chat message
-        if (ongoing) {
-            // "You are being Raided! <colony> by <player>"
-            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("You are being Raided! " + colonyName + " by " + raiderName)
-                    .withStyle(net.minecraft.ChatFormatting.RED));
-        } else {
-            // Raid completed notification (defense rewards are now integrated into main tax balance)
-            String baseMessage = "You have been Raided " + colonyName + " by " + raiderName + " - Check your tax balance with /wnt checktax for any defense rewards!";
-            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(baseMessage)
-                    .withStyle(net.minecraft.ChatFormatting.GOLD));
-        }
-        
-        // Send title and subtitle for increased visibility
-        String headerJson = "{\"text\":\"RAID!\",\"color\":\"red\",\"bold\":true}";
-        String subtitleJson = "{\"text\":\""
-                + colonyName
-                + " by "
-                + raiderName
-                + "\",\"color\":\"yellow\"}";
 
-        if (player.getServer() != null) {
-            String playerName = player.getName().getString();
-            player.getServer().getCommands().performPrefixedCommand(
-                player.createCommandSourceStack().withSuppressedOutput(),
-                "title " + playerName + " title " + headerJson
-            );
-            player.getServer().getCommands().performPrefixedCommand(
-                player.createCommandSourceStack().withSuppressedOutput(),
-                "title " + playerName + " subtitle " + subtitleJson
-            );
+        if (ongoing) {
+            player.sendSystemMessage(Component.literal("You are being Raided! " + colonyName + " by " + raiderName)
+                    .withStyle(ChatFormatting.RED));
+        } else {
+            player.sendSystemMessage(Component.literal(
+                    "You have been Raided: " + colonyName + " by " + raiderName
+                    + " - Check your tax balance with /wnt checktax for any defense rewards!")
+                    .withStyle(ChatFormatting.GOLD));
         }
+
+        sendTitleNotification(player, "RAID!", colonyName + " by " + raiderName, "red");
     }
-    
-    private static boolean notifyIfRelevant(ServerPlayer player, ActiveRaidData raid, Set<UUID> notified, boolean ongoing) {
+
+    private static boolean notifyRaidIfRelevant(ServerPlayer player, ActiveRaidData raid, Set<UUID> notified, boolean ongoing) {
         IPermissions perms = raid.getColony().getPermissions();
 
-        // Officers + owner
         Set<UUID> notifySet = perms.getPlayersByRank(perms.getRankOfficer())
                 .stream().map(ColonyPlayer::getID)
                 .collect(Collectors.toSet());
         notifySet.add(perms.getOwner());
 
-        // Unique identifier for this raid instance
         UUID identifier = UUID.nameUUIDFromBytes((raid.getColony().getID() + ":" + raid.getRaider()).getBytes());
 
         if (notifySet.contains(player.getUUID()) && !notified.contains(identifier)) {
-            notifyPlayer(player, raid, ongoing);
+            notifyRaid(player, raid, ongoing);
             notified.add(identifier);
             return true;
         }
         return false;
     }
 
+    private static void sendTitleNotification(ServerPlayer player, String title, String subtitle, String color) {
+        if (player.getServer() == null) return;
+        String playerName = player.getName().getString();
+        String titleJson = "{\"text\":\"" + title + "\",\"color\":\"" + color + "\",\"bold\":true}";
+        String subtitleJson = "{\"text\":\"" + escapeJson(subtitle) + "\",\"color\":\"yellow\"}";
+        player.getServer().getCommands().performPrefixedCommand(
+                player.createCommandSourceStack().withSuppressedOutput(),
+                "title " + playerName + " title " + titleJson);
+        player.getServer().getCommands().performPrefixedCommand(
+                player.createCommandSourceStack().withSuppressedOutput(),
+                "title " + playerName + " subtitle " + subtitleJson);
+    }
+
+    private static String escapeJson(String s) {
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
     private static String getRaiderName(UUID raiderUUID) {
-        ServerPlayer raider = ServerLifecycleHooks.getCurrentServer()
-                .getPlayerList()
-                .getPlayer(raiderUUID);
-        return (raider != null) ? raider.getName().getString() : "an unknown raider";
+        return getPlayerName(raiderUUID);
+    }
+
+    private static String getPlayerName(UUID uuid) {
+        if (ServerLifecycleHooks.getCurrentServer() == null) return "unknown";
+        ServerPlayer p = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(uuid);
+        return p != null ? p.getName().getString() : "an offline player";
     }
 }

@@ -26,30 +26,19 @@ import java.util.stream.Collectors;
 public class CitizenMilitiaManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(CitizenMilitiaManager.class);
     
-    // Track militia members per colony (simplified - no attribute tracking)
     private final Map<Integer, Set<Integer>> colonyMilitiaMembers = new ConcurrentHashMap<>();
-    
-    // Track guards killed during raids for tax stealing
     private final Map<Integer, Integer> guardsKilledPerColony = new ConcurrentHashMap<>();
-    
-    // Track militia killed during raids (separate from guards)
     private final Map<Integer, Integer> militiaKilledPerColony = new ConcurrentHashMap<>();
-    
-    // Track total defenders (guards + militia) per colony for tax calculation
+    // Total defenders (guards + militia) used for tax percentage calculation.
     private final Map<Integer, Integer> totalDefendersPerColony = new ConcurrentHashMap<>();
-    
-    // Track total guards only (for raid victory condition)
+    // Guards only — used for raid victory condition (militia not counted).
     private final Map<Integer, Integer> totalGuardsPerColony = new ConcurrentHashMap<>();
     
-    // Singleton instance
-    private static CitizenMilitiaManager instance;
-    
+    private static final CitizenMilitiaManager instance = new CitizenMilitiaManager();
+
     private CitizenMilitiaManager() {}
-    
+
     public static CitizenMilitiaManager getInstance() {
-        if (instance == null) {
-            instance = new CitizenMilitiaManager();
-        }
         return instance;
     }
     
@@ -67,27 +56,24 @@ public class CitizenMilitiaManager {
         
         int colonyId = colony.getID();
         
-        // Clean up any existing militia data
         deactivateMilitia(colony);
-        
+
         Set<Integer> militiaMembers = new HashSet<>();
-        
-        // Get eligible citizens
         List<ICitizenData> eligibleCitizens = getEligibleCitizens(colony);
         
         // Calculate how many to convert
         int targetMilitiaCount = (int) Math.ceil(eligibleCitizens.size() * TaxConfig.MILITIA_CONVERSION_PERCENTAGE.get());
-        
-        // Randomly select citizens to convert
+        double upgradeMultiplier = net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getMilitiaMultiplier(colonyId);
+        targetMilitiaCount = (int) Math.ceil(targetMilitiaCount * upgradeMultiplier);
+
         Collections.shuffle(eligibleCitizens);
         int converted = 0;
-        
+
         for (ICitizenData citizen : eligibleCitizens) {
             if (converted >= targetMilitiaCount) {
                 break;
             }
-            
-            // Apply militia equipment and combat AI
+
             applyMilitiaEquipment(citizen);
             enableMilitiaCombatAI(citizen);
             militiaMembers.add(citizen.getId());
@@ -96,20 +82,18 @@ public class CitizenMilitiaManager {
                 citizen.getName(), colonyId);
         }
         
-        // Count existing guards in the colony
         int existingGuards = countExistingGuards(colony);
         int totalDefenders = existingGuards + converted;
-        
-        // Store tracking data
+
         colonyMilitiaMembers.put(colonyId, militiaMembers);
         guardsKilledPerColony.put(colonyId, 0);
         militiaKilledPerColony.put(colonyId, 0);
         totalDefendersPerColony.put(colonyId, totalDefenders);
-        totalGuardsPerColony.put(colonyId, existingGuards); // ONLY GUARDS for victory condition
+        totalGuardsPerColony.put(colonyId, existingGuards);
         
-        LOGGER.info("Activated militia for colony {}: {} citizens equipped with weapons", 
+        if (TaxConfig.isNormalLogging()) LOGGER.info("Activated militia for colony {}: {} citizens equipped with weapons",
             colonyId, converted);
-        LOGGER.info("DEFENDER COUNT DEBUG - Colony {}: {} existing guards + {} militia = {} total defenders", 
+        if (TaxConfig.isDebugLogging()) LOGGER.info("DEFENDER COUNT DEBUG - Colony {}: {} existing guards + {} militia = {} total defenders",
             colonyId, existingGuards, converted, totalDefenders);
         
         return converted;
@@ -121,16 +105,13 @@ public class CitizenMilitiaManager {
      */
     public void deactivateMilitia(IColony colony) {
         int colonyId = colony.getID();
-        LOGGER.info("Deactivating militia for colony {}", colonyId);
+        if (TaxConfig.isNormalLogging()) LOGGER.info("Deactivating militia for colony {}", colonyId);
         
-        // Get current militia members
         Set<Integer> militiaMembers = colonyMilitiaMembers.getOrDefault(colonyId, new HashSet<>());
-        
-        // Remove equipment and combat AI from each militia member
+
         for (Integer citizenId : militiaMembers) {
             ICitizenData citizen = colony.getCitizenManager().getCivilian(citizenId);
             if (citizen != null) {
-                // Remove wooden sword and combat AI
                 removeMilitiaEquipment(citizen);
                 disableMilitiaCombatAI(citizen);
                 
@@ -139,10 +120,9 @@ public class CitizenMilitiaManager {
             }
         }
         
-        // Clean up tracking data
         colonyMilitiaMembers.remove(colonyId);
         
-        LOGGER.info("Deactivated militia for colony {}: {} members restored", 
+        if (TaxConfig.isNormalLogging()) LOGGER.info("Deactivated militia for colony {}: {} members restored",
             colonyId, militiaMembers.size());
     }
     
@@ -171,40 +151,36 @@ public class CitizenMilitiaManager {
         
         return allCitizens.stream()
             .filter(citizen -> {
-                // Check if citizen is eligible
                 if (citizen.isChild()) {
                     LOGGER.debug("Citizen {} is a child - skipping", citizen.getName());
                     return false;
                 }
-                
+
                 if (citizen.getEntity().isEmpty()) {
                     LOGGER.debug("Citizen {} has no entity - skipping", citizen.getName());
                     return false;
                 }
-                
-                // Check level requirement (simplified check - citizen must not be a new citizen)
+
                 if (citizen.getCitizenSkillHandler() == null) {
                     LOGGER.debug("Citizen {} has no skill handler - skipping", citizen.getName());
                     return false;
                 }
-                
-                // Don't convert existing guards
+
                 IJob<?> job = citizen.getJob();
                 if (job != null && job.isGuard()) {
                     LOGGER.debug("Citizen {} is already a guard - skipping", citizen.getName());
                     return false;
                 }
-                
-                // Only skip truly critical workers during raids
+
+                // Deliverymen are critical for resource distribution during raids.
                 if (job != null) {
                     String jobName = job.getJobRegistryEntry().getKey().getPath();
-                    // Only skip deliverymen as they're critical for resource distribution during raids
                     if (jobName.equals("deliveryman")) {
                         LOGGER.debug("Citizen {} is critical worker ({}) - skipping", citizen.getName(), jobName);
                         return false;
                     }
                 }
-                
+
                 LOGGER.debug("Citizen {} is eligible for militia conversion", citizen.getName());
                 return true;
             })
@@ -223,11 +199,9 @@ public class CitizenMilitiaManager {
         try {
             AbstractEntityCitizen entity = citizen.getEntity().get();
             
-            // Give wooden sword for combat
-            ItemStack woodenSword = new ItemStack(Items.WOODEN_SWORD);
-            entity.setItemSlot(EquipmentSlot.MAINHAND, woodenSword);
+            entity.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.WOODEN_SWORD));
             
-            LOGGER.info("Applied militia equipment to {} - wooden sword", citizen.getName());
+            if (TaxConfig.isDebugLogging()) LOGGER.info("Applied militia equipment to {} - wooden sword", citizen.getName());
             
         } catch (Exception e) {
             LOGGER.error("Failed to apply militia equipment to citizen {}", citizen.getName(), e);
@@ -247,7 +221,6 @@ public class CitizenMilitiaManager {
             AbstractEntityCitizen entity = citizen.getEntity().get();
             ItemStack mainHand = entity.getMainHandItem();
             
-            // Only remove wooden swords that we gave them
             if (mainHand.getItem() == Items.WOODEN_SWORD) {
                 entity.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
                 LOGGER.debug("Removed wooden sword from former militia member {}", citizen.getName());
@@ -269,29 +242,23 @@ public class CitizenMilitiaManager {
         try {
             AbstractEntityCitizen entity = citizen.getEntity().get();
             
-            // Clear existing AI goals that might interfere with combat
             entity.goalSelector.removeAllGoals((goal) -> true);
             entity.targetSelector.removeAllGoals((goal) -> true);
-            
-            // Add custom militia attack goal that doesn't require ATTACK_DAMAGE attribute
+
             entity.goalSelector.addGoal(0, new MilitiaAttackGoal(entity, 1.2D));
-            
-            // Add retaliation AI (highest priority - attack when attacked)
             entity.targetSelector.addGoal(0, new HurtByTargetGoal(entity));
-            
-            // Add AI goal to attack players who are raiding the colony
             entity.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(entity, ServerPlayer.class, 16, true, false, (target) -> {
                 if (target instanceof ServerPlayer serverPlayer) {
                     boolean isRaiding = RaidManager.isPlayerCurrentlyRaiding(serverPlayer.getUUID(), citizen.getColony());
                     if (isRaiding) {
-                        LOGGER.info("MILITIA TARGETING: {} is targeting raiding player: {}", citizen.getName(), serverPlayer.getName().getString());
+                        if (TaxConfig.isDebugLogging()) LOGGER.info("MILITIA TARGETING: {} is targeting raiding player: {}", citizen.getName(), serverPlayer.getName().getString());
                     }
                     return isRaiding;
                 }
                 return false;
             }));
             
-            LOGGER.info("Enabled custom combat AI for militia member {} (bypasses ATTACK_DAMAGE requirement)", citizen.getName());
+            if (TaxConfig.isDebugLogging()) LOGGER.info("Enabled custom combat AI for militia member {} (bypasses ATTACK_DAMAGE requirement)", citizen.getName());
             
         } catch (Exception e) {
             LOGGER.error("Failed to enable combat AI for militia member {}", citizen.getName(), e);
@@ -310,11 +277,9 @@ public class CitizenMilitiaManager {
         try {
             AbstractEntityCitizen entity = citizen.getEntity().get();
             
-            // Clear all AI goals and restore original citizen AI
             entity.goalSelector.removeAllGoals((goal) -> true);
             entity.targetSelector.removeAllGoals((goal) -> true);
-            
-            // Restore original job AI
+
             if (citizen.getJob() != null) {
                 entity.getCitizenJobHandler().onJobChanged(citizen.getJob());
             }
@@ -337,12 +302,12 @@ public class CitizenMilitiaManager {
         
         if (isGuard) {
             guardsKilledPerColony.compute(colonyId, (k, v) -> v == null ? 1 : v + 1);
-            LOGGER.info("GUARD ELIMINATED - {} killed in colony {}, total guards eliminated: {}", 
-                defenderType.toUpperCase(), colonyId, guardsKilledPerColony.get(colonyId));
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Guard killed in colony {}, total: {}",
+                colonyId, guardsKilledPerColony.get(colonyId));
         } else {
             militiaKilledPerColony.compute(colonyId, (k, v) -> v == null ? 1 : v + 1);
-            LOGGER.info("MILITIA ELIMINATED - {} killed in colony {}, total militia eliminated: {}", 
-                defenderType.toUpperCase(), colonyId, militiaKilledPerColony.get(colonyId));
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Militia killed in colony {}, total: {}",
+                colonyId, militiaKilledPerColony.get(colonyId));
         }
     }
     
@@ -415,9 +380,7 @@ public class CitizenMilitiaManager {
         int defendersKilled = getDefendersKilled(colonyId);
         int totalDefenders = getTotalDefenders(colonyId);
         
-        // FIX: Don't return 0 if all defenders are killed - this should return maximum percentage
         if (totalDefenders == 0) {
-            // If no defenders were ever set, return 0
             return 0.0;
         }
         

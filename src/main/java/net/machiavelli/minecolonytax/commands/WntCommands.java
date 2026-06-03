@@ -13,6 +13,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
+import net.machiavelli.minecolonytax.compat.ColonyBuildingUtil;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.WarSystem;
@@ -31,6 +32,10 @@ import net.minecraft.world.level.Level;
 import net.minecraftforge.fml.common.Mod;
 import net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager;
 import net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager;
+import net.machiavelli.minecolonytax.besiege.BesiegeManager;
+import net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager;
+import net.machiavelli.minecolonytax.upgrade.UpgradeType;
+import java.util.Arrays;
 import com.minecolonies.api.colony.permissions.IPermissions;
 
 import org.apache.logging.log4j.LogManager;
@@ -65,16 +70,13 @@ public class WntCommands {
                 return peaceProposalManagerInstance;
         }
 
-        // Colony name suggestions
         private static final SuggestionProvider<CommandSourceStack> COLONY_SUGGESTIONS = (context, builder) -> {
                 try {
                         ServerPlayer player = context.getSource().getPlayerOrException();
                         IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
                         List<String> colonyNames = colonyManager.getAllColonies().stream()
                                         .map(IColony::getName)
-                                        .map(name -> name.contains(" ") ? "\"" + name + "\"" : name) // Use quotes for
-                                                                                                     // names with
-                                                                                                     // spaces
+                                        .map(name -> name.contains(" ") ? "\"" + name + "\"" : name)
                                         .collect(Collectors.toList());
                         return SharedSuggestionProvider.suggest(colonyNames, builder);
                 } catch (Exception e) {
@@ -82,7 +84,7 @@ public class WntCommands {
                 }
         };
 
-        // Player colony suggestions (only colonies the player manages)
+        // Filters to colonies the player manages.
         private static final SuggestionProvider<CommandSourceStack> PLAYER_COLONY_SUGGESTIONS = (context, builder) -> {
                 try {
                         ServerPlayer player = context.getSource().getPlayerOrException();
@@ -91,9 +93,7 @@ public class WntCommands {
                                         .filter(colony -> colony.getPermissions().getRank(player.getUUID())
                                                         .isColonyManager())
                                         .map(IColony::getName)
-                                        .map(name -> name.contains(" ") ? "\"" + name + "\"" : name) // Use quotes for
-                                                                                                     // names with
-                                                                                                     // spaces
+                                        .map(name -> name.contains(" ") ? "\"" + name + "\"" : name)
                                         .collect(Collectors.toList());
                         return SharedSuggestionProvider.suggest(colonyNames, builder);
                 } catch (Exception e) {
@@ -101,7 +101,7 @@ public class WntCommands {
                 }
         };
 
-        // Abandoned colony suggestions (only abandoned colonies that can be claimed)
+        // Filters to abandoned colonies that are currently claimable.
         private static final SuggestionProvider<CommandSourceStack> ABANDONED_COLONY_SUGGESTIONS = (context,
                         builder) -> {
                 try {
@@ -109,9 +109,7 @@ public class WntCommands {
                         List<String> colonyNames = net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager
                                         .getClaimableColonies(context.getSource().getServer()).stream()
                                         .map(IColony::getName)
-                                        .map(name -> name.contains(" ") ? "\"" + name + "\"" : name) // Use quotes for
-                                                                                                     // names with
-                                                                                                     // spaces
+                                        .map(name -> name.contains(" ") ? "\"" + name + "\"" : name)
                                         .collect(Collectors.toList());
                         return SharedSuggestionProvider.suggest(colonyNames, builder);
                 } catch (Exception e) {
@@ -123,7 +121,6 @@ public class WntCommands {
                 dispatcher.register(Commands.literal("wnt")
                                 .executes(WntCommands::showMainHelp)
 
-                                // Help command
                                 .then(Commands.literal("help")
                                                 .executes(WntCommands::showHelp)
                                                 .then(Commands.argument("command", StringArgumentType.word())
@@ -139,7 +136,6 @@ public class WntCommands {
                                                                                                                 "war",
                                                                                                                 "peace",
                                                                                                                 "warinfo",
-                                                                                                                "wardebug",
                                                                                                                 "warstop",
                                                                                                                 "warstopall",
                                                                                                                 "raidstop",
@@ -148,16 +144,15 @@ public class WntCommands {
                                                                                                                 "warstats",
                                                                                                                 "taxgen",
                                                                                                                 "vasalize",
-                                                                                                                "vasalaccept",
-                                                                                                                "vasaldecline",
+                                                                                                                "vassalaccept",
+                                                                                                                "vassaldecline",
                                                                                                                 "revoke",
                                                                                                                 "vasals",
-                                                                                                                "entityraid",
+                                                                                                                "debug",
                                                                                                                 "permissions"),
                                                                                                 builder))
                                                                 .executes(WntCommands::showSpecificHelp)))
 
-                                // War commands
                                 .then(Commands.literal("wagewar")
                                                 .then(Commands.argument("colony", StringArgumentType.string())
                                                                 .suggests(COLONY_SUGGESTIONS)
@@ -170,6 +165,11 @@ public class WntCommands {
                                                 .then(Commands.argument("colony", StringArgumentType.string())
                                                                 .suggests(COLONY_SUGGESTIONS)
                                                                 .executes(WntCommands::handleRaidCommand)))
+
+                                .then(Commands.literal("besiege")
+                                                .then(Commands.argument("colony", StringArgumentType.string())
+                                                                .suggests(COLONY_SUGGESTIONS)
+                                                                .executes(WntCommands::handleBesiegeCommand)))
 
                                 .then(Commands.literal("joinwar")
                                                 .executes(WntCommands::joinWarCommand))
@@ -188,8 +188,6 @@ public class WntCommands {
                                                                 .then(Commands.argument("colonyId",
                                                                                 IntegerArgumentType.integer())
                                                                                 .suggests((context, builder) -> {
-                                                                                        // Suggest colony IDs that have
-                                                                                        // pending war requests
                                                                                         List<String> pendingIds = new ArrayList<>();
                                                                                         for (WarData war : WarSystem.ACTIVE_WARS
                                                                                                         .values()) {
@@ -209,8 +207,6 @@ public class WntCommands {
                                                                 .then(Commands.argument("colonyId",
                                                                                 IntegerArgumentType.integer())
                                                                                 .suggests((context, builder) -> {
-                                                                                        // Suggest colony IDs that have
-                                                                                        // pending war requests
                                                                                         List<String> pendingIds = new ArrayList<>();
                                                                                         for (WarData war : WarSystem.ACTIVE_WARS
                                                                                                         .values()) {
@@ -245,9 +241,6 @@ public class WntCommands {
                                 .then(Commands.literal("warinfo")
                                                 .executes(WntCommands::warInfoCommand))
 
-                                .then(Commands.literal("wardebug")
-                                                .requires(src -> src.hasPermission(2))
-                                                .executes(WntCommands::debugWarCommand))
 
                                 .then(Commands.literal("warstop")
                                                 .requires(src -> src.hasPermission(2))
@@ -262,6 +255,11 @@ public class WntCommands {
                                 .then(Commands.literal("raidstop")
                                                 .requires(src -> src.hasPermission(2))
                                                 .executes(WntCommands::stopRaidCommand))
+
+                                // Permissions health check (admin)
+                                .then(Commands.literal("permcheck")
+                                                .requires(src -> src.hasPermission(2))
+                                                .executes(WntCommands::handlePermCheckCommand))
 
                                 // Tax commands
                                 .then(Commands.literal("claimtax")
@@ -326,7 +324,6 @@ public class WntCommands {
                                                                                                                         amount);
                                                                                                 })))))
 
-                                // History and stats commands
                                 .then(Commands.literal("warhistory")
                                                 .executes(ctx -> executeWarHistory(ctx, null))
                                                 .then(Commands.argument("colony", StringArgumentType.word())
@@ -343,18 +340,21 @@ public class WntCommands {
                                                                                 StringArgumentType.getString(ctx,
                                                                                                 "colony")))))
 
+                                .then(Commands.literal("colonylog")
+                                                .requires(src -> src.hasPermission(2))
+                                                .executes(ctx -> executeColonyLog(ctx, null, 1))
+                                                .then(Commands.argument("colony", StringArgumentType.word())
+                                                                .suggests(PLAYER_COLONY_SUGGESTIONS)
+                                                                .executes(ctx -> executeColonyLog(ctx,
+                                                                                StringArgumentType.getString(ctx, "colony"), 1))
+                                                                .then(Commands.argument("page", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1))
+                                                                                .executes(ctx -> executeColonyLog(ctx,
+                                                                                                StringArgumentType.getString(ctx, "colony"),
+                                                                                                com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "page"))))))
+
                                 .then(Commands.literal("warstats")
                                                 .executes(WntCommands::showWarStats))
 
-                                // Debug commands
-                                .then(Commands.literal("debugguards")
-                                                .requires(src -> src.hasPermission(2))
-                                                .executes(WntCommands::debugGuardCounts)
-                                                .then(Commands.argument("colony", StringArgumentType.greedyString())
-                                                                .suggests(COLONY_SUGGESTIONS)
-                                                                .executes(WntCommands::debugGuardCountsForColony)))
-
-                                // Vassal commands
                                 .then(Commands.literal("vasalize")
                                                 .then(Commands.argument("percent", IntegerArgumentType.integer(1, 100))
                                                                 .then(Commands.argument("colony",
@@ -366,12 +366,12 @@ public class WntCommands {
                                                                                                 extractColonyName(
                                                                                                                 StringArgumentType
                                                                                                                                 .getString(ctx, "colony")))))))
-                                .then(Commands.literal("vasalaccept")
+                                .then(Commands.literal("vassalaccept")
                                                 .then(Commands.argument("colonyId", IntegerArgumentType.integer())
                                                                 .executes(ctx -> handleVassalAccept(ctx,
                                                                                 IntegerArgumentType.getInteger(ctx,
                                                                                                 "colonyId")))))
-                                .then(Commands.literal("vasaldecline")
+                                .then(Commands.literal("vassaldecline")
                                                 .then(Commands.argument("colonyId", IntegerArgumentType.integer())
                                                                 .executes(ctx -> handleVassalDecline(ctx,
                                                                                 IntegerArgumentType.getInteger(ctx,
@@ -384,7 +384,6 @@ public class WntCommands {
                                 .then(Commands.literal("vasals")
                                                 .executes(WntCommands::handleVassalList))
 
-                                // Admin commands
                                 .then(Commands.literal("taxgen")
                                                 .requires(src -> src.hasPermission(2))
                                                 .then(Commands.literal("disable")
@@ -420,52 +419,58 @@ public class WntCommands {
                                                                                         return 1;
                                                                                 }))))
 
-                                // Debug Tax command - shows detailed tax breakdown
-                                .then(Commands.literal("debugtax")
-                                                .requires(src -> src.hasPermission(2))
-                                                .then(Commands.argument("colony", StringArgumentType.string())
-                                                                .suggests(COLONY_SUGGESTIONS)
-                                                                .executes(ctx -> debugTaxBreakdown(ctx,
-                                                                                extractColonyName(StringArgumentType
-                                                                                                .getString(ctx, "colony"))))))
-
-                                // Entity Raid commands
-                                .then(Commands.literal("entityraid")
-                                                .requires(source -> source.hasPermission(2)) // OP level 2
-                                                .then(Commands.literal("status")
-                                                                .executes(ctx -> {
-                                                                        return net.machiavelli.minecolonytax.commands.EntityRaidCommands
-                                                                                        .showEntityRaidStatus(ctx);
-                                                                }))
-                                                .then(Commands.literal("config")
-                                                                .executes(ctx -> {
-                                                                        return net.machiavelli.minecolonytax.commands.EntityRaidCommands
-                                                                                        .showEntityRaidConfig(ctx);
-                                                                }))
-                                                .then(Commands.literal("end")
-                                                                .then(Commands.argument("colonyId",
-                                                                                IntegerArgumentType.integer())
-                                                                                .executes(ctx -> {
-                                                                                        return net.machiavelli.minecolonytax.commands.EntityRaidCommands
-                                                                                                        .endEntityRaid(ctx);
-                                                                                })))
-                                                .then(Commands.literal("test")
-                                                                .then(Commands.argument("colonyName",
+                                .then(Commands.literal("debug")
+                                                .then(Commands.literal("war")
+                                                                .requires(src -> src.hasPermission(2))
+                                                                .executes(WntCommands::debugWarCommand))
+                                                .then(Commands.literal("guards")
+                                                                .requires(src -> src.hasPermission(2))
+                                                                .executes(WntCommands::debugGuardCounts)
+                                                                .then(Commands.argument("colony",
+                                                                                StringArgumentType.greedyString())
+                                                                                .suggests(COLONY_SUGGESTIONS)
+                                                                                .executes(WntCommands::debugGuardCountsForColony)))
+                                                .then(Commands.literal("tax")
+                                                                .executes(ctx -> DebugTaxCommand.execute(ctx, null))
+                                                                .then(Commands.argument("colony",
                                                                                 StringArgumentType.string())
                                                                                 .suggests(COLONY_SUGGESTIONS)
-                                                                                .executes(ctx -> {
-                                                                                        return net.machiavelli.minecolonytax.commands.EntityRaidCommands
-                                                                                                        .testEntityRaid(ctx);
-                                                                                })))
-                                                .then(Commands.literal("reload")
-                                                                .executes(ctx -> {
-                                                                        return net.machiavelli.minecolonytax.commands.EntityRaidCommands
-                                                                                        .reloadEntityRaidConfig(ctx);
-                                                                })))
+                                                                                .executes(ctx -> DebugTaxCommand.execute(
+                                                                                                ctx,
+                                                                                                extractColonyName(StringArgumentType
+                                                                                                                .getString(ctx, "colony"))))))
+                                                .then(Commands.literal("officertracking")
+                                                                .executes(OfficerTrackingDebugCommand::checkCurrentColony)
+                                                                .then(Commands.argument("colonyId",
+                                                                                IntegerArgumentType.integer())
+                                                                                .executes(OfficerTrackingDebugCommand::checkSpecificColony)))
+                                                .then(Commands.literal("besiege")
+                                                                .executes(WntCommands::handleBesiegeStatus))
+                                                .then(Commands.literal("entityraid")
+                                                                .requires(src -> src.hasPermission(2))
+                                                                .then(Commands.literal("status")
+                                                                                .executes(ctx -> EntityRaidCommands
+                                                                                                .showEntityRaidStatus(ctx)))
+                                                                .then(Commands.literal("config")
+                                                                                .executes(ctx -> EntityRaidCommands
+                                                                                                .showEntityRaidConfig(ctx)))
+                                                                .then(Commands.literal("end")
+                                                                                .then(Commands.argument("colonyId",
+                                                                                                IntegerArgumentType.integer())
+                                                                                                .executes(ctx -> EntityRaidCommands
+                                                                                                                .endEntityRaid(ctx))))
+                                                                .then(Commands.literal("test")
+                                                                                .then(Commands.argument("colonyName",
+                                                                                                StringArgumentType.string())
+                                                                                                .suggests(COLONY_SUGGESTIONS)
+                                                                                                .executes(ctx -> EntityRaidCommands
+                                                                                                                .testEntityRaid(ctx))))
+                                                                .then(Commands.literal("reload")
+                                                                                .executes(ctx -> EntityRaidCommands
+                                                                                                .reloadEntityRaidConfig(ctx)))))
 
-                                // General Permissions commands
                                 .then(Commands.literal("permissions")
-                                                .requires(source -> source.hasPermission(2)) // OP level 2
+                                                .requires(source -> source.hasPermission(2))
                                                 .then(Commands.literal("status")
                                                                 .executes(ctx -> {
                                                                         return net.machiavelli.minecolonytax.commands.GeneralPermissionsCommands
@@ -506,7 +511,6 @@ public class WntCommands {
                                                                                         .reloadGeneralPermissions(ctx);
                                                                 })))
 
-                                // Colony Claiming commands
                                 .then(Commands.literal("claimcolony")
                                                 .executes(WntCommands::showClaimableColonies)
                                                 .then(Commands.argument("colony", StringArgumentType.string())
@@ -520,58 +524,70 @@ public class WntCommands {
                                 .then(Commands.literal("claimstatus")
                                                 .executes(WntCommands::checkClaimingStatus))
                                 .then(Commands.literal("claimraidstatus")
-                                                .requires(source -> source.hasPermission(2)) // Admin only
+                                                .requires(source -> source.hasPermission(2))
                                                 .then(Commands.argument("colony", StringArgumentType.string())
                                                                 .suggests(ABANDONED_COLONY_SUGGESTIONS)
                                                                 .executes(WntCommands::checkClaimingRaidStatus)))
                                 .then(Commands.literal("protectcolony")
-                                                .requires(source -> source.hasPermission(2)) // Admin only
+                                                .requires(source -> source.hasPermission(2))
                                                 .then(Commands.argument("colony", StringArgumentType.string())
                                                                 .suggests(COLONY_SUGGESTIONS)
                                                                 .executes(WntCommands::protectColonyFromClaiming)))
                                 .then(Commands.literal("unprotectcolony")
-                                                .requires(source -> source.hasPermission(2)) // Admin only
+                                                .requires(source -> source.hasPermission(2))
                                                 .then(Commands.argument("colony", StringArgumentType.string())
                                                                 .suggests(COLONY_SUGGESTIONS)
                                                                 .executes(WntCommands::unprotectColonyFromClaiming)))
 
-                                // Admin cleanup and debug commands
                                 .then(Commands.literal("cleanupabandonedentries")
-                                                .requires(source -> source.hasPermission(2)) // Admin only
+                                                .requires(source -> source.hasPermission(2))
                                                 .executes(WntCommands::handleCleanupAbandonedEntries))
 
                                 .then(Commands.literal("debugbossbar")
-                                                .requires(source -> source.hasPermission(2)) // Admin only
+                                                .requires(source -> source.hasPermission(2))
                                                 .then(Commands.argument("colony", StringArgumentType.string())
                                                                 .suggests(COLONY_SUGGESTIONS)
                                                                 .executes(WntCommands::handleDebugBossBar)))
 
                                 .then(Commands.literal("forcecleanupcolony")
-                                                .requires(source -> source.hasPermission(2)) // Admin only
+                                                .requires(source -> source.hasPermission(2))
                                                 .then(Commands.argument("colony", StringArgumentType.string())
                                                                 .suggests(COLONY_SUGGESTIONS)
                                                                 .executes(WntCommands::handleForceCleanupColony)))
 
                                 .then(Commands.literal("emergencyfix")
-                                                .requires(source -> source.hasPermission(2)) // Admin only
+                                                .requires(source -> source.hasPermission(2))
                                                 .executes(WntCommands::handleEmergencyFix))
 
                                 .then(Commands.literal("fixnullowners")
-                                                .requires(source -> source.hasPermission(2)) // Admin only
+                                                .requires(source -> source.hasPermission(2))
                                                 .executes(WntCommands::handleFixNullOwners))
                                 .then(Commands.literal("listprotected")
-                                                .requires(source -> source.hasPermission(2)) // Admin only
+                                                .requires(source -> source.hasPermission(2))
                                                 .executes(WntCommands::listProtectedColonies))
 
-                                // Admin force abandon command
                                 .then(Commands.literal("forceabandon")
-                                                .requires(source -> source.hasPermission(2)) // Admin only
+                                                .requires(source -> source.hasPermission(2))
                                                 .then(Commands.argument("colony", StringArgumentType.string())
                                                                 .suggests(PLAYER_COLONY_SUGGESTIONS)
-                                                                .executes(WntCommands::handleForceAbandonColony))));
+                                                                .executes(WntCommands::handleForceAbandonColony)))
+
+                                .then(Commands.literal("invest")
+                                                .executes(WntCommands::handleInvestHelp)
+                                                .then(Commands.literal("list")
+                                                                .executes(WntCommands::handleInvestList))
+                                                .then(Commands.literal("status")
+                                                                .executes(WntCommands::handleInvestStatus))
+                                                .then(Commands.literal("buy")
+                                                                .then(Commands.argument("type", StringArgumentType.word())
+                                                                                .suggests((context, builder) -> SharedSuggestionProvider
+                                                                                                .suggest(Arrays.stream(UpgradeType.values())
+                                                                                                                .map(Enum::name)
+                                                                                                                .collect(Collectors.toList()),
+                                                                                                                builder))
+                                                                                .executes(WntCommands::handleInvestBuy)))));
         }
 
-        // Main help command
         private static int showMainHelp(CommandContext<CommandSourceStack> context) {
                 return showHelp(context);
         }
@@ -627,11 +643,11 @@ public class WntCommands {
                                 false);
                 source.sendSuccess(
                                 () -> Component.literal(
-                                                "§e/wnt vasalaccept <colonyId> §7- Accept a vassalization proposal"),
+                                                "§e/wnt vassalaccept <colonyId> §7- Accept a vassalization proposal"),
                                 false);
                 source.sendSuccess(
                                 () -> Component.literal(
-                                                "§e/wnt vasaldecline <colonyId> §7- Decline a vassalization proposal"),
+                                                "§e/wnt vassaldecline <colonyId> §7- Decline a vassalization proposal"),
                                 false);
                 source.sendSuccess(
                                 () -> Component.literal(
@@ -653,15 +669,10 @@ public class WntCommands {
 
                 if (source.hasPermission(2)) {
                         source.sendSuccess(() -> Component.literal("§cAdmin Commands:"), false);
-                        source.sendSuccess(() -> Component.literal("§e/wnt wardebug §7- Debug war information"), false);
                         source.sendSuccess(() -> Component.literal("§e/wnt warstop <colony> §7- Stop specific war"),
                                         false);
                         source.sendSuccess(() -> Component.literal("§e/wnt warstopall §7- Stop all wars"), false);
                         source.sendSuccess(() -> Component.literal("§e/wnt raidstop §7- Stop active raid"), false);
-                        source.sendSuccess(
-                                        () -> Component.literal(
-                                                        "§e/wnt debugguards [colony] §7- Debug guard/tower counting"),
-                                        false);
                         source.sendSuccess(
                                         () -> Component.literal(
                                                         "§e/wnt forceabandon <colony> §7- Force abandon a colony (admin only)"),
@@ -685,25 +696,30 @@ public class WntCommands {
                                         () -> Component.literal(
                                                         "§e/wnt taxgen disable/enable <colonyId> §7- Control tax generation"),
                                         false);
+                        source.sendSuccess(() -> Component.literal("§cDebug Commands:"), false);
                         source.sendSuccess(
                                         () -> Component.literal(
-                                                        "§e/wnt entityraid status §7- Show active entity raids"),
+                                                        "§e/wnt debug war §7- Debug all active wars (admin)"),
                                         false);
                         source.sendSuccess(
                                         () -> Component.literal(
-                                                        "§e/wnt entityraid config §7- Show entity raid configuration"),
+                                                        "§e/wnt debug guards [colony] §7- Debug guard/tower counting (admin)"),
                                         false);
                         source.sendSuccess(
                                         () -> Component.literal(
-                                                        "§e/wnt entityraid end <colonyId> §7- End active entity raid"),
+                                                        "§e/wnt debug tax [colony] §7- Per-building tax breakdown"),
                                         false);
                         source.sendSuccess(
                                         () -> Component.literal(
-                                                        "§e/wnt entityraid test <colony> §7- Test entity raid system"),
+                                                        "§e/wnt debug officertracking [colonyId] §7- Officer visit tracking"),
                                         false);
                         source.sendSuccess(
                                         () -> Component.literal(
-                                                        "§e/wnt entityraid reload §7- Reload entity raid config"),
+                                                        "§e/wnt debug besiege §7- Active siege/occupation status"),
+                                        false);
+                        source.sendSuccess(
+                                        () -> Component.literal(
+                                                        "§e/wnt debug entityraid <status|config|end|test|reload> §7- Entity raid tools (admin)"),
                                         false);
                         source.sendSuccess(() -> Component
                                         .literal("§e/wnt permissions status §7- Show general permissions status"),
@@ -942,21 +958,17 @@ public class WntCommands {
                                                 false);
                                 break;
 
-                        case "debugguards":
+                        case "debug":
+                                source.sendSuccess(() -> Component.literal("§6/wnt debug <subcommand>"), false);
+                                source.sendSuccess(() -> Component.literal("§7Debug and status tools for all systems."), false);
+                                source.sendSuccess(() -> Component.literal("§7Subcommands:"), false);
+                                source.sendSuccess(() -> Component.literal("§7- tax [colony] §8— per-building tax/maint breakdown (own colony or admin any)"), false);
+                                source.sendSuccess(() -> Component.literal("§7- officertracking [colonyId] §8— officer visit data (own colony or admin any)"), false);
+                                source.sendSuccess(() -> Component.literal("§7- besiege §8— active siege and occupation status"), false);
                                 if (source.hasPermission(2)) {
-                                        source.sendSuccess(() -> Component.literal("§c/wnt debugguards [colony]"),
-                                                        false);
-                                        source.sendSuccess(
-                                                        () -> Component.literal(
-                                                                        "§7Debug guard and guard tower counting for raid protection."),
-                                                        false);
-                                        source.sendSuccess(
-                                                        () -> Component
-                                                                        .literal("§7Shows detection results for the specified colony or your colony."),
-                                                        false);
-                                } else {
-                                        source.sendFailure(Component
-                                                        .literal("§cYou don't have permission to view this command."));
+                                        source.sendSuccess(() -> Component.literal("§c- war §8— all active war debug info (admin)"), false);
+                                        source.sendSuccess(() -> Component.literal("§c- guards [colony] §8— guard/tower detection (admin)"), false);
+                                        source.sendSuccess(() -> Component.literal("§c- entityraid status|config|end|test|reload §8— entity raid tools (admin)"), false);
                                 }
                                 break;
 
@@ -976,8 +988,8 @@ public class WntCommands {
                                                 false);
                                 break;
 
-                        case "vasalaccept":
-                                source.sendSuccess(() -> Component.literal("§6/wnt vasalaccept <colonyId>"), false);
+                        case "vassalaccept":
+                                source.sendSuccess(() -> Component.literal("§6/wnt vassalaccept <colonyId>"), false);
                                 source.sendSuccess(
                                                 () -> Component.literal(
                                                                 "§7Accept a vassalization proposal from a colony."),
@@ -988,8 +1000,8 @@ public class WntCommands {
                                                 false);
                                 break;
 
-                        case "vasaldecline":
-                                source.sendSuccess(() -> Component.literal("§6/wnt vasaldecline <colonyId>"), false);
+                        case "vassaldecline":
+                                source.sendSuccess(() -> Component.literal("§6/wnt vassaldecline <colonyId>"), false);
                                 source.sendSuccess(
                                                 () -> Component.literal(
                                                                 "§7Decline a vassalization proposal from a colony."),
@@ -1018,18 +1030,6 @@ public class WntCommands {
                                 break;
 
                         // Admin commands
-                        case "wardebug":
-                                if (source.hasPermission(2)) {
-                                        source.sendSuccess(() -> Component.literal("§c/wnt wardebug"), false);
-                                        source.sendSuccess(() -> Component
-                                                        .literal("§7Show debug information for all active wars."),
-                                                        false);
-                                } else {
-                                        source.sendFailure(Component
-                                                        .literal("§cYou don't have permission to view this command."));
-                                }
-                                break;
-
                         case "warstop":
                                 if (source.hasPermission(2)) {
                                         source.sendSuccess(() -> Component.literal("§c/wnt warstop <colony>"), false);
@@ -1073,43 +1073,6 @@ public class WntCommands {
                                                         false);
                                         source.sendSuccess(() -> Component
                                                         .literal("§7Control tax generation for specific colonies."),
-                                                        false);
-                                } else {
-                                        source.sendFailure(Component
-                                                        .literal("§cYou don't have permission to view this command."));
-                                }
-                                break;
-
-                        case "entityraid":
-                                if (source.hasPermission(2)) {
-                                        source.sendSuccess(() -> Component.literal("§c/wnt entityraid <subcommand>"),
-                                                        false);
-                                        source.sendSuccess(
-                                                        () -> Component.literal(
-                                                                        "§7Manage entity-triggered raids on colonies."),
-                                                        false);
-                                        source.sendSuccess(() -> Component.literal("§7Subcommands:"), false);
-                                        source.sendSuccess(
-                                                        () -> Component.literal("§7- status: Show active entity raids"),
-                                                        false);
-                                        source.sendSuccess(
-                                                        () -> Component.literal(
-                                                                        "§7- config: Show current configuration"),
-                                                        false);
-                                        source.sendSuccess(() -> Component
-                                                        .literal("§7- end <colonyId>: End an active entity raid"),
-                                                        false);
-                                        source.sendSuccess(() -> Component
-                                                        .literal("§7- test <colony>: Test the entity raid system"),
-                                                        false);
-                                        source.sendSuccess(() -> Component.literal("§7- reload: Reload configuration"),
-                                                        false);
-                                        source.sendSuccess(() -> Component
-                                                        .literal("§7Entity raids are triggered when a configurable"),
-                                                        false);
-                                        source.sendSuccess(
-                                                        () -> Component.literal(
-                                                                        "§7number of whitelisted entities gather near colonies."),
                                                         false);
                                 } else {
                                         source.sendFailure(Component
@@ -1395,6 +1358,206 @@ public class WntCommands {
                 return getRaidManager().handleRaid(context);
         }
 
+        private static int handlePermCheckCommand(CommandContext<CommandSourceStack> ctx) {
+                net.minecraft.server.MinecraftServer server = ctx.getSource().getServer();
+                net.machiavelli.minecolonytax.permissions.PermissionsHealthCheck.Result result =
+                        net.machiavelli.minecolonytax.permissions.PermissionsHealthCheck.run(server);
+                ctx.getSource().sendSuccess(
+                        () -> net.minecraft.network.chat.Component.literal(
+                                "§a[PermCheck] §f" + result.summary()),
+                        true);
+                return com.mojang.brigadier.Command.SINGLE_SUCCESS;
+        }
+
+        private static int handleBesiegeCommand(CommandContext<CommandSourceStack> ctx) {
+                try {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        String colonyArg = StringArgumentType.getString(ctx, "colony");
+
+                        if (!TaxConfig.isBesiegeSystemEnabled()) {
+                                player.sendSystemMessage(Component.literal("The besiege system is disabled on this server.")
+                                                .withStyle(ChatFormatting.RED));
+                                return 0;
+                        }
+
+                        // Resolve colony by name
+                        IColony target = IMinecoloniesAPI.getInstance().getColonyManager().getAllColonies().stream()
+                                        .filter(c -> c.getName().equalsIgnoreCase(colonyArg))
+                                        .findFirst()
+                                        .orElse(null);
+
+                        if (target == null) {
+                                player.sendSystemMessage(Component.literal("Colony not found: " + colonyArg)
+                                                .withStyle(ChatFormatting.RED));
+                                return 0;
+                        }
+
+                        // If the colony is already besieged AND the player is the former owner -> reclaim
+                        if (BesiegeManager.isColonyBesieged(target.getID())) {
+                                BesiegeManager.BesiegeOccupationData occ = BesiegeManager.getOccupation(target.getID());
+                                if (occ != null && player.getUUID().equals(occ.formerOwnerUUID)) {
+                                        boolean started = BesiegeManager.startReclaim(target, player);
+                                        return started ? 1 : 0;
+                                }
+                                player.sendSystemMessage(Component.literal(
+                                                "This colony is already under besiege occupation. Only the former owner can reclaim it.")
+                                                .withStyle(ChatFormatting.RED));
+                                return 0;
+                        }
+
+                        boolean started = BesiegeManager.startBesiege(target, player);
+                        return started ? 1 : 0;
+
+                } catch (CommandSyntaxException e) {
+                        ctx.getSource().sendFailure(Component.literal("You must be a player to use this command."));
+                        return 0;
+                } catch (Exception e) {
+                        LOGGER.error("Error handling besiege command", e);
+                        return 0;
+                }
+        }
+
+        private static int handleBesiegeStatus(CommandContext<CommandSourceStack> ctx) {
+                CommandSourceStack src = ctx.getSource();
+                if (src.hasPermission(2)) {
+                        return showBesiegeStatusAdmin(src);
+                }
+                try {
+                        return showBesiegeStatusPlayer(src, src.getPlayerOrException());
+                } catch (CommandSyntaxException e) {
+                        src.sendFailure(Component.literal("You must be a player to use this command."));
+                        return 0;
+                }
+        }
+
+        private static int showBesiegeStatusAdmin(CommandSourceStack src) {
+                Map<Integer, BesiegeManager.BesiegeRaidData> raids = BesiegeManager.getActiveRaids();
+                Map<Integer, BesiegeManager.BesiegeOccupationData> occupations = BesiegeManager.getAllOccupations();
+                IColonyManager cm = IMinecoloniesAPI.getInstance().getColonyManager();
+
+                src.sendSuccess(() -> Component.literal("=== Besiege Status (Admin) ===")
+                                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+
+                src.sendSuccess(() -> Component.literal("Active Raids (" + raids.size() + "):")
+                                .withStyle(ChatFormatting.YELLOW), false);
+                if (raids.isEmpty()) {
+                        src.sendSuccess(() -> Component.literal("  None").withStyle(ChatFormatting.GRAY), false);
+                } else {
+                        for (BesiegeManager.BesiegeRaidData raid : raids.values()) {
+                                String colonyName = cm.getAllColonies().stream()
+                                                .filter(c -> c.getID() == raid.colonyId)
+                                                .map(IColony::getName)
+                                                .findFirst().orElse("Colony#" + raid.colonyId);
+                                ServerPlayer besieger = src.getServer().getPlayerList().getPlayer(raid.besiegingPlayerUUID);
+                                String besiegerName = besieger != null ? besieger.getName().getString() : raid.besiegingPlayerUUID.toString();
+                                long elapsedMin = (System.currentTimeMillis() - raid.startTime) / 60000;
+                                String label = raid.isReclaim ? " (RECLAIM)" : "";
+                                final String line = String.format("  \u2022 %s (ID: %d) \u2014 besieged by %s \u2014 %dm elapsed%s",
+                                                colonyName, raid.colonyId, besiegerName, elapsedMin, label);
+                                src.sendSuccess(() -> Component.literal(line).withStyle(ChatFormatting.WHITE), false);
+                        }
+                }
+
+                src.sendSuccess(() -> Component.literal("Occupations (" + occupations.size() + "):")
+                                .withStyle(ChatFormatting.YELLOW), false);
+                if (occupations.isEmpty()) {
+                        src.sendSuccess(() -> Component.literal("  None").withStyle(ChatFormatting.GRAY), false);
+                } else {
+                        for (BesiegeManager.BesiegeOccupationData occ : occupations.values()) {
+                                ServerPlayer besieger = src.getServer().getPlayerList().getPlayer(occ.besiegingPlayerUUID);
+                                String besiegerName = besieger != null ? besieger.getName().getString() : occ.besiegingPlayerUUID.toString();
+                                ServerPlayer formerOwner = occ.formerOwnerUUID != null
+                                                ? src.getServer().getPlayerList().getPlayer(occ.formerOwnerUUID) : null;
+                                String formerOwnerName = formerOwner != null ? formerOwner.getName().getString()
+                                                : (occ.formerOwnerUUID != null ? occ.formerOwnerUUID.toString() : "unknown");
+                                final String line = String.format("  \u2022 %s (ID: %d) \u2014 besieged by %s, former owner: %s \u2014 tribute: %d%%",
+                                                occ.colonyName, occ.colonyId, besiegerName, formerOwnerName, occ.tributePercent);
+                                src.sendSuccess(() -> Component.literal(line).withStyle(ChatFormatting.WHITE), false);
+                        }
+                }
+
+                src.sendSuccess(() -> Component.literal("==============================")
+                                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+                return 1;
+        }
+
+        private static int showBesiegeStatusPlayer(CommandSourceStack src, ServerPlayer player) {
+                UUID playerUUID = player.getUUID();
+                IColonyManager cm = IMinecoloniesAPI.getInstance().getColonyManager();
+                Map<Integer, BesiegeManager.BesiegeRaidData> raids = BesiegeManager.getActiveRaids();
+                Map<Integer, BesiegeManager.BesiegeOccupationData> occupations = BesiegeManager.getAllOccupations();
+
+                List<BesiegeManager.BesiegeRaidData> myRaids = raids.values().stream()
+                                .filter(r -> {
+                                        if (r.besiegingPlayerUUID.equals(playerUUID)) return true;
+                                        return cm.getAllColonies().stream()
+                                                        .filter(c -> c.getID() == r.colonyId)
+                                                        .anyMatch(c -> {
+                                                                var rank = c.getPermissions().getRank(playerUUID);
+                                                                return rank != null && rank.isColonyManager();
+                                                        });
+                                })
+                                .collect(Collectors.toList());
+
+                List<BesiegeManager.BesiegeOccupationData> myOccupations = occupations.values().stream()
+                                .filter(o -> o.besiegingPlayerUUID.equals(playerUUID)
+                                                || (o.formerOwnerUUID != null && o.formerOwnerUUID.equals(playerUUID)))
+                                .collect(Collectors.toList());
+
+                if (myRaids.isEmpty() && myOccupations.isEmpty()) {
+                        src.sendSuccess(() -> Component.literal("No active besiegements for your colonies.")
+                                        .withStyle(ChatFormatting.GRAY), false);
+                        return 1;
+                }
+
+                src.sendSuccess(() -> Component.literal("=== Besiege Status ===")
+                                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+
+                if (!myRaids.isEmpty()) {
+                        src.sendSuccess(() -> Component.literal("Active Raids:").withStyle(ChatFormatting.YELLOW), false);
+                        for (BesiegeManager.BesiegeRaidData raid : myRaids) {
+                                String colonyName = cm.getAllColonies().stream()
+                                                .filter(c -> c.getID() == raid.colonyId)
+                                                .map(IColony::getName)
+                                                .findFirst().orElse("Colony#" + raid.colonyId);
+                                long elapsedMin = (System.currentTimeMillis() - raid.startTime) / 60000;
+                                long remainingMin = Math.max(0, raid.endTime - System.currentTimeMillis()) / 60000;
+                                final String line;
+                                if (raid.besiegingPlayerUUID.equals(playerUUID)) {
+                                        line = String.format("  \u2022 %s (ID: %d) \u2014 you are besieging \u2014 %dm elapsed, %dm remaining",
+                                                        colonyName, raid.colonyId, elapsedMin, remainingMin);
+                                } else {
+                                        ServerPlayer besieger = src.getServer().getPlayerList().getPlayer(raid.besiegingPlayerUUID);
+                                        String besiegerName = besieger != null ? besieger.getName().getString() : raid.besiegingPlayerUUID.toString();
+                                        line = String.format("  \u2022 %s (ID: %d) \u2014 besieged by %s \u2014 %dm elapsed, %dm remaining",
+                                                        colonyName, raid.colonyId, besiegerName, elapsedMin, remainingMin);
+                                }
+                                src.sendSuccess(() -> Component.literal(line).withStyle(ChatFormatting.WHITE), false);
+                        }
+                }
+
+                if (!myOccupations.isEmpty()) {
+                        src.sendSuccess(() -> Component.literal("Occupied Colonies:").withStyle(ChatFormatting.YELLOW), false);
+                        for (BesiegeManager.BesiegeOccupationData occ : myOccupations) {
+                                final String line;
+                                if (occ.besiegingPlayerUUID.equals(playerUUID)) {
+                                        line = String.format("  \u2022 %s (ID: %d) \u2014 you occupy it \u2014 tribute: %d%%",
+                                                        occ.colonyName, occ.colonyId, occ.tributePercent);
+                                } else {
+                                        ServerPlayer besieger = src.getServer().getPlayerList().getPlayer(occ.besiegingPlayerUUID);
+                                        String besiegerName = besieger != null ? besieger.getName().getString() : occ.besiegingPlayerUUID.toString();
+                                        line = String.format("  \u2022 %s (ID: %d) \u2014 occupied by %s \u2014 tribute: %d%%",
+                                                        occ.colonyName, occ.colonyId, besiegerName, occ.tributePercent);
+                                }
+                                src.sendSuccess(() -> Component.literal(line).withStyle(ChatFormatting.WHITE), false);
+                        }
+                }
+
+                src.sendSuccess(() -> Component.literal("======================")
+                                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+                return 1;
+        }
+
         private static int joinWarCommand(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
                 ServerPlayer player = ctx.getSource().getPlayerOrException();
                 WarData war = WarSystem.getActiveWarForPlayer(player);
@@ -1519,59 +1682,68 @@ public class WntCommands {
         }
 
         private static int debugWarCommand(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+                CommandSourceStack src = ctx.getSource();
                 if (WarSystem.ACTIVE_WARS.isEmpty()) {
-                        ctx.getSource()
-                                        .sendFailure(Component.literal("No active wars at the moment!")
-                                                        .withStyle(ChatFormatting.RED));
-                        return 0;
+                        src.sendSuccess(() -> Component.literal("No active wars.").withStyle(ChatFormatting.GRAY),
+                                        false);
+                        return 1;
                 }
-                StringBuilder sb = new StringBuilder();
+                src.sendSuccess(
+                                () -> Component.literal("=== War Debug (" + WarSystem.ACTIVE_WARS.size() + " active) ===")
+                                                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
+                                false);
                 for (WarData war : WarSystem.ACTIVE_WARS.values()) {
-                        String attackerColName = (war.getAttackerColony() != null) ? war.getAttackerColony().getName()
-                                        : "UnknownAttackerColony";
-                        String defenderColName = (war.getColony() != null) ? war.getColony().getName()
-                                        : "UnknownDefenderColony";
-                        String status = (war.getStatus() != null) ? war.getStatus().toString() : "UNKNOWN";
+                        String atkName = war.getAttackerColony() != null ? war.getAttackerColony().getName() : "?";
+                        String defName = war.getColony() != null ? war.getColony().getName() : "?";
+                        String status = war.getStatus() != null ? war.getStatus().toString() : "UNKNOWN";
                         long now = System.currentTimeMillis();
                         long remaining;
-                        String remainingStr;
-
+                        String phase;
                         if (war.isJoinPhaseActive()) {
-                                // During join phase, show time until join phase ends
                                 remaining = Math.max(0, (war.getJoinPhaseEndTime() - now) / 1000);
-                                remainingStr = String.format("%02d:%02d", remaining / 60, remaining % 60);
+                                phase = "JOIN";
                         } else {
-                                // During active war, show time until war ends
                                 long warDuration = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
-                                long elapsed = (now - war.warStartTime) / 1000;
-                                remaining = Math.max(0, warDuration - elapsed);
-                                remainingStr = String.format("%02d:%02d", remaining / 60, remaining % 60);
+                                remaining = Math.max(0, warDuration - (now - war.warStartTime) / 1000);
+                                phase = "ACTIVE";
                         }
+                        final String timeStr = String.format("%dm%ds", remaining / 60, remaining % 60);
+                        final String heading = "§e§l" + atkName + " vs " + defName
+                                        + "§r  §7[" + phase + " | " + status + "]  " + timeStr + " left";
+                        src.sendSuccess(() -> Component.literal(heading), false);
 
-                        sb.append("\n§e§lWar Report: ").append(attackerColName).append(" vs ").append(defenderColName)
-                                        .append("\n");
-                        sb.append("§eWar ID: §f").append(war.getWarID()).append("\n");
-                        sb.append("§eStatus: §f").append(status).append("\n");
-                        sb.append("§eTime Remaining: §f").append(remainingStr).append("\n");
-                        sb.append("------------------------------------------\n");
-                        sb.append("§bAttacker Team:\n");
+                        StringBuilder atkBuf = new StringBuilder("  §bATK: ");
                         war.getAttackerLives().forEach((uuid, lives) -> {
-                                ServerPlayer sp = ctx.getSource().getServer().getPlayerList().getPlayer(uuid);
-                                String name = (sp != null) ? sp.getName().getString() : "OfflinePlayer";
-                                sb.append("  ").append(name).append(" - ").append(lives).append(" lives\n");
+                                ServerPlayer sp = src.getServer().getPlayerList().getPlayer(uuid);
+                                String pName = sp != null ? sp.getName().getString()
+                                                : uuid.toString().substring(0, 8) + "~";
+                                atkBuf.append(pName).append("(").append(lives).append("L) ");
                         });
-                        sb.append("§bDefender Team:\n");
+                        if (war.getAttackerLives().isEmpty())
+                                atkBuf.append("§7none");
+                        final String atkLine = atkBuf.toString();
+                        src.sendSuccess(() -> Component.literal(atkLine), false);
+
+                        StringBuilder defBuf = new StringBuilder("  §aDEF: ");
                         war.getDefenderLives().forEach((uuid, lives) -> {
-                                ServerPlayer sp = ctx.getSource().getServer().getPlayerList().getPlayer(uuid);
-                                String name = (sp != null) ? sp.getName().getString() : "OfflinePlayer";
-                                sb.append("  ").append(name).append(" - ").append(lives).append(" lives\n");
+                                ServerPlayer sp = src.getServer().getPlayerList().getPlayer(uuid);
+                                String pName = sp != null ? sp.getName().getString()
+                                                : uuid.toString().substring(0, 8) + "~";
+                                defBuf.append(pName).append("(").append(lives).append("L) ");
                         });
-                        sb.append("§eGuard Count:\n");
-                        sb.append(attackerColName).append(" = ").append(war.getRemainingAttackerGuards()).append("\n");
-                        sb.append(defenderColName).append(" = ").append(war.getRemainingDefenderGuards()).append("\n");
-                        sb.append("§6==========================\n");
+                        if (war.getDefenderLives().isEmpty())
+                                defBuf.append("§7none");
+                        final String defLine = defBuf.toString();
+                        src.sendSuccess(() -> Component.literal(defLine), false);
+
+                        final int atkGuards = war.getRemainingAttackerGuards();
+                        final int defGuards = war.getRemainingDefenderGuards();
+                        final String guardLine = "  §fGuards: §7" + atkName + "=" + atkGuards
+                                        + "   " + defName + "=" + defGuards;
+                        src.sendSuccess(() -> Component.literal(guardLine), false);
                 }
-                ctx.getSource().sendSuccess(() -> Component.literal(sb.toString()), false);
+                src.sendSuccess(() -> Component.literal("===========================")
+                                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
                 return 1;
         }
 
@@ -1783,41 +1955,52 @@ public class WntCommands {
                 }
         }
 
-        private static int checkTaxForPlayer(CommandContext<CommandSourceStack> context, String playerName) {
+        private static int checkTaxForPlayer(CommandContext<CommandSourceStack> context, String playerArg) {
                 CommandSourceStack source = context.getSource();
-                var targetPlayer = source.getServer().getPlayerList().getPlayerByName(playerName);
+                IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
+                var targetPlayer = source.getServer().getPlayerList().getPlayerByName(playerArg);
 
                 if (targetPlayer != null) {
-                        var server = source.getServer();
-                        if (server == null) {
-                                source.sendFailure(Component.literal("Unable to retrieve server instance."));
-                                return 0;
-                        }
-
-                        IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-                        List<IColony> colonies = colonyManager.getAllColonies();
-
+                        // Online player — search by UUID
                         boolean foundColonies = false;
-
-                        for (IColony colony : colonies) {
+                        for (IColony colony : colonyManager.getAllColonies()) {
                                 var playerRank = colony.getPermissions().getRank(targetPlayer.getUUID());
                                 if (playerRank.isColonyManager()) {
                                         foundColonies = true;
                                         int taxRevenue = net.machiavelli.minecolonytax.TaxManager
                                                         .getStoredTaxForColony(colony);
                                         source.sendSuccess(() -> Component.translatable("command.checktax.other",
-                                                        playerName,
-                                                        colony.getName(), taxRevenue), false);
+                                                        playerArg, colony.getName(), taxRevenue), false);
                                 }
                         }
-
                         if (!foundColonies) {
                                 source.sendFailure(Component.translatable("command.checktax.no_colonies"));
                         }
                 } else {
-                        source.sendFailure(Component.translatable("command.checktax.player_not_found", playerName));
+                        // Offline player — fall back to colony name or numeric ID
+                        IColony colony = resolveColonyByNameOrId(colonyManager, playerArg);
+                        if (colony == null) {
+                                source.sendFailure(Component.literal("Player or colony not found: " + playerArg));
+                                return 0;
+                        }
+                        int taxRevenue = net.machiavelli.minecolonytax.TaxManager.getStoredTaxForColony(colony);
+                        final String colonyName = colony.getName();
+                        source.sendSuccess(() -> Component.literal("[Admin] Colony '" + colonyName + "' stored tax: " + taxRevenue), false);
                 }
                 return 1;
+        }
+
+        private static IColony resolveColonyByNameOrId(IColonyManager mgr, String arg) {
+                try {
+                        int id = Integer.parseInt(arg);
+                        for (IColony c : mgr.getAllColonies()) {
+                                if (c.getID() == id) return c;
+                        }
+                } catch (NumberFormatException ignored) {}
+                for (IColony c : mgr.getAllColonies()) {
+                        if (c.getName().equalsIgnoreCase(arg)) return c;
+                }
+                return null;
         }
 
         private static int executeTaxDebt(CommandContext<CommandSourceStack> context, String colonyName, int amount)
@@ -1912,8 +2095,9 @@ public class WntCommands {
                 }
 
                 var rank = colony.getPermissions().getRank(player.getUUID());
-                if (rank == null || !rank.isColonyManager()) {
-                        src.sendFailure(Component.literal("You must be a colony officer to view history."));
+                boolean isAdmin = src.hasPermission(2);
+                if (!isAdmin && (rank == null || !rank.isColonyManager())) {
+                        src.sendFailure(Component.literal("You must be a colony officer or admin to view war history."));
                         return 0;
                 }
 
@@ -1989,7 +2173,76 @@ public class WntCommands {
                 return 1;
         }
 
+        private static int executeColonyLog(CommandContext<CommandSourceStack> ctx, String colonyArg, int page)
+                        throws CommandSyntaxException {
+                CommandSourceStack src = ctx.getSource();
+                ServerPlayer player;
+                try {
+                        player = src.getPlayerOrException();
+                } catch (Exception e) {
+                        src.sendFailure(Component.literal("You must be a player to run this command."));
+                        return 0;
+                }
+
+                IColony colony = resolveColony(src, player, colonyArg);
+                if (colony == null) {
+                        src.sendFailure(Component.literal("Colony not found. Specify a colony name or stand near one."));
+                        return 0;
+                }
+
+                java.util.List<net.machiavelli.minecolonytax.data.HistoryManager.ColonyLogEntry> log =
+                        net.machiavelli.minecolonytax.data.HistoryManager.getLog(colony.getID());
+
+                if (log.isEmpty()) {
+                        src.sendSuccess(() -> Component.literal("No activity log entries for colony \""
+                                + colony.getName() + "\" yet."), false);
+                        return 1;
+                }
+
+                final int PAGE_SIZE = 10;
+                int totalPages = (log.size() + PAGE_SIZE - 1) / PAGE_SIZE;
+                int p = Math.max(1, Math.min(page, totalPages));
+                // Show newest-first: reverse slice
+                int fromEnd = (p - 1) * PAGE_SIZE;
+                int startIdx = Math.max(0, log.size() - fromEnd - PAGE_SIZE);
+                int endIdx   = log.size() - fromEnd;
+
+                src.sendSuccess(() -> Component.literal(String.format(
+                        "§6=== Colony Log: %s (page %d/%d, %d entries) ===",
+                        colony.getName(), p, totalPages, log.size())), false);
+
+                String[] COLORS = { "§a", "§b", "§e", "§d", "§c" };
+                java.util.Map<String, String> catColors = new java.util.HashMap<>();
+                catColors.put("TAX", "§7");
+                catColors.put("RAID", "§c");
+                catColors.put("WAR", "§e");
+                catColors.put("SPY", "§5");
+                catColors.put("EVENT", "§b");
+                catColors.put("TRIBUTE", "§a");
+                catColors.put("TREASURY", "§6");
+
+                for (int i = endIdx - 1; i >= startIdx; i--) {
+                        net.machiavelli.minecolonytax.data.HistoryManager.ColonyLogEntry entry = log.get(i);
+                        String color = catColors.getOrDefault(entry.getCategory(), "§f");
+                        String line = String.format("§8[%s] %s[%-8s]§r %s",
+                                entry.getFormattedTimestamp(), color, entry.getCategory(), entry.getSummary());
+                        src.sendSuccess(() -> Component.literal(line), false);
+                }
+
+                if (totalPages > 1) {
+                        int nextPage = p + 1;
+                        String hint = nextPage <= totalPages
+                                ? String.format("§7Page %d/%d — use /wnt colonylog %s %d for next page",
+                                        p, totalPages, colony.getName(), nextPage)
+                                : String.format("§7Page %d/%d (last)", p, totalPages);
+                        src.sendSuccess(() -> Component.literal(hint), false);
+                }
+
+                return 1;
+        }
+
         private static IColony resolveColony(CommandSourceStack src, ServerPlayer player, String colonyArg) {
+                boolean isAdmin = src.hasPermission(2);
                 IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
 
                 if (colonyArg != null) {
@@ -1998,10 +2251,10 @@ public class WntCommands {
                                 int id = Integer.parseInt(colonyArg);
                                 return colonyManager.getColonyByDimension(id, player.level().dimension());
                         } catch (NumberFormatException ignored) {
-                                // Not an ID, try by name
+                                // Not an ID, try by name — admins can access any colony
                                 return colonyManager.getAllColonies().stream()
                                                 .filter(c -> c.getName().equalsIgnoreCase(colonyArg))
-                                                .filter(c -> c.getPermissions().getRank(player.getUUID())
+                                                .filter(c -> isAdmin || c.getPermissions().getRank(player.getUUID())
                                                                 .isColonyManager())
                                                 .findFirst().orElse(null);
                         }
@@ -2169,84 +2422,51 @@ public class WntCommands {
         }
 
         private static int performGuardDebug(CommandSourceStack source, IColony colony) {
-                // Count guards and guard towers
                 int guardCount = net.machiavelli.minecolonytax.WarSystem.countGuards(colony);
                 int guardTowerCount = net.machiavelli.minecolonytax.WarSystem.countGuardTowers(colony);
-
-                // Get protection requirements
-                int minGuardsRequired = net.machiavelli.minecolonytax.TaxConfig.getMinGuardsToBeRaided();
-                int minGuardTowersRequired = net.machiavelli.minecolonytax.TaxConfig.getMinGuardTowersToBeRaided();
+                int minGuards = net.machiavelli.minecolonytax.TaxConfig.getMinGuardsToBeRaided();
+                int minTowers = net.machiavelli.minecolonytax.TaxConfig.getMinGuardTowersToBeRaided();
                 boolean protectionEnabled = net.machiavelli.minecolonytax.TaxConfig.isRaidGuardProtectionEnabled();
+                boolean guardOk = guardCount >= minGuards;
+                boolean towerOk = guardTowerCount >= minTowers;
+                boolean immune = protectionEnabled && guardOk && towerOk;
 
-                // Determine protection status
-                boolean guardProtection = guardCount >= minGuardsRequired;
-                boolean towerProtection = guardTowerCount >= minGuardTowersRequired;
-                boolean fullyProtected = protectionEnabled && guardProtection && towerProtection;
-
-                // Send debug report
                 source.sendSuccess(
-                                () -> Component.literal(
-                                                "§6=== Guard Debug Report for Colony: " + colony.getName() + " ==="),
+                                () -> Component.literal("=== Guard Debug: " + colony.getName()
+                                                + " (ID: " + colony.getID() + ") ===")
+                                                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
                                 false);
-                source.sendSuccess(() -> Component.literal("§7Colony ID: " + colony.getID()), false);
-                source.sendSuccess(() -> Component.literal(""), false);
 
-                source.sendSuccess(() -> Component.literal("§eGuard Counts:"), false);
-                source.sendSuccess(
-                                () -> Component.literal("§7Guards found: " + guardCount + " (required: "
-                                                + minGuardsRequired + ") " +
-                                                (guardProtection ? "§a✓" : "§c✗")),
-                                false);
-                source.sendSuccess(() -> Component
-                                .literal("§7Guard towers found: " + guardTowerCount + " (required: "
-                                                + minGuardTowersRequired + ") " +
-                                                (towerProtection ? "§a✓" : "§c✗")),
-                                false);
-                source.sendSuccess(() -> Component.literal(""), false);
+                final String countLine = "  Guards: " + guardCount + "/" + minGuards + " "
+                                + (guardOk ? "§a✓" : "§c✗") + "   Towers: " + guardTowerCount + "/" + minTowers + " "
+                                + (towerOk ? "§a✓" : "§c✗");
+                source.sendSuccess(() -> Component.literal(countLine), false);
 
-                source.sendSuccess(() -> Component.literal("§eProtection Status:"), false);
-                source.sendSuccess(() -> Component.literal("§7Raid Guard Protection: " +
-                                (protectionEnabled ? "§aEnabled" : "§cDisabled")), false);
-                source.sendSuccess(() -> Component.literal("§7Can be raided: " +
-                                (fullyProtected ? "§cNo (protected)" : "§aYes (vulnerable)")), false);
-                source.sendSuccess(() -> Component.literal(""), false);
+                final String statusLine = "  Raid protection: "
+                                + (protectionEnabled ? "" : "§7disabled — ")
+                                + (immune ? "§cImmune (protected)" : "§aVulnerable to raids");
+                source.sendSuccess(() -> Component.literal(statusLine), false);
 
-                // Show detailed building analysis
-                source.sendSuccess(() -> Component.literal("§eBuilding Analysis:"), false);
-
-                java.util.concurrent.atomic.AtomicInteger totalBuildings = new java.util.concurrent.atomic.AtomicInteger(
-                                0);
-                java.util.concurrent.atomic.AtomicInteger guardTowersDetected = new java.util.concurrent.atomic.AtomicInteger(
-                                0);
-
-                for (com.minecolonies.api.colony.buildings.IBuilding building : colony.getBuildingManager()
-                                .getBuildings()
-                                .values()) {
-                        totalBuildings.incrementAndGet();
-                        String displayName = building.getBuildingDisplayName();
-                        String className = building.getClass().getName();
-                        boolean isGuardTower = net.machiavelli.minecolonytax.WarSystem.isGuardTower(building);
-
-                        if (isGuardTower) {
-                                guardTowersDetected.incrementAndGet();
-                                source.sendSuccess(
-                                                () -> Component.literal("§7Found Guard Tower: " + displayName
-                                                                + " (class: " + className + ")"),
-                                                false);
+                // Collect guard tower names
+                List<String> towerList = new ArrayList<>();
+                int totalBuildings = 0;
+                for (com.minecolonies.api.colony.buildings.IBuilding b : ColonyBuildingUtil.getBuildings(colony)) {
+                        totalBuildings++;
+                        if (net.machiavelli.minecolonytax.WarSystem.isGuardTower(b)) {
+                                towerList.add(b.getBuildingDisplayName() + "(L" + b.getBuildingLevel() + ")");
                         }
                 }
-
-                final int totalBuildingCount = totalBuildings.get();
-                final int guardTowerDetectedCount = guardTowersDetected.get();
-
-                source.sendSuccess(() -> Component.literal("§7Total buildings scanned: " + totalBuildingCount), false);
-                source.sendSuccess(() -> Component.literal("§7Guard towers detected: " + guardTowerDetectedCount),
-                                false);
-
-                if (guardTowerDetectedCount != guardTowerCount) {
-                        source.sendSuccess(() -> Component.literal("§c⚠ Warning: Guard tower count mismatch!"), false);
+                final int tb = totalBuildings;
+                source.sendSuccess(() -> Component.literal("  §7Buildings scanned: " + tb), false);
+                if (!towerList.isEmpty()) {
+                        final String towerLine = "  §bTowers: " + String.join(", ", towerList);
+                        source.sendSuccess(() -> Component.literal(towerLine), false);
                 }
-
+                if (towerList.size() != guardTowerCount) {
+                        final String mismatch = "  §c⚠ Count mismatch: listed=" + towerList.size()
+                                        + " vs countGuardTowers()=" + guardTowerCount;
+                        source.sendSuccess(() -> Component.literal(mismatch), false);
+                }
                 return 1;
         }
 
@@ -3125,13 +3345,12 @@ public class WntCommands {
                         throws CommandSyntaxException {
                 CommandSourceStack source = context.getSource();
 
-                source.sendSuccess(() -> Component.literal("🚨 EMERGENCY FIX STARTED 🚨")
+                source.sendSuccess(() -> Component.literal("Emergency fix started...")
                                 .withStyle(ChatFormatting.RED, ChatFormatting.BOLD), false);
 
                 try {
-                        // STEP 0: 🚨 CRITICAL - Fix null owners IMMEDIATELY to prevent crashes
-                        source.sendSuccess(() -> Component.literal("🚨 STEP 0: EMERGENCY null owner fixes...")
-                                        .withStyle(ChatFormatting.RED), false);
+                        source.sendSuccess(() -> Component.literal("Step 0: Fixing null owners...")
+                                        .withStyle(ChatFormatting.YELLOW), false);
                         ColonyAbandonmentManager.emergencyFixAllNullOwners();
 
                         // STEP 1: Force cleanup all [abandoned] entries AND fix null owners
@@ -3267,7 +3486,7 @@ public class WntCommands {
                                         .withStyle(ChatFormatting.YELLOW), false);
                         ColonyClaimingRaidManager.cleanupAllFailedRaids();
 
-                        source.sendSuccess(() -> Component.literal("✅ EMERGENCY FIX COMPLETE ✅")
+                        source.sendSuccess(() -> Component.literal("Emergency fix complete.")
                                         .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
                         source.sendSuccess(() -> Component.literal("Fixed " + fixedColonies[0] + " colonies")
                                         .withStyle(ChatFormatting.GREEN), false);
@@ -3277,20 +3496,17 @@ public class WntCommands {
                         return 1;
 
                 } catch (Exception e) {
-                        source.sendFailure(Component.literal("❌ EMERGENCY FIX FAILED: " + e.getMessage())
+                        source.sendFailure(Component.literal("Emergency fix failed: " + e.getMessage())
                                         .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
                         return 0;
                 }
         }
 
-        /**
-         * 🚨 CRITICAL: Handle /wnt fixnullowners command for immediate null owner fixes
-         */
         private static int handleFixNullOwners(CommandContext<CommandSourceStack> context) {
                 CommandSourceStack source = context.getSource();
 
-                source.sendSuccess(() -> Component.literal("🚨 EMERGENCY NULL OWNER FIX STARTED 🚨")
-                                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD), false);
+                source.sendSuccess(() -> Component.literal("Fixing null colony owners...")
+                                .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), false);
 
                 try {
                         source.sendSuccess(() -> Component.literal("Scanning all colonies for null owners...")
@@ -3298,7 +3514,7 @@ public class WntCommands {
 
                         ColonyAbandonmentManager.emergencyFixAllNullOwners();
 
-                        source.sendSuccess(() -> Component.literal("✅ NULL OWNER FIX COMPLETED!")
+                        source.sendSuccess(() -> Component.literal("Null owner fix completed.")
                                         .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
 
                         source.sendSuccess(
@@ -3308,7 +3524,7 @@ public class WntCommands {
                                         false);
 
                 } catch (Exception e) {
-                        source.sendFailure(Component.literal("💥 ERROR during null owner fix: " + e.getMessage())
+                        source.sendFailure(Component.literal("Error during null owner fix: " + e.getMessage())
                                         .withStyle(ChatFormatting.RED));
                         LOGGER.error("Error during /wnt fixnullowners command", e);
                 }
@@ -3383,9 +3599,7 @@ public class WntCommands {
 
                         // Count guard towers
                         int guardTowerCount = 0;
-                        for (com.minecolonies.api.colony.buildings.IBuilding building : colony.getBuildingManager()
-                                        .getBuildings()
-                                        .values()) {
+                        for (com.minecolonies.api.colony.buildings.IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
                                 if (building.getBuildingLevel() > 0 && building.isBuilt()) {
                                         String displayName = building.getBuildingDisplayName();
                                         String className = building.getClass().getName().toLowerCase();
@@ -3426,9 +3640,7 @@ public class WntCommands {
                         int totalMaintenance = 0;
                         int buildingCount = 0;
 
-                        for (com.minecolonies.api.colony.buildings.IBuilding building : colony.getBuildingManager()
-                                        .getBuildings()
-                                        .values()) {
+                        for (com.minecolonies.api.colony.buildings.IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
                                 if (building.getBuildingLevel() > 0 && building.isBuilt()) {
                                         buildingCount++;
                                         String buildingType = building.getBuildingDisplayName();
@@ -3528,5 +3740,146 @@ public class WntCommands {
                         LOGGER.error("Error in debugTaxBreakdown", e);
                         return 0;
                 }
+        }
+
+        // --- Invest command handlers ---
+
+        private static int handleInvestHelp(CommandContext<CommandSourceStack> context) {
+                ServerPlayer player;
+                try { player = context.getSource().getPlayerOrException(); } catch (Exception e) { return 0; }
+                player.sendSystemMessage(Component.literal("=== Investments ===").withStyle(ChatFormatting.GOLD));
+                player.sendSystemMessage(Component.literal("/wnt invest list - Show all investment types and costs").withStyle(ChatFormatting.YELLOW));
+                player.sendSystemMessage(Component.literal("/wnt invest status - Show your colony's current investment levels").withStyle(ChatFormatting.YELLOW));
+                player.sendSystemMessage(Component.literal("/wnt invest buy <TYPE> - Purchase the next level of an investment").withStyle(ChatFormatting.YELLOW));
+                return 1;
+        }
+
+        private static int handleInvestList(CommandContext<CommandSourceStack> context) {
+                ServerPlayer player;
+                try { player = context.getSource().getPlayerOrException(); } catch (Exception e) { return 0; }
+
+                if (!TaxConfig.isUpgradesEnabled()) {
+                        player.sendSystemMessage(Component.literal("Investments are disabled on this server.").withStyle(ChatFormatting.RED));
+                        return 0;
+                }
+
+                IColony colony = getPlayerColony(player);
+                if (colony == null) {
+                        player.sendSystemMessage(Component.literal("You must own a colony to view investments.").withStyle(ChatFormatting.RED));
+                        return 0;
+                }
+
+                int colonyId = colony.getID();
+                int treasuryBalance = net.machiavelli.minecolonytax.economy.TreasuryManager.getTreasuryBalance(colonyId);
+                int maxLevel = TaxConfig.getUpgradeMaxLevel();
+
+                player.sendSystemMessage(Component.literal("=== Colony Investments ===").withStyle(ChatFormatting.GOLD));
+                player.sendSystemMessage(Component.literal("Treasury: " + treasuryBalance + " | Max level per type: " + maxLevel).withStyle(ChatFormatting.GRAY));
+
+                for (UpgradeType type : UpgradeType.values()) {
+                        int level = ColonyUpgradeManager.getLevel(colonyId, type);
+                        int cost = ColonyUpgradeManager.getUpgradeCost(colonyId, type);
+                        String levelStr = level + "/" + maxLevel;
+                        String costStr = level >= maxLevel ? "MAX" : (cost + " treasury");
+                        ChatFormatting color = level >= maxLevel ? ChatFormatting.GREEN : (treasuryBalance >= cost ? ChatFormatting.WHITE : ChatFormatting.DARK_GRAY);
+                        player.sendSystemMessage(Component.literal(String.format("  %-20s Lv %s  Next: %s", type.name(), levelStr, costStr)).withStyle(color));
+                }
+                return 1;
+        }
+
+        private static int handleInvestStatus(CommandContext<CommandSourceStack> context) {
+                ServerPlayer player;
+                try { player = context.getSource().getPlayerOrException(); } catch (Exception e) { return 0; }
+
+                if (!TaxConfig.isUpgradesEnabled()) {
+                        player.sendSystemMessage(Component.literal("Investments are disabled on this server.").withStyle(ChatFormatting.RED));
+                        return 0;
+                }
+
+                IColony colony = getPlayerColony(player);
+                if (colony == null) {
+                        player.sendSystemMessage(Component.literal("You must own a colony to view investments.").withStyle(ChatFormatting.RED));
+                        return 0;
+                }
+
+                int colonyId = colony.getID();
+                player.sendSystemMessage(Component.literal("=== " + colony.getName() + " — Investment Status ===").withStyle(ChatFormatting.GOLD));
+                player.sendSystemMessage(Component.literal("Treasury: " + net.machiavelli.minecolonytax.economy.TreasuryManager.getTreasuryBalance(colonyId)).withStyle(ChatFormatting.AQUA));
+
+                for (UpgradeType type : UpgradeType.values()) {
+                        int level = ColonyUpgradeManager.getLevel(colonyId, type);
+                        if (level > 0) {
+                                player.sendSystemMessage(Component.literal("  " + type.name() + ": Level " + level).withStyle(ChatFormatting.GREEN));
+                        }
+                }
+                return 1;
+        }
+
+        private static int handleInvestBuy(CommandContext<CommandSourceStack> context) {
+                ServerPlayer player;
+                try { player = context.getSource().getPlayerOrException(); } catch (Exception e) { return 0; }
+
+                if (!TaxConfig.isUpgradesEnabled()) {
+                        player.sendSystemMessage(Component.literal("Investments are disabled on this server.").withStyle(ChatFormatting.RED));
+                        return 0;
+                }
+
+                IColony colony = getPlayerColony(player);
+                if (colony == null) {
+                        player.sendSystemMessage(Component.literal("You must own a colony to purchase investments.").withStyle(ChatFormatting.RED));
+                        return 0;
+                }
+
+                if (!colony.getPermissions().getOwner().equals(player.getUUID())) {
+                        player.sendSystemMessage(Component.literal("Only the colony owner can purchase investments.").withStyle(ChatFormatting.RED));
+                        return 0;
+                }
+
+                String typeName = StringArgumentType.getString(context, "type").toUpperCase();
+                UpgradeType type;
+                try {
+                        type = UpgradeType.valueOf(typeName);
+                } catch (IllegalArgumentException e) {
+                        player.sendSystemMessage(Component.literal("Unknown investment type: " + typeName + ". Use /wnt invest list to see valid types.").withStyle(ChatFormatting.RED));
+                        return 0;
+                }
+
+                int colonyId = colony.getID();
+                int currentLevel = ColonyUpgradeManager.getLevel(colonyId, type);
+                int maxLevel = TaxConfig.getUpgradeMaxLevel();
+
+                if (currentLevel >= maxLevel) {
+                        player.sendSystemMessage(Component.literal(type.name() + " is already at max level (" + maxLevel + ").").withStyle(ChatFormatting.YELLOW));
+                        return 0;
+                }
+
+                int cost = ColonyUpgradeManager.getUpgradeCost(colonyId, type);
+                int balance = net.machiavelli.minecolonytax.economy.TreasuryManager.getTreasuryBalance(colonyId);
+
+                if (balance < cost) {
+                        player.sendSystemMessage(Component.literal("Insufficient treasury. Need " + cost + ", have " + balance + ".").withStyle(ChatFormatting.RED));
+                        return 0;
+                }
+
+                boolean success = ColonyUpgradeManager.purchase(colonyId, type, context.getSource().getServer());
+                if (success) {
+                        int newLevel = currentLevel + 1;
+                        player.sendSystemMessage(Component.literal(type.name() + " upgraded to level " + newLevel + "/" + maxLevel + "! Cost: " + cost).withStyle(ChatFormatting.GREEN));
+                } else {
+                        player.sendSystemMessage(Component.literal("Purchase failed. Check treasury balance and try again.").withStyle(ChatFormatting.RED));
+                }
+                return success ? 1 : 0;
+        }
+
+        private static IColony getPlayerColony(ServerPlayer player) {
+                IColonyManager mgr = IMinecoloniesAPI.getInstance().getColonyManager();
+                for (net.minecraft.server.level.ServerLevel world : player.getServer().getAllLevels()) {
+                        for (IColony colony : mgr.getColonies(world)) {
+                                if (colony.getPermissions().getOwner().equals(player.getUUID())) {
+                                        return colony;
+                                }
+                        }
+                }
+                return null;
         }
 }

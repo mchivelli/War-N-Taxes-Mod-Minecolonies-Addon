@@ -13,10 +13,6 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;
 
-/**
- * Command to check colony activity status and inactivity settings.
- * Provides information about when colonies were last visited by owners/officers.
- */
 public class ColonyActivityCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -31,9 +27,6 @@ public class ColonyActivityCommand {
                         .executes(ColonyActivityCommand::showSystemStatus)));
     }
 
-    /**
-     * Check activity status of a specific colony.
-     */
     private static int checkColonyActivity(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
         int colonyId = IntegerArgumentType.getInteger(context, "colonyId");
@@ -57,7 +50,6 @@ public class ColonyActivityCommand {
                 status
         ), true);
 
-        // Additional details
         if (isInactive) {
             int hoursOverThreshold = lastContactHours - threshold;
             source.sendSuccess(() -> Component.literal(String.format(
@@ -69,9 +61,6 @@ public class ColonyActivityCommand {
         return 1;
     }
 
-    /**
-     * List all colonies that are currently inactive.
-     */
     private static int listInactiveColonies(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
 
@@ -86,7 +75,7 @@ public class ColonyActivityCommand {
                 "Scanning for inactive colonies..."
         ), true);
 
-        final int[] counters = {0, 0}; // [inactiveCount, totalCount]
+        final int[] counters = {0, 0};
         final int threshold = TaxConfig.getColonyInactivityHoursThreshold();
 
         for (Level world : source.getServer().getAllLevels()) {
@@ -96,7 +85,7 @@ public class ColonyActivityCommand {
                 int lastContactHours = colony.getLastContactInHours();
                 
                 if (lastContactHours >= threshold) {
-                    counters[0]++; // inactiveCount
+                    counters[0]++;
                     final String colonyName = colony.getName();
                     final int colonyId = colony.getID();
                     final int finalLastContactHours = lastContactHours;
@@ -125,9 +114,6 @@ public class ColonyActivityCommand {
         return 1;
     }
 
-    /**
-     * Show the current system status for colony inactivity tracking.
-     */
     private static int showSystemStatus(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
 
@@ -140,16 +126,15 @@ public class ColonyActivityCommand {
         if (enabled) {
             source.sendSuccess(() -> Component.literal("Inactivity Threshold: " + threshold + " hours"), true);
             source.sendSuccess(() -> Component.literal("Threshold in Days: " + String.format("%.1f", threshold / 24.0)), true);
-            
-            // Calculate some statistics
-            final int[] stats = {0, 0}; // [totalColonies, inactiveColonies]
+
+            final int[] stats = {0, 0};
             
             for (Level world : source.getServer().getAllLevels()) {
                 IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
                 for (IColony colony : colonyManager.getColonies(world)) {
-                    stats[0]++; // totalColonies
+                    stats[0]++;
                     if (colony.getLastContactInHours() >= threshold) {
-                        stats[1]++; // inactiveColonies
+                        stats[1]++;
                     }
                 }
             }
@@ -173,9 +158,6 @@ public class ColonyActivityCommand {
         return 1;
     }
 
-    /**
-     * Helper method to find a colony by ID across all worlds.
-     */
     private static IColony findColonyById(CommandSourceStack source, int colonyId) {
         for (Level world : source.getServer().getAllLevels()) {
             IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();

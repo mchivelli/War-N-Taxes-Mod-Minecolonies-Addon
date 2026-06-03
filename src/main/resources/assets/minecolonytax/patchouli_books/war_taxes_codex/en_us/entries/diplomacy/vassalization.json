@@ -1,0 +1,22 @@
+{
+    "name": "minecolonytax.entry.vassalization.name",
+    "icon": "minecraft:chain",
+    "category": "minecolonytax:diplomacy",
+    "sortnum": 2,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.vassalization.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.vassalization.proposing.title",
+            "text": "minecolonytax.entry.vassalization.proposing"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.vassalization.managing.title",
+            "text": "minecolonytax.entry.vassalization.managing"
+        }
+    ]
+}

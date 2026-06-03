@@ -8,6 +8,10 @@ import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.minecolonies.api.IMinecoloniesAPI;
+import com.minecolonies.api.colony.IColony;
+import com.minecolonies.api.colony.IColonyManager;
+
 import java.io.*;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
@@ -57,6 +61,13 @@ public class WarExhaustionManager {
      */
     private static final Map<Integer, Long> REPARATIONS = new ConcurrentHashMap<>();
 
+    /**
+     * Tracks colonies with war immunity (colonyId -> immunity expiry time).
+     * Colonies below the weariness threshold receive temporary protection
+     * from war declarations after a loss (comeback mechanic).
+     */
+    private static final Map<Integer, Long> WAR_IMMUNITY = new ConcurrentHashMap<>();
+
     private static MinecraftServer SERVER;
 
     // ==================== Initialization ====================
@@ -65,13 +76,13 @@ public class WarExhaustionManager {
         SERVER = server;
         loadData();
         cleanupExpiredData();
-        LOGGER.info("WarExhaustionManager initialized - {} at war, {} in recovery, {} under reparations",
+        if (TaxConfig.isNormalLogging()) LOGGER.info("WarExhaustionManager initialized - {} at war, {} in recovery, {} under reparations",
                 COLONIES_AT_WAR.size(), RECOVERY_STATUS.size(), REPARATIONS.size());
     }
 
     public static void shutdown() {
         saveData();
-        LOGGER.info("WarExhaustionManager shutdown complete");
+        if (TaxConfig.isNormalLogging()) LOGGER.info("WarExhaustionManager shutdown complete");
     }
 
     // ==================== War Status ====================
@@ -86,10 +97,10 @@ public class WarExhaustionManager {
             return;
 
         COLONIES_AT_WAR.put(colonyId, System.currentTimeMillis());
-        RECOVERY_STATUS.remove(colonyId); // Clear any existing recovery
+        RECOVERY_STATUS.remove(colonyId);
         saveData();
 
-        LOGGER.info("Colony {} is now AT WAR - tax generation reduced by {}%",
+        if (TaxConfig.isNormalLogging()) LOGGER.info("Colony {} is now AT WAR - tax generation reduced by {}%",
                 colonyId, (int) (TaxConfig.getWarTaxReductionPercent() * 100));
     }
 
@@ -107,7 +118,7 @@ public class WarExhaustionManager {
         RECOVERY_STATUS.put(colonyId, System.currentTimeMillis());
         saveData();
 
-        LOGGER.info("Colony {} war ended - entering {} hour recovery period",
+        if (TaxConfig.isNormalLogging()) LOGGER.info("Colony {} war ended - entering {} hour recovery period",
                 colonyId, TaxConfig.getPostWarRecoveryHours());
     }
 
@@ -144,29 +155,87 @@ public class WarExhaustionManager {
      * @param colonyId The colony that lost the war
      */
     public static void recordWarLoss(int colonyId) {
-        if (!TaxConfig.isWarReparationsEnabled())
-            return;
-
         long now = System.currentTimeMillis();
 
-        // Get or create loss list
+        // Grant war weariness immunity if colony tax is below threshold
+        if (TaxConfig.isWarWearinessEnabled()) {
+            int threshold = TaxConfig.getWarWearinessThreshold();
+            int taxBalance = getColonyTaxBalance(colonyId);
+            if (taxBalance <= threshold) {
+                long immunityMs = TaxConfig.getWarWearinessImmunityHours() * 60L * 60L * 1000L;
+                WAR_IMMUNITY.put(colonyId, now + immunityMs);
+                if (TaxConfig.isNormalLogging()) LOGGER.info("Colony {} granted {}h war immunity (tax {} <= threshold {})",
+                        colonyId, TaxConfig.getWarWearinessImmunityHours(), taxBalance, threshold);
+            }
+        }
+
+        if (!TaxConfig.isWarReparationsEnabled()) {
+            saveData();
+            return;
+        }
+
         List<Long> losses = WAR_LOSSES.computeIfAbsent(colonyId, k -> new ArrayList<>());
-
-        // Clean up old losses (older than 7 days)
         losses.removeIf(timestamp -> now - timestamp > SEVEN_DAYS_MS);
-
-        // Add this loss
         losses.add(now);
 
-        LOGGER.info("Colony {} lost a war - {} losses in last 7 days", colonyId, losses.size());
+        if (TaxConfig.isNormalLogging()) LOGGER.info("Colony {} lost a war - {} losses in last 7 days", colonyId, losses.size());
 
-        // Check if reparations should be applied
         int triggerCount = TaxConfig.getReparationsTriggerLossesCount();
         if (losses.size() >= triggerCount) {
             applyReparations(colonyId);
         }
 
         saveData();
+    }
+
+    /**
+     * Check if a colony has active war immunity (comeback protection).
+     */
+    public static boolean hasWarImmunity(int colonyId) {
+        Long expiryTime = WAR_IMMUNITY.get(colonyId);
+        if (expiryTime == null)
+            return false;
+
+        if (System.currentTimeMillis() >= expiryTime) {
+            WAR_IMMUNITY.remove(colonyId);
+            saveData();
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Get hours remaining on war immunity, or 0 if none.
+     */
+    public static int getRemainingImmunityHours(int colonyId) {
+        Long expiryTime = WAR_IMMUNITY.get(colonyId);
+        if (expiryTime == null || System.currentTimeMillis() >= expiryTime)
+            return 0;
+
+        long remaining = expiryTime - System.currentTimeMillis();
+        return Math.max(1, (int) (remaining / (60L * 60L * 1000L)));
+    }
+
+    /**
+     * Helper: get a colony's stored tax balance using the colony manager.
+     */
+    private static int getColonyTaxBalance(int colonyId) {
+        if (SERVER == null)
+            return 0;
+        try {
+            IColonyManager manager = IMinecoloniesAPI.getInstance().getColonyManager();
+            IColony colony = null;
+            for (net.minecraft.world.level.Level level : SERVER.getAllLevels()) {
+                colony = manager.getColonyByWorld(colonyId, level);
+                if (colony != null) break;
+            }
+            if (colony == null)
+                return 0;
+            return net.machiavelli.minecolonytax.TaxManager.getStoredTaxForColony(colony);
+        } catch (Exception e) {
+            LOGGER.warn("Could not retrieve tax balance for colony {} in weariness check", colonyId);
+            return 0;
+        }
     }
 
     /**
@@ -178,7 +247,6 @@ public class WarExhaustionManager {
 
         REPARATIONS.put(colonyId, expiryTime);
 
-        // Clear loss history since reparations have been triggered
         WAR_LOSSES.remove(colonyId);
 
         LOGGER.warn("Colony {} is now under WAR REPARATIONS for {} hours ({} recent losses)",
@@ -240,6 +308,11 @@ public class WarExhaustionManager {
             double reparationsPenalty = TaxConfig.getReparationsTaxPenaltyPercent();
             multiplier = multiplier * (1.0 - reparationsPenalty);
         }
+
+        // 4. Apply combined penalty cap to prevent excessive stacking
+        double maxPenalty = TaxConfig.MAX_COMBINED_WAR_PENALTY_PERCENT.get();
+        double minMultiplier = 1.0 - maxPenalty;
+        multiplier = Math.max(minMultiplier, multiplier);
 
         return Math.max(0.1, multiplier); // Minimum 10% tax generation
     }
@@ -315,15 +388,12 @@ public class WarExhaustionManager {
     private static void cleanupExpiredData() {
         long now = System.currentTimeMillis();
 
-        // Cleanup expired recovery
         int recoveryHours = TaxConfig.getPostWarRecoveryHours();
         long recoveryDurationMs = recoveryHours * 60L * 60L * 1000L;
         RECOVERY_STATUS.entrySet().removeIf(e -> now >= e.getValue() + recoveryDurationMs);
-
-        // Cleanup expired reparations
         REPARATIONS.entrySet().removeIf(e -> now >= e.getValue());
+        WAR_IMMUNITY.entrySet().removeIf(e -> now >= e.getValue());
 
-        // Cleanup old war losses
         for (List<Long> losses : WAR_LOSSES.values()) {
             losses.removeIf(timestamp -> now - timestamp > SEVEN_DAYS_MS);
         }
@@ -349,6 +419,8 @@ public class WarExhaustionManager {
                     WAR_LOSSES.putAll(data.warLosses);
                 if (data.reparations != null)
                     REPARATIONS.putAll(data.reparations);
+                if (data.warImmunity != null)
+                    WAR_IMMUNITY.putAll(data.warImmunity);
             }
 
             LOGGER.debug("Loaded war exhaustion data from {}", STORAGE_FILE);
@@ -367,6 +439,7 @@ public class WarExhaustionManager {
             data.recoveryStatus = new ConcurrentHashMap<>(RECOVERY_STATUS);
             data.warLosses = new ConcurrentHashMap<>(WAR_LOSSES);
             data.reparations = new ConcurrentHashMap<>(REPARATIONS);
+            data.warImmunity = new ConcurrentHashMap<>(WAR_IMMUNITY);
 
             try (Writer writer = new FileWriter(path.toFile())) {
                 GSON.toJson(data, writer);
@@ -384,5 +457,6 @@ public class WarExhaustionManager {
         Map<Integer, Long> recoveryStatus;
         Map<Integer, List<Long>> warLosses;
         Map<Integer, Long> reparations;
+        Map<Integer, Long> warImmunity;
     }
 }

@@ -63,6 +63,49 @@ description='''${mod_description}'''
     ordering="NONE"
     side="BOTH"
 
+# MineColonies is a HARD requirement — the mod is an addon to it and does not
+# function without it (all colony/treasury/war/spy systems route through the
+# MineColonies API surface). Version range is broad to allow patch updates of
+# MineColonies on the 1.20.1 line.
+[[dependencies.${mod_id}]]
+    modId="minecolonies"
+    mandatory=true
+    versionRange="[1.1.700,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Optional integrations — present only when the user installs them.
+# Hard runtime imports of these mods are gated by ModList.isLoaded() in the code,
+# but declaring them here lets Forge surface accurate "dependency not found"
+# errors when the user mis-installs an integration.
+[[dependencies.${mod_id}]]
+    modId="ftbteams"
+    mandatory=false
+    versionRange="[1900,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="journeymap"
+    mandatory=false
+    versionRange="[5.9,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="sdmshop"
+    mandatory=false
+    versionRange="[1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="patchouli"
+    mandatory=false
+    versionRange="[1.20.1,)"
+    ordering="AFTER"
+    side="BOTH"
+
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares
 # that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't
 # stop your mod loading on the server for example.

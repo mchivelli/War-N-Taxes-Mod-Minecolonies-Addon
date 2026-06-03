@@ -1,0 +1,332 @@
+warning: in the working copy of 'src/main/java/net/machiavelli/minecolonytax/siege/WarBlockLedger.java', LF will be replaced by CRLF the next time Git touches it
+diff --git a/src/main/java/net/machiavelli/minecolonytax/MineColonyTax.java b/src/main/java/net/machiavelli/minecolonytax/MineColonyTax.java
+index fd4a5f3..46b6571 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/MineColonyTax.java
++++ b/src/main/java/net/machiavelli/minecolonytax/MineColonyTax.java
+@@ -52,6 +52,12 @@ public class MineColonyTax {
+         net.machiavelli.minecolonytax.espionage.ModEntities.ENTITIES
+                 .register(FMLJavaModLoadingContext.get().getModEventBus());
+ 
++        // Step 11 — siege banner block + item registration. Block is always
++        // registered; the Plant-the-Banner objective gates behaviour at runtime
++        // via EnableExperimentalSiegeObjectives.
++        net.machiavelli.minecolonytax.siege.ModSiegeBlocks.register(
++                FMLJavaModLoadingContext.get().getModEventBus());
++
+         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
+         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::clientSetup);
+ 
+@@ -207,6 +213,20 @@ public class MineColonyTax {
+             LOGGER.error("Failed to restore active wars: {}", t.toString());
+         }
+ 
++        // Restore the explosion-damage ledger after wars are back, then prune any
++        // ledger whose war did not survive the restart so it can't resurrect blocks
++        // at a later, unrelated war's end.
++        try {
++            net.machiavelli.minecolonytax.siege.WarBlockLedger.loadFromDisk();
++            java.util.Set<UUID> activeWarIds = new java.util.HashSet<>();
++            for (net.machiavelli.minecolonytax.data.WarData w : WarSystem.ACTIVE_WARS.values()) {
++                if (w != null && w.getWarID() != null) activeWarIds.add(w.getWarID());
++            }
++            net.machiavelli.minecolonytax.siege.WarBlockLedger.pruneOrphans(activeWarIds);
++        } catch (Throwable t) {
++            LOGGER.error("Failed to restore WarBlockLedger: {}", t.toString());
++        }
++
+         // Restore Hostile rank to pre-conflict state for any colonies whose conflict
+         // ended while the server was down (snapshot exists but no active war/raid).
+         try {
+@@ -236,15 +256,23 @@ public class MineColonyTax {
+         // Warn if MineColonies pvp_mode is enabled — it bypasses ALL colony permission
+         // checks for players whose guards enter enemy territory, overriding our per-action
+         // permission system. Wars and raids should use WNT's own permission management.
+-        try {
+-            if (com.minecolonies.core.MineColonies.getConfig().getServer().pvp_mode.get()) {
+-                LOGGER.warn("[WNT] MineColonies pvp_mode is ENABLED. This bypasses colony permission "
+-                        + "checks for players who rally guards into enemy colonies, overriding War 'N Taxes "
+-                        + "permission management. Set pvp_mode = false in minecolonies-server.toml for "
+-                        + "correct war/raid permission behavior.");
++        // NOTE: com.minecolonies.core.MineColonies is an INTERNAL class (not the api package);
++        // any refactor on the MC side can throw NoClassDefFoundError (an Error, not Exception),
++        // so the catch must trap Throwable. The whole block is also gated on ModList.isLoaded.
++        if (ModList.get().isLoaded("minecolonies")) {
++            try {
++                if (com.minecolonies.core.MineColonies.getConfig().getServer().pvp_mode.get()) {
++                    LOGGER.warn("[WNT] MineColonies pvp_mode is ENABLED. This bypasses colony permission "
++                            + "checks for players who rally guards into enemy colonies, overriding War 'N Taxes "
++                            + "permission management. Set pvp_mode = false in minecolonies-server.toml for "
++                            + "correct war/raid permission behavior.");
++                }
++            } catch (Throwable t) {
++                // Config not available yet, or MineColonies internal class moved — ignore.
++                if (TaxConfig.isDebugLogging()) {
++                    LOGGER.debug("[WNT] Could not read MineColonies pvp_mode (likely internal API change): {}", t.toString());
++                }
+             }
+-        } catch (Exception e) {
+-            // Config not available yet — ignore
+         }
+ 
+         try {
+@@ -372,6 +400,15 @@ public class MineColonyTax {
+             LOGGER.warn("Error saving active wars: {}", t.toString());
+         }
+ 
++        // Persist the explosion-damage ledger so blocks broken this session are
++        // still restored when the war ends after a restart (mirrors active_wars.json).
++        try {
++            net.machiavelli.minecolonytax.siege.WarBlockLedger.saveToDisk();
++            if (TaxConfig.isNormalLogging()) LOGGER.info("WarBlockLedger saved to disk");
++        } catch (Throwable t) {
++            LOGGER.warn("Error saving WarBlockLedger: {}", t.toString());
++        }
++
+         try {
+             net.machiavelli.minecolonytax.occupation.OccupationManager.shutdown();
+             if (TaxConfig.isNormalLogging()) LOGGER.info("OccupationManager shutdown complete");
+@@ -399,5 +436,14 @@ public class MineColonyTax {
+         } catch (Throwable t) {
+             LOGGER.warn("Error during TickScheduler shutdown: {}", t.toString());
+         }
++
++        // Must run AFTER all manager shutdowns above so any final saveData()
++        // they queued is flushed to disk before the JVM exits.
++        try {
++            net.machiavelli.minecolonytax.util.AsyncSaveExecutor.shutdownAndFlush();
++            if (TaxConfig.isNormalLogging()) LOGGER.info("AsyncSaveExecutor flushed");
++        } catch (Throwable t) {
++            LOGGER.warn("Error flushing AsyncSaveExecutor: {}", t.toString());
++        }
+     }
+ }
+diff --git a/src/main/java/net/machiavelli/minecolonytax/siege/WarBlockLedger.java b/src/main/java/net/machiavelli/minecolonytax/siege/WarBlockLedger.java
+index 7b1de42..fa155b7 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/siege/WarBlockLedger.java
++++ b/src/main/java/net/machiavelli/minecolonytax/siege/WarBlockLedger.java
+@@ -7,7 +7,13 @@ import net.machiavelli.minecolonytax.WarSystem;
+ import net.machiavelli.minecolonytax.data.WarData;
+ import net.machiavelli.minecolonytax.util.TickScheduler;
+ import net.minecraft.core.BlockPos;
++import net.minecraft.core.HolderGetter;
++import net.minecraft.core.registries.BuiltInRegistries;
+ import net.minecraft.nbt.CompoundTag;
++import net.minecraft.nbt.ListTag;
++import net.minecraft.nbt.NbtIo;
++import net.minecraft.nbt.NbtUtils;
++import net.minecraft.nbt.Tag;
+ import net.minecraft.resources.ResourceLocation;
+ import net.minecraft.server.level.ServerLevel;
+ import net.minecraft.world.level.Level;
+@@ -22,6 +28,10 @@ import net.minecraftforge.fml.common.Mod;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+ 
++import java.io.File;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.nio.file.Paths;
+ import java.util.*;
+ import java.util.concurrent.ConcurrentHashMap;
+ 
+@@ -34,9 +44,15 @@ import java.util.concurrent.ConcurrentHashMap;
+  * claim area + a configurable padding radius so wider explosions aren't
+  * undone.
+  *
+- * In-memory only for now — JSON persistence is a Phase 2 follow-up. On
+- * server crash mid-war, blocks stay broken (lost ledger) but the affected
+- * colony continues to function.
++ * Persistence: the ledger is saved to {@code config/warntax/war_block_ledger.nbt}
++ * on server stop and reloaded on server start, mirroring the war save lifecycle
++ * ({@code active_wars.json}). Wars survive a restart, so their damage ledger must
++ * too — otherwise blocks broken before the restart would never be restored when
++ * the war later ends. NBT (not Gson) is used here because BlockState and
++ * BlockEntity snapshots are NBT-native and round-trip cleanly. The file is
++ * deleted after a successful load to prevent double-restoration, then rewritten
++ * on the next shutdown. Orphan ledgers (whose war did not restore) are pruned
++ * via {@link #pruneOrphans(Set)}.
+  */
+ @Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+ public final class WarBlockLedger {
+@@ -78,6 +94,10 @@ public final class WarBlockLedger {
+ 
+     @SubscribeEvent(priority = EventPriority.HIGHEST)
+     public static void onExplosionDetonate(ExplosionEvent.Detonate event) {
++        // Compat: if Explosion't is loaded AND operator opted in, let it handle
++        // restoration globally. Our per-war scoped capture becomes redundant.
++        if (net.machiavelli.minecolonytax.compat.ExplosiontCompat.shouldDeferToExplosiont()) return;
++
+         if (WarSystem.ACTIVE_WARS.isEmpty()) return;
+ 
+         Level level = event.getLevel();
+@@ -199,6 +219,170 @@ public final class WarBlockLedger {
+         LEDGERS.clear();
+     }
+ 
++    // ==================== PERSISTENCE ====================
++
++    private static final String LEDGER_STORAGE_FILE = "config/warntax/war_block_ledger.nbt";
++
++    /**
++     * Persist all pending ledgers to disk so they survive a server restart.
++     * Called on ServerStoppingEvent, alongside {@code WarSystem.saveActiveWars()}.
++     * If there is nothing to persist, any stale file is removed.
++     */
++    public static void saveToDisk() {
++        try {
++            Path path = Paths.get(LEDGER_STORAGE_FILE);
++            if (LEDGERS.isEmpty()) {
++                Files.deleteIfExists(path);
++                return;
++            }
++            Files.createDirectories(path.getParent());
++
++            CompoundTag root = new CompoundTag();
++            ListTag warsTag = new ListTag();
++            int totalBlocks = 0;
++
++            for (Map.Entry<UUID, Map<BlockPos, BlockInfo>> warEntry : LEDGERS.entrySet()) {
++                Map<BlockPos, BlockInfo> ledger = warEntry.getValue();
++                if (ledger == null || ledger.isEmpty()) continue;
++
++                CompoundTag warTag = new CompoundTag();
++                warTag.putString("warId", warEntry.getKey().toString());
++
++                ListTag blocksTag = new ListTag();
++                for (BlockInfo info : ledger.values()) {
++                    try {
++                        CompoundTag b = new CompoundTag();
++                        b.putInt("x", info.pos.getX());
++                        b.putInt("y", info.pos.getY());
++                        b.putInt("z", info.pos.getZ());
++                        b.put("state", NbtUtils.writeBlockState(info.state));
++                        if (info.dimResLoc != null) b.putString("dim", info.dimResLoc.toString());
++                        if (info.blockEntityNBT != null) b.put("be", info.blockEntityNBT);
++                        blocksTag.add(b);
++                        totalBlocks++;
++                    } catch (Exception perBlock) {
++                        LOGGER.warn("WarBlockLedger save skipped a block in war {}: {}",
++                                warEntry.getKey(), perBlock.getMessage());
++                    }
++                }
++                if (blocksTag.isEmpty()) continue;
++                warTag.put("blocks", blocksTag);
++                warsTag.add(warTag);
++            }
++
++            root.put("wars", warsTag);
++
++            // Atomic write: temp file then move over the live file.
++            File tmp = path.resolveSibling(path.getFileName() + ".tmp").toFile();
++            NbtIo.writeCompressed(root, tmp);
++            try {
++                Files.move(tmp.toPath(), path,
++                        java.nio.file.StandardCopyOption.ATOMIC_MOVE,
++                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
++            } catch (java.nio.file.AtomicMoveNotSupportedException windowsFallback) {
++                Files.move(tmp.toPath(), path, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
++            }
++
++            if (TaxConfig.isNormalLogging()) {
++                LOGGER.info("WarBlockLedger saved {} blocks across {} wars to {}",
++                        totalBlocks, warsTag.size(), LEDGER_STORAGE_FILE);
++            }
++        } catch (Exception ex) {
++            LOGGER.error("Failed to save WarBlockLedger to disk", ex);
++        }
++    }
++
++    /**
++     * Reload persisted ledgers from disk into memory. Called on server start,
++     * after {@code WarSystem.loadAndResumeActiveWars()} so orphan ledgers can be
++     * pruned against the restored war set. The file is deleted after a successful
++     * load to prevent double-restoration (mirrors the war save file lifecycle).
++     */
++    public static void loadFromDisk() {
++        Path path = Paths.get(LEDGER_STORAGE_FILE);
++        try {
++            if (!Files.exists(path)) return;
++
++            // If the operator now defers to Explosion't, our stale ledger would
++            // double-restore on top of Explosion't's heal. Drop it instead.
++            if (net.machiavelli.minecolonytax.compat.ExplosiontCompat.shouldDeferToExplosiont()) {
++                Files.deleteIfExists(path);
++                LOGGER.info("WarBlockLedger deferring to Explosion't — discarded persisted ledger");
++                return;
++            }
++
++            HolderGetter<Block> blockLookup = BuiltInRegistries.BLOCK.asLookup();
++            CompoundTag root = NbtIo.readCompressed(path.toFile());
++            if (root == null || !root.contains("wars")) {
++                Files.deleteIfExists(path);
++                return;
++            }
++
++            ListTag warsTag = root.getList("wars", Tag.TAG_COMPOUND);
++            int loadedWars = 0;
++            int loadedBlocks = 0;
++
++            for (int w = 0; w < warsTag.size(); w++) {
++                CompoundTag warTag = warsTag.getCompound(w);
++                UUID warId;
++                try {
++                    warId = UUID.fromString(warTag.getString("warId"));
++                } catch (IllegalArgumentException badId) {
++                    LOGGER.warn("WarBlockLedger load skipped war with invalid warId '{}'", warTag.getString("warId"));
++                    continue;
++                }
++
++                ListTag blocksTag = warTag.getList("blocks", Tag.TAG_COMPOUND);
++                Map<BlockPos, BlockInfo> ledger = new ConcurrentHashMap<>();
++                for (int i = 0; i < blocksTag.size(); i++) {
++                    try {
++                        CompoundTag b = blocksTag.getCompound(i);
++                        BlockPos pos = new BlockPos(b.getInt("x"), b.getInt("y"), b.getInt("z"));
++                        BlockState state = NbtUtils.readBlockState(blockLookup, b.getCompound("state"));
++                        ResourceLocation dim = b.contains("dim")
++                                ? ResourceLocation.tryParse(b.getString("dim")) : null;
++                        CompoundTag beNbt = b.contains("be") ? b.getCompound("be") : null;
++                        ledger.put(pos, new BlockInfo(pos, state, beNbt, dim));
++                        loadedBlocks++;
++                    } catch (Exception perBlock) {
++                        LOGGER.warn("WarBlockLedger load skipped a block in war {}: {}", warId, perBlock.getMessage());
++                    }
++                }
++                if (!ledger.isEmpty()) {
++                    LEDGERS.put(warId, ledger);
++                    loadedWars++;
++                }
++            }
++
++            // Delete after successful load so we don't restore twice if the server
++            // restarts again before the war ends (the file is rewritten on shutdown).
++            Files.deleteIfExists(path);
++
++            if (TaxConfig.isNormalLogging()) {
++                LOGGER.info("WarBlockLedger loaded {} blocks across {} wars from disk",
++                        loadedBlocks, loadedWars);
++            }
++        } catch (Exception ex) {
++            LOGGER.error("Failed to load WarBlockLedger from disk", ex);
++            try { Files.deleteIfExists(path); } catch (Exception ignored) {}
++        }
++    }
++
++    /**
++     * Drop any ledger whose war is not in the supplied active-war set. Called after
++     * war restoration so a ledger for a war that failed to restore (or was already
++     * concluded) does not linger and resurrect blocks at a later, unrelated endWar.
++     */
++    public static void pruneOrphans(Set<UUID> activeWarIds) {
++        if (activeWarIds == null) return;
++        int before = LEDGERS.size();
++        LEDGERS.keySet().retainAll(activeWarIds);
++        int pruned = before - LEDGERS.size();
++        if (pruned > 0 && TaxConfig.isNormalLogging()) {
++            LOGGER.info("WarBlockLedger pruned {} orphan ledger(s) with no matching active war", pruned);
++        }
++    }
++
+     /**
+      * Find the war (if any) whose defender colony center is within
+      * {@link #LEDGER_RADIUS} of the explosion. Cheap iteration over the small

@@ -16,11 +16,6 @@ import net.minecraft.server.level.ServerPlayer;
 
 import java.util.UUID;
 
-/**
- * Command to check colony abandonment status and timer information.
- * Shows WnT timer data, officer lists, and abandonment thresholds.
- * Usage: /wnt abandonmentcheck [colonyId]
- */
 public class AbandonmentCheckCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -31,9 +26,6 @@ public class AbandonmentCheckCommand {
                                 .executes(AbandonmentCheckCommand::checkSpecificColony))));
     }
 
-    /**
-     * Check the colony the player is currently in.
-     */
     private static int checkCurrentColony(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
 
@@ -54,9 +46,6 @@ public class AbandonmentCheckCommand {
         return displayColonyAbandonmentInfo(player, colony);
     }
 
-    /**
-     * Check a specific colony by ID.
-     */
     private static int checkSpecificColony(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
 
@@ -78,17 +67,12 @@ public class AbandonmentCheckCommand {
         return displayColonyAbandonmentInfo(player, colony);
     }
 
-    /**
-     * Display comprehensive abandonment information for a colony.
-     */
     private static int displayColonyAbandonmentInfo(ServerPlayer player, IColony colony) {
         UUID playerId = player.getUUID();
 
-        // Header
         player.sendSystemMessage(Component.literal("=== Colony Abandonment Info ===")
                 .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
 
-        // Colony info
         player.sendSystemMessage(Component.literal("Colony: ")
                 .withStyle(ChatFormatting.YELLOW)
                 .append(Component.literal(colony.getName()).withStyle(ChatFormatting.WHITE)));
@@ -97,7 +81,6 @@ public class AbandonmentCheckCommand {
                 .withStyle(ChatFormatting.YELLOW)
                 .append(Component.literal(String.valueOf(colony.getID())).withStyle(ChatFormatting.WHITE)));
 
-        // Player's role in colony
         UUID owner = colony.getPermissions().getOwner();
         boolean isOwner = owner != null && owner.equals(playerId);
         ColonyPlayer colonyPlayer = colony.getPermissions().getPlayers().get(playerId);
@@ -117,14 +100,12 @@ public class AbandonmentCheckCommand {
                     .append(Component.literal("Not an Officer").withStyle(ChatFormatting.RED)));
         }
 
-        // MineColonies tracking (owner only - shown for reference)
         int mcLastContact = colony.getLastContactInHours();
         player.sendSystemMessage(Component.literal("MineColonies Timer: ")
                 .withStyle(ChatFormatting.YELLOW)
                 .append(Component.literal(mcLastContact + " hours ago").withStyle(ChatFormatting.GRAY))
                 .append(Component.literal(" (owner logins only)").withStyle(ChatFormatting.DARK_GRAY)));
 
-        // WnT officer tracking - the authoritative timer
         long officerVisitHours = OfficerColonyVisitTracker.getHoursSinceOfficerVisit(colony.getID());
         if (officerVisitHours >= 0) {
             ChatFormatting timerColor = officerVisitHours < 168 ? ChatFormatting.GREEN :
@@ -140,7 +121,6 @@ public class AbandonmentCheckCommand {
                     .append(Component.literal(" (using MC fallback)").withStyle(ChatFormatting.DARK_GRAY)));
         }
 
-        // Effective timer used for abandonment
         int effectiveLastContact = (officerVisitHours >= 0) ? (int) officerVisitHours : mcLastContact;
 
         player.sendSystemMessage(Component.literal("Effective Timer: ")
@@ -148,7 +128,6 @@ public class AbandonmentCheckCommand {
                 .append(Component.literal(effectiveLastContact + " hours ago").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD))
                 .append(Component.literal(" (used for abandonment)").withStyle(ChatFormatting.GRAY)));
 
-        // Abandonment threshold info
         int abandonHours = net.machiavelli.minecolonytax.TaxConfig.getColonyAutoAbandonDays() * 24;
         int warningHours = (net.machiavelli.minecolonytax.TaxConfig.getColonyAutoAbandonDays() -
                            net.machiavelli.minecolonytax.TaxConfig.getAbandonWarningDays()) * 24;
@@ -166,7 +145,6 @@ public class AbandonmentCheckCommand {
                 .append(Component.literal(abandonHours + " hours (" + (abandonHours/24) + " days)")
                         .withStyle(ChatFormatting.WHITE)));
 
-        // Status indicator
         int hoursUntilWarning = warningHours - effectiveLastContact;
         int hoursUntilAbandon = abandonHours - effectiveLastContact;
 
@@ -187,7 +165,6 @@ public class AbandonmentCheckCommand {
                             .withStyle(ChatFormatting.WHITE)));
         }
 
-        // List all officers
         player.sendSystemMessage(Component.literal("\nOfficers in Colony:").withStyle(ChatFormatting.GOLD));
         int officerCount = 0;
         for (ColonyPlayer cp : colony.getPermissions().getPlayers().values()) {
@@ -209,11 +186,9 @@ public class AbandonmentCheckCommand {
                     .withStyle(ChatFormatting.GRAY));
         }
 
-        // Footer with help text
         player.sendSystemMessage(Component.literal("\n===============================")
                 .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
 
-        // Show appropriate tip based on config
         if (net.machiavelli.minecolonytax.TaxConfig.shouldResetTimerOnOfficerLogin()) {
             player.sendSystemMessage(Component.literal("Tip: ").withStyle(ChatFormatting.AQUA)
                     .append(Component.literal("Officer login OR colony visit resets the timer")

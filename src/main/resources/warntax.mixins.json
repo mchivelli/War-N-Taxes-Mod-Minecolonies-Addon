@@ -1,0 +1,15 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "net.machiavelli.minecolonytax.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "warntax.refmap.json",
+  "mixins": [
+    "WorldTickHandlerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  },
+  "client": [],
+  "server": []
+}

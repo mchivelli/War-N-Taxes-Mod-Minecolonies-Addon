@@ -13,9 +13,17 @@ public class SpyMissionData {
     private final long maxDurationMs;
     private final int cost;
     private final SpyIntelData intel;
+    private final long elapsedTimeMs;
+    private final int sourceX;
+    private final int sourceZ;
+    private final int destX;
+    private final int destZ;
+    private final long travelDurationMs;
+    private final long recallStartTime;
 
     public SpyMissionData(String missionId, String targetColonyName, int targetColonyId, int attackerColonyId,
-            String missionType, String status, long startTime, long maxDurationMs, int cost, SpyIntelData intel) {
+            String missionType, String status, long startTime, long maxDurationMs, int cost, SpyIntelData intel,
+            int sourceX, int sourceZ, int destX, int destZ, long travelDurationMs, long recallStartTime) {
         this.missionId = missionId;
         this.targetColonyName = targetColonyName;
         this.targetColonyId = targetColonyId;
@@ -26,6 +34,13 @@ public class SpyMissionData {
         this.maxDurationMs = maxDurationMs;
         this.cost = cost;
         this.intel = intel;
+        this.elapsedTimeMs = startTime > 0 ? System.currentTimeMillis() - startTime : 0;
+        this.sourceX = sourceX;
+        this.sourceZ = sourceZ;
+        this.destX = destX;
+        this.destZ = destZ;
+        this.travelDurationMs = travelDurationMs;
+        this.recallStartTime = recallStartTime;
     }
 
     public String getMissionId() {
@@ -66,5 +81,20 @@ public class SpyMissionData {
 
     public SpyIntelData getIntel() {
         return intel;
+    }
+
+    public long getElapsedTimeMs() {
+        return elapsedTimeMs;
+    }
+
+    public int getSourceX() { return sourceX; }
+    public int getSourceZ() { return sourceZ; }
+    public int getDestX() { return destX; }
+    public int getDestZ() { return destZ; }
+    public long getTravelDurationMs() { return travelDurationMs; }
+    public long getRecallStartTime() { return recallStartTime; }
+    /** Elapsed ms since recall was initiated (RETURNING phase). */
+    public long getElapsedReturnMs() {
+        return recallStartTime > 0 ? System.currentTimeMillis() - recallStartTime : 0;
     }
 }

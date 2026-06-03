@@ -17,20 +17,23 @@ public class TaxConfig {
 
         public static final ForgeConfigSpec.BooleanValue ENABLE_SDM_SHOP_CONVERSION;
         public static final ForgeConfigSpec.ConfigValue<String> CURRENCY_ITEM_NAME;
+        public static final ForgeConfigSpec.ConfigValue<String> CURRENCY_DENOMINATIONS;
         public static final ForgeConfigSpec.IntValue DEBT_LIMIT;
         public static final ForgeConfigSpec.IntValue TAX_STEAL_PER_GUARD;
+        public static final ForgeConfigSpec.IntValue DEBT_EVENT_CYCLES;
+        public static final ForgeConfigSpec.IntValue DEBT_ABANDONMENT_CYCLES;
+        public static final ForgeConfigSpec.BooleanValue DEBT_BLOCKS_WAR;
+        public static final ForgeConfigSpec.BooleanValue DEBT_BLOCKS_SPY;
+        public static final ForgeConfigSpec.DoubleValue DEBT_HAPPINESS_FACTOR;
         public static final ForgeConfigSpec.IntValue MIN_GUARDS_TO_RAID;
         public static final ForgeConfigSpec.IntValue MAX_TAX_REVENUE;
         public static final ForgeConfigSpec.BooleanValue ENABLE_COLONY_TRANSFER;
 
-        // Maps for storing building taxes and upgrade taxes
         public static final Map<String, ForgeConfigSpec.DoubleValue> BUILDING_TAXES = new HashMap<>();
         public static final Map<String, ForgeConfigSpec.DoubleValue> UPGRADE_TAXES = new HashMap<>();
 
-        // Map to link full building class names to short config names
         private static final Map<String, String> CLASS_NAME_TO_SHORT_NAME = new HashMap<>();
 
-        // Define the tax interval in minutes
         public static final ForgeConfigSpec.IntValue TAX_INTERVAL_MINUTES;
 
         public static final ForgeConfigSpec.IntValue ATTACKER_GRACE_PERIOD_MINUTES;
@@ -39,6 +42,7 @@ public class TaxConfig {
         public static final ForgeConfigSpec.IntValue RAID_TAX_INTERVAL_SECONDS;
         public static final ForgeConfigSpec.ConfigValue<List<Double>> RAID_TAX_PERCENTAGES;
         public static final ForgeConfigSpec.IntValue WAR_DURATION_MINUTES;
+        public static final ForgeConfigSpec.IntValue PEACE_PROPOSAL_TIMEOUT_SECONDS;
         public static final ForgeConfigSpec.IntValue MIN_GUARDS_TO_WAGE_WAR;
         public static final ForgeConfigSpec.BooleanValue ENABLE_LP_GROUP_SWITCHING;
         public static final Map<String, ForgeConfigSpec.DoubleValue> BUILDING_MAINTENANCE = new HashMap<>();
@@ -50,11 +54,39 @@ public class TaxConfig {
         public static final ForgeConfigSpec.DoubleValue WAR_DEFEAT_PERCENTAGE;
         public static final ForgeConfigSpec.DoubleValue WAR_STALEMATE_PERCENTAGE;
         public static final ForgeConfigSpec.IntValue WAR_TAX_FREEZE_HOURS;
+        public static final ForgeConfigSpec.IntValue WAR_TAX_FREEZE_CYCLES;
+        public static final ForgeConfigSpec.DoubleValue MAX_COMBINED_WAR_PENALTY_PERCENT;
+        public static final ForgeConfigSpec.DoubleValue MIN_TAX_GENERATION_PERCENT;
+
+        // Colony Occupation Configuration
+        public static final ForgeConfigSpec.BooleanValue ENABLE_OCCUPATION_SYSTEM;
+        public static final ForgeConfigSpec.IntValue OCCUPATION_DURATION_DAYS;
+        public static final ForgeConfigSpec.DoubleValue OCCUPATION_TAX_PERCENTAGE;
+
+        // High Stakes War Configuration
+        public static final ForgeConfigSpec.BooleanValue ENABLE_OUTPOST_VULNERABILITY;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_COLONY_WAGER;
 
         // War Vassalization Configuration
         public static final ForgeConfigSpec.BooleanValue ENABLE_WAR_VASSALIZATION;
         public static final ForgeConfigSpec.IntValue WAR_VASSALIZATION_DURATION_HOURS;
         public static final ForgeConfigSpec.IntValue WAR_VASSALIZATION_TRIBUTE_PERCENTAGE;
+
+        // Colony Tier Protection (Siege SMP ruleset)
+        public static final ForgeConfigSpec.BooleanValue ENABLE_PRIMARY_COLONY_TRANSFER;
+        public static final ForgeConfigSpec.IntValue PRIMARY_COLONY_TAX_OCCUPATION_DAYS;
+        public static final ForgeConfigSpec.IntValue BESIEGE_SPOIL_PERCENT_OF_LOSER_TREASURY;
+
+        // Experimental Siege Objectives (step 11)
+        public static final ForgeConfigSpec.BooleanValue ENABLE_EXPERIMENTAL_SIEGE_OBJECTIVES;
+        public static final ForgeConfigSpec.IntValue TOWN_HALL_EXPLOSIVE_HITS_REQUIRED;
+        public static final ForgeConfigSpec.IntValue TOWN_HALL_HIT_COOLDOWN_MINUTES;
+        public static final ForgeConfigSpec.IntValue MAX_SIEGE_RADIUS;
+        public static final ForgeConfigSpec.IntValue ATTACKER_GLOW_SECONDS;
+        public static final ForgeConfigSpec.IntValue BANNER_CAPTURE_MINUTES;
+
+        // Explosion't compat
+        public static final ForgeConfigSpec.BooleanValue DEFER_RESTORATION_TO_EXPLOSIONT;
         public static final ForgeConfigSpec.IntValue JOIN_PHASE_DURATION_MINUTES;
         public static final ForgeConfigSpec.BooleanValue WAR_ACCEPTANCE_REQUIRED;
         public static final ForgeConfigSpec.BooleanValue KEEP_INVENTORY_ON_LAST_LIFE;
@@ -63,7 +95,7 @@ public class TaxConfig {
         public static final ForgeConfigSpec.DoubleValue GUARD_TOWER_TAX_BOOST_PERCENTAGE;
 
         public static final ForgeConfigSpec.BooleanValue ENABLE_WAR_ACTIONS;
-        public static final ForgeConfigSpec.IntValue PLAYER_LIVES_IN_WAR; // New config
+        public static final ForgeConfigSpec.IntValue PLAYER_LIVES_IN_WAR;
 
         public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_WAR_ACTIONS;
         public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_RAID_ACTIONS;
@@ -75,6 +107,7 @@ public class TaxConfig {
         public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLOCK_INTERACTION_WHITELIST;
         public static final ForgeConfigSpec.BooleanValue BLOCK_FILTER_WARS;
         public static final ForgeConfigSpec.BooleanValue BLOCK_FILTER_RAIDS;
+        public static final ForgeConfigSpec.BooleanValue SUPPRESS_COLONY_LEVITATION;
 
         // PvP Arena Settings
         public static final ForgeConfigSpec.BooleanValue PVP_COMMANDS_IN_BATTLE_ENABLED;
@@ -85,9 +118,8 @@ public class TaxConfig {
         public static final ForgeConfigSpec.IntValue BATTLE_END_COUNTDOWN_SECONDS;
         public static final ForgeConfigSpec.BooleanValue PVP_DISABLE_FRIENDLY_FIRE;
 
-        // Logging configuration
-        public static final ForgeConfigSpec.BooleanValue SHOW_TAX_GENERATION_LOGS;
-        public static final ForgeConfigSpec.BooleanValue SHOW_COLONY_INITIALIZATION_LOGS;
+        // Logging configuration (0: MINIMAL, 1: NORMAL, 2: DEBUG)
+        public static final ForgeConfigSpec.IntValue LOG_LEVEL;
 
         // RaidGuardProtection Configuration
         public static final ForgeConfigSpec.IntValue MIN_GUARDS_TO_BE_RAIDED;
@@ -117,6 +149,12 @@ public class TaxConfig {
         // General Colony Permissions Configuration
         public static final ForgeConfigSpec.BooleanValue ENABLE_GENERAL_ITEM_INTERACTIONS;
         public static final ForgeConfigSpec.ConfigValue<List<? extends String>> GENERAL_COLONY_ACTIONS;
+
+        // Easy Factions Integration Configuration
+        public static final ForgeConfigSpec.BooleanValue ENABLE_EASY_FACTIONS_INTEGRATION;
+        public static final ForgeConfigSpec.ConfigValue<String> EASY_FACTIONS_MEMBER_RANK;
+        public static final ForgeConfigSpec.BooleanValue EASY_FACTIONS_PROMOTE_OFFICERS;
+        public static final ForgeConfigSpec.IntValue EASY_FACTIONS_SYNC_INTERVAL_TICKS;
 
         // Guard Resistance During Raids Configuration
         public static final ForgeConfigSpec.BooleanValue ENABLE_GUARD_RESISTANCE_DURING_RAIDS;
@@ -178,14 +216,15 @@ public class TaxConfig {
         public static final ForgeConfigSpec.BooleanValue GIVE_PATCHOULI_BOOK_ON_JOIN;
         public static final ForgeConfigSpec.BooleanValue SHOW_ADMIN_PAGES_IN_BOOK;
 
-        // Web API Configuration
-        public static final ForgeConfigSpec.BooleanValue ENABLE_WEB_API;
-        public static final ForgeConfigSpec.IntValue WEB_API_PORT;
-        public static final ForgeConfigSpec.ConfigValue<String> WEB_API_KEY;
-        public static final ForgeConfigSpec.IntValue WEB_API_RATE_LIMIT_REQUESTS_PER_MINUTE;
-        public static final ForgeConfigSpec.BooleanValue WEB_API_REQUIRE_AUTHENTICATION;
-        public static final ForgeConfigSpec.BooleanValue WEB_API_ENABLE_OFFLINE_PLAYERS;
-        public static final ForgeConfigSpec.IntValue WEB_API_CACHE_REFRESH_MINUTES;
+        // Database Configuration
+        public static final ForgeConfigSpec.BooleanValue DATABASE_ENABLED;
+        public static final ForgeConfigSpec.ConfigValue<String> DATABASE_HOST;
+        public static final ForgeConfigSpec.IntValue DATABASE_PORT;
+        public static final ForgeConfigSpec.ConfigValue<String> DATABASE_NAME;
+        public static final ForgeConfigSpec.ConfigValue<String> DATABASE_USERNAME;
+        public static final ForgeConfigSpec.ConfigValue<String> DATABASE_PASSWORD;
+        public static final ForgeConfigSpec.IntValue DATABASE_POOL_SIZE;
+        public static final ForgeConfigSpec.IntValue DATABASE_SNAPSHOT_INTERVAL_SECONDS;
 
         // ========== TAX EXPANSION: Economy Settings ==========
         // Tax Policies
@@ -244,23 +283,74 @@ public class TaxConfig {
         public static final ForgeConfigSpec.IntValue SPY_BRIBE_GUARDS_DISABLED_COUNT;
         public static final ForgeConfigSpec.IntValue SPY_STEAL_SECRETS_DURATION_HOURS;
 
+        // Spy Action Min Field Times
+        public static final ForgeConfigSpec.IntValue SPY_SABOTAGE_MIN_FIELD_MINUTES;
+
         // Spy Action Detection Chances
         public static final ForgeConfigSpec.DoubleValue SPY_SCOUT_DETECTION_CHANCE;
         public static final ForgeConfigSpec.DoubleValue SPY_SABOTAGE_DETECTION_CHANCE;
         public static final ForgeConfigSpec.DoubleValue SPY_BRIBE_GUARDS_DETECTION_CHANCE;
         public static final ForgeConfigSpec.DoubleValue SPY_STEAL_SECRETS_DETECTION_CHANCE;
 
-        // ========== TAX EXPANSION: War Chest ==========
-        public static final ForgeConfigSpec.BooleanValue ENABLE_WAR_CHEST;
-        public static final ForgeConfigSpec.DoubleValue WAR_CHEST_MIN_PERCENT_OF_TARGET;
-        public static final ForgeConfigSpec.IntValue WAR_CHEST_DRAIN_PER_MINUTE;
-        public static final ForgeConfigSpec.IntValue WAR_CHEST_MAX_CAPACITY;
-        public static final ForgeConfigSpec.BooleanValue WAR_CHEST_AUTO_SURRENDER_ENABLED;
-        public static final ForgeConfigSpec.DoubleValue WAR_CHEST_AUTO_DEPOSIT_PERCENT;
+        // Progressive Intel Thresholds
+        public static final ForgeConfigSpec.IntValue INTEL_EARLY_THRESHOLD_MINUTES;
+        public static final ForgeConfigSpec.IntValue INTEL_MID_THRESHOLD_MINUTES;
+        public static final ForgeConfigSpec.IntValue INTEL_LATE_THRESHOLD_MINUTES;
 
-        // Raid War Chest
-        public static final ForgeConfigSpec.BooleanValue RAID_WAR_CHEST_ENABLED;
-        public static final ForgeConfigSpec.DoubleValue RAID_WAR_CHEST_COST_PERCENT;
+        // Flee Behavior
+        public static final ForgeConfigSpec.DoubleValue FLEE_SPEED_MULTIPLIER;
+        public static final ForgeConfigSpec.IntValue FLEE_ESCAPE_DISTANCE;
+        public static final ForgeConfigSpec.IntValue FLEE_MAX_SECONDS;
+
+        // Spy Travel Phase
+        public static final ForgeConfigSpec.IntValue SPY_TRAVEL_BLOCKS_PER_MINUTE;
+        public static final ForgeConfigSpec.IntValue SPY_TRAVEL_MIN_MINUTES;
+        public static final ForgeConfigSpec.IntValue SPY_TRAVEL_MAX_MINUTES;
+
+        // Spy Map
+        public static final ForgeConfigSpec.BooleanValue SPY_MAP_ENABLED;
+        public static final ForgeConfigSpec.IntValue SPY_MAP_SCALE;
+
+        // Colony Upgrades Configuration
+        public static final ForgeConfigSpec.BooleanValue ENABLE_COLONY_UPGRADES;
+        public static final ForgeConfigSpec.IntValue UPGRADE_MAX_LEVEL;
+        public static final ForgeConfigSpec.IntValue UPGRADE_MILITIA_COST_BASE;
+        public static final ForgeConfigSpec.IntValue UPGRADE_SPY_CAPACITY_COST_BASE;
+        public static final ForgeConfigSpec.IntValue UPGRADE_SPY_SPEED_COST_BASE;
+        public static final ForgeConfigSpec.IntValue UPGRADE_SPY_EVASION_COST_BASE;
+        public static final ForgeConfigSpec.IntValue UPGRADE_RAID_FORCE_COST_BASE;
+        public static final ForgeConfigSpec.IntValue UPGRADE_DEFENSE_COST_BASE;
+        public static final ForgeConfigSpec.DoubleValue UPGRADE_COST_SCALING_FACTOR;
+        public static final ForgeConfigSpec.DoubleValue UPGRADE_MILITIA_MULTIPLIER_PER_LEVEL;
+        public static final ForgeConfigSpec.IntValue UPGRADE_SPY_CAPACITY_PER_LEVEL;
+        public static final ForgeConfigSpec.DoubleValue UPGRADE_SPY_SPEED_MULTIPLIER_PER_LEVEL;
+        public static final ForgeConfigSpec.DoubleValue UPGRADE_DETECTION_REDUCTION_PER_LEVEL;
+        public static final ForgeConfigSpec.IntValue UPGRADE_DEFENSE_BONUS_PER_LEVEL;
+        public static final ForgeConfigSpec.IntValue UPGRADE_TREASURY_CAP_COST_BASE;
+        public static final ForgeConfigSpec.IntValue UPGRADE_TAX_EFFICIENCY_COST_BASE;
+        public static final ForgeConfigSpec.IntValue UPGRADE_FORTIFICATION_COST_BASE;
+        public static final ForgeConfigSpec.IntValue UPGRADE_COUNTER_INTEL_COST_BASE;
+        public static final ForgeConfigSpec.IntValue UPGRADE_TREASURY_CAP_FLAT_PER_LEVEL;
+        public static final ForgeConfigSpec.DoubleValue UPGRADE_TAX_EFFICIENCY_PERCENT_PER_LEVEL;
+        public static final ForgeConfigSpec.DoubleValue UPGRADE_FORTIFICATION_DAMAGE_REDUCTION_PER_LEVEL;
+        public static final ForgeConfigSpec.DoubleValue UPGRADE_COUNTER_INTEL_DETECT_CHANCE_PER_LEVEL;
+        public static final ForgeConfigSpec.DoubleValue UPGRADE_RAID_FORCE_MULTIPLIER_PER_LEVEL;
+
+        // ========== TAX EXPANSION: Treasury ==========
+        public static final ForgeConfigSpec.BooleanValue ENABLE_TREASURY;
+        public static final ForgeConfigSpec.DoubleValue TREASURY_MIN_PERCENT_OF_TARGET;
+        public static final ForgeConfigSpec.DoubleValue TREASURY_MIN_PERCENT_OF_OWN_TAX;
+        public static final ForgeConfigSpec.IntValue TREASURY_DRAIN_PER_MINUTE;
+        public static final ForgeConfigSpec.BooleanValue TREASURY_DRAIN_USE_PERCENT;
+        public static final ForgeConfigSpec.DoubleValue TREASURY_DRAIN_PERCENT;
+        public static final ForgeConfigSpec.IntValue TREASURY_MAX_CAPACITY;
+        public static final ForgeConfigSpec.BooleanValue TREASURY_AUTO_SURRENDER_ENABLED;
+        public static final ForgeConfigSpec.DoubleValue TREASURY_AUTO_DEPOSIT_PERCENT;
+        public static final ForgeConfigSpec.DoubleValue WAR_DEFENDER_DRAIN_REDUCTION;
+
+        // Raid Treasury
+        public static final ForgeConfigSpec.BooleanValue RAID_TREASURY_ENABLED;
+        public static final ForgeConfigSpec.DoubleValue RAID_TREASURY_COST_PERCENT;
 
         // Raid Penalties
         public static final ForgeConfigSpec.DoubleValue RAID_PENALTY_TAX_REDUCTION_PERCENT;
@@ -277,6 +367,14 @@ public class TaxConfig {
         public static final ForgeConfigSpec.DoubleValue REPARATIONS_TAX_PENALTY_PERCENT;
         public static final ForgeConfigSpec.IntValue REPARATIONS_DURATION_HOURS;
         public static final ForgeConfigSpec.IntValue REPARATIONS_TRIGGER_LOSSES_COUNT;
+
+        // War Weariness Protection
+        public static final ForgeConfigSpec.BooleanValue ENABLE_WAR_WEARINESS;
+        public static final ForgeConfigSpec.IntValue WAR_WEARINESS_THRESHOLD;
+        public static final ForgeConfigSpec.IntValue WAR_WEARINESS_IMMUNITY_HOURS;
+
+        // Vassalization Economy
+        public static final ForgeConfigSpec.BooleanValue VASSALIZATION_REPLACES_REPARATIONS;
 
         // ========== TAX EXPANSION: Ransom System ==========
         public static final ForgeConfigSpec.BooleanValue ENABLE_RANSOM_SYSTEM;
@@ -311,6 +409,19 @@ public class TaxConfig {
         public static final ForgeConfigSpec.DoubleValue INVESTMENT_RESEARCH_SPY_DEFENSE_BONUS;
         public static final ForgeConfigSpec.IntValue INVESTMENT_RESEARCH_DURATION_DAYS;
 
+        // ==================== BESIEGE SYSTEM ====================
+        public static final ForgeConfigSpec.BooleanValue ENABLE_BESIEGE_SYSTEM;
+        public static final ForgeConfigSpec.IntValue BESIEGE_DURATION_MINUTES;
+        public static final ForgeConfigSpec.IntValue BESIEGE_COOLDOWN_HOURS;
+        public static final ForgeConfigSpec.DoubleValue BESIEGE_MILITIA_PERCENT;
+        public static final ForgeConfigSpec.IntValue BESIEGE_TRIBUTE_PERCENT;
+        public static final ForgeConfigSpec.IntValue BESIEGE_TRIBUTE_DURATION_HOURS;
+        public static final ForgeConfigSpec.IntValue BESIEGE_MIN_COLONY_SIZE;
+        public static final ForgeConfigSpec.BooleanValue BESIEGE_ALLIES_ENABLED;
+        public static final ForgeConfigSpec.DoubleValue BESIEGE_EXTRA_MERCENARIES_PER_BUILDING;
+        public static final ForgeConfigSpec.IntValue BESIEGE_MAX_MERCENARIES;
+        public static final ForgeConfigSpec.IntValue BESIEGE_PLAYER_STAY_RADIUS;
+
         // ==================== RANDOM EVENTS SYSTEM ====================
         public static final ForgeConfigSpec.BooleanValue ENABLE_RANDOM_EVENTS;
         public static final ForgeConfigSpec.IntValue RANDOM_EVENT_CHECK_FREQUENCY;
@@ -339,15 +450,15 @@ public class TaxConfig {
 
         static {
 
-                // Define general settings
                 BUILDER.push("General");
                 TAX_INTERVAL_MINUTES = BUILDER.comment("Tax generation interval in minutes")
                                 .defineInRange("TaxIntervalMinutes", 60, 1, 1440); // Default 60 minutes, min 1, max
                                                                                    // 1440 (1 day)
 
                 MAX_TAX_REVENUE = BUILDER.comment(
-                                "Maximum tax revenue a colony can store before it stops generating further taxes")
-                                .defineInRange("MaxTaxRevenue", 5000, 1, Integer.MAX_VALUE);
+                                "Maximum tax revenue a colony can store before it stops generating further taxes. "
+                                                + "Keep tight to encourage micromanagement and daily engagement.")
+                                .defineInRange("MaxTaxRevenue", 10000, 1, Integer.MAX_VALUE);
 
                 ENABLE_SDM_SHOP_CONVERSION = BUILDER
                                 .comment("Enable SDMShop conversion (true = enable, false = disable).")
@@ -357,27 +468,51 @@ public class TaxConfig {
                                 .comment("The item name for the custom currency (e.g., 'minecraft:emerald').")
                                 .define("CurrencyItemName", "minecraft:emerald");
 
-                SHOW_TAX_GENERATION_LOGS = BUILDER.comment(
-                                "Enable console logging of tax generation details (building upgrades, max warnings, etc.). "
-                                                +
-                                                "Set to false to reduce console spam during initialization.")
-                                .define("ShowTaxGenerationLogs", true);
-
-                SHOW_COLONY_INITIALIZATION_LOGS = BUILDER
-                                .comment("Enable console logging during colony building initialization. " +
-                                                "Set to false to reduce console spam during server startup. Colony initialization will still occur, just with less verbose logging.")
-                                .define("ShowColonyInitializationLogs", true);
+                CURRENCY_DENOMINATIONS = BUILDER
+                                .comment(
+                                    "Optional multi-denomination currency. Format: 'namespace:item:value,...' ordered highest to lowest.",
+                                    "Example: 'minecolonytax:gold_coin:1000,minecolonytax:silver_coin:100,minecraft:emerald:1'",
+                                    "Leave empty (default) to use only the single CurrencyItemName above.")
+                                .define("CurrencyDenominations", "");
+                LOG_LEVEL = BUILDER.comment(
+                                "Logging verbosity level. 0 = MINIMAL (only errors/warnings/critical), 1 = NORMAL (compact summaries), 2 = DEBUG (full verbose output for troubleshooting).")
+                                .defineInRange("LogLevel", 0, 0, 2);
 
                 BUILDER.pop();
 
-                DEBT_LIMIT = BUILDER.comment("Optional debt limit for colony debt. " +
-                                "If > 0, colony revenue will not deduct more once the debt reaches this limit (i.e. the tax value won't drop below -DebtLimit). Set to 0 to disable.")
-                                .defineInRange("DebtLimit", 0, 0, Integer.MAX_VALUE);
+                DEBT_LIMIT = BUILDER.comment("Debt limit for colony debt. " +
+                                "If > 0, colony revenue will not deduct more once the debt reaches this limit (i.e. the tax value won't drop below -DebtLimit). "
+                                +
+                                "Default 2000 to give military maintenance real consequences.")
+                                .defineInRange("DebtLimit", 2000, 0, Integer.MAX_VALUE);
 
                 TAX_STEAL_PER_GUARD = BUILDER.comment(
                                 "Amount of debt added to colony per guard killed when raiding colonies in debt. " +
                                                 "Only applies when DebtLimit > 0. Raiders get this amount when killing guards in debt colonies. Default: 200.")
                                 .defineInRange("TaxStealPerGuard", 200, 1, 10000);
+
+                DEBT_EVENT_CYCLES = BUILDER.comment(
+                                "Number of consecutive debt cycles before triggering bandit harassment and guard desertion events on the colony. " +
+                                                "0 = disabled. Default: 3.")
+                                .defineInRange("DebtEventCycles", 3, 0, 100);
+
+                DEBT_ABANDONMENT_CYCLES = BUILDER.comment(
+                                "Number of consecutive max-debt cycles before the colony is forcibly abandoned due to tax bankruptcy. " +
+                                                "Only triggers when the colony is at the DebtLimit cap. 0 = disabled. Default: 10.")
+                                .defineInRange("DebtAbandonmentCycles", 10, 0, 200);
+
+                DEBT_BLOCKS_WAR = BUILDER.comment(
+                                "If true, a colony at maximum debt (DebtLimit) cannot declare war until the debt is cleared. Default: true.")
+                                .define("DebtBlocksWar", true);
+
+                DEBT_BLOCKS_SPY = BUILDER.comment(
+                                "If true, a colony at maximum debt (DebtLimit) cannot deploy spy missions until the debt is cleared. Default: true.")
+                                .define("DebtBlocksSpy", true);
+
+                DEBT_HAPPINESS_FACTOR = BUILDER.comment(
+                                "Happiness modifier factor applied to all citizens each cycle the colony is in debt (0.0-1.0 = penalty, values below 1 reduce happiness). " +
+                                                "Applied via MineColonies happiness system. Default: 0.6.")
+                                .defineInRange("DebtHappinessFactor", 0.6, 0.0, 2.0);
 
                 // ========== War Settings ==========
                 BUILDER.push("War Settings");
@@ -415,15 +550,20 @@ public class TaxConfig {
                                 .defineInRange("RaidDefenseRewardPercentage", 0.15, 0.0, 1.0);
 
                 WAR_VICTORY_PERCENTAGE = BUILDER.comment(
-                                "Percentage of losing players' balance awarded to each winning player. Set to 0.0 to only enable colony transfer (if enabled).\n"
+                                "Percentage of losing players' balance awarded to winning side. " +
+                                                "Set equal to WarDefeatPercentage to prevent inflation (pool-based: winners get what losers lose). "
+                                                +
+                                                "Set to 0.0 to only enable colony transfer (if enabled).\n"
                                                 +
                                                 "Uses SDMShop balance or colony funds based on what's configured.")
-                                .defineInRange("WarVictoryPercentage", 0.25, 0.0, 1.0);
+                                .defineInRange("WarVictoryPercentage", 0.20, 0.0, 1.0);
 
                 WAR_DEFEAT_PERCENTAGE = BUILDER.comment(
-                                "Percentage that each losing player loses from their balance when defeated in war.\n" +
+                                "Percentage that each losing player loses from their balance when defeated in war. " +
+                                                "Should match WarVictoryPercentage to prevent money creation/destruction.\n"
+                                                +
                                                 "Uses SDMShop balance or colony funds based on what's configured.")
-                                .defineInRange("WarDefeatPercentage", 0.15, 0.0, 1.0);
+                                .defineInRange("WarDefeatPercentage", 0.20, 0.0, 1.0);
 
                 WAR_STALEMATE_PERCENTAGE = BUILDER.comment(
                                 "Percentage that all war participants lose from their balance when a war ends in stalemate.\n"
@@ -432,9 +572,32 @@ public class TaxConfig {
                                 .defineInRange("WarStalematePercentage", 0.10, 0.0, 1.0);
 
                 WAR_TAX_FREEZE_HOURS = BUILDER.comment(
-                                "Duration (in hours) to freeze colony tax generation after a war loss or stalemate.\n" +
-                                                "Set to 0 to disable tax freezing.")
+                                "[DEPRECATED] Use WarTaxFreezeCycles instead. Duration (in hours) to freeze colony tax generation after a war loss or stalemate.\n"
+                                                +
+                                                "Set to 0 to disable tax freezing. Ignored if WarTaxFreezeCycles > 0.")
                                 .defineInRange("WarTaxFreezeHours", 0, 0, 168); // Max 1 week
+
+                WAR_TAX_FREEZE_CYCLES = BUILDER.comment(
+                                "Number of tax cycles to skip after a war loss or stalemate. " +
+                                                "Cycle-based freezing ensures consistent behavior regardless of TaxIntervalMinutes. "
+                                                +
+                                                "At default 60min intervals, 3 cycles = 3 hours. Takes precedence over WarTaxFreezeHours.")
+                                .defineInRange("WarTaxFreezeCycles", 3, 0, 20);
+
+                MAX_COMBINED_WAR_PENALTY_PERCENT = BUILDER.comment(
+                                "Maximum combined penalty from war exhaustion + active war tax multiplier (0.0-1.0).\n"
+                                                +
+                                                "Prevents excessive penalty stacking. 0.5 = 50% max total penalty.")
+                                .defineInRange("MaxCombinedWarPenaltyPercent", 0.5, 0.0, 1.0);
+
+                MIN_TAX_GENERATION_PERCENT = BUILDER.comment(
+                                "Minimum tax generation floor as a percentage of base generation (0.0-1.0). " +
+                                                "After all penalties stack (raid, war exhaustion, reparations, events), "
+                                                +
+                                                "tax income will never drop below this fraction. " +
+                                                "Prevents death spirals where colonies can never recover. " +
+                                                "0.30 = colonies always earn at least 30% of their base income.")
+                                .defineInRange("MinTaxGenerationPercent", 0.30, 0.0, 1.0);
 
                 ENABLE_WAR_VASSALIZATION = BUILDER.comment(
                                 "When enabled and ENABLE_COLONY_TRANSFER is disabled, winning a war will vassalize the losing colony instead of transferring ownership.\n"
@@ -451,8 +614,142 @@ public class TaxConfig {
                 WAR_VASSALIZATION_TRIBUTE_PERCENTAGE = BUILDER.comment(
                                 "Percentage of the vassal colony's tax income paid to the victor as tribute (1-100).\n"
                                                 +
-                                                "This is the tribute rate enforced when a colony is vassalized through war.")
-                                .defineInRange("WarVassalizationTributePercentage", 25, 1, 100); // Default 25%
+                                                "Lowered default to 15% to avoid stacking too harshly with other war penalties. "
+                                                +
+                                                "Set VassalizationReplacesReparations=true to make tribute the only penalty.")
+                                .defineInRange("WarVassalizationTributePercentage", 15, 1, 100); // Default 15%
+
+                ENABLE_PRIMARY_COLONY_TRANSFER = BUILDER.comment(
+                                "If false (default), a player's first colony (Primary) is protected from ownership transfer.\n"
+                                                +
+                                                "Primary colonies can still be tax-occupied via besiege or vassalized via full war,\n"
+                                                +
+                                                "but the deed never moves to a new owner. Secondary colonies are always transferable\n"
+                                                +
+                                                "when ENABLE_COLONY_TRANSFER is enabled. Flip this to true for a no-mercy SMP\n"
+                                                +
+                                                "where even home bases can be permanently lost.")
+                                .define("EnablePrimaryColonyTransfer", false);
+
+                PRIMARY_COLONY_TAX_OCCUPATION_DAYS = BUILDER.comment(
+                                "Duration (real-time days) a Primary colony stays tax-occupied after a successful besiege.\n"
+                                                +
+                                                "During this window the besieger collects 100% of the colony's taxes and the original\n"
+                                                +
+                                                "owner is locked out of GUI/permissions, but the deed never transfers. If the owner\n"
+                                                +
+                                                "does not mount a successful counter-besiege within this window, the occupation\n"
+                                                +
+                                                "auto-reclaims (taxes route back to the owner). Secondary colonies use the standard\n"
+                                                +
+                                                "OccupationDurationDays config and DO transfer on expiry.")
+                                .defineInRange("PrimaryColonyTaxOccupationDays", 7, 1, 90);
+
+                BESIEGE_SPOIL_PERCENT_OF_LOSER_TREASURY = BUILDER.comment(
+                                "One-shot percentage of the loser's treasury transferred to the winner on besiege resolution.\n"
+                                                +
+                                                "Applied IN ADDITION to ongoing tax-occupation tribute. On attacker victory: extracted\n"
+                                                +
+                                                "from the besieged colony's treasury into the besieger's primary colony treasury.\n"
+                                                +
+                                                "On defender victory: extracted from the besieger's primary colony treasury into the\n"
+                                                +
+                                                "defending colony's treasury. 0 disables siege spoils entirely.")
+                                .defineInRange("BesiegeSpoilPercentOfLoserTreasury", 25, 0, 100);
+
+                ENABLE_EXPERIMENTAL_SIEGE_OBJECTIVES = BUILDER.comment(
+                                "EXPERIMENTAL — when enabled, full wars get an additional win condition:\n"
+                                                +
+                                                "the attacker can win by landing N explosive hits on the defender's Town Hall.\n"
+                                                +
+                                                "Runs IN PARALLEL with the legacy lives+guards system — first trigger wins.\n"
+                                                +
+                                                "Banner Capture (other objective from the design) is NOT yet implemented and\n"
+                                                +
+                                                "would require a new item/block registration.")
+                                .define("EnableExperimentalSiegeObjectives", false);
+
+                TOWN_HALL_EXPLOSIVE_HITS_REQUIRED = BUILDER.comment(
+                                "Number of counted explosive hits on the Town Hall building required for attacker victory.")
+                                .defineInRange("TownHallExplosiveHitsRequired", 5, 1, 50);
+
+                TOWN_HALL_HIT_COOLDOWN_MINUTES = BUILDER.comment(
+                                "Per-attacker cooldown (minutes) between counted Town Hall hits. Prevents stacking\n"
+                                                +
+                                                "TNT in one chunk to instawin. Hits during cooldown still damage blocks but don't count.")
+                                .defineInRange("TownHallHitCooldownMinutes", 5, 1, 60);
+
+                MAX_SIEGE_RADIUS = BUILDER.comment(
+                                "Maximum distance (blocks) from the Town Hall centre the attacker may be in order\n"
+                                                +
+                                                "for an explosion to count as a Town Hall hit. Prevents remote-triggering.")
+                                .defineInRange("MaxSiegeRadius", 500, 50, 2000);
+
+                ATTACKER_GLOW_SECONDS = BUILDER.comment(
+                                "Seconds the GLOWING effect is applied to an attacker after they land a counted hit.\n"
+                                                +
+                                                "Lets defenders see them through walls and converge.")
+                                .defineInRange("AttackerGlowSeconds", 30, 0, 600);
+
+                BANNER_CAPTURE_MINUTES = BUILDER.comment(
+                                "Minutes the attacker must hold a planted Siege Banner inside the Town Hall building\n"
+                                                +
+                                                "for the capture to complete. Defenders can break the banner to cancel — the\n"
+                                                +
+                                                "attacker may re-plant once. Behind EnableExperimentalSiegeObjectives.")
+                                .defineInRange("BannerCaptureMinutes", 10, 1, 120);
+
+                DEFER_RESTORATION_TO_EXPLOSIONT = BUILDER.comment(
+                                "Compat: if Harmonised's 'Explosion't' mod is installed AND this is true, the WarBlockLedger\n"
+                                                +
+                                                "skips its own snapshot/restore pipeline and lets Explosion't handle all explosion\n"
+                                                +
+                                                "damage globally. Trade-off: Explosion't restores ALL world-wide explosion damage\n"
+                                                +
+                                                "(including outside the colony bracket), not just war damage. Leave false to keep\n"
+                                                +
+                                                "the per-war scoped restoration; flip true if you want one system in charge.")
+                                .define("DeferRestorationToExplosiont", false);
+
+                // ========== Colony Occupation Settings ==========
+                BUILDER.push("Colony Occupation");
+
+                ENABLE_OCCUPATION_SYSTEM = BUILDER.comment(
+                                "When enabled and colony transfer is enabled, winning a war puts the colony into an OCCUPIED state\n"
+                                                + "instead of immediately transferring ownership. The occupier can collect taxes but cannot\n"
+                                                + "interact with colony buildings or items. The original owner has a configurable number of days\n"
+                                                + "to wage a reclamation war. If no reclamation is attempted, full ownership transfers automatically.")
+                                .define("EnableOccupationSystem", true);
+
+                OCCUPATION_DURATION_DAYS = BUILDER.comment(
+                                "Number of real-time days the original owner has to reclaim an occupied colony.\n"
+                                                + "After this period expires without a reclamation war, full ownership permanently transfers to the occupier.")
+                                .defineInRange("OccupationDurationDays", 7, 1, 90); // Default 7 days, max 90 days
+
+                OCCUPATION_TAX_PERCENTAGE = BUILDER.comment(
+                                "Percentage of the occupied colony's generated tax that is diverted to the occupier (0.0 - 1.0).\n"
+                                                + "For example, 0.5 means 50% of the colony's tax income goes to the occupier.")
+                                .defineInRange("OccupationTaxPercentage", 0.50, 0.0, 1.0);
+
+                BUILDER.pop(); // Colony Occupation
+
+                // ========== High Stakes War Settings ==========
+                BUILDER.push("High Stakes War");
+
+                ENABLE_OUTPOST_VULNERABILITY = BUILDER.comment(
+                                "When enabled, SECONDARY colonies (outposts) can be attacked even if the owner is offline.\n"
+                                                + "PRIMARY colonies (a player's first colony) still require the owner to be online.\n"
+                                                + "This creates risk for empire expansion - outposts need strong passive defenses!")
+                                .define("EnableOutpostVulnerability", true);
+
+                ENABLE_COLONY_WAGER = BUILDER.comment(
+                                "When enabled, the attacker's colony becomes a WAGER in the war.\n"
+                                                + "If the attacker WINS: Target colony enters OCCUPIED state (attacker collects taxes).\n"
+                                                + "If the DEFENDER WINS: Attacker's wagered colony enters OCCUPIED state (defender collects taxes)!\n"
+                                                + "This creates high-risk, high-reward warfare where attackers cannot safely grief weaker players.")
+                                .define("EnableColonyWager", true);
+
+                BUILDER.pop(); // High Stakes War
 
                 MIN_GUARDS_TO_RAID = BUILDER.comment("Minimum number of guards required to initiate a raid. " +
                                 "NOTE: This is only used when 'EnableRaidBuildingRequirements' is disabled. " +
@@ -477,8 +774,10 @@ public class TaxConfig {
                                 .defineInRange("RaidTaxIntervalSeconds", 60, 5, 3600);
 
                 RAID_TAX_PERCENTAGES = BUILDER
-                                .comment("Tax transfer percentages during raids (comma-separated decimals)")
-                                .define("RaidTaxPercentages", List.of(0.1, 0.25, 0.5, 0.7));
+                                .comment("Tax transfer percentages during raids (comma-separated decimals). " +
+                                                "Each tier applies at the RaidTaxIntervalSeconds interval. " +
+                                                "Keep values consistent with MaxRaidTaxPercentage.")
+                                .define("RaidTaxPercentages", List.of(0.05, 0.10, 0.15, 0.25));
 
                 // ========== Entity Raid Settings ==========
                 BUILDER.push("Entity Raid Settings");
@@ -638,12 +937,34 @@ public class TaxConfig {
                                 .defineInRange("TaxStealPercentagePerGuard", 0.1, 0.0, 1.0);
 
                 MAX_RAID_TAX_PERCENTAGE = BUILDER.comment(
-                                "Maximum percentage of colony tax that can be stolen during a raid (0.0 - 1.0). This amount is distributed across all guards/militia. For example: 0.5 = 50% max tax stolen when all defenders are killed.")
-                                .defineInRange("MaxRaidTaxPercentage", 0.5, 0.0, 1.0);
+                                "Maximum percentage of colony tax that can be stolen during a raid (0.0 - 1.0). This amount is distributed across all guards/militia. For example: 0.25 = 25% max tax stolen when all defenders are killed.")
+                                .defineInRange("MaxRaidTaxPercentage", 0.25, 0.0, 1.0);
 
                 APPLY_RESISTANCE_TO_CITIZENS = BUILDER.comment(
                                 "If true, resistance effects during raids/wars will also be applied to all citizens, not just guards. This makes the entire colony more defensive.")
                                 .define("ApplyResistanceToCitizens", false);
+
+                BUILDER.pop();
+
+                // ========== Easy Factions Integration ==========
+                BUILDER.push("Easy Factions Integration");
+
+                ENABLE_EASY_FACTIONS_INTEGRATION = BUILDER.comment(
+                                "Enable integration with the Easy Factions mod (modid: easy_factions). When enabled, faction members are automatically granted MineColonies permissions on each other's colonies. Has no effect if Easy Factions is not installed.")
+                                .define("EnableEasyFactionsIntegration", true);
+
+                EASY_FACTIONS_MEMBER_RANK = BUILDER.comment(
+                                "MineColonies rank assigned to regular faction members on each other's colonies. Valid values: friend, officer. Officer grants more interaction permissions but also allows tax claiming under default settings.")
+                                .define("EasyFactionsMemberRank", "friend",
+                                                o -> o instanceof String s && (s.equalsIgnoreCase("friend") || s.equalsIgnoreCase("officer")));
+
+                EASY_FACTIONS_PROMOTE_OFFICERS = BUILDER.comment(
+                                "If true, Easy Factions officers and the faction owner are promoted to MineColonies Officer rank on every faction member's colony (overrides EasyFactionsMemberRank for them). WARNING: MineColonies Officer rank grants tax-claim rights by default - enabling this lets faction officers drain other members' treasuries via /wnt claimtax. Default is false; opt in only for tightly-trusted factions.")
+                                .define("EasyFactionsPromoteOfficers", false);
+
+                EASY_FACTIONS_SYNC_INTERVAL_TICKS = BUILDER.comment(
+                                "How often (in server ticks) to reconcile faction membership with colony permissions. 20 ticks = 1 second. Default 200 = every 10 seconds. Lower values are more responsive but slightly more expensive.")
+                                .defineInRange("EasyFactionsSyncIntervalTicks", 200, 20, 12000);
 
                 BUILDER.pop();
 
@@ -784,71 +1105,57 @@ public class TaxConfig {
 
                 BUILDER.pop();
 
-                // ========== Web API Settings ==========
-                BUILDER.push("Web API");
+                // ========== Database Settings ==========
+                // Get these values from the Pterodactyl panel -> your server -> Databases tab.
+                // Both the Minecraft server container and your website container connect to
+                // the same MySQL/MariaDB server using these credentials.
+                BUILDER.push("Database");
 
-                ENABLE_WEB_API = BUILDER.comment("Enable the Web API server for external data access. " +
-                                "When enabled, war statistics and other data can be queried via HTTP REST endpoints. " +
-                                "IMPORTANT: Only enable this if you understand the security implications. " +
-                                "The API runs SERVER-SIDE ONLY and requires proper port forwarding if accessed from outside your network. "
-                                +
-                                "Default: false (disabled)")
-                                .define("EnableWebAPI", false);
+                DATABASE_ENABLED = BUILDER.comment(
+                                "Enable MySQL/MariaDB database integration for war statistics. " +
+                                "When enabled, war stats are written to the database in real time and can be " +
+                                "queried by an external website. Requires a running MySQL/MariaDB server. " +
+                                "On Pterodactyl: create a database under your server's 'Databases' tab and copy the credentials below. " +
+                                "Default: false")
+                                .define("Enabled", false);
 
-                WEB_API_PORT = BUILDER.comment("Port number for the Web API server. " +
-                                "Make sure this port is not already in use by another application. " +
-                                "Common ports: 8080, 8090, 9000. Avoid ports below 1024 (requires admin privileges). " +
-                                "You may need to configure port forwarding on your router for external access. " +
-                                "Default: 8090")
-                                .defineInRange("WebAPIPort", 8090, 1024, 65535);
+                DATABASE_HOST = BUILDER.comment(
+                                "MySQL/MariaDB server host. " +
+                                "On Pterodactyl this is shown in the Databases tab (e.g. '127.0.0.1' or an internal hostname). " +
+                                "Default: 127.0.0.1")
+                                .define("Host", "127.0.0.1");
 
-                WEB_API_KEY = BUILDER.comment("API authentication key for secure access. " +
-                                "This key must be provided in the 'X-API-Key' header for all requests when authentication is enabled. "
-                                +
-                                "Generate a strong, random key (recommended: 32+ characters). " +
-                                "Example: 'my-super-secret-api-key-12345-abcdef' " +
-                                "SECURITY WARNING: Keep this key private! Anyone with this key can access your server data. "
-                                +
-                                "Default: empty (you must set this to enable authentication)")
-                                .define("WebAPIKey", "");
+                DATABASE_PORT = BUILDER.comment(
+                                "MySQL/MariaDB server port. Default: 3306")
+                                .defineInRange("Port", 3306, 1, 65535);
 
-                WEB_API_RATE_LIMIT_REQUESTS_PER_MINUTE = BUILDER
-                                .comment("Maximum number of API requests allowed per IP address per minute. " +
-                                                "Prevents abuse and excessive server load from a single source. " +
-                                                "Set to 0 to disable rate limiting (not recommended for public servers). "
-                                                +
-                                                "Default: 60 (1 request per second average)")
-                                .defineInRange("WebAPIRateLimitRequestsPerMinute", 60, 0, 1000);
+                DATABASE_NAME = BUILDER.comment(
+                                "Database name. On Pterodactyl this is generated automatically (e.g. 's1_warntax'). " +
+                                "Default: warntax")
+                                .define("Database", "warntax");
 
-                WEB_API_REQUIRE_AUTHENTICATION = BUILDER.comment("Require API key authentication for all requests. " +
-                                "When enabled, requests without a valid 'X-API-Key' header will be rejected with 401 Unauthorized. "
-                                +
-                                "When disabled, anyone can query the API (use with caution!). " +
-                                "SECURITY: Always enable this for public servers. Only disable for local testing. " +
-                                "Default: true (authentication required)")
-                                .define("WebAPIRequireAuthentication", true);
+                DATABASE_USERNAME = BUILDER.comment(
+                                "Database username. On Pterodactyl this is shown in the Databases tab. " +
+                                "Default: warntax")
+                                .define("Username", "warntax");
 
-                WEB_API_ENABLE_OFFLINE_PLAYERS = BUILDER.comment("Enable offline player data in API responses. " +
-                                "When enabled, the API can return statistics for offline players by scanning player data files. "
-                                +
-                                "This requires periodic file scanning and caching, which uses more memory and disk I/O. "
-                                +
-                                "Use the 'includeOffline=true' query parameter to request offline data. " +
-                                "PERFORMANCE: Only enable if you need offline player stats on your website. " +
-                                "Default: false (online players only)")
-                                .define("WebAPIEnableOfflinePlayers", false);
+                DATABASE_PASSWORD = BUILDER.comment(
+                                "Database password. On Pterodactyl this is shown in the Databases tab. " +
+                                "Default: empty (set this)")
+                                .define("Password", "");
 
-                WEB_API_CACHE_REFRESH_MINUTES = BUILDER
-                                .comment("How often to refresh the offline player data cache (in minutes). " +
-                                                "The server will scan player data files at this interval to update offline player statistics. "
-                                                +
-                                                "Lower values = more current data but higher disk I/O. Higher values = less load but stale data. "
-                                                +
-                                                "Only used when 'WebAPIEnableOfflinePlayers' is true. " +
-                                                "Recommended: 5-15 minutes for active servers, 30-60 minutes for larger servers. "
-                                                +
-                                                "Default: 10 minutes")
-                                .defineInRange("WebAPICacheRefreshMinutes", 10, 1, 1440);
+                DATABASE_POOL_SIZE = BUILDER.comment(
+                                "Number of database connections to keep open. " +
+                                "2 is sufficient for a game server; increase only if you see connection wait errors. " +
+                                "Default: 2")
+                                .defineInRange("PoolSize", 2, 1, 10);
+
+                DATABASE_SNAPSHOT_INTERVAL_SECONDS = BUILDER.comment(
+                                "How often (in seconds) to snapshot colony state to the database. " +
+                                "This keeps the website's colony status board current. " +
+                                "Lower values = more current data but slightly more DB load. " +
+                                "Default: 300 (5 minutes)")
+                                .defineInRange("SnapshotIntervalSeconds", 300, 30, 3600);
 
                 BUILDER.pop();
 
@@ -884,7 +1191,7 @@ public class TaxConfig {
                                 .defineInRange("LowPolicyRevenueModifier", -0.25, -1.0, 0.0);
 
                 TAX_POLICY_LOW_HAPPINESS_MODIFIER = BUILDER.comment(
-                                "Happiness modifier for LOW tax policy. Positive = happier citizens. Example: 0.20 = 20% faster happiness growth.")
+                                "Happiness modifier for LOW tax policy. Additive to colony avg happiness (0-10 scale). Example: 0.20 = +0.2 happiness.")
                                 .defineInRange("LowPolicyHappinessModifier", 0.20, 0.0, 1.0);
 
                 TAX_POLICY_HIGH_REVENUE_MODIFIER = BUILDER.comment(
@@ -892,7 +1199,7 @@ public class TaxConfig {
                                 .defineInRange("HighPolicyRevenueModifier", 0.25, 0.0, 1.0);
 
                 TAX_POLICY_HIGH_HAPPINESS_MODIFIER = BUILDER.comment(
-                                "Happiness modifier for HIGH tax policy. Negative = unhappier citizens. Example: -0.15 = 15% slower happiness.")
+                                "Happiness modifier for HIGH tax policy. Additive to colony avg happiness (0-10 scale). Example: -0.15 = -0.15 happiness.")
                                 .defineInRange("HighPolicyHappinessModifier", -0.15, -1.0, 0.0);
 
                 TAX_POLICY_WAR_REVENUE_MODIFIER = BUILDER.comment(
@@ -900,7 +1207,7 @@ public class TaxConfig {
                                 .defineInRange("WarPolicyRevenueModifier", 0.50, 0.0, 2.0);
 
                 TAX_POLICY_WAR_HAPPINESS_MODIFIER = BUILDER.comment(
-                                "Happiness modifier for WAR ECONOMY policy. Citizens dislike war economy. Example: -0.25 = 25% happiness penalty.")
+                                "Happiness modifier for WAR ECONOMY policy. Additive to colony avg happiness (0-10 scale). Example: -0.25 = -0.25 happiness.")
                                 .defineInRange("WarPolicyHappinessModifier", -0.25, -1.0, 0.0);
                 BUILDER.pop();
 
@@ -951,7 +1258,7 @@ public class TaxConfig {
 
                 FACTION_CREATION_COST = BUILDER.comment(
                                 "Tax cost to create a new faction.")
-                                .defineInRange("FactionCreationCost", 1000, 0, 100000);
+                                .defineInRange("FactionCreationCost", 5000, 0, 100000);
 
                 FACTION_ALLIANCE_LIMIT = BUILDER.comment(
                                 "Maximum number of allied factions a faction can have.")
@@ -980,23 +1287,25 @@ public class TaxConfig {
                 BUILDER.push("Trade Routes");
                 ENABLE_TRADE_ROUTES = BUILDER.comment(
                                 "Enable trade routes between allied colonies. Trade routes generate passive income based on distance.")
-                                .define("EnableTradeRoutes", true);
+                                .define("EnableTradeRoutes", false);
 
                 TRADE_ROUTE_INCOME_PER_CHUNK = BUILDER.comment(
-                                "Tax income generated per chunk of distance on a trade route (per tax cycle).")
-                                .defineInRange("TradeRouteIncomePerChunk", 5, 1, 100);
+                                "Tax income generated per chunk of distance on a trade route (per tax cycle). " +
+                                                "Kept low to make trade routes a modest bonus, not a primary income source.")
+                                .defineInRange("TradeRouteIncomePerChunk", 1, 1, 100);
 
                 TRADE_ROUTE_MAX_DISTANCE_CHUNKS = BUILDER.comment(
-                                "Maximum distance in chunks for a trade route. Longer routes = more income but higher maintenance.")
-                                .defineInRange("TradeRouteMaxDistanceChunks", 1000, 10, 10000);
+                                "Maximum distance in chunks for a trade route. Capped to prevent infinite money. " +
+                                                "At 100 chunks × 1/chunk = max 100 income/route.")
+                                .defineInRange("TradeRouteMaxDistanceChunks", 100, 10, 10000);
 
                 TRADE_ROUTE_MAINTENANCE_COST = BUILDER.comment(
                                 "Maintenance cost per trade route per tax cycle.")
-                                .defineInRange("TradeRouteMaintenanceCost", 50, 0, 10000);
+                                .defineInRange("TradeRouteMaintenanceCost", 25, 0, 10000);
 
                 MAX_TRADE_ROUTES_PER_COLONY = BUILDER.comment(
                                 "Maximum number of trade routes a colony can have active.")
-                                .defineInRange("MaxTradeRoutesPerColony", 3, 1, 20);
+                                .defineInRange("MaxTradeRoutesPerColony", 2, 1, 20);
                 BUILDER.pop();
 
                 BUILDER.pop(); // End Tax Expansion - Factions
@@ -1033,15 +1342,16 @@ public class TaxConfig {
 
                 SPY_SABOTAGE_COST = BUILDER.comment(
                                 "Tax cost for SABOTAGE action (reduces target's next tax cycle).")
-                                .defineInRange("SabotageCost", 500, 0, 100000);
+                                .defineInRange("SabotageCost", 1500, 0, 100000);
 
                 SPY_BRIBE_GUARDS_COST = BUILDER.comment(
-                                "Tax cost for BRIBE GUARDS action (disables guards during next raid).")
-                                .defineInRange("BribeGuardsCost", 1000, 0, 100000);
+                                "Tax cost for BRIBE GUARDS action (disables guards during next raid). " +
+                                                "High cost makes this a gamble given ~50% detection chance.")
+                                .defineInRange("BribeGuardsCost", 2500, 0, 100000);
 
                 SPY_STEAL_SECRETS_COST = BUILDER.comment(
                                 "Tax cost for STEAL SECRETS action (copy building synergy bonuses temporarily).")
-                                .defineInRange("StealSecretsCost", 750, 0, 100000);
+                                .defineInRange("StealSecretsCost", 1000, 0, 100000);
                 BUILDER.pop();
 
                 // --- Spy Action Effects ---
@@ -1058,6 +1368,12 @@ public class TaxConfig {
                 SPY_STEAL_SECRETS_DURATION_HOURS = BUILDER.comment(
                                 "Duration in hours that stolen building synergy bonuses last.")
                                 .defineInRange("StealSecretsDurationHours", 24, 1, 168);
+
+                SPY_SABOTAGE_MIN_FIELD_MINUTES = BUILDER.comment(
+                                "Minutes a SABOTAGE spy must remain active at the target colony before the " +
+                                "sabotage is considered planted and the mission auto-completes. " +
+                                "Spies detected before this threshold apply no effect on escape.")
+                                .defineInRange("SabotageMinFieldMinutes", 30, 1, 240);
                 BUILDER.pop();
 
                 // --- Spy Action Detection Chances ---
@@ -1071,61 +1387,196 @@ public class TaxConfig {
                                 .defineInRange("SabotageDetectionChance", 0.25, 0.0, 1.0);
 
                 SPY_BRIBE_GUARDS_DETECTION_CHANCE = BUILDER.comment(
-                                "Additional detection chance for BRIBE GUARDS action (0.0-1.0). High risk.")
-                                .defineInRange("BribeGuardsDetectionChance", 0.35, 0.0, 1.0);
+                                "Additional detection chance for BRIBE GUARDS action (0.0-1.0). High risk - combined with base chance ~50% detection.")
+                                .defineInRange("BribeGuardsDetectionChance", 0.45, 0.0, 1.0);
 
                 SPY_STEAL_SECRETS_DETECTION_CHANCE = BUILDER.comment(
                                 "Additional detection chance for STEAL SECRETS action (0.0-1.0). Medium-high risk.")
-                                .defineInRange("StealSecretsDetectionChance", 0.20, 0.0, 1.0);
+                                .defineInRange("StealSecretsDetectionChance", 0.30, 0.0, 1.0);
+                BUILDER.pop();
+
+                // --- Progressive Intel Thresholds ---
+                BUILDER.push("Progressive Intel");
+                INTEL_EARLY_THRESHOLD_MINUTES = BUILDER.comment(
+                                "Minutes a spy must be active before Tier 1 intel is gathered " +
+                                                "(colony name, citizen count, building count, war status).")
+                                .defineInRange("IntelEarlyThresholdMinutes", 2, 0, 60);
+
+                INTEL_MID_THRESHOLD_MINUTES = BUILDER.comment(
+                                "Minutes a spy must be active before Tier 2 intel is gathered " +
+                                                "(guard count, happiness, tax balance).")
+                                .defineInRange("IntelMidThresholdMinutes", 10, 1, 120);
+
+                INTEL_LATE_THRESHOLD_MINUTES = BUILDER.comment(
+                                "Minutes a spy must be active before Tier 3 intel is gathered " +
+                                                "(owner SDM balance, officer balances, colony member list).")
+                                .defineInRange("IntelLateThresholdMinutes", 30, 5, 240);
+                BUILDER.pop();
+
+                // --- Flee Behavior ---
+                BUILDER.push("Flee Behavior");
+                FLEE_SPEED_MULTIPLIER = BUILDER.comment(
+                                "Speed multiplier applied to a spy when fleeing detection (1.0 = normal speed).")
+                                .defineInRange("FleeSpeedMultiplier", 1.5, 1.0, 3.0);
+
+                FLEE_ESCAPE_DISTANCE = BUILDER.comment(
+                                "How many blocks past the colony border a spy must reach to escape.")
+                                .defineInRange("FleeEscapeDistance", 5, 1, 50);
+
+                FLEE_MAX_SECONDS = BUILDER.comment(
+                                "Maximum seconds a spy has to flee before being caught.")
+                                .defineInRange("FleeMaxSeconds", 30, 10, 120);
+                BUILDER.pop();
+
+                // --- Spy Travel Phase ---
+                BUILDER.push("Travel Phase");
+                SPY_TRAVEL_BLOCKS_PER_MINUTE = BUILDER.comment(
+                                "Spy travel speed in blocks per minute. Determines how long it takes to reach the target colony.")
+                                .defineInRange("SpyTravelBlocksPerMinute", 200, 50, 2000);
+
+                SPY_TRAVEL_MIN_MINUTES = BUILDER.comment(
+                                "Minimum travel time in minutes, regardless of distance.")
+                                .defineInRange("SpyTravelMinMinutes", 1, 0, 30);
+
+                SPY_TRAVEL_MAX_MINUTES = BUILDER.comment(
+                                "Maximum travel time cap in minutes, regardless of distance.")
+                                .defineInRange("SpyTravelMaxMinutes", 15, 1, 60);
+                BUILDER.pop();
+
+                // --- Spy Map ---
+                BUILDER.push("Spy Map");
+                SPY_MAP_ENABLED = BUILDER.comment(
+                                "When true, a pre-filled map of the target colony area is given to the player " +
+                                "whenever their spy returns successfully (completed, escaped, or recalled).")
+                                .define("SpyMapEnabled", true);
+                SPY_MAP_SCALE = BUILDER.comment(
+                                "Scale of the returned spy map. 0 = 128 blocks, 1 = 256 blocks, " +
+                                "2 = 512 blocks, 3 = 1024 blocks, 4 = 2048 blocks. " +
+                                "Higher values cover more area at the cost of per-block detail.")
+                                .defineInRange("SpyMapScale", 1, 0, 4);
                 BUILDER.pop();
 
                 BUILDER.pop(); // End Tax Expansion - Espionage
+
+                // ============================================================
+                // Colony Upgrades
+                // ============================================================
+                BUILDER.comment("Colony Upgrades — invest Treasury funds to permanently improve colony capabilities").push("ColonyUpgrades");
+                ENABLE_COLONY_UPGRADES = BUILDER.comment("Enable the colony upgrade investment system").define("EnableColonyUpgrades", true);
+                UPGRADE_MAX_LEVEL = BUILDER.comment("Maximum level for each upgrade type").defineInRange("UpgradeMaxLevel", 5, 1, 20);
+                UPGRADE_MILITIA_COST_BASE = BUILDER.comment("Base Treasury cost for first militia upgrade level").defineInRange("UpgradeMilitiaCostBase", 500, 1, 100000);
+                UPGRADE_SPY_CAPACITY_COST_BASE = BUILDER.comment("Base Treasury cost for first spy capacity upgrade level").defineInRange("UpgradeSpyCapacityCostBase", 300, 1, 100000);
+                UPGRADE_SPY_SPEED_COST_BASE = BUILDER.comment("Base Treasury cost for first spy speed upgrade level").defineInRange("UpgradeSpySpeedCostBase", 200, 1, 100000);
+                UPGRADE_SPY_EVASION_COST_BASE = BUILDER.comment("Base Treasury cost for first spy evasion upgrade level").defineInRange("UpgradeSpyEvasionCostBase", 400, 1, 100000);
+                UPGRADE_RAID_FORCE_COST_BASE = BUILDER.comment("Base Treasury cost for first raid force upgrade level").defineInRange("UpgradeRaidForceCostBase", 600, 1, 100000);
+                UPGRADE_DEFENSE_COST_BASE = BUILDER.comment("Base Treasury cost for first defense upgrade level").defineInRange("UpgradeDefenseCostBase", 350, 1, 100000);
+                UPGRADE_COST_SCALING_FACTOR = BUILDER.comment("Cost multiplier per upgrade level (e.g. 2.0 means each level costs double the previous)").defineInRange("UpgradeCostScalingFactor", 2.0, 1.0, 10.0);
+                UPGRADE_MILITIA_MULTIPLIER_PER_LEVEL = BUILDER.comment("Militia size multiplier added per upgrade level (0.1 = +10% per level)").defineInRange("UpgradeMilitiaMultiplierPerLevel", 0.10, 0.01, 1.0);
+                UPGRADE_SPY_CAPACITY_PER_LEVEL = BUILDER.comment("Additional concurrent spies per upgrade level").defineInRange("UpgradeSpyCapacityPerLevel", 1, 1, 10);
+                UPGRADE_SPY_SPEED_MULTIPLIER_PER_LEVEL = BUILDER.comment("Spy travel speed multiplier per upgrade level (0.2 = +20% faster per level)").defineInRange("UpgradeSpySpeedMultiplierPerLevel", 0.20, 0.01, 1.0);
+                UPGRADE_DETECTION_REDUCTION_PER_LEVEL = BUILDER.comment("Detection chance reduction per evasion upgrade level (0.05 = -5% per level)").defineInRange("UpgradeDetectionReductionPerLevel", 0.05, 0.01, 0.5);
+                UPGRADE_DEFENSE_BONUS_PER_LEVEL = BUILDER.comment("Additional guard resistance level per defense upgrade level").defineInRange("UpgradeDefenseBonusPerLevel", 1, 1, 5);
+                UPGRADE_TREASURY_CAP_COST_BASE = BUILDER.comment("Base treasury cost to purchase one level of Treasury Cap investment.")
+                                .defineInRange("UpgradeTreasuryCapCostBase", 3000, 1, Integer.MAX_VALUE);
+                UPGRADE_TAX_EFFICIENCY_COST_BASE = BUILDER.comment("Base treasury cost to purchase one level of Tax Efficiency investment.")
+                                .defineInRange("UpgradeTaxEfficiencyCostBase", 4000, 1, Integer.MAX_VALUE);
+                UPGRADE_FORTIFICATION_COST_BASE = BUILDER.comment("Base treasury cost to purchase one level of Fortification investment.")
+                                .defineInRange("UpgradeFortificationCostBase", 3500, 1, Integer.MAX_VALUE);
+                UPGRADE_COUNTER_INTEL_COST_BASE = BUILDER.comment("Base treasury cost to purchase one level of Counter Intelligence investment.")
+                                .defineInRange("UpgradeCounterIntelCostBase", 5000, 1, Integer.MAX_VALUE);
+                UPGRADE_TREASURY_CAP_FLAT_PER_LEVEL = BUILDER.comment("Flat treasury capacity increase per Treasury Cap level.")
+                                .defineInRange("UpgradeTreasuryCapFlatPerLevel", 2000, 1, Integer.MAX_VALUE);
+                UPGRADE_TAX_EFFICIENCY_PERCENT_PER_LEVEL = BUILDER.comment("Tax generation bonus per Tax Efficiency level (fraction, e.g. 0.05 = +5%).")
+                                .defineInRange("UpgradeTaxEfficiencyPercentPerLevel", 0.05, 0.0, 1.0);
+                UPGRADE_FORTIFICATION_DAMAGE_REDUCTION_PER_LEVEL = BUILDER.comment("Fraction of incoming siege/raid damage reduced per Fortification level (e.g. 0.05 = 5%). Capped at 75%.")
+                                .defineInRange("UpgradeFortificationDamageReductionPerLevel", 0.05, 0.0, 0.5);
+                UPGRADE_COUNTER_INTEL_DETECT_CHANCE_PER_LEVEL = BUILDER.comment("Chance per Counter Intelligence level to auto-detect an incoming spy on arrival (e.g. 0.10 = 10%). Capped at 90%.")
+                                .defineInRange("UpgradeCounterIntelDetectChancePerLevel", 0.10, 0.0, 1.0);
+                UPGRADE_RAID_FORCE_MULTIPLIER_PER_LEVEL = BUILDER.comment("Multiplier bonus per Raid Force level applied to attacker effectiveness (e.g. 0.10 = +10% per level).")
+                                .defineInRange("UpgradeRaidForceMultiplierPerLevel", 0.10, 0.0, 1.0);
+                BUILDER.pop();
 
                 // ============================================================
                 // [WIP] TAX EXPANSION: War Mechanics (Feature Branch - Not Yet Merged)
                 // ============================================================
                 BUILDER.push("Tax Expansion - War Mechanics [WIP]");
 
-                // --- War Chest ---
-                BUILDER.push("War Chest");
-                ENABLE_WAR_CHEST = BUILDER.comment(
-                                "Enable war chest system. Colonies must have funds in war chest to declare war. " +
-                                                "War chest drains during active war.")
-                                .define("EnableWarChest", true);
+                // --- Treasury ---
+                BUILDER.push("Treasury");
+                ENABLE_TREASURY = BUILDER.comment(
+                                "Enable treasury system. Colonies must have funds in treasury to declare war. " +
+                                                "Treasury drains during active war.")
+                                .define("EnableTreasury", true);
 
-                WAR_CHEST_MIN_PERCENT_OF_TARGET = BUILDER.comment(
-                                "Minimum war chest balance required as percentage of target colony's tax balance (0.0-1.0). "
+                TREASURY_MIN_PERCENT_OF_TARGET = BUILDER.comment(
+                                "Minimum treasury balance required as percentage of target colony's tax balance (0.0-1.0). "
                                                 +
                                                 "Example: 0.25 = need 25% of target's balance to declare war.")
-                                .defineInRange("WarChestMinPercentOfTarget", 0.25, 0.0, 2.0);
+                                .defineInRange("TreasuryMinPercentOfTarget", 0.25, 0.0, 2.0);
 
-                WAR_CHEST_DRAIN_PER_MINUTE = BUILDER.comment(
-                                "Amount drained from war chest per minute during active war.")
-                                .defineInRange("WarChestDrainPerMinute", 100, 0, 10000);
-
-                WAR_CHEST_MAX_CAPACITY = BUILDER.comment(
-                                "Maximum capacity of the war chest. Prevents hoarding.")
-                                .defineInRange("WarChestMaxCapacity", 50000, 1000, Integer.MAX_VALUE);
-
-                WAR_CHEST_AUTO_SURRENDER_ENABLED = BUILDER.comment(
-                                "If true, war automatically ends in surrender when war chest is depleted.")
-                                .define("WarChestAutoSurrenderEnabled", true);
-
-                WAR_CHEST_AUTO_DEPOSIT_PERCENT = BUILDER.comment(
-                                "Percentage of tax revenue to automatically deposit into war chest each tax cycle (0.0-1.0). "
+                TREASURY_MIN_PERCENT_OF_OWN_TAX = BUILDER.comment(
+                                "Minimum treasury balance also required as percentage of the attacker's OWN tax balance (0.0-1.0). "
                                                 +
-                                                "Example: 0.10 = 10% of each tax collection auto-deposited.")
-                                .defineInRange("WarChestAutoDepositPercent", 0.10, 0.0, 1.0);
+                                                "The higher of this value and TreasuryMinPercentOfTarget is used. "
+                                                +
+                                                "Prevents wealthy colonies from cheaply bullying poor ones. "
+                                                +
+                                                "Example: 0.10 = also need 10% of your own tax balance in the treasury.")
+                                .defineInRange("TreasuryMinPercentOfOwnTax", 0.10, 0.0, 2.0);
 
-                // --- Raid War Chest ---
-                RAID_WAR_CHEST_ENABLED = BUILDER.comment(
-                                "If true, raids require war chest funds. Cost is one-time payment based on target's tax generation.")
-                                .define("RaidWarChestEnabled", true);
+                TREASURY_DRAIN_PER_MINUTE = BUILDER.comment(
+                                "Flat amount drained from treasury per minute during active war. "
+                                                + "Full 250min at default (10/min on 25k treasury, ~4h to deplete). "
+                                                +
+                                                "Only used when TreasuryDrainUsePercent is false.")
+                                .defineInRange("TreasuryDrainPerMinute", 10, 0, 10000);
 
-                RAID_WAR_CHEST_COST_PERCENT = BUILDER.comment(
-                                "Raid cost as percentage of target colony's tax per interval (0.0-1.0). " +
-                                                "Example: 0.10 = raiding costs 10% of what target earns per tax cycle.")
-                                .defineInRange("RaidWarChestCostPercent", 0.10, 0.0, 2.0);
+                TREASURY_DRAIN_USE_PERCENT = BUILDER.comment(
+                                "If true, treasury drains by a percentage of max capacity per minute (proportional burn). "
+                                                +
+                                                "If false, uses the flat TreasuryDrainPerMinute value.")
+                                .define("TreasuryDrainUsePercent", true);
+
+                TREASURY_DRAIN_PERCENT = BUILDER.comment(
+                                "Percentage of treasury max capacity drained per minute during active war (0.0-1.0). "
+                                                +
+                                                "Only used when TreasuryDrainUsePercent is true. "
+                                                +
+                                                "Example: 0.004 = 0.4% of max capacity per minute (100/min on a 25k treasury, ~4h to deplete).")
+                                .defineInRange("TreasuryDrainPercent", 0.004, 0.0, 1.0);
+
+                TREASURY_MAX_CAPACITY = BUILDER.comment(
+                                "Maximum capacity of the treasury. Lowered to prevent excessive stockpiling.")
+                                .defineInRange("TreasuryMaxCapacity", 25000, 1000, Integer.MAX_VALUE);
+
+                TREASURY_AUTO_SURRENDER_ENABLED = BUILDER.comment(
+                                "If true, war automatically ends in surrender when treasury is depleted.")
+                                .define("TreasuryAutoSurrenderEnabled", true);
+
+                TREASURY_AUTO_DEPOSIT_PERCENT = BUILDER.comment(
+                                "Percentage of tax revenue to automatically deposit into treasury each tax cycle (0.0-1.0). "
+                                                + "Kept low (5%) to reward manual deposits over passive accumulation. "
+                                                +
+                                                "Example: 0.05 = 5% of each tax collection auto-deposited.")
+                                .defineInRange("TreasuryAutoDepositPercent", 0.05, 0.0, 1.0);
+
+                WAR_DEFENDER_DRAIN_REDUCTION = BUILDER.comment(
+                                "Fraction by which the defending colony's treasury drain is reduced during war (0.0-1.0). "
+                                                +
+                                                "Example: 0.5 = defender drains at half the normal rate (home field advantage). "
+                                                +
+                                                "Set to 0.0 to disable and drain both sides equally.")
+                                .defineInRange("WarDefenderDrainReduction", 0.5, 0.0, 1.0);
+
+                // --- Raid Treasury ---
+                RAID_TREASURY_ENABLED = BUILDER.comment(
+                                "If true, raids require treasury funds. Cost is a one-time payment based on the target's tax generation.")
+                                .define("RaidTreasuryEnabled", true);
+
+                RAID_TREASURY_COST_PERCENT = BUILDER.comment(
+                                "Raid cost as a percentage of the target colony's tax per interval (0.0-1.0). " +
+                                                "Example: 0.10 = raiding costs 10% of what the target earns per tax cycle.")
+                                .defineInRange("RaidTreasuryCostPercent", 0.10, 0.0, 2.0);
 
                 // --- Raid Penalties ---
                 RAID_PENALTY_TAX_REDUCTION_PERCENT = BUILDER.comment(
@@ -1138,10 +1589,12 @@ public class TaxConfig {
                                 .defineInRange("RaidPenaltyDurationHours", 24, 1, 168);
 
                 RAID_REPAIR_COST_PERCENT = BUILDER.comment(
-                                "Cost to repair colony and remove raid penalty, as percentage of colony's total tax earnings (0.0-1.0). "
+                                "Cost to repair colony and remove raid penalty early, as percentage of colony's total tax earnings (0.0-1.0). "
                                                 +
-                                                "Example: 0.50 = repairing costs 50% of colony's tax balance.")
-                                .defineInRange("RaidRepairCostPercent", 0.50, 0.0, 2.0);
+                                                "Set low (e.g. 0.10) so victims are not triple-punished: theft + penalty + repair. "
+                                                +
+                                                "Example: 0.10 = repairing costs 10% of colony's tax balance.")
+                                .defineInRange("RaidRepairCostPercent", 0.10, 0.0, 2.0);
                 BUILDER.pop();
 
                 // --- War Exhaustion ---
@@ -1180,6 +1633,38 @@ public class TaxConfig {
                                 .defineInRange("ReparationsTriggerLossesCount", 3, 1, 20);
                 BUILDER.pop();
 
+                // --- War Weariness Protection ---
+                BUILDER.push("War Weariness");
+                ENABLE_WAR_WEARINESS = BUILDER.comment(
+                                "Enable war weariness protection. Colonies with very low tax balance that lost a war "
+                                                +
+                                                "receive temporary war immunity to allow economic recovery (comeback mechanic).")
+                                .define("EnableWarWeariness", true);
+
+                WAR_WEARINESS_THRESHOLD = BUILDER.comment(
+                                "Tax balance threshold below which a colony qualifies for war weariness immunity. "
+                                                +
+                                                "If a colony's tax balance is at or below this value after losing a war, "
+                                                +
+                                                "they receive temporary protection from further wars.")
+                                .defineInRange("WarWearinessThreshold", 500, 0, Integer.MAX_VALUE);
+
+                WAR_WEARINESS_IMMUNITY_HOURS = BUILDER.comment(
+                                "Hours of war declaration immunity granted to colonies below the weariness threshold after losing a war.")
+                                .defineInRange("WarWearinessImmunityHours", 24, 1, 168);
+                BUILDER.pop();
+
+                // --- Vassalization Economy ---
+                BUILDER.push("Vassalization Economy");
+                VASSALIZATION_REPLACES_REPARATIONS = BUILDER.comment(
+                                "If true, when a colony is vassalized after a war loss, the ongoing tribute replaces "
+                                                +
+                                                "the one-time colony tax reparations payment. "
+                                                +
+                                                "This prevents stacking of reparations + tribute for the losing colony.")
+                                .define("VassalizationReplacesReparations", true);
+                BUILDER.pop();
+
                 // --- Ransom System ---
                 BUILDER.push("Ransom System");
                 ENABLE_RANSOM_SYSTEM = BUILDER.comment(
@@ -1208,8 +1693,9 @@ public class TaxConfig {
                                 .defineInRange("RansomCooldownMinutes", 30, 1, 1440);
 
                 RANSOM_IMMUNITY_AFTER_PAYMENT_HOURS = BUILDER.comment(
-                                "Hours of immunity from raids after paying a ransom.")
-                                .defineInRange("RansomImmunityAfterPaymentHours", 24, 0, 168);
+                                "Hours of immunity from raids after paying a ransom. " +
+                                                "Reduced from 24h to prevent ransom as a cheap 'invulnerability shield'.")
+                                .defineInRange("RansomImmunityAfterPaymentHours", 4, 0, 168);
                 BUILDER.pop();
 
                 BUILDER.pop(); // End Tax Expansion - War Mechanics
@@ -1226,14 +1712,16 @@ public class TaxConfig {
 
                 INVESTMENT_DIMINISHING_RETURNS_FACTOR = BUILDER.comment(
                                 "Factor applied to each subsequent investment purchase (0.0-1.0). " +
-                                                "Example: 0.9 = each purchase is 90% as effective as the previous.")
-                                .defineInRange("InvestmentDiminishingReturnsFactor", 0.9, 0.1, 1.0);
+                                                "Harsher diminishing returns (0.80) prevent infinite scaling. " +
+                                                "Example: 0.80 = each purchase is 80% as effective as the previous.")
+                                .defineInRange("InvestmentDiminishingReturnsFactor", 0.80, 0.1, 1.0);
 
                 // --- Infrastructure Investment ---
                 BUILDER.push("Infrastructure Investment");
                 INVESTMENT_INFRASTRUCTURE_COST = BUILDER.comment(
-                                "Tax cost for infrastructure investment (permanent tax bonus).")
-                                .defineInRange("InfrastructureCost", 1000, 100, 1000000);
+                                "Tax cost for infrastructure investment (permanent tax bonus). " +
+                                                "At 1500 cost with 10k max tax, represents 15% of max savings per stack.")
+                                .defineInRange("InfrastructureCost", 1500, 100, 1000000);
 
                 INVESTMENT_INFRASTRUCTURE_BONUS = BUILDER.comment(
                                 "Permanent tax generation bonus per infrastructure investment (0.0-1.0). " +
@@ -1241,8 +1729,9 @@ public class TaxConfig {
                                 .defineInRange("InfrastructureBonus", 0.05, 0.01, 0.5);
 
                 INVESTMENT_INFRASTRUCTURE_MAX_STACKS = BUILDER.comment(
-                                "Maximum number of infrastructure investments a colony can have.")
-                                .defineInRange("InfrastructureMaxStacks", 10, 1, 100);
+                                "Maximum number of infrastructure investments a colony can have. " +
+                                                "Reduced to 5 to limit infinite scaling (+16.8% total with diminishing returns).")
+                                .defineInRange("InfrastructureMaxStacks", 5, 1, 100);
                 BUILDER.pop();
 
                 // --- Guard Training Investment ---
@@ -1267,7 +1756,7 @@ public class TaxConfig {
                                 .defineInRange("FestivalCost", 2000, 100, 1000000);
 
                 INVESTMENT_FESTIVAL_HAPPINESS_BONUS = BUILDER.comment(
-                                "Happiness bonus during festival (0.0-1.0). Example: 0.50 = 50% faster happiness growth.")
+                                "Happiness bonus during festival. Additive to colony avg happiness (0-10 scale). Example: 0.50 = +0.50 happiness.")
                                 .defineInRange("FestivalHappinessBonus", 0.50, 0.1, 2.0);
 
                 INVESTMENT_FESTIVAL_DURATION_HOURS = BUILDER.comment(
@@ -1394,6 +1883,10 @@ public class TaxConfig {
                 WAR_DURATION_MINUTES = BUILDER.comment("War duration (minutes)")
                                 .defineInRange("WarDurationMinutes", 120, 1, 1440);
 
+                PEACE_PROPOSAL_TIMEOUT_SECONDS = BUILDER.comment(
+                                "Peace proposal timeout duration (seconds). Proposals auto-expire if not accepted/declined.")
+                                .defineInRange("PeaceProposalTimeoutSeconds", 300, 30, 3600);
+
                 MIN_GUARDS_TO_WAGE_WAR = BUILDER.comment("Minimum guards required to declare war. " +
                                 "NOTE: This is only used when 'EnableWarBuildingRequirements' is disabled. " +
                                 "If building requirements are enabled, they take priority over this setting.")
@@ -1424,7 +1917,7 @@ public class TaxConfig {
                                                 +
                                                 "Note: GUARDS_ATTACK was removed from Minecolonies API - hostility is now controlled by Rank.isHostile()")
                                 .defineList("WarActions",
-                                                List.of("PLACE_BLOCKS", "BREAK_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM",
+                                                List.of("PLACE_BLOCKS", "TOSS_ITEM", "PICKUP_ITEM",
                                                                 "ATTACK_CITIZEN", "FILL_BUCKET",
                                                                 "SHOOT_ARROW", "RIGHTCLICK_BLOCK", "RIGHTCLICK_ENTITY",
                                                                 "ATTACK_ENTITY", "EXPLODE", "HURT_CITIZEN",
@@ -1487,23 +1980,16 @@ public class TaxConfig {
                 BLOCK_INTERACTION_WHITELIST = BUILDER
                                 .comment("List of block IDs that CAN be interacted with during raids/wars.\n" +
                                                 "Format:\n" +
-                                                "  - Specific block: 'modid:blockname' (e.g., 'minecraft:chest', 'ironchest:iron_chest')\n"
+                                                "  - Specific block: 'modid:blockname' (e.g., 'minecraft:lever', 'minecraft:crafting_table')\n"
                                                 +
-                                                "  - Entire mod: '#modid' (e.g., '#ironchest', '#sophisticatedstorage')\n"
+                                                "  - Entire mod: '#modid'\n"
                                                 +
-                                                "These blocks can be opened/used even during conflicts.\n" +
-                                                "Common use: Allow looting chests and storage blocks.\n" +
+                                                "Note: Container blocks (chests, barrels, etc.) require OPEN_CONTAINER permission on the\n" +
+                                                "Hostile rank to be accessible — simply whitelisting them here is NOT sufficient.\n" +
+                                                "By default this list is empty: raid/war participants cannot loot enemy storage.\n" +
                                                 "Blacklist always takes priority over whitelist!")
                                 .defineList("BlockInteractionWhitelist",
-                                                List.of(
-                                                                "minecraft:chest",
-                                                                "minecraft:barrel",
-                                                                "minecraft:furnace",
-                                                                "minecraft:blast_furnace",
-                                                                "minecraft:smoker",
-                                                                "minecraft:dropper",
-                                                                "minecraft:dispenser",
-                                                                "minecraft:hopper"),
+                                                List.of(),
                                                 obj -> obj instanceof String);
 
                 BLOCK_FILTER_WARS = BUILDER.comment("Apply block interaction filter during wars.\n" +
@@ -1514,16 +2000,28 @@ public class TaxConfig {
                                 "If enabled, blacklist/whitelist rules will be enforced during active raids.")
                                 .define("BlockFilterRaids", true);
 
+                SUPPRESS_COLONY_LEVITATION = BUILDER.comment(
+                                "Controls the MineColonies levitation trespassing-punishment.\n" +
+                                "MineColonies does not expose a built-in toggle for this, so WNT provides one.\n" +
+                                "\n" +
+                                "true (default): levitation is suppressed for ALL players inside ANY colony at\n" +
+                                "  ALL times. Players in active wars, raids, or besiegements are always exempt.\n" +
+                                "\n" +
+                                "false: levitation fires normally for everyone, EXCEPT players who are active\n" +
+                                "  participants in a war, raid, or besiegement — they remain exempt so the\n" +
+                                "  conflict mechanic is not disrupted.")
+                                .define("SuppressColonyLevitation", true);
+
                 REQUIRED_GUARD_TOWERS_FOR_BOOST = BUILDER.comment(
-                                "Number of Guard Towers required to activate a tax boost for all buildings in a colony.")
-                                .defineInRange("RequiredGuardTowersForBoost", 5, 1, 100);
+                                "Minimum number of Guard Towers to start receiving tax boost. " +
+                                                "Set to 1 so boost scales linearly from first tower (per-tower bonus).")
+                                .defineInRange("RequiredGuardTowersForBoost", 1, 1, 100);
 
                 GUARD_TOWER_TAX_BOOST_PERCENTAGE = BUILDER.comment(
-                                "Percentage increase in total tax revenue when required Guard Towers are built. " +
-                                                "This acts as a multiplier on the colony's total generated tax income. "
-                                                +
-                                                "For example: 0.5 = 50% increase, so 1000 tax becomes 1500 tax.")
-                                .defineInRange("GuardTowerTaxBoostPercentage", 0.5, 0.0, 2.0);
+                                "Tax boost PERCENTAGE PER Guard Tower above the minimum threshold. " +
+                                                "Applied per-tower for linear scaling (not a flat bonus). " +
+                                                "Example: 0.08 = +8% per tower, so 5 towers = +40%, 10 towers = +80% (capped at 80%).")
+                                .defineInRange("GuardTowerTaxBoostPercentage", 0.08, 0.0, 2.0);
 
                 BUILDER.pop();
 
@@ -1603,8 +2101,6 @@ public class TaxConfig {
 
                 // ========== Building Taxes ========== //
                 BUILDER.push("Building Taxes");
-
-                // Add base and upgrade taxes for all buildings
 
                 // BUILDING_TAXES.put("archery", BUILDER.comment("Base tax for Archery")
                 // .defineInRange("archery", 12.0, 0.0, 10000.0));
@@ -1760,7 +2256,6 @@ public class TaxConfig {
                 UPGRADE_TAXES.put("university", BUILDER.comment("Tax increase per level for University")
                                 .defineInRange("universityUpgrade", 10.0, 0.0, 10000.0));
 
-                // Additional buildings
                 BUILDING_TAXES.put("warehouse", BUILDER.comment("Base tax for Warehouse")
                                 .defineInRange("warehouse", 10.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("warehouse", BUILDER.comment("Tax increase per level for Warehouse")
@@ -1836,7 +2331,6 @@ public class TaxConfig {
                 UPGRADE_TAXES.put("netherworker", BUILDER.comment("Tax increase per level for Nether Worker")
                                 .defineInRange("netherworkerUpgrade", 6.0, 0.0, 10000.0));
 
-                // Newly added buildings
                 BUILDING_TAXES.put("stonesmeltery", BUILDER.comment("Base tax for Stone Smeltery")
                                 .defineInRange("stonesmeltery", 12.0, 0.0, 10000.0));
                 UPGRADE_TAXES.put("stonesmeltery", BUILDER.comment("Tax increase per level for Stone Smeltery")
@@ -1892,8 +2386,7 @@ public class TaxConfig {
                 UPGRADE_TAXES.put("gatehouse", BUILDER.comment("Tax increase per level for Gatehouse")
                                 .defineInRange("gatehouseUpgrade", 3.0, 0.0, 10000.0));
 
-                // Add mapping for full class names to short names used in config
-                // Legacy mappings (just in case)
+                // Legacy class name mappings
                 CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.barracks", "barracks");
                 CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.guardtower", "guardtower");
                 CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.archery", "archery");
@@ -1938,12 +2431,11 @@ public class TaxConfig {
                 CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.townhall", "townhall");
                 CLASS_NAME_TO_SHORT_NAME.put("com.minecolonies.building.warehousedeliveryman", "warehousedeliveryman");
 
-                // Correct new class name mappings (Standard MineColonies structure)
                 String prefix = "com.minecolonies.core.colony.buildings.workerbuildings.";
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingBarracks", "barracks");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingGuardTower", "guardtower");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingArchery", "archery");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingBaker", "bakery"); // Note: BuildingBaker -> bakery
+                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingBaker", "bakery");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingBlacksmith", "blacksmith");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingBuilder", "builder");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingChickenHerder", "chickenherder");
@@ -1955,8 +2447,7 @@ public class TaxConfig {
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingDeliveryman", "deliveryman");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingFarmer", "farmer");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingFisherman", "fisherman");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingResidence", "residence"); // Note: BuildingResidence ->
-                                                                                         // residence
+                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingResidence", "residence");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingLibrary", "library");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingUniversity", "university");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingWarehouse", "warehouse");
@@ -1975,12 +2466,11 @@ public class TaxConfig {
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingBeekeeper", "beekeeper");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingNetherWorker", "netherworker");
 
-                // New buildings from user list
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingAlchemist", "alchemist");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingConcreteMixer", "concretemixer"); // Assuming Name
+                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingConcreteMixer", "concretemixer");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingFletcher", "fletcher");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingLumberjack", "lumberjack");
-                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingRabbitHutch", "rabbithutch"); // Assuming Name
+                CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingRabbitHutch", "rabbithutch");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingShepherd", "shepherd");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingSmeltery", "smeltery");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingSwineHerder", "swineherder");
@@ -2001,6 +2491,55 @@ public class TaxConfig {
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingKitchen", "kitchen");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingGateHouse", "gatehouse");
 
+                // ========== Besiege System ==========
+                BUILDER.push("Besiege System");
+
+                ENABLE_BESIEGE_SYSTEM = BUILDER
+                                .comment("Enable the besiege system. Allows players to raid active non-primary colonies for tax vassalage.")
+                                .define("EnableBesiegeSystem", true);
+
+                BESIEGE_DURATION_MINUTES = BUILDER
+                                .comment("Duration of a besiege raid in minutes. Defenders must survive this long to repel the attack.")
+                                .defineInRange("BesiegeDurationMinutes", 20, 1, 120);
+
+                BESIEGE_COOLDOWN_HOURS = BUILDER
+                                .comment("Hours a player must wait after a besiege attempt (win or loss) before besieging again.")
+                                .defineInRange("BesiegeCooldownHours", 24, 0, 168);
+
+                BESIEGE_MILITIA_PERCENT = BUILDER
+                                .comment("Fraction of eligible citizens (non-guard, non-deliveryman) converted to militia defenders during a besiege.")
+                                .defineInRange("BesiegeMilitiaPercent", 0.6, 0.0, 1.0);
+
+                BESIEGE_TRIBUTE_PERCENT = BUILDER
+                                .comment("Percentage of tax income siphoned from the besieged colony to the victor.")
+                                .defineInRange("BesiegeTributePercent", 30, 1, 100);
+
+                BESIEGE_TRIBUTE_DURATION_HOURS = BUILDER
+                                .comment("How long (hours) the besiege vassalage lasts. Set to 0 for permanent until reclaimed.")
+                                .defineInRange("BesiegeTributeDurationHours", 72, 0, 8760);
+
+                BESIEGE_MIN_COLONY_SIZE = BUILDER
+                                .comment("Minimum citizen count required in the target colony before it can be besieged.")
+                                .defineInRange("BesiegeMinColonySize", 5, 1, 100);
+
+                BESIEGE_ALLIES_ENABLED = BUILDER
+                                .comment("Allow other players to assist the besieger by attacking defenders. They are tracked as allies.")
+                                .define("BesiegeAlliesEnabled", true);
+
+                BESIEGE_EXTRA_MERCENARIES_PER_BUILDING = BUILDER
+                                .comment("Mercenaries spawned per colony building. E.g. 0.33 = 1 mercenary per 3 buildings.")
+                                .defineInRange("BesiegeExtraMercenariesPerBuilding", 0.33, 0.0, 5.0);
+
+                BESIEGE_MAX_MERCENARIES = BUILDER
+                                .comment("Maximum number of mercenaries that can be spawned during a single besiege raid.")
+                                .defineInRange("BesiegeMaxMercenaries", 10, 0, 50);
+
+                BESIEGE_PLAYER_STAY_RADIUS = BUILDER
+                                .comment("Maximum distance (blocks) the besieging player may stray from the colony center. Exceeding this cancels the raid.")
+                                .defineInRange("BesiegePlayerStayRadius", 100, 20, 500);
+
+                BUILDER.pop(); // End Besiege System
+
                 CONFIG = BUILDER.build();
         }
 
@@ -2010,6 +2549,10 @@ public class TaxConfig {
 
         public static String getCurrencyItemName() {
                 return CURRENCY_ITEM_NAME.get();
+        }
+
+        public static String getCurrencyDenominations() {
+                return CURRENCY_DENOMINATIONS.get();
         }
 
         /**
@@ -2034,6 +2577,26 @@ public class TaxConfig {
 
         public static int getDebtLimit() {
                 return DEBT_LIMIT.get();
+        }
+
+        public static int getDebtEventCycles() {
+                return DEBT_EVENT_CYCLES.get();
+        }
+
+        public static int getDebtAbandonmentCycles() {
+                return DEBT_ABANDONMENT_CYCLES.get();
+        }
+
+        public static boolean isDebtBlocksWar() {
+                return DEBT_BLOCKS_WAR.get();
+        }
+
+        public static boolean isDebtBlocksSpy() {
+                return DEBT_BLOCKS_SPY.get();
+        }
+
+        public static double getDebtHappinessFactor() {
+                return DEBT_HAPPINESS_FACTOR.get();
         }
 
         public static int getTaxStealPerGuard() {
@@ -2097,6 +2660,26 @@ public class TaxConfig {
                 return ENABLE_COLONY_TRANSFER.get();
         }
 
+        public static boolean isOccupationSystemEnabled() {
+                return ENABLE_OCCUPATION_SYSTEM.get();
+        }
+
+        public static int getOccupationDurationDays() {
+                return OCCUPATION_DURATION_DAYS.get();
+        }
+
+        public static double getOccupationTaxPercentage() {
+                return OCCUPATION_TAX_PERCENTAGE.get();
+        }
+
+        public static boolean isOutpostVulnerabilityEnabled() {
+                return ENABLE_OUTPOST_VULNERABILITY.get();
+        }
+
+        public static boolean isColonyWagerEnabled() {
+                return ENABLE_COLONY_WAGER.get();
+        }
+
         public static double getWarVictoryPercentage() {
                 return WAR_VICTORY_PERCENTAGE.get();
         }
@@ -2115,6 +2698,46 @@ public class TaxConfig {
 
         public static boolean isWarVassalizationEnabled() {
                 return ENABLE_WAR_VASSALIZATION.get();
+        }
+
+        public static boolean isPrimaryColonyTransferEnabled() {
+                return ENABLE_PRIMARY_COLONY_TRANSFER.get();
+        }
+
+        public static int getPrimaryColonyTaxOccupationDays() {
+                return PRIMARY_COLONY_TAX_OCCUPATION_DAYS.get();
+        }
+
+        public static int getBesiegeSpoilPercentOfLoserTreasury() {
+                return BESIEGE_SPOIL_PERCENT_OF_LOSER_TREASURY.get();
+        }
+
+        public static boolean isExperimentalSiegeObjectivesEnabled() {
+                return ENABLE_EXPERIMENTAL_SIEGE_OBJECTIVES.get();
+        }
+
+        public static int getTownHallExplosiveHitsRequired() {
+                return TOWN_HALL_EXPLOSIVE_HITS_REQUIRED.get();
+        }
+
+        public static int getTownHallHitCooldownMinutes() {
+                return TOWN_HALL_HIT_COOLDOWN_MINUTES.get();
+        }
+
+        public static int getMaxSiegeRadius() {
+                return MAX_SIEGE_RADIUS.get();
+        }
+
+        public static int getAttackerGlowSeconds() {
+                return ATTACKER_GLOW_SECONDS.get();
+        }
+
+        public static int getBannerCaptureMinutesOrDefault() {
+                return BANNER_CAPTURE_MINUTES.get();
+        }
+
+        public static boolean isDeferRestorationToExplosiont() {
+                return DEFER_RESTORATION_TO_EXPLOSIONT.get();
         }
 
         public static int getWarVassalizationDurationHours() {
@@ -2176,11 +2799,28 @@ public class TaxConfig {
                                 .collect(java.util.stream.Collectors.toSet());
         }
 
-        public static boolean showTaxGenerationLogs() {
-                return SHOW_TAX_GENERATION_LOGS.get();
+        public static int getLogLevel() {
+                return LOG_LEVEL.get();
         }
 
-        // RaidGuardProtection Configuration
+        public static boolean isNormalLogging() {
+                return getLogLevel() >= 1;
+        }
+
+        public static boolean isDebugLogging() {
+                return getLogLevel() >= 2;
+        }
+
+        // Backward compatibility
+        public static boolean showTaxGenerationLogs() {
+                return isNormalLogging();
+        }
+
+        // Backward compatibility
+        public static boolean showColonyInitializationLogs() {
+                return isNormalLogging();
+        }
+
         public static int getMinGuardsToBeRaided() {
                 return MIN_GUARDS_TO_BE_RAIDED.get();
         }
@@ -2193,11 +2833,6 @@ public class TaxConfig {
                 return ENABLE_RAID_GUARD_PROTECTION.get();
         }
 
-        public static boolean showColonyInitializationLogs() {
-                return SHOW_COLONY_INITIALIZATION_LOGS.get();
-        }
-
-        // Entity Raid Configuration Getters
         public static boolean isEntityRaidsEnabled() {
                 return ENABLE_ENTITY_RAIDS.get();
         }
@@ -2230,7 +2865,6 @@ public class TaxConfig {
                 return ENTITY_RAID_COOLDOWN_MINUTES.get();
         }
 
-        // Entity Raid Debug Configuration Getters
         public static boolean isEntityRaidDebugEnabled() {
                 return ENABLE_ENTITY_RAID_DEBUG.get();
         }
@@ -2243,7 +2877,6 @@ public class TaxConfig {
                 return BYPASS_ALLIANCE_CHECKS.get();
         }
 
-        // General Colony Permissions Configuration Getters
         public static boolean isGeneralItemInteractionsEnabled() {
                 return ENABLE_GENERAL_ITEM_INTERACTIONS.get();
         }
@@ -2269,7 +2902,22 @@ public class TaxConfig {
                                 .collect(java.util.stream.Collectors.toSet());
         }
 
-        // Guard Resistance During Raids Configuration Getters
+        public static boolean isEasyFactionsIntegrationEnabled() {
+                return ENABLE_EASY_FACTIONS_INTEGRATION.get();
+        }
+
+        public static String getEasyFactionsMemberRank() {
+                return EASY_FACTIONS_MEMBER_RANK.get();
+        }
+
+        public static boolean shouldPromoteEasyFactionsOfficers() {
+                return EASY_FACTIONS_PROMOTE_OFFICERS.get();
+        }
+
+        public static int getEasyFactionsSyncIntervalTicks() {
+                return EASY_FACTIONS_SYNC_INTERVAL_TICKS.get();
+        }
+
         public static boolean isGuardResistanceDuringRaidsEnabled() {
                 return ENABLE_GUARD_RESISTANCE_DURING_RAIDS.get();
         }
@@ -2278,12 +2926,10 @@ public class TaxConfig {
                 return GUARD_RESISTANCE_LEVEL.get();
         }
 
-        // Happiness-Based Tax Configuration Getters
         public static boolean isHappinessTaxModifierEnabled() {
                 return ENABLE_HAPPINESS_TAX_MODIFIER.get();
         }
 
-        // Colony Inactivity Configuration Getters
         public static boolean isColonyInactivityTaxPauseEnabled() {
                 return ENABLE_COLONY_INACTIVITY_TAX_PAUSE.get();
         }
@@ -2324,7 +2970,6 @@ public class TaxConfig {
                 return minMultiplier + (normalizedHappiness * (maxMultiplier - minMultiplier));
         }
 
-        // Colony Auto-Abandon Configuration Getters
         public static boolean isColonyAutoAbandonEnabled() {
                 return ENABLE_COLONY_AUTO_ABANDON.get();
         }
@@ -2345,7 +2990,6 @@ public class TaxConfig {
                 return RESET_TIMER_ON_OFFICER_LOGIN.get();
         }
 
-        // Abandoned Colony Claiming Configuration Getters
         public static boolean isAbandonedColonyClaimingEnabled() {
                 return ENABLE_ABANDONED_COLONY_CLAIMING.get();
         }
@@ -2386,41 +3030,42 @@ public class TaxConfig {
                 return WAR_BUILDING_REQUIREMENTS.get();
         }
 
-        // Recipe Disabling Configuration Getters
         public static boolean isDisableHutRecipesEnabled() {
                 return DISABLE_HUT_RECIPES.get();
         }
 
-        // Web API Configuration Getters
-        public static boolean isWebAPIEnabled() {
-                return ENABLE_WEB_API.get();
+        public static boolean isDatabaseEnabled() {
+                return DATABASE_ENABLED.get();
         }
 
-        public static int getWebAPIPort() {
-                return WEB_API_PORT.get();
+        public static String getDatabaseHost() {
+                return DATABASE_HOST.get();
         }
 
-        public static String getWebAPIKey() {
-                return WEB_API_KEY.get();
+        public static int getDatabasePort() {
+                return DATABASE_PORT.get();
         }
 
-        public static int getWebAPIRateLimitRequestsPerMinute() {
-                return WEB_API_RATE_LIMIT_REQUESTS_PER_MINUTE.get();
+        public static String getDatabaseName() {
+                return DATABASE_NAME.get();
         }
 
-        public static boolean isWebAPIAuthenticationRequired() {
-                return WEB_API_REQUIRE_AUTHENTICATION.get();
+        public static String getDatabaseUsername() {
+                return DATABASE_USERNAME.get();
         }
 
-        public static boolean isWebAPIOfflinePlayersEnabled() {
-                return WEB_API_ENABLE_OFFLINE_PLAYERS.get();
+        public static String getDatabasePassword() {
+                return DATABASE_PASSWORD.get();
         }
 
-        public static int getWebAPICacheRefreshMinutes() {
-                return WEB_API_CACHE_REFRESH_MINUTES.get();
+        public static int getDatabasePoolSize() {
+                return DATABASE_POOL_SIZE.get();
         }
 
-        // Block Interaction Filter Configuration Getters
+        public static int getDatabaseSnapshotIntervalSeconds() {
+                return DATABASE_SNAPSHOT_INTERVAL_SECONDS.get();
+        }
+
         public static boolean isBlockInteractionFilterEnabled() {
                 return ENABLE_BLOCK_INTERACTION_FILTER.get();
         }
@@ -2439,6 +3084,10 @@ public class TaxConfig {
 
         public static boolean isBlockFilterRaidsEnabled() {
                 return BLOCK_FILTER_RAIDS.get();
+        }
+
+        public static boolean isSuppressColonyLevitation() {
+                return SUPPRESS_COLONY_LEVITATION.get();
         }
 
         // ============================================================
@@ -2568,7 +3217,6 @@ public class TaxConfig {
                 return SPY_DETECTION_BASE_CHANCE.get();
         }
 
-        // Spy Action Costs
         public static int getSpyScoutCost() {
                 return SPY_SCOUT_COST.get();
         }
@@ -2597,20 +3245,30 @@ public class TaxConfig {
                 return SPY_STEAL_SECRETS_DURATION_HOURS.get();
         }
 
+        public static int getSpySabotageMinFieldMinutes() {
+                return SPY_SABOTAGE_MIN_FIELD_MINUTES.get();
+        }
+
         public static int getSpyScoutMaxDurationHours() {
                 return SPY_SCOUT_MAX_DURATION_HOURS.get();
+        }
+
+        public static double getMinTaxGenerationPercent() {
+                return MIN_TAX_GENERATION_PERCENT.get();
+        }
+
+        public static int getWarTaxFreezeCycles() {
+                return WAR_TAX_FREEZE_CYCLES.get();
         }
 
         public static int getSpyMaxActivePerPlayer() {
                 return SPY_MAX_ACTIVE_PER_PLAYER.get();
         }
 
-        // Spy Action Effects
         public static double getSpySabotageTaxReductionPercent() {
                 return SPY_SABOTAGE_TAX_REDUCTION_PERCENT.get();
         }
 
-        // Spy Action Detection Chances
         public static double getSpyScoutDetectionChance() {
                 return SPY_SCOUT_DETECTION_CHANCE.get();
         }
@@ -2627,38 +3285,101 @@ public class TaxConfig {
                 return SPY_STEAL_SECRETS_DETECTION_CHANCE.get();
         }
 
-        // --- War Chest ---
-        public static boolean isWarChestEnabled() {
-                return ENABLE_WAR_CHEST.get();
+        // Progressive Intel Thresholds
+        public static int getIntelEarlyThresholdMinutes() {
+                return INTEL_EARLY_THRESHOLD_MINUTES.get();
         }
 
-        public static double getWarChestMinPercentOfTarget() {
-                return WAR_CHEST_MIN_PERCENT_OF_TARGET.get();
+        public static int getIntelMidThresholdMinutes() {
+                return INTEL_MID_THRESHOLD_MINUTES.get();
         }
 
-        public static int getWarChestDrainPerMinute() {
-                return WAR_CHEST_DRAIN_PER_MINUTE.get();
+        public static int getIntelLateThresholdMinutes() {
+                return INTEL_LATE_THRESHOLD_MINUTES.get();
         }
 
-        public static int getWarChestMaxCapacity() {
-                return WAR_CHEST_MAX_CAPACITY.get();
+        // Flee Behavior
+        public static double getFleeSpeedMultiplier() {
+                return FLEE_SPEED_MULTIPLIER.get();
         }
 
-        public static boolean isWarChestAutoSurrenderEnabled() {
-                return WAR_CHEST_AUTO_SURRENDER_ENABLED.get();
+        public static int getFleeEscapeDistance() {
+                return FLEE_ESCAPE_DISTANCE.get();
         }
 
-        public static double getWarChestAutoDepositPercent() {
-                return WAR_CHEST_AUTO_DEPOSIT_PERCENT.get();
+        public static int getFleeMaxSeconds() {
+                return FLEE_MAX_SECONDS.get();
         }
 
-        // --- Raid War Chest ---
-        public static boolean isRaidWarChestEnabled() {
-                return RAID_WAR_CHEST_ENABLED.get();
+        // Spy Travel Phase
+        public static int getSpyTravelBlocksPerMinute() {
+                return SPY_TRAVEL_BLOCKS_PER_MINUTE.get();
         }
 
-        public static double getRaidWarChestCostPercent() {
-                return RAID_WAR_CHEST_COST_PERCENT.get();
+        public static int getSpyTravelMinMinutes() {
+                return SPY_TRAVEL_MIN_MINUTES.get();
+        }
+
+        public static int getSpyTravelMaxMinutes() {
+                return SPY_TRAVEL_MAX_MINUTES.get();
+        }
+
+        // Spy Map
+        public static boolean isSpyMapEnabled() {
+                return SPY_MAP_ENABLED.get();
+        }
+
+        public static int getSpyMapScale() {
+                return SPY_MAP_SCALE.get();
+        }
+
+        // --- Treasury ---
+        public static boolean isTreasuryEnabled() {
+                return ENABLE_TREASURY.get();
+        }
+
+        public static double getTreasuryMinPercentOfTarget() {
+                return TREASURY_MIN_PERCENT_OF_TARGET.get();
+        }
+
+        public static double getTreasuryMinPercentOfOwnTax() {
+                return TREASURY_MIN_PERCENT_OF_OWN_TAX.get();
+        }
+
+        public static int getTreasuryDrainPerMinute() {
+                return TREASURY_DRAIN_PER_MINUTE.get();
+        }
+
+        public static boolean isTreasuryDrainUsePercent() {
+                return TREASURY_DRAIN_USE_PERCENT.get();
+        }
+
+        public static double getTreasuryDrainPercent() {
+                return TREASURY_DRAIN_PERCENT.get();
+        }
+
+        public static int getTreasuryMaxCapacity() {
+                return TREASURY_MAX_CAPACITY.get();
+        }
+
+        public static boolean isTreasuryAutoSurrenderEnabled() {
+                return TREASURY_AUTO_SURRENDER_ENABLED.get();
+        }
+
+        public static double getTreasuryAutoDepositPercent() {
+                return TREASURY_AUTO_DEPOSIT_PERCENT.get();
+        }
+
+        public static double getWarDefenderDrainReduction() {
+                return WAR_DEFENDER_DRAIN_REDUCTION.get();
+        }
+
+        public static boolean isRaidTreasuryEnabled() {
+                return RAID_TREASURY_ENABLED.get();
+        }
+
+        public static double getRaidTreasuryCostPercent() {
+                return RAID_TREASURY_COST_PERCENT.get();
         }
 
         // --- Raid Penalties ---
@@ -2702,6 +3423,24 @@ public class TaxConfig {
 
         public static int getReparationsTriggerLossesCount() {
                 return REPARATIONS_TRIGGER_LOSSES_COUNT.get();
+        }
+
+        // --- War Weariness ---
+        public static boolean isWarWearinessEnabled() {
+                return ENABLE_WAR_WEARINESS.get();
+        }
+
+        public static int getWarWearinessThreshold() {
+                return WAR_WEARINESS_THRESHOLD.get();
+        }
+
+        public static int getWarWearinessImmunityHours() {
+                return WAR_WEARINESS_IMMUNITY_HOURS.get();
+        }
+
+        // --- Vassalization Economy ---
+        public static boolean isVassalizationReplacesReparations() {
+                return VASSALIZATION_REPLACES_REPARATIONS.get();
         }
 
         // --- Ransom System ---
@@ -2888,4 +3627,74 @@ public class TaxConfig {
         public static boolean isCropBlightEnabled() {
                 return ENABLE_CROP_BLIGHT.get();
         }
+
+        // Besiege System Getters
+        public static boolean isBesiegeSystemEnabled() {
+                return ENABLE_BESIEGE_SYSTEM.get();
+        }
+
+        public static int getBesiegeDurationMinutes() {
+                return BESIEGE_DURATION_MINUTES.get();
+        }
+
+        public static int getBesiegeCooldownHours() {
+                return BESIEGE_COOLDOWN_HOURS.get();
+        }
+
+        public static double getBesiegeMilitiaPercent() {
+                return BESIEGE_MILITIA_PERCENT.get();
+        }
+
+        public static int getBesiegeTributePercent() {
+                return BESIEGE_TRIBUTE_PERCENT.get();
+        }
+
+        public static int getBesiegeTributeDurationHours() {
+                return BESIEGE_TRIBUTE_DURATION_HOURS.get();
+        }
+
+        public static int getBesiegeMinColonySize() {
+                return BESIEGE_MIN_COLONY_SIZE.get();
+        }
+
+        public static boolean isBesiegeAlliesEnabled() {
+                return BESIEGE_ALLIES_ENABLED.get();
+        }
+
+        public static double getBesiegeExtraMercenariesPerBuilding() {
+                return BESIEGE_EXTRA_MERCENARIES_PER_BUILDING.get();
+        }
+
+        public static int getBesiegeMaxMercenaries() {
+                return BESIEGE_MAX_MERCENARIES.get();
+        }
+
+        public static int getBesiegePlayerStayRadius() {
+                return BESIEGE_PLAYER_STAY_RADIUS.get();
+        }
+
+        // Colony Upgrades
+        public static boolean isUpgradesEnabled() { return ENABLE_COLONY_UPGRADES.get(); }
+        public static int getUpgradeMaxLevel() { return UPGRADE_MAX_LEVEL.get(); }
+        public static int getUpgradeMilitiaCostBase() { return UPGRADE_MILITIA_COST_BASE.get(); }
+        public static int getUpgradeSpyCapacityCostBase() { return UPGRADE_SPY_CAPACITY_COST_BASE.get(); }
+        public static int getUpgradeSpySpeedCostBase() { return UPGRADE_SPY_SPEED_COST_BASE.get(); }
+        public static int getUpgradeSpyEvasionCostBase() { return UPGRADE_SPY_EVASION_COST_BASE.get(); }
+        public static int getUpgradeRaidForceCostBase() { return UPGRADE_RAID_FORCE_COST_BASE.get(); }
+        public static int getUpgradeDefenseCostBase() { return UPGRADE_DEFENSE_COST_BASE.get(); }
+        public static double getUpgradeCostScalingFactor() { return UPGRADE_COST_SCALING_FACTOR.get(); }
+        public static double getUpgradeMilitiaMultiplierPerLevel() { return UPGRADE_MILITIA_MULTIPLIER_PER_LEVEL.get(); }
+        public static int getUpgradeSpyCapacityPerLevel() { return UPGRADE_SPY_CAPACITY_PER_LEVEL.get(); }
+        public static double getUpgradeSpySpeedMultiplierPerLevel() { return UPGRADE_SPY_SPEED_MULTIPLIER_PER_LEVEL.get(); }
+        public static double getUpgradeDetectionReductionPerLevel() { return UPGRADE_DETECTION_REDUCTION_PER_LEVEL.get(); }
+        public static int getUpgradeDefenseBonusPerLevel() { return UPGRADE_DEFENSE_BONUS_PER_LEVEL.get(); }
+        public static int getUpgradeTreasuryCapCostBase() { return UPGRADE_TREASURY_CAP_COST_BASE.get(); }
+        public static int getUpgradeTaxEfficiencyCostBase() { return UPGRADE_TAX_EFFICIENCY_COST_BASE.get(); }
+        public static int getUpgradeFortificationCostBase() { return UPGRADE_FORTIFICATION_COST_BASE.get(); }
+        public static int getUpgradeCounterIntelCostBase() { return UPGRADE_COUNTER_INTEL_COST_BASE.get(); }
+        public static int getUpgradeTreasuryCapFlatPerLevel() { return UPGRADE_TREASURY_CAP_FLAT_PER_LEVEL.get(); }
+        public static double getUpgradeTaxEfficiencyPercentPerLevel() { return UPGRADE_TAX_EFFICIENCY_PERCENT_PER_LEVEL.get(); }
+        public static double getUpgradeFortificationDamageReductionPerLevel() { return UPGRADE_FORTIFICATION_DAMAGE_REDUCTION_PER_LEVEL.get(); }
+        public static double getUpgradeCounterIntelDetectChancePerLevel() { return UPGRADE_COUNTER_INTEL_DETECT_CHANCE_PER_LEVEL.get(); }
+        public static double getUpgradeRaidForceMultiplierPerLevel() { return UPGRADE_RAID_FORCE_MULTIPLIER_PER_LEVEL.get(); }
 }

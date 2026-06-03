@@ -9,9 +9,6 @@ import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import org.jetbrains.annotations.NotNull;
 
-/**
- * Serializer for disabled recipes that cannot be crafted.
- */
 public class DisabledRecipeSerializer implements RecipeSerializer<DisabledRecipe> {
     
     public static final DisabledRecipeSerializer INSTANCE = new DisabledRecipeSerializer();

@@ -1,0 +1,19 @@
+{
+  "name": "War Exhaustion",
+  "category": "minecolonytax:war_economy",
+  "icon": "minecraft:gold_ingot",
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "$(bold)War exhaustion$() is the economic toll that conflict takes on your colony. While your colony is at war, tax generation is reduced by 30% by default. A colony that normally earns 1,000 coins per cycle will earn only 700 during active fighting.$(br2)This penalty applies for the full duration of the war and cannot be avoided by any means other than ending the war quickly."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(bold)Tax freeze$() hits immediately after a war ends in a loss or stalemate. Tax collection is skipped entirely for 3 cycles (about 3 hours at default settings). No income is generated during this window.$(br2)After the freeze, a $(bold)recovery period$() begins. Income climbs linearly from the war-reduced rate back to full over 48 hours. At the halfway point you earn roughly 85% of normal."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Recovery state is saved through server restarts. The countdown continues where it left off.$(br2)$(bold)Strategy:$() End wars quickly. The recovery timer starts at war's end, so a short war costs you far less total income than a long one."
+    }
+  ]
+}

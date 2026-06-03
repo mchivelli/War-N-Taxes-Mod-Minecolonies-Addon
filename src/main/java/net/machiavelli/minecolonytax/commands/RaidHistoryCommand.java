@@ -16,10 +16,6 @@ import net.minecraft.server.level.ServerPlayer;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Command to view raid history for a colony.
- * Shows all raids (successful and failed) with raider names and amounts stolen.
- */
 public class RaidHistoryCommand {
     
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -83,11 +79,6 @@ public class RaidHistoryCommand {
         return 1;
     }
 
-    /**
-     * If arg is non-null, try parse as ID or name;
-     * otherwise default to the first colony the player manages.
-     * Admins can view any colony without being a member.
-     */
     private static IColony resolveColony(
             CommandSourceStack src,
             ServerPlayer player,
@@ -96,7 +87,6 @@ public class RaidHistoryCommand {
         IColonyManager mgr = IMinecoloniesAPI.getInstance().getColonyManager();
 
         if (arg != null) {
-            // try by numeric ID
             try {
                 int id = Integer.parseInt(arg);
                 for (IColony c : mgr.getAllColonies()) {
@@ -106,16 +96,15 @@ public class RaidHistoryCommand {
                 }
             } catch (NumberFormatException ignored) {}
 
-            // fallback to name
             for (IColony c : mgr.getAllColonies()) {
                 if (c.getName().equalsIgnoreCase(arg)) {
                     return c;
                 }
             }
-            return null; // explicitly requested colony not found
+            return null;
         }
 
-        // no arg: pick the first colony where player is a manager
+        // no arg: pick the first colony where the player is a manager
         Optional<IColony> own = mgr.getAllColonies().stream()
                 .filter(c -> {
                     var rank = c.getPermissions().getRank(player.getUUID());

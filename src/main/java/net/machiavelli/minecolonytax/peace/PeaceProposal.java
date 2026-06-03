@@ -3,16 +3,18 @@ package net.machiavelli.minecolonytax.peace;
 import java.util.UUID;
 
 public class PeaceProposal {
-    public enum Type { WHITEPEACE, REPARATIONS }
+    public enum Type { WHITEPEACE, REPARATIONS, SURRENDER }
 
     private final Type type;
     private final int amount;
     private final UUID proposer;
+    private final long createdTime;
 
     public PeaceProposal(Type type, int amount, UUID proposer) {
         this.type = type;
         this.amount = amount;
         this.proposer = proposer;
+        this.createdTime = System.currentTimeMillis();
     }
 
     public Type getType() {
@@ -24,6 +26,14 @@ public class PeaceProposal {
 
     public UUID getProposer() {
         return proposer;
+    }
+
+    public long getCreatedTime() {
+        return createdTime;
+    }
+
+    public boolean isExpired(long timeoutMillis) {
+        return System.currentTimeMillis() - createdTime > timeoutMillis;
     }
 
     @Override

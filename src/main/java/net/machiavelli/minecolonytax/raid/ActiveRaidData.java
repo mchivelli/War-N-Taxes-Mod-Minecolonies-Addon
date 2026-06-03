@@ -10,7 +10,6 @@ import net.minecraft.world.BossEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.TimerTask;
 import java.util.UUID;
 import java.util.Set;
 import java.util.HashSet;
@@ -22,30 +21,27 @@ public class ActiveRaidData {
     private IColony raiderColony; // The colony of the raider (attacker)
     final ServerBossEvent bossEvent;
     int elapsedSeconds;
-    TimerTask timerTask;
+    long countdownTaskId = -1;
     boolean isActive;
     boolean warningSent;
     long totalTransferred;
-    
-    // Guard kill tracking for revenue calculation
+
     int totalGuards;
     int guardsKilled;
     boolean guardsInitialized;
-    
-    // Snapshot of original guard citizens at raid start
+
+    // Snapshot of guard IDs taken at raid start for robust kill attribution.
     private final Set<Integer> originalGuardIds = new HashSet<>();
     private final Set<Integer> killedGuardIds = new HashSet<>();
-    
-    // Boundary enforcement tracking
+
     private boolean hasLeftBoundaries = false;
     private long timeLeftBoundaries = 0;
     private int potentialStolenAmount = 0;
 
-    public ActiveRaidData(UUID raider, IColony colony, ServerBossEvent bossEvent, TimerTask timerTask) {
-        this.raider     = raider;
-        this.colony     = colony;
-        this.bossEvent  = bossEvent;
-        this.timerTask  = timerTask;
+    public ActiveRaidData(UUID raider, IColony colony, ServerBossEvent bossEvent) {
+        this.raider = raider;
+        this.colony = colony;
+        this.bossEvent = bossEvent;
         this.totalTransferred = 0L;
         this.guardsKilled = 0;
         this.guardsInitialized = false;
@@ -63,29 +59,30 @@ public class ActiveRaidData {
         this.elapsedSeconds = 0;
         this.isActive = true;
         this.warningSent = false;
-        this.totalTransferred   = 0L;
+        this.totalTransferred = 0L;
         this.guardsKilled = 0;
         this.guardsInitialized = false;
-        if (colony != null && colony.getPermissions() != null && colony.getWorld() != null && colony.getWorld().getServer() != null) {
-            // Add the RAIDER to the boss bar first so they can see the timer
+        if (colony != null && colony.getPermissions() != null && colony.getWorld() != null
+                && colony.getWorld().getServer() != null) {
             ServerPlayer raiderPlayer = colony.getWorld().getServer().getPlayerList().getPlayer(raider);
             if (raiderPlayer != null) {
                 this.bossEvent.addPlayer(raiderPlayer);
-                LOGGER.info("🎯 BOSS BAR: Added raider {} to boss bar for colony {}", raiderPlayer.getName().getString(), colony.getName());
+                if (net.machiavelli.minecolonytax.TaxConfig.isDebugLogging()) {
+                    LOGGER.info("Boss bar: added raider {} for colony {}",
+                            raiderPlayer.getName().getString(), colony.getName());
+                }
             } else {
-                LOGGER.warn("⚠ BOSS BAR: Could not add raider {} to boss bar - player is NULL!", raider);
+                LOGGER.warn("Boss bar: could not add raider {} — player not found", raider);
             }
-            
-            // Then add colony allies to boss bar: Owner, Officers, and Friends
+
+            // Add Owner, Officers, and Friends so they can see the raid timer.
             IPermissions perms = colony.getPermissions();
             colony.getPermissions().getPlayers().keySet().forEach(uuid -> {
-                // Only add colony allies to boss bar: Owner, Officers, and Friends
-                // Excludes: Hostile and Neutral players (and raider already added above)
-                if (!uuid.equals(raider)) { // Don't add raider twice
+                if (!uuid.equals(raider)) {
                     Rank rank = perms.getRank(uuid);
-                    if (rank != null && (rank.equals(perms.getRankOwner()) || 
-                                        rank.equals(perms.getRankOfficer()) || 
-                                        rank.equals(perms.getRankFriend()))) {
+                    if (rank != null && (rank.equals(perms.getRankOwner()) ||
+                            rank.equals(perms.getRankOfficer()) ||
+                            rank.equals(perms.getRankFriend()))) {
                         ServerPlayer player = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
                         if (player != null) {
                             this.bossEvent.addPlayer(player);
@@ -93,14 +90,21 @@ public class ActiveRaidData {
                     }
                 }
             });
-            LOGGER.info("🎯 BOSS BAR: Initialized for colony {} with raider {} (Boss bar visible: {})", 
-                colony.getName(), raiderPlayer != null ? raiderPlayer.getName().getString() : "NULL", this.bossEvent.isVisible());
+            if (net.machiavelli.minecolonytax.TaxConfig.isDebugLogging()) {
+                LOGGER.info("Boss bar initialized for colony {} raider={} visible={}",
+                        colony.getName(), raiderPlayer != null ? raiderPlayer.getName().getString() : "null",
+                        this.bossEvent.isVisible());
+            }
         }
     }
 
-    public long getTotalTransferred() { return totalTransferred; }
-    public void addToTotalTransferred(long amt) { this.totalTransferred += amt; }
+    public long getTotalTransferred() {
+        return totalTransferred;
+    }
 
+    public void addToTotalTransferred(long amt) {
+        this.totalTransferred += amt;
+    }
 
     public UUID getRaider() {
         return raider;
@@ -122,12 +126,12 @@ public class ActiveRaidData {
         this.elapsedSeconds = elapsedSeconds;
     }
 
-    public TimerTask getTimerTask() {
-        return timerTask;
+    public long getCountdownTaskId() {
+        return countdownTaskId;
     }
 
-    public void setTimerTask(TimerTask timerTask) {
-        this.timerTask = timerTask;
+    public void setCountdownTaskId(long taskId) {
+        this.countdownTaskId = taskId;
     }
 
     public boolean isActive() {
@@ -145,39 +149,46 @@ public class ActiveRaidData {
     public void setWarningSent(boolean warningSent) {
         this.warningSent = warningSent;
     }
-    
+
     public IColony getRaiderColony() {
         return raiderColony;
     }
-    
+
     public void setRaiderColony(IColony raiderColony) {
         this.raiderColony = raiderColony;
     }
-    
-    // Guard kill tracking methods
-    public int getTotalGuards() { return totalGuards; }
-    public int getGuardsKilled() { return guardsKilled; }
-    public boolean areGuardsInitialized() { return guardsInitialized; }
-    
+
+    public int getTotalGuards() {
+        return totalGuards;
+    }
+
+    public int getGuardsKilled() {
+        return guardsKilled;
+    }
+
+    public boolean areGuardsInitialized() {
+        return guardsInitialized;
+    }
+
     public void initializeGuardCount(int totalGuards) {
         this.totalGuards = totalGuards;
         this.guardsInitialized = true;
     }
-    
+
     public void incrementGuardsKilled() {
         this.guardsKilled++;
     }
-    
+
     public double getGuardKillPercentage() {
-        if (totalGuards <= 0) return 0.0;
+        if (totalGuards <= 0)
+            return 0.0;
         return (double) guardsKilled / totalGuards;
     }
-    
+
     public boolean hasKilledAnyGuards() {
         return guardsKilled > 0;
     }
-    
-    // Guard snapshot APIs
+
     public void snapshotOriginalGuardIds() {
         if (colony == null || colony.getCitizenManager() == null) {
             return;
@@ -190,7 +201,8 @@ public class ActiveRaidData {
                 isGuard = true;
             } else if (c.getWorkBuilding() != null) {
                 String name = c.getWorkBuilding().getBuildingDisplayName().toLowerCase();
-                if (name.contains("guard") || name.contains("barracks") || name.contains("archery") || name.contains("combat")) {
+                if (name.contains("guard") || name.contains("barracks") || name.contains("archery")
+                        || name.contains("combat")) {
                     isGuard = true;
                 }
             }
@@ -199,52 +211,61 @@ public class ActiveRaidData {
             }
         });
     }
-    
+
     public boolean isOriginalGuard(int citizenId) {
         return originalGuardIds.contains(citizenId);
     }
-    
+
     public boolean markGuardKilled(int citizenId) {
         if (!isOriginalGuard(citizenId)) {
             return false;
         }
         if (killedGuardIds.add(citizenId)) {
-            // Keep legacy counter in sync for other systems
             incrementGuardsKilled();
             return true;
         }
         return false;
     }
-    
-    public int getOriginalGuardCount() { return originalGuardIds.size(); }
-    public int getKilledGuardCount() { return killedGuardIds.size(); }
-    public Set<Integer> getOriginalGuardIds() { return originalGuardIds; }
-    public Set<Integer> getKilledGuardIds() { return killedGuardIds; }
-    
-    // Boundary enforcement methods
+
+    public int getOriginalGuardCount() {
+        return originalGuardIds.size();
+    }
+
+    public int getKilledGuardCount() {
+        return killedGuardIds.size();
+    }
+
+    public Set<Integer> getOriginalGuardIds() {
+        return originalGuardIds;
+    }
+
+    public Set<Integer> getKilledGuardIds() {
+        return killedGuardIds;
+    }
+
     public boolean hasLeftBoundaries() {
         return hasLeftBoundaries;
     }
-    
+
     public void markLeftBoundaries() {
         if (!hasLeftBoundaries) {
             this.hasLeftBoundaries = true;
             this.timeLeftBoundaries = System.currentTimeMillis();
         }
     }
-    
+
     public long getTimeLeftBoundaries() {
         return timeLeftBoundaries;
     }
-    
+
     public boolean isEligibleForRewards() {
         return !hasLeftBoundaries && hasKilledAnyGuards();
     }
-    
+
     public void setPotentialStolenAmount(int amount) {
         this.potentialStolenAmount = amount;
     }
-    
+
     public int getPotentialStolenAmount() {
         return potentialStolenAmount;
     }

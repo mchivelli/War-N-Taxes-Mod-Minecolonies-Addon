@@ -1,11 +1,12 @@
 package net.machiavelli.minecolonytax.peace;
 
+import com.minecolonies.api.colony.IColony;
+import com.minecolonies.api.colony.permissions.Rank;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import dev.ftb.mods.ftbteams.api.Team;
-import dev.ftb.mods.ftbteams.api.TeamManager;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.WarSystem;
+import net.machiavelli.minecolonytax.compat.FtbTeamsCompat;
 import net.machiavelli.minecolonytax.data.WarData;
 import net.machiavelli.minecolonytax.event.WarEconomyHandler;
 import net.minecraft.ChatFormatting;
@@ -20,7 +21,7 @@ import net.minecraftforge.server.ServerLifecycleHooks;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.Map; // Added import
+import java.util.Map;
 import java.util.UUID;
 
 public class PeaceProposalManager {
@@ -35,9 +36,13 @@ public class PeaceProposalManager {
         return handleSuePeaceProposal(ctx, PeaceProposal.Type.REPARATIONS, amount);
     }
 
+    public int suePeaceSurrender(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        return handleSuePeaceProposal(ctx, PeaceProposal.Type.SURRENDER, 0);
+    }
+
     private int handleSuePeaceProposal(CommandContext<CommandSourceStack> ctx, PeaceProposal.Type type, int amount) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        WarData war = WarSystem.getActiveWarForPlayer(player); // Assumes WarSystem provides this
+        WarData war = WarSystem.getActiveWarForPlayer(player);
         if (war == null) {
             ctx.getSource().sendFailure(Component.literal("No active war."));
             return 0;
@@ -46,8 +51,22 @@ public class PeaceProposalManager {
             ctx.getSource().sendFailure(Component.literal("A peace proposal is already active!"));
             return 0;
         }
+        // Block peace proposals during join phase - only allow during INWAR status
+        if (war.getStatus() != WarData.WarStatus.INWAR) {
+            ctx.getSource().sendFailure(Component.literal("Peace proposals can only be made during active war, not during the join phase!"));
+            return 0;
+        }
 
-        PeaceProposal proposal = new PeaceProposal(type, amount, player.getUUID()); // Added proposer
+        // Finding 6: Require proposer to be owner or manager of their side's colony.
+        // Previously ANY participant in lives (including Friend rank that just joined)
+        // could propose SURRENDER on behalf of their whole colony.
+        if (!isAuthorizedToProposePeace(player, war)) {
+            ctx.getSource().sendFailure(Component.literal(
+                    "Only the colony owner or an officer/manager may propose peace."));
+            return 0;
+        }
+
+        PeaceProposal proposal = new PeaceProposal(type, amount, player.getUUID());
         war.setActiveProposal(proposal);
 
         MutableComponent acceptButton = Component.literal("[Accept Peace]")
@@ -69,19 +88,28 @@ public class PeaceProposalManager {
         MutableComponent msg = Component.literal("")
                 .append(Component.literal(player.getName().getString()).withStyle(ChatFormatting.YELLOW))
                 .append(Component.literal(" proposes ").withStyle(ChatFormatting.WHITE))
-                .append(Component.literal(type.toString() + " Peace").withStyle(ChatFormatting.AQUA))
-                .append(Component.literal("! (Reparations = " + amount + " coins)\n").withStyle(ChatFormatting.GOLD))
-                .append(acceptButton)
+                .append(Component.literal(type.toString() + " Peace").withStyle(ChatFormatting.AQUA));
+        
+        // Make reparations direction explicit
+        if (type == PeaceProposal.Type.REPARATIONS) {
+            msg.append(Component.literal("! They OFFER to pay " + amount + " coins to end the war.\n").withStyle(ChatFormatting.GOLD));
+        } else {
+            msg.append(Component.literal("!\n").withStyle(ChatFormatting.GOLD));
+        }
+        
+        msg.append(acceptButton)
                 .append(Component.literal(" "))
                 .append(declineButton);
 
-        Team userTeam = WarSystem.FTB_TEAMS_INSTALLED ?
-                WarSystem.FTB_TEAM_MANAGER.getPlayerTeamForPlayerID(player.getUUID()).orElse(null) : null;
+        FtbTeamsCompat.TeamHandle userTeam = FtbTeamsCompat.isInstalled()
+                ? FtbTeamsCompat.getTeamForPlayer(player.getUUID()).orElse(null)
+                : null;
 
-        if (WarSystem.FTB_TEAMS_INSTALLED && userTeam != null) {
-            if (userTeam.getId().equals(war.getAttackerTeamID())) {
+        if (FtbTeamsCompat.isInstalled() && userTeam != null) {
+            UUID userTeamId = FtbTeamsCompat.getTeamId(userTeam);
+            if (userTeamId != null && userTeamId.equals(war.getAttackerTeamID())) {
                 sendMessageToTeamFallback(war, false, msg); // Send to defender
-            } else if (userTeam.getId().equals(war.getDefenderTeamID())) {
+            } else if (userTeamId != null && userTeamId.equals(war.getDefenderTeamID())) {
                 sendMessageToTeamFallback(war, true, msg); // Send to attacker
             } else {
                 ctx.getSource().sendFailure(Component.literal("Error: Your team is not part of this war."));
@@ -115,26 +143,32 @@ public class PeaceProposalManager {
             ctx.getSource().sendFailure(Component.literal("No active peace proposal to accept."));
             return 0;
         }
+        long timeoutMillis = TaxConfig.PEACE_PROPOSAL_TIMEOUT_SECONDS.get() * 1000L;
+        if (proposal.isExpired(timeoutMillis)) {
+            ctx.getSource().sendFailure(Component.literal("Peace proposal has expired!"));
+            war.setActiveProposal(null);
+            return 0;
+        }
 
-        UUID owner = war.getColony().getPermissions().getOwner();
-        // This check might need adjustment based on who is allowed to accept.
-        // Original WarCommands logic: "Only the 'defending' colony's owner may finalize"
-        // This implies the player accepting must be the owner of the *target* colony of the peace proposal.
-        // The current player might be the one who *received* the proposal.
-        // Let's assume for now the player executing /peace accept is the one who should be authorized.
-        boolean isPlayerAttackerSide = war.getAttackerLives().containsKey(player.getUUID()) || (WarSystem.FTB_TEAMS_INSTALLED && WarSystem.FTB_TEAM_MANAGER.getTeamForPlayerID(player.getUUID()).map(t -> t.getId().equals(war.getAttackerTeamID())).orElse(false));
-        boolean isPlayerDefenderSide = war.getDefenderLives().containsKey(player.getUUID()) || (WarSystem.FTB_TEAMS_INSTALLED && WarSystem.FTB_TEAM_MANAGER.getTeamForPlayerID(player.getUUID()).map(t -> t.getId().equals(war.getDefenderTeamID())).orElse(false));
-
-        // The player accepting should be on the *opposite* side of the proposer.
-        // And they must be an owner/authorized person of their colony.
-        // This logic needs to be robust. For now, a simplified check:
         if (!isAuthorizedToRespondToPeace(player, war)) {
              ctx.getSource().sendFailure(Component.literal("Only an authorized player from the opposing side can accept/decline the peace proposal!"));
              return 0;
         }
 
+        // Finding 8: atomic check-and-clear BEFORE doing work. If two players
+        // race to accept (chat click + command), only the first thread sees
+        // the proposal non-null. The second sees null and bails. This avoids
+        // double reparations transfers and double-fires of endWar().
+        synchronized (war) {
+            PeaceProposal current = war.getActiveProposal();
+            if (current == null || current != proposal) {
+                ctx.getSource().sendFailure(Component.literal("Peace proposal already resolved."));
+                return 0;
+            }
+            war.setActiveProposal(null);
+        }
 
-        finalizePeaceProposal(war, true, player); // Pass player to identify who accepted
+        finalizePeaceProposal(war, true, player, proposal); // Pass the captured proposal we cleared
         return 1;
     }
 
@@ -151,18 +185,28 @@ public class PeaceProposalManager {
             ctx.getSource().sendFailure(Component.literal("No active peace proposal to decline."));
             return 0;
         }
+        long timeoutMillis = TaxConfig.PEACE_PROPOSAL_TIMEOUT_SECONDS.get() * 1000L;
+        if (proposal.isExpired(timeoutMillis)) {
+            ctx.getSource().sendFailure(Component.literal("Peace proposal has expired!"));
+            war.setActiveProposal(null);
+            return 0;
+        }
 
         if (!isAuthorizedToRespondToPeace(player, war)) {
              ctx.getSource().sendFailure(Component.literal("Only an authorized player from the opposing side can accept/decline the peace proposal!"));
              return 0;
         }
 
-        // Notify the proposing side that it was declined
-        boolean wasPlayerOnAttackerSideWhenProposed = war.getAttackerLives().containsKey(proposal.getProposer()); // Assuming PeaceProposal stores proposer
-        // This needs PeaceProposal to store the proposer's UUID. Let's add that.
-        // For now, assume we can determine the proposing side.
-        // Let's assume the player declining is on the opposite side of who made the proposal.
-        // The original proposal sender needs to be notified.
+        // Finding 8: atomic check-and-clear before the notification block so
+        // concurrent decline+accept (or duplicate declines) only resolves once.
+        synchronized (war) {
+            PeaceProposal current = war.getActiveProposal();
+            if (current == null || current != proposal) {
+                ctx.getSource().sendFailure(Component.literal("Peace proposal already resolved."));
+                return 0;
+            }
+            war.setActiveProposal(null);
+        }
 
         ServerPlayer proposer = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(proposal.getProposer());
         if(proposer != null) {
@@ -170,13 +214,9 @@ public class PeaceProposalManager {
         }
         player.sendSystemMessage(Component.literal("You have declined the peace proposal.").withStyle(ChatFormatting.YELLOW));
 
-
-        war.setActiveProposal(null);
         return 1;
     }
     
-    // Helper to check authorization for responding to peace
-    // This logic might need to be more sophisticated depending on game rules
     private boolean isAuthorizedToRespondToPeace(ServerPlayer responder, WarData war) {
         PeaceProposal proposal = war.getActiveProposal();
         if (proposal == null || proposal.getProposer() == null) return false; // Cannot respond if no proposal or proposer
@@ -191,32 +231,44 @@ public class PeaceProposalManager {
 
         // Responder must be on the opposite side of the proposer
         if ((responderIsAttacker && proposerIsAttacker) || (responderIsDefender && proposerIsDefender)) {
-            return false; 
+            return false;
         }
 
-        // And the responder must be an owner of their respective colony
-        if (responderIsAttacker && war.getAttackerColony() != null && war.getAttackerColony().getPermissions().getOwner().equals(responderId)) {
-            return true;
+        // Officer rank (id >= 2) or owner may accept/decline on behalf of their colony.
+        // Finding 7: getRank(...) can return null for non-members (e.g. team-based
+        // participants without a permissions entry). Null-guard before deref.
+        if (responderIsAttacker && war.getAttackerColony() != null) {
+            IColony colony = war.getAttackerColony();
+            UUID owner = colony.getPermissions().getOwner();
+            if (owner != null && owner.equals(responderId)) return true;
+            Rank rank = colony.getPermissions().getRank(responder);
+            if (rank == null) return false;
+            if (rank.isHostile()) return false;
+            if (rank.getId() >= 2) return true;
         }
-        if (responderIsDefender && war.getColony() != null && war.getColony().getPermissions().getOwner().equals(responderId)) {
-            return true;
+        if (responderIsDefender && war.getColony() != null) {
+            IColony colony = war.getColony();
+            UUID owner = colony.getPermissions().getOwner();
+            if (owner != null && owner.equals(responderId)) return true;
+            Rank rank = colony.getPermissions().getRank(responder);
+            if (rank == null) return false;
+            if (rank.isHostile()) return false;
+            if (rank.getId() >= 2) return true;
         }
         return false;
     }
 
 
-    private void finalizePeaceProposal(WarData war, boolean accepted, ServerPlayer responder) {
-        PeaceProposal proposal = war.getActiveProposal();
+    private void finalizePeaceProposal(WarData war, boolean accepted, ServerPlayer responder, PeaceProposal proposal) {
         if (proposal == null) return;
 
         ServerPlayer proposer = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(proposal.getProposer());
 
-        if (!accepted) { // Though current flow always calls with true for acceptPeace
+        if (!accepted) {
             if (proposer != null) {
                 proposer.sendSystemMessage(Component.literal("Your peace proposal was declined by " + responder.getName().getString()).withStyle(ChatFormatting.RED));
             }
             responder.sendSystemMessage(Component.literal("You have declined the peace proposal.").withStyle(ChatFormatting.YELLOW));
-            war.setActiveProposal(null);
             return;
         }
 
@@ -231,19 +283,15 @@ public class PeaceProposalManager {
                 // Broadcast to teams
                 sendMessageToTeamFallback(war, true, whitePeaceMsg); // Attacker team
                 sendMessageToTeamFallback(war, false, whitePeaceMsg); // Defender team
+                // Set penalty report before endWar so war history logging captures peace outcome
+                war.setPenaltyReport("White Peace: War ended by mutual agreement, no reparations");
                 WarSystem.endWar(war.getColony()); // Assumes WarSystem provides this
                 break;
             case REPARATIONS:
-                UUID losingTeamId; // Side that pays
-                UUID winningPlayerId; // Player on the side that receives
+                UUID losingTeamId;
+                UUID winningPlayerId;
 
-                // Determine who pays based on who accepted.
-                // If responder is on attacker side, defender proposed and attacker pays.
-                // If responder is on defender side, attacker proposed and defender pays.
-                // This needs careful thought. The original logic assumed attacker pays if they proposed reparations.
-                // Let's assume the *proposer* is offering to pay if it's reparations.
-                // So, the responder's side is the winner.
-
+                // The proposer is the side offering to pay reparations; the responder's side receives.
                 boolean proposerWasAttacker = war.getAttackerLives().containsKey(proposal.getProposer());
                 
                 if (proposerWasAttacker) { // Attacker proposed to pay reparations
@@ -278,7 +326,6 @@ public class PeaceProposalManager {
                 if (proposer != null) proposer.sendSystemMessage(Component.literal(acceptedMessageToProposer).append(reparationsPaidMsg));
                 responder.sendSystemMessage(Component.literal(acceptedMessageToResponder).append(reparationsPaidMsg));
                 
-                // Notify teams
                 Component losingTeamMsg = Component.literal("Reparations accepted! " + demandedAmount + " coins were paid by your side. War is ended.").withStyle(ChatFormatting.GREEN);
                 Component winningTeamMsg = Component.literal("Reparations accepted! " + demandedAmount + " coins were received by your side. War is ended.").withStyle(ChatFormatting.GREEN);
 
@@ -289,23 +336,53 @@ public class PeaceProposalManager {
                     sendMessageToTeamFallback(war, false, losingTeamMsg); // Defender team (lost)
                     sendMessageToTeamFallback(war, true, winningTeamMsg); // Attacker team (won)
                 }
+                // Set penalty report before endWar so war history logging captures peace outcome
+                String payerSide = proposerWasAttacker ? "Attackers" : "Defenders";
+                war.setPenaltyReport("Peace via Reparations: " + payerSide + " paid " + demandedAmount + " coins");
+                WarSystem.endWar(war.getColony());
+                break;
+            case SURRENDER:
+                // Surrender: proposer unconditionally surrenders, responder's side wins
+                boolean surrendererWasAttacker = war.getAttackerLives().containsKey(proposal.getProposer());
+                
+                Component surrenderMsg = Component.literal("Surrender accepted! ").withStyle(ChatFormatting.GOLD);
+                if (proposer != null) proposer.sendSystemMessage(Component.literal(acceptedMessageToProposer).append(surrenderMsg).append(Component.literal("Your side has surrendered.")));
+                responder.sendSystemMessage(Component.literal(acceptedMessageToResponder).append(surrenderMsg).append(Component.literal("Your side has won by surrender!")));
+                
+                // Notify teams
+                Component surrenderingTeamMsg = Component.literal("Surrender accepted! Your side has surrendered and lost the war.").withStyle(ChatFormatting.RED);
+                Component victoriousTeamMsg = Component.literal("Surrender accepted! Your side has won the war!").withStyle(ChatFormatting.GREEN);
+                
+                if (surrendererWasAttacker) {
+                    sendMessageToTeamFallback(war, true, surrenderingTeamMsg); // Attacker team (surrendered)
+                    sendMessageToTeamFallback(war, false, victoriousTeamMsg); // Defender team (won)
+                    // Record attacker's loss (they surrendered)
+                    if (war.getAttackerColony() != null) {
+                        net.machiavelli.minecolonytax.economy.WarExhaustionManager.recordWarLoss(war.getAttackerColony().getID());
+                    }
+                } else {
+                    sendMessageToTeamFallback(war, false, surrenderingTeamMsg); // Defender team (surrendered)
+                    sendMessageToTeamFallback(war, true, victoriousTeamMsg); // Attacker team (won)
+                    // Record defender's loss (they surrendered)
+                    net.machiavelli.minecolonytax.economy.WarExhaustionManager.recordWarLoss(war.getColony().getID());
+                }
+                
+                // Set penalty report before endWar
+                String surrenderingSide = surrendererWasAttacker ? "Attackers" : "Defenders";
+                war.setPenaltyReport("Surrender: " + surrenderingSide + " surrendered unconditionally");
                 WarSystem.endWar(war.getColony());
                 break;
         }
         war.setActiveProposal(null);
     }
 
-    // Helper method from WarCommands, might need to be static in WarSystem or a utility class
     private void sendMessageToTeamFallback(WarData war, boolean sendToAttacker, Component msg) {
-        if (WarSystem.FTB_TEAMS_INSTALLED) {
-            TeamManager manager = WarSystem.FTB_TEAM_MANAGER;
-            if (manager == null) return; // Should not happen if FTB_TEAMS_INSTALLED is true
-
-            Team team = sendToAttacker ?
-                    manager.getTeamByID(war.getAttackerTeamID()).orElse(null) :
-                    manager.getTeamByID(war.getDefenderTeamID()).orElse(null);
+        if (FtbTeamsCompat.isInstalled()) {
+            UUID targetTeamId = sendToAttacker ? war.getAttackerTeamID() : war.getDefenderTeamID();
+            FtbTeamsCompat.TeamHandle team = targetTeamId == null ? null
+                    : FtbTeamsCompat.getTeamById(targetTeamId).orElse(null);
             if (team != null) {
-                for (UUID member : team.getMembers()) {
+                for (UUID member : FtbTeamsCompat.getTeamMembers(team)) {
                     ServerPlayer sp = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(member);
                     if (sp != null) {
                         sp.sendSystemMessage(msg);
@@ -320,5 +397,32 @@ public class PeaceProposalManager {
             ServerPlayer sp = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(uuid);
             if (sp != null) sp.sendSystemMessage(msg);
         });
+    }
+
+    /**
+     * Finding 6: proposer must be at minimum a colony manager (owner or officer)
+     * on the side they're proposing peace for. Friend-rank participants can
+     * fight but not surrender their colony.
+     */
+    private boolean isAuthorizedToProposePeace(ServerPlayer player, WarData war) {
+        if (player == null || war == null) return false;
+        UUID id = player.getUUID();
+        boolean isAttacker = war.getAttackerLives().containsKey(id);
+        boolean isDefender = war.getDefenderLives().containsKey(id);
+        if (!isAttacker && !isDefender) return false;
+        IColony colony = isAttacker ? war.getAttackerColony() : war.getColony();
+        if (colony == null) {
+            // Solo/team attacker without a registered colony — they ARE the
+            // decision-maker for their own side.
+            return true;
+        }
+        // Owner can always propose
+        UUID owner = colony.getPermissions().getOwner();
+        if (owner != null && owner.equals(id)) return true;
+        // Otherwise require colony-manager rank (officer or higher) and not hostile.
+        Rank rank = colony.getPermissions().getRank(player);
+        if (rank == null) return false;
+        if (rank.isHostile()) return false;
+        return rank.isColonyManager();
     }
 }

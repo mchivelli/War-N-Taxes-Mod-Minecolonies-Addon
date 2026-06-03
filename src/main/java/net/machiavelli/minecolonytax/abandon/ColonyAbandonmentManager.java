@@ -15,8 +15,17 @@ import net.minecraft.world.level.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Manages automatic colony abandonment based on owner/officer inactivity.
@@ -24,20 +33,107 @@ import java.util.concurrent.ConcurrentHashMap;
  * and automatically abandons colonies that have been inactive for too long.
  */
 public class ColonyAbandonmentManager {
-    
+
     private static final Logger LOGGER = LogManager.getLogger(ColonyAbandonmentManager.class);
-    
-    // Track warned colonies to avoid spamming
+
+    // AUDIT FIX (defensive_04 M2 / Codex MED-11): persist abandoned-state across restarts.
+    // Without this, server restart wipes abandoned-flag and former-member tracking; reclaim
+    // bypass for former owners stops working and isColonyAbandoned() returns false until
+    // the periodic abandonment scan re-derives state.
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final String STORAGE_FILE = "config/warntax/abandonment.json";
+    /**
+     * Lazy one-shot load. We don't have a hook in MineColonyTax for this manager (it has no
+     * initialize() in the lifecycle wiring), so we trigger load on first read/write of any
+     * persisted collection. Subsequent calls are no-ops.
+     */
+    private static final AtomicBoolean LOADED = new AtomicBoolean(false);
+
     private static final Map<Integer, Long> warnedColonies = new ConcurrentHashMap<>();
-    
-    // Track abandoned colonies that can be claimed
     private static final Set<Integer> abandonedColonies = ConcurrentHashMap.newKeySet();
-    
-    // Track former owners/officers of abandoned colonies (for claiming bypass)
+    // Former owners/officers are tracked so they can bypass claiming requirements for their own colony.
     private static final Map<Integer, Set<UUID>> formerColonyMembers = new ConcurrentHashMap<>();
-    
-    // Track pending notifications for offline players
     private static final Map<UUID, List<Component>> pendingNotifications = new ConcurrentHashMap<>();
+
+    /** Serializable snapshot of the persisted state. */
+    private static class AbandonmentSaveData {
+        Set<Integer> abandonedColonies = new HashSet<>();
+        Map<Integer, Set<UUID>> formerColonyMembers = new HashMap<>();
+    }
+
+    /** Load abandonment state from disk. Idempotent — safe to call multiple times. */
+    public static void loadData() {
+        if (!LOADED.compareAndSet(false, true)) return;
+        try {
+            Path path = Path.of(STORAGE_FILE);
+            if (!Files.exists(path)) return;
+            try (FileReader r = new FileReader(path.toFile())) {
+                AbandonmentSaveData data = GSON.fromJson(r, AbandonmentSaveData.class);
+                if (data != null) {
+                    if (data.abandonedColonies != null) {
+                        abandonedColonies.addAll(data.abandonedColonies);
+                    }
+                    if (data.formerColonyMembers != null) {
+                        for (Map.Entry<Integer, Set<UUID>> e : data.formerColonyMembers.entrySet()) {
+                            if (e.getKey() != null && e.getValue() != null) {
+                                formerColonyMembers.put(e.getKey(), ConcurrentHashMap.newKeySet());
+                                formerColonyMembers.get(e.getKey()).addAll(e.getValue());
+                            }
+                        }
+                    }
+                    if (TaxConfig.isNormalLogging()) {
+                        LOGGER.info("Loaded abandonment state: {} abandoned colonies, {} former-member entries",
+                                abandonedColonies.size(), formerColonyMembers.size());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.error("Failed to load abandonment data: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Persist current abandonment state. Uses temp-file + atomic-move so a crash mid-write
+     * leaves the prior file intact (AUDIT FIX — Codex MED-11). Synchronous and short; called
+     * from the mutating paths.
+     */
+    public static void saveData() {
+        // Make sure we don't blat a load that hasn't happened yet.
+        if (LOADED.compareAndSet(false, true)) {
+            // First touch is a save with nothing previously loaded — load first so we don't
+            // overwrite existing on-disk state with an empty snapshot.
+            LOADED.set(false);
+            loadData();
+        }
+        try {
+            AbandonmentSaveData data = new AbandonmentSaveData();
+            data.abandonedColonies = new HashSet<>(abandonedColonies);
+            data.formerColonyMembers = new HashMap<>();
+            for (Map.Entry<Integer, Set<UUID>> e : formerColonyMembers.entrySet()) {
+                data.formerColonyMembers.put(e.getKey(), new HashSet<>(e.getValue()));
+            }
+            File target = new File(STORAGE_FILE);
+            File parent = target.getParentFile();
+            if (parent != null && !parent.exists()) {
+                Files.createDirectories(parent.toPath());
+            }
+            File tmp = (parent != null)
+                    ? new File(parent, target.getName() + ".tmp")
+                    : new File(target.getAbsolutePath() + ".tmp");
+            try (FileWriter w = new FileWriter(tmp)) {
+                GSON.toJson(data, w);
+            }
+            try {
+                Files.move(tmp.toPath(), target.toPath(),
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException atomicEx) {
+                Files.move(tmp.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (Exception e) {
+            LOGGER.error("Failed to save abandonment data: {}", e.getMessage());
+        }
+    }
     
     /**
      * Check all colonies for abandonment conditions.
@@ -47,7 +143,8 @@ public class ColonyAbandonmentManager {
         if (!TaxConfig.isColonyAutoAbandonEnabled()) {
             return;
         }
-        
+        loadData(); // lazy one-shot load — see LOADED flag
+
         try {
             IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
             int abandonedCount = 0;
@@ -77,7 +174,7 @@ public class ColonyAbandonmentManager {
             }
             
             if (abandonedCount > 0 || warnedCount > 0) {
-                LOGGER.info("Colony abandonment check completed: {} colonies abandoned, {} colonies warned", 
+                if (TaxConfig.isNormalLogging()) LOGGER.info("Colony abandonment check completed: {} colonies abandoned, {} colonies warned",
                           abandonedCount, warnedCount);
             }
             
@@ -117,13 +214,13 @@ public class ColonyAbandonmentManager {
         if (officerVisitHours >= 0) {
             // WnT tracking data exists - use it exclusively
             lastContactHours = (int) officerVisitHours;
-            LOGGER.debug("Colony {} abandonment check using WnT timer: {} hours since last officer activity",
+            if (TaxConfig.isDebugLogging()) LOGGER.debug("Colony {} abandonment check using WnT timer: {} hours since last officer activity",
                         colony.getName(), lastContactHours);
         } else {
             // FALLBACK: No WnT data yet - use MineColonies timer until first officer activity is tracked
             // This handles newly created colonies or colonies from before WnT tracking was enabled
             lastContactHours = colony.getLastContactInHours();
-            LOGGER.debug("Colony {} using MineColonies fallback timer: {} hours (no WnT data yet)",
+            if (TaxConfig.isDebugLogging()) LOGGER.debug("Colony {} using MineColonies fallback timer: {} hours (no WnT data yet)",
                         colony.getName(), lastContactHours);
         }
 
@@ -151,18 +248,16 @@ public class ColonyAbandonmentManager {
             long officerVisitHours = net.machiavelli.minecolonytax.event.OfficerColonyVisitTracker.getHoursSinceOfficerVisit(colony.getID());
             int actualInactivityHours = (officerVisitHours >= 0) ? (int) officerVisitHours : colony.getLastContactInHours();
 
-            LOGGER.info("Abandoning colony {} ({}) due to {} hours of inactivity (WnT timer: {}, MC timer: {})",
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Abandoning colony {} ({}) due to {} hours of inactivity (WnT timer: {}, MC timer: {})",
                        colony.getName(), colony.getID(), actualInactivityHours,
                        officerVisitHours >= 0 ? officerVisitHours + "h" : "no data",
                        colony.getLastContactInHours() + "h");
             
             IPermissions permissions = colony.getPermissions();
             
-            // Collect owners and officers before removal for notification
             List<UUID> removedPlayers = new ArrayList<>();
             Map<UUID, ColonyPlayer> players = new HashMap<>(permissions.getPlayers());
             
-            // CRITICAL: Add current owner to the removed players list
             UUID currentOwner = permissions.getOwner();
             if (currentOwner != null) {
                 removedPlayers.add(currentOwner);
@@ -174,93 +269,60 @@ public class ColonyAbandonmentManager {
                 }
             }
             
-            LOGGER.info("Abandoning colony {} - found {} owners/officers to make hostile: {}", 
+            if (TaxConfig.isDebugLogging()) LOGGER.debug("Abandoning colony {} - found {} owners/officers to demote: {}",
                 colony.getName(), removedPlayers.size(), removedPlayers);
             
-            // STEP 1: Store former members for claiming bypass
             formerColonyMembers.put(colony.getID(), new HashSet<>(removedPlayers));
             
-            // STEP 2: **AUTOMATIC NULL OWNER PREVENTION** - NEVER create null owners!
-            LOGGER.info("🔧 AUTOMATIC ABANDONMENT: Colony {} - ensuring valid owner ALWAYS exists", colony.getName());
-            
-            // Store all current players BEFORE any modifications
             Map<UUID, ColonyPlayer> allPlayers = new HashMap<>(permissions.getPlayers());
-            LOGGER.info("Found {} total players in colony before abandonment", allPlayers.size());
-            
-            // First, clean up any existing problematic entries
+            if (TaxConfig.isDebugLogging()) LOGGER.debug("Found {} total players in colony before abandonment", allPlayers.size());
+
             cleanupAbandonedEntries(permissions);
-            
-            // 🚨 AUTOMATIC PROTECTION: GUARANTEE valid owner exists!
+
+            // Keep a valid owner in the colony to prevent GUI crashes in MineColonies.
             UUID colonyOwner = permissions.getOwner();
             if (colonyOwner == null) {
-                LOGGER.error("⚠️ NULL OWNER DETECTED during abandonment - AUTOMATICALLY FIXING!");
-                
-                // Find any player to make owner (prefer original removedPlayers list)
+                LOGGER.warn("Null owner detected during abandonment of colony {} - assigning placeholder", colony.getName());
                 UUID newOwner = null;
                 if (!removedPlayers.isEmpty()) {
-                    newOwner = removedPlayers.get(0); // Use first removed player
+                    newOwner = removedPlayers.get(0);
                 } else if (!allPlayers.isEmpty()) {
-                    newOwner = allPlayers.keySet().iterator().next(); // Use any player
+                    newOwner = allPlayers.keySet().iterator().next();
                 } else {
-                    // Last resort: create system owner
                     newOwner = createSystemOwner();
                     permissions.addPlayer(newOwner, "[AUTO_OWNER]", permissions.getRankOwner());
-                    LOGGER.error("🆘 NO PLAYERS FOUND - created automatic system owner");
+                    LOGGER.warn("No players found in colony {} during abandonment - created system owner placeholder", colony.getName());
                 }
-                
-                // MANDATORY: Set this player as owner rank
                 permissions.setPlayerRank(newOwner, permissions.getRankOwner(), colony.getWorld());
-                LOGGER.error("🏛️ AUTOMATIC FIX: {} is now owner to prevent GUI crashes", newOwner);
+                if (TaxConfig.isDebugLogging()) LOGGER.debug("Assigned {} as owner placeholder for abandoned colony {}", newOwner, colony.getName());
                 colonyOwner = newOwner;
             } else {
-                LOGGER.info("✅ Valid owner {} exists - keeping to prevent GUI crashes", colonyOwner);
+                if (TaxConfig.isDebugLogging()) LOGGER.debug("Keeping existing owner {} to prevent GUI crashes in colony {}", colonyOwner, colony.getName());
             }
             
-            // Set all NON-OWNER players to neutral rank
-            // 🎯 CRITICAL: Keep owner as OWNER rank to prevent GUI crashes!
+            // Keep the owner at Owner rank; demote all other players to neutral.
             Rank colonyNeutralRank = permissions.getRankNeutral();
             for (UUID playerId : allPlayers.keySet()) {
-                if (!playerId.equals(colonyOwner)) { // Don't demote the owner!
-                ColonyPlayer player = allPlayers.get(playerId);
+                if (!playerId.equals(colonyOwner)) {
+                    ColonyPlayer player = allPlayers.get(playerId);
                     if (!player.getRank().equals(colonyNeutralRank)) {
                         boolean rankSet = permissions.setPlayerRank(playerId, colonyNeutralRank, colony.getWorld());
-                        LOGGER.info("Set non-owner player {} to neutral rank: {}", playerId, rankSet);
+                        if (TaxConfig.isDebugLogging()) LOGGER.debug("Set non-owner player {} to neutral rank: {}", playerId, rankSet);
                     }
-                } else {
-                    LOGGER.info("🏛️ KEEPING owner {} at Owner rank to prevent GUI crashes", playerId);
                 }
             }
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Colony {} abandoned: all non-owner players set to neutral rank", colony.getName());
             
-            LOGGER.info("✅ ABANDONMENT SUCCESS: Colony {} keeps valid owner but all players have neutral permissions", colony.getName());
-            
-            // STEP 3: SAFELY abandon the colony WITHOUT using setOwnerAbandoned() to prevent weird entries
+            // We do not call setOwnerAbandoned() — it creates problematic [abandoned]
+            // player entries. Instead we rely on the abandonedColonies set.
             try {
-                // CRITICAL: We do NOT call setOwnerAbandoned() as it creates problematic [abandoned] entries
-                // Instead, we rely on our manual tracking system
-                
-                // The colony is now effectively abandoned because:
-                // 1. All players are set to neutral rank (no managers)
-                // 2. We mark it as abandoned in our tracking system
-                // 3. The isColonyAbandoned() method will detect this state
-                
-                LOGGER.info("Colony {} marked as abandoned without using setOwnerAbandoned() to prevent weird entries", colony.getName());
-                
-                // Clean up any existing problematic entries that might already exist
                 cleanupAbandonedEntries(permissions);
-                
             } catch (Exception e) {
                 LOGGER.error("Error during safe abandonment for colony {}", colony.getName(), e);
             }
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Successfully abandoned colony {} - set {} players to neutral rank", colony.getName(), allPlayers.size());
             
-            LOGGER.info("Successfully abandoned colony {} - set {} players to neutral rank", colony.getName(), allPlayers.size());
-            
-            // STEP 4: Set EXTREMELY restrictive permissions for neutral players to prevent ALL griefing
-            
-            LOGGER.info("Setting EXTREMELY restrictive neutral permissions for abandoned colony {}", colony.getName());
-            
-            // Use the same neutral rank variable as above
-            
-            // DISABLE ALL POTENTIALLY GRIEFING ACTIONS - BE EXTREMELY RESTRICTIVE
+            if (TaxConfig.isDebugLogging()) LOGGER.debug("Setting restrictive neutral permissions for abandoned colony {}", colony.getName());
             permissions.setPermission(colonyNeutralRank, com.minecolonies.api.colony.permissions.Action.BREAK_BLOCKS, false);
             permissions.setPermission(colonyNeutralRank, com.minecolonies.api.colony.permissions.Action.PLACE_BLOCKS, false);
             permissions.setPermission(colonyNeutralRank, com.minecolonies.api.colony.permissions.Action.RIGHTCLICK_BLOCK, false);
@@ -278,7 +340,6 @@ public class ColonyAbandonmentManager {
             // NOTE: GUARDS_ATTACK removed from API - hostility now controlled by Rank.isHostile()
             // NOTE: USE_FLY_STICK not available in this API version
             
-            // Also set hostile rank to be restrictive (in case someone gets hostile rank)
             Rank hostileRank = permissions.getRankHostile();
             permissions.setPermission(hostileRank, com.minecolonies.api.colony.permissions.Action.BREAK_BLOCKS, false);
             permissions.setPermission(hostileRank, com.minecolonies.api.colony.permissions.Action.PLACE_BLOCKS, false);
@@ -288,11 +349,12 @@ public class ColonyAbandonmentManager {
             permissions.setPermission(hostileRank, com.minecolonies.api.colony.permissions.Action.PICKUP_ITEM, false);
             permissions.setPermission(hostileRank, com.minecolonies.api.colony.permissions.Action.ACCESS_HUTS, false);
             
-            LOGGER.info("ANTI-GRIEF SUCCESS: Colony {} - all players set to neutral/hostile with ZERO permissions", colony.getName());
+            if (TaxConfig.isDebugLogging()) LOGGER.debug("Colony {} - all players set to neutral/hostile with zero permissions", colony.getName());
             
             // Mark colony as claimable
             abandonedColonies.add(colony.getID());
-            
+            saveData(); // AUDIT FIX (defensive_04 M2): persist abandonment + former-member state
+
             // Notify removed players when they next log in
             scheduleAbandonmentNotifications(removedPlayers, colony, server);
             
@@ -362,7 +424,7 @@ public class ColonyAbandonmentManager {
             
             if (sentWarning) {
                 warnedColonies.put(colonyId, currentTime);
-                LOGGER.info("Warned owners/officers of colony {} ({}) about upcoming abandonment", 
+                if (TaxConfig.isNormalLogging()) LOGGER.info("Warned owners/officers of colony {} ({}) about upcoming abandonment",
                           colony.getName(), colony.getID());
             }
             
@@ -399,54 +461,35 @@ public class ColonyAbandonmentManager {
         }
     }
     
-    /**
-     * 🚨 AUTOMATIC NULL OWNER PROTECTION: Check if a colony is abandoned.
-     * AUTOMATICALLY fixes null owners EVERY TIME this is called!
-     */
     public static boolean isColonyAbandoned(IColony colony) {
         if (colony == null || colony.getPermissions() == null) {
             return false;
         }
-        
-        // 🚨 AUTOMATIC PROTECTION: ALWAYS check and fix null owners on EVERY access!
+        loadData(); // lazy one-shot load — see LOADED flag
+
         UUID owner = colony.getPermissions().getOwner();
         if (owner == null) {
-            LOGGER.error("🚨 AUTO-FIX: Colony {} has null owner - FIXING AUTOMATICALLY!", colony.getName());
+            LOGGER.warn("Colony {} has null owner - attempting fix", colony.getName());
             fixNullOwnerColony(colony);
-            // Get the fixed owner
             owner = colony.getPermissions().getOwner();
             if (owner == null) {
-                LOGGER.error("💥 CRITICAL: Failed to fix null owner for colony {}!", colony.getName());
-                // Try emergency system owner as last resort
+                LOGGER.warn("Failed to fix null owner for colony {} - creating emergency placeholder", colony.getName());
                 try {
                     UUID systemOwner = createSystemOwner();
                     colony.getPermissions().addPlayer(systemOwner, "[AUTO_EMERGENCY_OWNER]", colony.getPermissions().getRankOwner());
                     colony.getPermissions().setPlayerRank(systemOwner, colony.getPermissions().getRankOwner(), colony.getWorld());
-                    LOGGER.error("🆘 EMERGENCY: Created system owner for colony {}", colony.getName());
                 } catch (Exception e) {
-                    LOGGER.error("💥 EMERGENCY SYSTEM OWNER FAILED for colony {}: {}", colony.getName(), e.getMessage());
+                    LOGGER.warn("Emergency system owner creation failed for colony {}: {}", colony.getName(), e.getMessage());
                 }
             }
         }
         
-        // Primary check: manually marked as abandoned in our tracking system
-        if (abandonedColonies.contains(colony.getID())) {
-            return true;
-        }
-        
-        // Secondary check: if colony has owner but only inactive players, consider abandoned
-        // (This handles edge cases where colony wasn't properly marked as abandoned)
-        return false; // With our new approach, we rely primarily on manual tracking
+        return abandonedColonies.contains(colony.getID());
     }
     
-    /**
-     * EMERGENCY FIX: Fix colonies that have null owners to prevent GUI crashes.
-     */
     private static void fixNullOwnerColony(IColony colony) {
         try {
             IPermissions permissions = colony.getPermissions();
-            
-            // Find any player to make owner
             UUID newOwner = null;
             for (ColonyPlayer player : permissions.getPlayers().values()) {
                 if (player.getID() != null) {
@@ -454,84 +497,63 @@ public class ColonyAbandonmentManager {
                     break;
                 }
             }
-            
             if (newOwner != null) {
-                // Set this player as owner rank
                 permissions.setPlayerRank(newOwner, permissions.getRankOwner(), colony.getWorld());
-                LOGGER.info("🏛️ EMERGENCY FIX: Set {} as emergency owner of null-owner colony {}", newOwner, colony.getName());
-                
-                // Mark colony as abandoned in our system since it had null owner
                 abandonedColonies.add(colony.getID());
-                LOGGER.info("📋 Marked colony {} as abandoned due to null owner fix", colony.getName());
+                saveData(); // AUDIT FIX (defensive_04 M2): persist abandoned-flag for null-owner repair
+                if (TaxConfig.isNormalLogging()) LOGGER.info("Assigned {} as owner placeholder for null-owner colony {} and marked abandoned", newOwner, colony.getName());
             } else {
-                LOGGER.error("❌ NO PLAYERS FOUND in null owner colony {}! Cannot fix!", colony.getName());
+                LOGGER.warn("No players found in null-owner colony {} - cannot fix", colony.getName());
             }
         } catch (Exception e) {
-            LOGGER.error("💥 FAILED to fix null owner colony {}: {}", colony.getName(), e.getMessage());
+            LOGGER.error("Failed to fix null owner colony {}: {}", colony.getName(), e.getMessage());
         }
     }
     
     /**
-     * 🚨 AUTOMATIC: Fix ALL null owner colonies (runs every 5 seconds automatically).
-     * Optimized for frequent use - minimal logging unless issues found.
+     * Scans all colonies and assigns a placeholder owner to any that have null owners.
+     * Idempotent — safe to call multiple times. Logs only when repairs are needed.
      */
     public static void emergencyFixAllNullOwners() {
         try {
             IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-            int nullOwnerColonies = 0;
             int fixedColonies = 0;
-            
+
             for (IColony colony : colonyManager.getAllColonies()) {
                 try {
                     IPermissions permissions = colony.getPermissions();
-                    UUID owner = permissions.getOwner();
-                    
-                    if (owner == null) {
-                        nullOwnerColonies++;
-                        LOGGER.error("🚨 AUTO-FIX: Colony {} has null owner - fixing automatically!", colony.getName());
-                        
-                        // Emergency fix approach: Find ANY player and make them owner
-                        UUID emergencyOwner = null;
-                        
-                        // Try to find any player in the colony
-                        for (ColonyPlayer player : permissions.getPlayers().values()) {
-                            if (player.getID() != null) {
-                                emergencyOwner = player.getID();
-                                break;
-                            }
+                    if (permissions.getOwner() != null) continue;
+
+                    UUID emergencyOwner = null;
+                    for (ColonyPlayer player : permissions.getPlayers().values()) {
+                        if (player.getID() != null) {
+                            emergencyOwner = player.getID();
+                            break;
                         }
-                        
-                        if (emergencyOwner == null) {
-                            // If no players, create a system owner temporarily
-                            emergencyOwner = createSystemOwner();
-                            permissions.addPlayer(emergencyOwner, "[AUTO_OWNER]", permissions.getRankOwner());
-                            LOGGER.warn("No players in colony {} - created automatic system owner", colony.getName());
-                        }
-                        
-                        // Set this player as owner rank
-                        permissions.setPlayerRank(emergencyOwner, permissions.getRankOwner(), colony.getWorld());
-                        
-                        // Mark as abandoned since it had no owner
-                        abandonedColonies.add(colony.getID());
-                        
-                        fixedColonies++;
-                        LOGGER.info("✅ AUTO-FIX: Colony {} now has owner {} (marked abandoned)", 
-                            colony.getName(), emergencyOwner);
                     }
-                    
+                    if (emergencyOwner == null) {
+                        emergencyOwner = createSystemOwner();
+                        permissions.addPlayer(emergencyOwner, "[AUTO_OWNER]", permissions.getRankOwner());
+                        LOGGER.warn("No players in colony {} during null-owner fix - created system owner placeholder", colony.getName());
+                    }
+                    permissions.setPlayerRank(emergencyOwner, permissions.getRankOwner(), colony.getWorld());
+                    abandonedColonies.add(colony.getID());
+                    fixedColonies++;
+                    if (TaxConfig.isNormalLogging()) LOGGER.info("Null-owner fix: colony {} assigned owner {} and marked abandoned", colony.getName(), emergencyOwner);
+
                 } catch (Exception e) {
-                    LOGGER.error("Auto-fix error in colony {}: {}", colony.getName(), e.getMessage());
+                    LOGGER.error("Error fixing null owner in colony {}: {}", colony.getName(), e.getMessage());
                 }
             }
-            
-            // Only log summary if issues were found and fixed
-            if (nullOwnerColonies > 0) {
-                LOGGER.error("🚨 AUTO-FIX COMPLETE: Fixed {} null owner colonies - GUI crashes prevented!", fixedColonies);
+
+            if (fixedColonies > 0 && TaxConfig.isNormalLogging()) {
+                LOGGER.info("Null-owner fix complete: {} colonies repaired", fixedColonies);
             }
-            // Silent success when no issues found (runs every 5 seconds)
-            
+            if (fixedColonies > 0) {
+                saveData(); // AUDIT FIX (defensive_04 M2): persist any newly-flagged abandonments
+            }
         } catch (Exception e) {
-            LOGGER.error("Auto null owner fix error: {}", e.getMessage());
+            LOGGER.warn("Error during null-owner scan: {}", e.getMessage());
         }
     }
     
@@ -543,17 +565,16 @@ public class ColonyAbandonmentManager {
             IPermissions permissions = colony.getPermissions();
             UUID systemOwner = createSystemOwner();
             
-            // Remove system owner if present
             if (permissions.getPlayers().containsKey(systemOwner)) {
                 permissions.removePlayer(systemOwner);
-                LOGGER.info("CLEANUP: Removed system owner from reactivated colony {}", colony.getName());
+                if (TaxConfig.isDebugLogging()) LOGGER.debug("Removed system owner placeholder from reactivated colony {}", colony.getName());
             }
             
             // The first real officer will automatically become the effective owner
             // NOTE: We don't explicitly call setOwner() to avoid API compatibility issues
             for (ColonyPlayer player : permissions.getPlayers().values()) {
                 if (!isSystemOwner(player.getID()) && player.getRank().isColonyManager()) {
-                    LOGGER.info("CLEANUP: {} will be the effective owner of reactivated colony {}", player.getName(), colony.getName());
+                    if (TaxConfig.isDebugLogging()) LOGGER.info("CLEANUP: {} will be the effective owner of reactivated colony {}", player.getName(), colony.getName());
                     break;
                 }
             }
@@ -571,17 +592,19 @@ public class ColonyAbandonmentManager {
         abandonedColonies.remove(colonyId);
         warnedColonies.remove(colonyId);
         formerColonyMembers.remove(colonyId); // Clear former members tracking
-        
+        saveData(); // AUDIT FIX (defensive_04 M2): persist removal of abandoned state
+
         // Clear officer visit tracking - fresh start for new owner
         net.machiavelli.minecolonytax.event.OfficerColonyVisitTracker.clearColonyVisitData(colonyId);
         
-        LOGGER.info("Colony {} marked as claimed - cleared all abandonment tracking data", colonyId);
+        if (TaxConfig.isNormalLogging()) LOGGER.info("Colony {} marked as claimed - cleared all abandonment tracking data", colonyId);
     }
     
     /**
      * Check if a player was a former owner/officer of a specific abandoned colony.
      */
     public static boolean wasFormerOwnerOrOfficer(int colonyId, UUID playerId) {
+        loadData(); // lazy one-shot load — see LOADED flag
         Set<UUID> formerMembers = formerColonyMembers.get(colonyId);
         return formerMembers != null && formerMembers.contains(playerId);
     }
@@ -590,6 +613,7 @@ public class ColonyAbandonmentManager {
      * Get all former owners/officers of an abandoned colony.
      */
     public static Set<UUID> getFormerOwnerAndOfficers(int colonyId) {
+        loadData(); // lazy one-shot load — see LOADED flag
         return formerColonyMembers.getOrDefault(colonyId, new HashSet<>());
     }
     
@@ -598,11 +622,12 @@ public class ColonyAbandonmentManager {
      */
     public static List<IColony> getClaimableColonies(MinecraftServer server) {
         List<IColony> claimable = new ArrayList<>();
-        
+
         if (!TaxConfig.isAbandonedColonyClaimingEnabled()) {
             return claimable;
         }
-        
+        loadData(); // lazy one-shot load — see LOADED flag
+
         try {
             IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
             
@@ -650,7 +675,7 @@ public class ColonyAbandonmentManager {
             player.sendSystemMessage(Component.literal("=== END OF NOTIFICATIONS ===")
                     .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD));
             
-            LOGGER.info("Sent {} pending notifications to player {}", notifications.size(), player.getName().getString());
+            if (TaxConfig.isDebugLogging()) LOGGER.debug("Sent {} pending notifications to player {}", notifications.size(), player.getName().getString());
         }
     }
     
@@ -664,71 +689,59 @@ public class ColonyAbandonmentManager {
     /**
      * Force abandon a colony (admin command).
      */
+    /**
+     * Abandons a colony due to sustained tax debt bankruptcy.
+     * Uses the same core abandonment logic as inactivity abandonment, but with debt-specific messaging.
+     */
+    public static boolean abandonColonyForDebt(IColony colony, MinecraftServer server) {
+        LOGGER.warn("Colony {} is being abandoned due to tax debt bankruptcy", colony.getName());
+        boolean success = abandonColony(colony, server);
+        if (success) {
+            // Override the inactivity broadcast with a debt-specific one
+            Component broadcastMsg = Component.literal("Colony ")
+                    .withStyle(ChatFormatting.RED)
+                    .append(Component.literal(colony.getName()).withStyle(ChatFormatting.GOLD))
+                    .append(Component.literal(" has fallen into tax bankruptcy and can now be claimed by other players!")
+                           .withStyle(ChatFormatting.RED));
+            server.getPlayerList().broadcastSystemMessage(broadcastMsg, false);
+        }
+        return success;
+    }
+
     public static boolean forceAbandonColony(IColony colony, MinecraftServer server, String adminName) {
         try {
             IPermissions permissions = colony.getPermissions();
             
-            // Get all current managers for notification
             List<UUID> managersToNotify = new ArrayList<>();
-            
-            // CRITICAL: Add current owner to the list
             UUID currentOwner = permissions.getOwner();
             if (currentOwner != null) {
                 managersToNotify.add(currentOwner);
             }
-            
             for (ColonyPlayer colonyPlayer : permissions.getPlayers().values()) {
                 if (colonyPlayer.getRank().isColonyManager() && !colonyPlayer.getID().equals(currentOwner)) {
                     managersToNotify.add(colonyPlayer.getID());
                 }
             }
-            
-            LOGGER.info("Force abandoning colony {} - found {} owners/officers to make hostile: {}", 
-                colony.getName(), managersToNotify.size(), managersToNotify);
-            
-            // STEP 1: Store former members for claiming bypass
+
             formerColonyMembers.put(colony.getID(), new HashSet<>(managersToNotify));
-            
-            // STEP 2: Set all existing players to neutral rank (same as regular abandonment)
+
             Map<UUID, ColonyPlayer> allPlayers = new HashMap<>(permissions.getPlayers());
-            LOGGER.info("Setting ALL {} players to neutral rank in force abandoned colony {}", allPlayers.size(), colony.getName());
-            
             Rank neutralRank = permissions.getRankNeutral();
             for (UUID playerId : allPlayers.keySet()) {
-                // Skip if already neutral
                 ColonyPlayer player = allPlayers.get(playerId);
                 if (!player.getRank().equals(neutralRank)) {
-                    boolean rankSet = permissions.setPlayerRank(playerId, neutralRank, colony.getWorld());
-                    LOGGER.info("Set player {} to neutral rank in force abandoned colony {}: {}", playerId, colony.getName(), rankSet);
+                    permissions.setPlayerRank(playerId, neutralRank, colony.getWorld());
                 }
             }
-            
-            // STEP 3: SAFELY abandon the colony WITHOUT using setOwnerAbandoned() to prevent weird entries
+
             try {
-                // CRITICAL: We do NOT call setOwnerAbandoned() as it creates problematic [abandoned] entries
-                // Instead, we rely on our manual tracking system
-                
-                // The colony is now effectively abandoned because:
-                // 1. All players are set to neutral rank (no managers)
-                // 2. We mark it as abandoned in our tracking system
-                // 3. The isColonyAbandoned() method will detect this state
-                
-                LOGGER.info("Colony {} marked as abandoned without using setOwnerAbandoned() to prevent weird entries", colony.getName());
-                
-                // Clean up any existing problematic entries that might already exist
                 cleanupAbandonedEntries(permissions);
-                
             } catch (Exception e) {
                 LOGGER.error("Error during safe abandonment for colony {}", colony.getName(), e);
             }
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Successfully force abandoned colony {} - set {} players to neutral rank", colony.getName(), allPlayers.size());
             
-            LOGGER.info("Successfully force abandoned colony {} - set {} players to neutral rank", colony.getName(), allPlayers.size());
-            
-            // STEP 4: Set VERY restrictive permissions for neutral players to prevent griefing
-            
-            LOGGER.info("Setting VERY restrictive neutral permissions for force abandoned colony {}", colony.getName());
-            
-            // Disable ALL potentially griefing actions for neutral players
+            if (TaxConfig.isDebugLogging()) LOGGER.debug("Setting restrictive neutral permissions for force abandoned colony {}", colony.getName());
             permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.BREAK_BLOCKS, false);
             permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.PLACE_BLOCKS, false);
             permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.RIGHTCLICK_BLOCK, false);
@@ -737,12 +750,11 @@ public class ColonyAbandonmentManager {
             permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.PICKUP_ITEM, false);
             permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.ACCESS_HUTS, false);
             
-            LOGGER.info("Force abandonment completed for colony {} - all players set to neutral with restrictive permissions", colony.getName());
-            
-            // Mark colony as abandoned
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Force abandonment completed for colony {} - all players set to neutral with restrictive permissions", colony.getName());
+
             abandonedColonies.add(colony.getID());
-            
-            // Schedule notifications for all former managers
+            saveData(); // AUDIT FIX (defensive_04 M2): persist abandonment + former-member state
+
             Component forceAbandonMessage = Component.literal("ADMIN ACTION: Your colony ")
                     .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
                     .append(Component.literal(colony.getName()).withStyle(ChatFormatting.GOLD))
@@ -750,19 +762,15 @@ public class ColonyAbandonmentManager {
                            .withStyle(ChatFormatting.RED))
                     .append(Component.literal("\nIt can now be claimed by other players using /wnt claimcolony.")
                            .withStyle(ChatFormatting.YELLOW));
-            
             for (UUID playerId : managersToNotify) {
                 ServerPlayer player = server.getPlayerList().getPlayer(playerId);
                 if (player != null) {
-                    // Player is online, send immediately
                     player.sendSystemMessage(forceAbandonMessage);
                 } else {
-                    // Player is offline, queue notification
                     queueOfflineNotification(playerId, forceAbandonMessage);
                 }
             }
-            
-            LOGGER.warn("Colony {} ({}) force abandoned by admin {}", colony.getName(), colony.getID(), adminName);
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Colony {} ({}) force abandoned by admin {}", colony.getName(), colony.getID(), adminName);
             return true;
             
         } catch (Exception e) {
@@ -772,23 +780,19 @@ public class ColonyAbandonmentManager {
     }
 
     /**
-     * Clean up any weird [abandoned] entries that might be created during abandonment.
-     * This prevents the weird [abandoned] player that can't be deleted.
-     * ENHANCED VERSION: More aggressive cleanup to prevent corruption.
+     * Removes any corrupt player entries from colony permissions (null UUIDs,
+     * [abandoned] placeholder names, invalid UUID patterns). Called after
+     * abandonment to avoid the stuck [abandoned] player bug.
      */
     public static void cleanupAbandonedEntries(IPermissions permissions) {
         try {
-            // Get all players and look for any with weird names or null UUIDs
             Map<UUID, ColonyPlayer> players = new HashMap<>(permissions.getPlayers());
             List<UUID> toRemove = new ArrayList<>();
-            
-            LOGGER.info("CLEANUP: Scanning {} player entries for [abandoned] corruption", players.size());
-            
+
             for (Map.Entry<UUID, ColonyPlayer> entry : players.entrySet()) {
                 ColonyPlayer player = entry.getValue();
                 UUID playerId = entry.getKey();
-                
-                // Check for problematic entries - more comprehensive checks including system owners
+
                 boolean isProblematic = false;
                 String reason = "";
                 
@@ -838,99 +842,74 @@ public class ColonyAbandonmentManager {
             for (UUID playerId : toRemove) {
                 try {
                     permissions.removePlayer(playerId);
-                    LOGGER.info("CLEANUP: Successfully removed problematic entry: {}", playerId);
+                    if (TaxConfig.isDebugLogging()) LOGGER.debug("Removed corrupt permissions entry: {}", playerId);
                 } catch (Exception e) {
-                    LOGGER.error("CLEANUP: Failed to remove problematic entry {}: {}", playerId, e.getMessage());
-                    
-                    // Try alternative removal methods if standard removal fails
+                    LOGGER.warn("Could not remove corrupt entry {}: {}", playerId, e.getMessage());
+                    // Fallback: try via reflection
                     try {
-                        // Force removal using reflection if needed - more aggressive approach
                         java.lang.reflect.Method method = permissions.getClass().getDeclaredMethod("removePlayer", UUID.class);
                         method.setAccessible(true);
                         method.invoke(permissions, playerId);
-                        LOGGER.info("CLEANUP: Force-removed entry via reflection: {}", playerId);
+                        if (TaxConfig.isDebugLogging()) LOGGER.debug("Force-removed corrupt entry via reflection: {}", playerId);
                     } catch (Exception reflectionEx) {
-                        LOGGER.error("CLEANUP: Force removal also failed for {}: {}", playerId, reflectionEx.getMessage());
+                        LOGGER.error("Reflection removal also failed for {}: {}", playerId, reflectionEx.getMessage());
                     }
                 }
             }
-            
-            if (toRemove.size() > 0) {
-                LOGGER.info("CLEANUP: Processed {} problematic entries", toRemove.size());
-            } else {
-                LOGGER.debug("CLEANUP: No problematic entries found");
+            if (!toRemove.isEmpty() && TaxConfig.isDebugLogging()) {
+                LOGGER.debug("Removed {} corrupt permissions entries", toRemove.size());
             }
-            
         } catch (Exception e) {
-            LOGGER.error("CLEANUP: Error during abandoned entries cleanup", e);
+            LOGGER.error("Error during abandoned entries cleanup", e);
         }
     }
     
     /**
-     * ENHANCED: Detect when officers/owners are added to abandoned colonies
-     * and automatically mark them as no longer abandoned. This works for admin commands too.
+     * Detects when a real officer or owner has been added back to an abandoned colony
+     * and removes the abandoned state, restoring normal permissions.
      */
     public static void checkForNewOfficers(IColony colony) {
-        if (colony == null) {
+        if (colony == null || !isColonyAbandoned(colony)) {
             return;
         }
-        
-        boolean wasAbandoned = isColonyAbandoned(colony);
-        if (!wasAbandoned) {
-            return; // Colony is not abandoned, nothing to check
-        }
-        
-        // Check if any REAL officers have been added (exclude system owners)
+
         boolean hasRealOfficers = colony.getPermissions().getPlayers().values().stream()
-                .filter(player -> !isSystemOwner(player.getID())) // Exclude system players
+                .filter(player -> !isSystemOwner(player.getID()))
                 .anyMatch(player -> player.getRank().isColonyManager());
-        
+
         if (hasRealOfficers) {
-            LOGGER.info("🎉 COLONY REACTIVATED: {} is no longer abandoned - REAL officers have been added!", colony.getName());
-            
-            // Remove abandoned status
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Colony {} reactivated - real officers/owners present, removing abandoned status", colony.getName());
             markColonyAsClaimed(colony.getID());
-            
-            // Clean up system owner and set real owner
             cleanupSystemOwnerAndSetRealOwner(colony);
-            
-            // Restore normal permissions for the colony
             restoreNormalPermissions(colony);
         }
     }
     
-    /**
-     * Clean up system owner and set first real officer as actual owner.
-     */
     private static void cleanupSystemOwnerAndSetRealOwner(IColony colony) {
         try {
             IPermissions permissions = colony.getPermissions();
             UUID systemOwnerUUID = createSystemOwner();
-            
-            // Remove system owner if present
+
             if (permissions.getPlayers().containsKey(systemOwnerUUID)) {
                 permissions.removePlayer(systemOwnerUUID);
-                LOGGER.info("CLEANUP: Removed system owner from reactivated colony {}", colony.getName());
+                if (TaxConfig.isDebugLogging()) LOGGER.debug("Removed system owner placeholder from reactivated colony {}", colony.getName());
             }
-            
-            // Find first real officer and make them the actual owner
+
             for (ColonyPlayer player : permissions.getPlayers().values()) {
                 if (!isSystemOwner(player.getID()) && player.getRank().isColonyManager()) {
                     try {
-                        // Try to set this real player as the actual owner
                         java.lang.reflect.Method setOwnerMethod = permissions.getClass().getMethod("setOwner", UUID.class);
                         setOwnerMethod.invoke(permissions, player.getID());
-                        LOGGER.info("🏛️ NEW OWNER SET: {} is now the owner of reactivated colony {}", player.getName(), colony.getName());
+                        if (TaxConfig.isNormalLogging()) LOGGER.info("Set {} as owner of reactivated colony {}", player.getName(), colony.getName());
                         break;
                     } catch (Exception e) {
-                        LOGGER.warn("Could not set {} as owner directly, trying alternative: {}", player.getName(), e.getMessage());
-                        // Alternative approach if direct method fails
+                        LOGGER.warn("Could not set {} as owner directly, trying via reflection: {}", player.getName(), e.getMessage());
                         try {
                             for (java.lang.reflect.Method method : permissions.getClass().getDeclaredMethods()) {
                                 if (method.getName().equals("setOwner") && method.getParameterCount() == 1) {
                                     method.setAccessible(true);
                                     method.invoke(permissions, player.getID());
-                                    LOGGER.info("🏛️ NEW OWNER SET (alt): {} is now the owner of reactivated colony {}", player.getName(), colony.getName());
+                                    if (TaxConfig.isNormalLogging()) LOGGER.info("Set {} as owner of reactivated colony {} (via reflection)", player.getName(), colony.getName());
                                     break;
                                 }
                             }
@@ -948,95 +927,79 @@ public class ColonyAbandonmentManager {
     }
     
     /**
-     * Create a deterministic system owner UUID to prevent [abandoned] entries.
-     * This creates a consistent UUID that we can use as a "fake owner" for abandoned colonies.
+     * Returns a deterministic placeholder UUID used as a temporary colony owner
+     * for abandoned colonies that have no real players. Consistent across restarts.
      */
     public static UUID createSystemOwner() {
-        // Use a deterministic UUID based on a fixed string
-        // This ensures the same UUID is always generated for the system owner
         return UUID.nameUUIDFromBytes("MINECOLONY_TAX_SYSTEM_OWNER".getBytes());
     }
-    
-    /**
-     * Check if a UUID belongs to our system owner.
-     */
+
     public static boolean isSystemOwner(UUID uuid) {
         return uuid != null && uuid.equals(createSystemOwner());
     }
-    
+
     /**
-     * 🚨 AUTOMATIC PROTECTION: Clean up [abandoned] entries AND fix null owners.
-     * Runs automatically on server startup and periodically. NO MANUAL INTERVENTION NEEDED.
+     * Scans all colonies and removes corrupt [abandoned] permission entries, then
+     * fixes any null owners. Safe to call on startup and periodically.
      */
     public static void cleanupAllColoniesAbandonedEntries() {
         try {
-            LOGGER.info("🔧 PROACTIVE CLEANUP: Starting cleanup of [abandoned] entries AND null owners across all colonies");
-            
             IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
             int coloniesCleaned = 0;
             int entriesRemoved = 0;
             int nullOwnersFixed = 0;
-            
+
             for (IColony colony : colonyManager.getAllColonies()) {
                 try {
                     IPermissions permissions = colony.getPermissions();
-                    
-                    // 🚨 CRITICAL: Fix null owners immediately to prevent GUI crashes
-                    UUID owner = permissions.getOwner();
-                    if (owner == null) {
-                        LOGGER.warn("🚨 FIXING null owner colony: {}", colony.getName());
+
+                    if (permissions.getOwner() == null) {
                         fixNullOwnerColony(colony);
                         nullOwnersFixed++;
                     }
-                    
-                    // Clean up [abandoned] entries
+
                     Map<UUID, ColonyPlayer> playersBefore = new HashMap<>(permissions.getPlayers());
                     cleanupAbandonedEntries(permissions);
                     Map<UUID, ColonyPlayer> playersAfter = new HashMap<>(permissions.getPlayers());
-                    
-                    int removedFromColony = playersBefore.size() - playersAfter.size();
-                    if (removedFromColony > 0) {
+
+                    int removed = playersBefore.size() - playersAfter.size();
+                    if (removed > 0) {
                         coloniesCleaned++;
-                        entriesRemoved += removedFromColony;
-                        LOGGER.info("PROACTIVE CLEANUP: Cleaned {} entries from colony '{}' ({})", 
-                                removedFromColony, colony.getName(), colony.getID());
+                        entriesRemoved += removed;
+                        if (TaxConfig.isNormalLogging()) LOGGER.info("Cleaned {} corrupt entries from colony {} ({})",
+                                removed, colony.getName(), colony.getID());
                     }
                 } catch (Exception e) {
-                    LOGGER.error("PROACTIVE CLEANUP: Error cleaning colony '{}' ({}): {}", 
-                            colony.getName(), colony.getID(), e.getMessage());
+                    LOGGER.error("Error cleaning colony {} ({}): {}", colony.getName(), colony.getID(), e.getMessage());
                 }
             }
-            
-            LOGGER.info("✅ PROACTIVE CLEANUP: Completed - 🚨 {} null owners fixed, {} colonies cleaned, {} total entries removed", 
-                    nullOwnersFixed, coloniesCleaned, entriesRemoved);
-            
+
+            if ((coloniesCleaned > 0 || nullOwnersFixed > 0) && TaxConfig.isNormalLogging()) {
+                LOGGER.info("Startup colony cleanup: {} null owners fixed, {} colonies cleaned, {} entries removed",
+                        nullOwnersFixed, coloniesCleaned, entriesRemoved);
+            }
         } catch (Exception e) {
-            LOGGER.error("PROACTIVE CLEANUP: Error during global cleanup", e);
+            LOGGER.error("Error during global colony cleanup", e);
         }
     }
     
-    /**
-     * Restore normal permissions for a colony that is no longer abandoned.
-     */
     private static void restoreNormalPermissions(IColony colony) {
         try {
             IPermissions permissions = colony.getPermissions();
             Rank neutralRank = permissions.getRankNeutral();
-            
-            LOGGER.info("Restoring normal permissions for colony {} (no longer abandoned)", colony.getName());
-            
-            // Restore normal neutral permissions
+
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Restoring normal permissions for colony {} (no longer abandoned)", colony.getName());
+
             permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.ACCESS_HUTS, true);
             permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.RIGHTCLICK_BLOCK, true);
             permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.OPEN_CONTAINER, true);
             permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.PICKUP_ITEM, true);
             permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.TOSS_ITEM, true);
-            
-            // Keep building restrictions for security
+            // block/place remain false for security
             permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.BREAK_BLOCKS, false);
             permissions.setPermission(neutralRank, com.minecolonies.api.colony.permissions.Action.PLACE_BLOCKS, false);
-            
-            LOGGER.info("Successfully restored normal permissions for colony {}", colony.getName());
+
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Successfully restored normal permissions for colony {}", colony.getName());
             
         } catch (Exception e) {
             LOGGER.error("Error restoring normal permissions for colony {}", colony.getID(), e);

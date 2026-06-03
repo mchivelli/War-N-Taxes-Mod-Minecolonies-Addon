@@ -66,6 +66,30 @@ public class HistoryManager
     }
 
     /**
+     * Append a compact one-liner to the colony's activity log.
+     * In-memory only; flushed to disk on server stop alongside the rest of colony_history.json.
+     */
+    public static void log(int colonyId, String category, String summary) {
+        getColonyHistory(colonyId).addLogEntry(category, summary);
+    }
+
+    /**
+     * Like {@link #log} but appends {@code [bal: before→after]} to make every balance
+     * transition explicit for debugging.
+     */
+    public static void logWithBalance(int colonyId, String category, String summary,
+                                      int balBefore, int balAfter) {
+        String full = summary + String.format(" [bal: %d→%d]", balBefore, balAfter);
+        getColonyHistory(colonyId).addLogEntry(category, full);
+    }
+
+    /** Return an immutable snapshot of the activity log for a colony, newest-last. */
+    public static List<ColonyLogEntry> getLog(int colonyId) {
+        ColonyHistory h = colonyHistories.get(colonyId);
+        return h == null ? new ArrayList<>() : h.getActivityLog();
+    }
+
+    /**
      * Structured raid entry with full details
      */
     public static class RaidEntry {
@@ -121,34 +145,97 @@ public class HistoryManager
         }
     }
     
+    /**
+     * Structured war entry recorded at the end of each war, from the perspective of the
+     * colony that owns this history (VICTORY = this colony won, DEFEAT = this colony lost).
+     */
+    public static class WarEntry {
+        private final long timestamp;
+        private final String opponentColonyName;
+        private final String outcome; // "VICTORY", "DEFEAT", "STALEMATE"
+        private final long amountTransferred;
+
+        public WarEntry(long timestamp, String opponentColonyName, String outcome, long amountTransferred) {
+            this.timestamp = timestamp;
+            this.opponentColonyName = opponentColonyName;
+            this.outcome = outcome;
+            this.amountTransferred = amountTransferred;
+        }
+
+        public long getTimestamp() { return timestamp; }
+        public String getOpponentColonyName() { return opponentColonyName; }
+        public String getOutcome() { return outcome; }
+        public long getAmountTransferred() { return amountTransferred; }
+
+        public String getFormattedTimestamp() {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM-dd HH:mm")
+                .withZone(ZoneId.systemDefault());
+            return formatter.format(Instant.ofEpochMilli(timestamp));
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Colony Activity Log — compact chronological record for /wnt colonylog
+    // -----------------------------------------------------------------------
+
+    public static class ColonyLogEntry {
+        private final long timestamp;
+        private final String category;
+        private final String summary;
+
+        public ColonyLogEntry(String category, String summary) {
+            this.timestamp = System.currentTimeMillis();
+            this.category = category;
+            this.summary = summary;
+        }
+
+        public long   getTimestamp() { return timestamp; }
+        public String getCategory()  { return category; }
+        public String getSummary()   { return summary; }
+
+        public String getFormattedTimestamp() {
+            return DateTimeFormatter.ofPattern("MM-dd HH:mm")
+                    .withZone(ZoneId.systemDefault())
+                    .format(Instant.ofEpochMilli(timestamp));
+        }
+
+        public String format() {
+            return "[" + getFormattedTimestamp() + "] [" + category + "] " + summary;
+        }
+    }
+
     public static class ColonyHistory {
+        private static final int MAX_LOG_ENTRIES = 300;
+
         private final List<String> events = new ArrayList<>();
         private final List<String> raidEvents = new ArrayList<>(); // Legacy string events
         private final List<RaidEntry> structuredRaids = new ArrayList<>(); // New structured raid data
+        private final List<WarEntry> structuredWars = new ArrayList<>(); // Structured war data
+        private final List<ColonyLogEntry> activityLog = new ArrayList<>();
 
         public void addEvent(String event) {
             events.add(event);
-            // Optional: Limit history size
             if (events.size() > 100) {
                 events.remove(0);
             }
         }
 
-        /**
-         * Add legacy string-based raid event (deprecated, kept for backward compatibility)
-         */
+        /** @deprecated Use addRaidEntry. Kept for backward compatibility. */
+        @Deprecated
         public void addRaidEvent(String event) {
             raidEvents.add(event);
-            // Optional: Limit history size
             if (raidEvents.size() > 100) {
                 raidEvents.remove(0);
             }
         }
         
-        /**
-         * Add structured raid entry with full details
-         */
-        public void addRaidEntry(UUID raiderUUID, String raiderName, int amountStolen, boolean successful, String failureReason) {
+        public void addRaidEntry(UUID raiderUUID, String raiderName, int amountStolen, boolean successful,
+                                  String failureReason) {
+            addRaidEntry(raiderUUID, raiderName, amountStolen, successful, failureReason, -1, -1);
+        }
+
+        public void addRaidEntry(UUID raiderUUID, String raiderName, int amountStolen, boolean successful,
+                                  String failureReason, int balBefore, int balAfter) {
             RaidEntry entry = new RaidEntry(
                 System.currentTimeMillis(),
                 raiderUUID.toString(),
@@ -158,15 +245,20 @@ public class HistoryManager
                 failureReason
             );
             structuredRaids.add(entry);
-            
-            // Also add to legacy format for backward compatibility
+
             addRaidEvent(entry.toChatMessage());
-            
-            // Limit history size
             if (structuredRaids.size() > 100) {
                 structuredRaids.remove(0);
             }
-            
+
+            String balSuffix = (balBefore >= 0) ? String.format(" [bal: %d→%d]", balBefore, balAfter) : "";
+            if (successful) {
+                addLogEntry("RAID", String.format("Raided by %s: stole %d coins%s", raiderName, amountStolen, balSuffix));
+            } else {
+                String reason = (failureReason != null && !failureReason.isEmpty()) ? failureReason : "repelled";
+                addLogEntry("RAID", String.format("Raid by %s repelled (%s)%s", raiderName, reason, balSuffix));
+            }
+
             LOGGER.debug("Added raid entry for {} - successful: {}, amount: {}", raiderName, successful, amountStolen);
         }
 
@@ -178,16 +270,42 @@ public class HistoryManager
             return new ArrayList<>(raidEvents);
         }
         
-        /**
-         * Get all structured raid entries
-         */
         public List<RaidEntry> getStructuredRaids() {
             return new ArrayList<>(structuredRaids);
         }
-        
+
         /**
-         * Get raids filtered by raider UUID
+         * Records a war outcome from this colony's perspective.
+         * Also adds a legacy string entry for backward compat with WarHistoryCommand.
+         *
+         * @param opponentColonyName name of the opposing colony
+         * @param outcome "VICTORY", "DEFEAT", or "STALEMATE"
+         * @param amountTransferred coins transferred as result of the war
          */
+        public void addWarEntry(String opponentColonyName, String outcome, long amountTransferred) {
+            addWarEntry(opponentColonyName, outcome, amountTransferred, -1, -1);
+        }
+
+        public void addWarEntry(String opponentColonyName, String outcome, long amountTransferred,
+                                int balBefore, int balAfter) {
+            WarEntry entry = new WarEntry(System.currentTimeMillis(), opponentColonyName, outcome, amountTransferred);
+            structuredWars.add(entry);
+            if (structuredWars.size() > 50) {
+                structuredWars.remove(0);
+            }
+            String legacyStr = String.format("[WAR] vs '%s'. Outcome: %s. Transferred: %d",
+                    opponentColonyName, outcome, amountTransferred);
+            addEvent(legacyStr);
+            String sign = amountTransferred > 0 ? "+" : "";
+            String balSuffix = (balBefore >= 0) ? String.format(" [bal: %d→%d]", balBefore, balAfter) : "";
+            addLogEntry("WAR", String.format("%s vs %s | %s%d coins%s",
+                    outcome, opponentColonyName, sign, amountTransferred, balSuffix));
+        }
+
+        public List<WarEntry> getStructuredWars() {
+            return new ArrayList<>(structuredWars);
+        }
+        
         public List<RaidEntry> getRaidsByPlayer(UUID playerUUID) {
             List<RaidEntry> filtered = new ArrayList<>();
             String uuidStr = playerUUID.toString();
@@ -199,9 +317,6 @@ public class HistoryManager
             return filtered;
         }
         
-        /**
-         * Get total amount stolen from this colony across all raids
-         */
         public int getTotalAmountStolen() {
             return structuredRaids.stream()
                 .filter(RaidEntry::isSuccessful)
@@ -209,22 +324,29 @@ public class HistoryManager
                 .sum();
         }
         
-        /**
-         * Get number of successful raids
-         */
         public int getSuccessfulRaidCount() {
             return (int) structuredRaids.stream()
                 .filter(RaidEntry::isSuccessful)
                 .count();
         }
         
-        /**
-         * Get number of failed raids
-         */
         public int getFailedRaidCount() {
             return (int) structuredRaids.stream()
                 .filter(entry -> !entry.isSuccessful())
                 .count();
+        }
+
+        // --- Activity log (unified chronological) ---
+
+        public void addLogEntry(String category, String summary) {
+            activityLog.add(new ColonyLogEntry(category, summary));
+            if (activityLog.size() > MAX_LOG_ENTRIES) {
+                activityLog.remove(0);
+            }
+        }
+
+        public List<ColonyLogEntry> getActivityLog() {
+            return new ArrayList<>(activityLog);
         }
     }
 }

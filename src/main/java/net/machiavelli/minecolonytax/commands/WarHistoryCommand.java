@@ -47,10 +47,10 @@ public class WarHistoryCommand
             return 0;
         }
 
-        // Only allow colony managers/officers
         var rank = colony.getPermissions().getRank(player.getUUID());
-        if (rank == null || !rank.isColonyManager()) {
-            src.sendFailure(Component.literal("You must be a colony officer to view history."));
+        boolean isAdmin = src.hasPermission(2);
+        if (!isAdmin && (rank == null || !rank.isColonyManager())) {
+            src.sendFailure(Component.literal("You must be a colony officer or admin to view war history."));
             return 0;
         }
 
@@ -67,10 +67,6 @@ public class WarHistoryCommand
         return 1;
     }
 
-    /**
-     * If arg is non-null, try parse as ID or name;
-     * otherwise default to the first colony the player manages.
-     */
     private static IColony resolveColony(
             CommandSourceStack src,
             ServerPlayer player,
@@ -79,7 +75,6 @@ public class WarHistoryCommand
         IColonyManager mgr = IMinecoloniesAPI.getInstance().getColonyManager();
 
         if (arg != null) {
-            // try by numeric ID
             try {
                 int id = Integer.parseInt(arg);
                 for (IColony c : mgr.getAllColonies()) {
@@ -89,16 +84,14 @@ public class WarHistoryCommand
                 }
             } catch (NumberFormatException ignored) {}
 
-            // fallback to name
             for (IColony c : mgr.getAllColonies()) {
                 if (c.getName().equalsIgnoreCase(arg)) {
                     return c;
                 }
             }
-            return null; // explicitly requested colony not found
+            return null;
         }
 
-        // no arg: pick the first colony where player is a manager
         Optional<IColony> own = mgr.getAllColonies().stream()
                 .filter(c -> {
                     var rank = c.getPermissions().getRank(player.getUUID());

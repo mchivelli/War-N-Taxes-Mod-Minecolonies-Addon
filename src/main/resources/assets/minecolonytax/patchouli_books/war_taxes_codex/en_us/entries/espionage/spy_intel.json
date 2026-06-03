@@ -1,0 +1,27 @@
+{
+    "name": "minecolonytax.entry.spy_intel.name",
+    "icon": "minecraft:written_book",
+    "category": "minecolonytax:espionage",
+    "sortnum": 3,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.spy_intel.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.spy_intel.tier1.title",
+            "text": "minecolonytax.entry.spy_intel.tier1"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.spy_intel.tier2.title",
+            "text": "minecolonytax.entry.spy_intel.tier2"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.spy_intel.tier3.title",
+            "text": "minecolonytax.entry.spy_intel.tier3"
+        }
+    ]
+}

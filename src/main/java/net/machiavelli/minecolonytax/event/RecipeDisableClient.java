@@ -9,6 +9,7 @@ import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraftforge.api.distmarker.Dist;
+import net.machiavelli.minecolonytax.TaxConfig;
 import net.minecraftforge.client.event.RecipesUpdatedEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -21,7 +22,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Client-side recipe removal so the recipe book/JEI no longer show hut recipes when disabled.
+ * Client-side recipe removal so the recipe book/JEI no longer show hut recipes
+ * when disabled.
  */
 @Mod.EventBusSubscriber(value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class RecipeDisableClient {
@@ -94,16 +96,21 @@ public final class RecipeDisableClient {
             RecipeManager manager = event.getRecipeManager();
             List<? extends Recipe<?>> craftingRecipes = manager.getAllRecipesFor(RecipeType.CRAFTING);
             Set<ResourceLocation> toRemove = craftingRecipes.stream()
-                .filter(RecipeDisableClient::isHutOutput)
-                .map(Recipe::getId)
-                .collect(Collectors.toSet());
+                    .filter(RecipeDisableClient::isHutOutput)
+                    .map(Recipe::getId)
+                    .collect(Collectors.toSet());
 
             if (toRemove.isEmpty()) {
                 return;
             }
 
             removeFromManager(manager, toRemove);
-            LOGGER.info("RecipeDisabler(Client): Disabled {} MineColonies hut crafting recipes on client.", toRemove.size());
+            if (!toRemove.isEmpty()) {
+                if (TaxConfig.isNormalLogging()) {
+                    LOGGER.info("RecipeDisabler(Client): Disabled {} MineColonies hut crafting recipes on client.",
+                            toRemove.size());
+                }
+            }
         } catch (Throwable t) {
             LOGGER.error("RecipeDisabler(Client): Failed to disable hut recipes on client.", t);
         }
@@ -123,8 +130,8 @@ public final class RecipeDisableClient {
 
     @SuppressWarnings("unchecked")
     private static void removeFromManager(RecipeManager manager, Set<ResourceLocation> toRemove) throws Exception {
-        String[] recipesFieldNames = new String[] {"recipes", "byType", "f_44006_"};
-        String[] byNameFieldNames = new String[] {"byName", "f_44007_"};
+        String[] recipesFieldNames = new String[] { "recipes", "byType", "f_44006_" };
+        String[] byNameFieldNames = new String[] { "byName", "f_44007_" };
 
         Field recipesField = findField(manager.getClass(), recipesFieldNames);
         Field byNameField = findField(manager.getClass(), byNameFieldNames);
@@ -136,10 +143,9 @@ public final class RecipeDisableClient {
         recipesField.setAccessible(true);
         byNameField.setAccessible(true);
 
-        Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipesByType =
-            (Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>>) recipesField.get(manager);
-        Map<ResourceLocation, Recipe<?>> byName =
-            (Map<ResourceLocation, Recipe<?>>) byNameField.get(manager);
+        Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipesByType = (Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>>) recipesField
+                .get(manager);
+        Map<ResourceLocation, Recipe<?>> byName = (Map<ResourceLocation, Recipe<?>>) byNameField.get(manager);
 
         Map<ResourceLocation, Recipe<?>> craftingMap = recipesByType.get(RecipeType.CRAFTING);
         if (craftingMap == null) {
@@ -156,16 +162,9 @@ public final class RecipeDisableClient {
         for (String n : names) {
             try {
                 return clazz.getDeclaredField(n);
-            } catch (NoSuchFieldException ignored) { }
+            } catch (NoSuchFieldException ignored) {
+            }
         }
         return null;
     }
 }
-
-
-
-
-
-
-
-

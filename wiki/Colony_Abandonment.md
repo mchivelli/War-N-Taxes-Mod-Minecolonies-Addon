@@ -4,7 +4,7 @@ In long-running servers, inactive players naturally leave behind ghost-town colo
 
 ## 1. Automatic Abandonment (`EnableColonyAutoAbandon`)
 The server systematically monitors the activity of all Colony Owners and Officers. 
-- **Inactivity Threshold:** If an Owner or Officer has not physically visited their colony chunks for a configurable duration (default: **72 Hours** via `ColonyInactivityHoursThreshold`), the server initiates the abandonment process.
+- **Inactivity Threshold:** If an Owner or Officer has not physically visited their colony chunks for a configurable number of days (default: **14 days** via `ColonyAutoAbandonDays`), the server initiates the abandonment process. A separate setting, `ColonyInactivityHoursThreshold` (default: 168 hours = 1 week), controls when tax generation pauses for inactive colonies — this is independent of the full abandonment trigger.
 - **Warnings:** If `NotifyOwnersBeforeAbandon` is true, logging into the server during the final warning period (default: **3 Days** before via `AbandonWarningDays`) will blast urgent notifications to the leaders.
 - *(Experimental)* `ResetTimerOnOfficerLogin`: Admins can allow the timer to reset purely by an officer logging onto the Minecraft server, regardless of whether they physically step foot inside the colony borders. This is typically disabled to force real map interaction. 
 

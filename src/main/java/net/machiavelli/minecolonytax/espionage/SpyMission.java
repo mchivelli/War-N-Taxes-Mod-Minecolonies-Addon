@@ -5,14 +5,24 @@ public class SpyMission {
     private String attackerPlayerId;
     private int attackerColonyId;
     private int targetColonyId;
-    private String missionType; // "SCOUT", "SABOTAGE", "BRIBE", "STEAL"
+    // Possible missionType values: SCOUT, SABOTAGE, BRIBE, STEAL
+    // Possible status values: DEPLOYING, ACTIVE, FLEEING, ESCAPED, COMPLETED, KILLED, RECALLED, RETURNING
+    private String missionType;
     private String spyEntityUUID;
     private long startTime;
     private long maxDurationMs;
-    private String status; // "DEPLOYING", "ACTIVE", "COMPLETED", "KILLED"
+    private String status;
     private int cost;
+    private SpyIntelData missionIntel;
 
-    // For serialization
+    private int sourceX;
+    private int sourceZ;
+    private int destX;
+    private int destZ;
+    private long travelDurationMs;
+    private long recallStartTime;
+    private String targetColonyName;
+
     public SpyMission() {
     }
 
@@ -76,4 +86,33 @@ public class SpyMission {
     public int getCost() {
         return cost;
     }
+
+    public SpyIntelData getMissionIntel() {
+        return missionIntel;
+    }
+
+    public void setMissionIntel(SpyIntelData missionIntel) {
+        this.missionIntel = missionIntel;
+    }
+
+    public int getSourceX() { return sourceX; }
+    public void setSourceX(int sourceX) { this.sourceX = sourceX; }
+
+    public int getSourceZ() { return sourceZ; }
+    public void setSourceZ(int sourceZ) { this.sourceZ = sourceZ; }
+
+    public int getDestX() { return destX; }
+    public void setDestX(int destX) { this.destX = destX; }
+
+    public int getDestZ() { return destZ; }
+    public void setDestZ(int destZ) { this.destZ = destZ; }
+
+    public long getTravelDurationMs() { return travelDurationMs; }
+    public void setTravelDurationMs(long travelDurationMs) { this.travelDurationMs = travelDurationMs; }
+
+    public long getRecallStartTime() { return recallStartTime; }
+    public void setRecallStartTime(long recallStartTime) { this.recallStartTime = recallStartTime; }
+
+    public String getTargetColonyName() { return targetColonyName; }
+    public void setTargetColonyName(String targetColonyName) { this.targetColonyName = targetColonyName; }
 }

@@ -6,17 +6,18 @@ import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-import static com.mojang.text2speech.Narrator.LOGGER;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class CrashLogger {
 
+    private static final Logger LOGGER = LogManager.getLogger(CrashLogger.class);
     private static final String CRASH_LOG_FILE = "crash_report.log";
 
     public static void logCrash(Exception e, String additionalInfo) {
         try (FileWriter fileWriter = new FileWriter(CRASH_LOG_FILE, true);
-             PrintWriter printWriter = new PrintWriter(fileWriter)) {
+                PrintWriter printWriter = new PrintWriter(fileWriter)) {
 
-            // Timestamp for the crash report
             String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
             printWriter.println("---- Crash Report ----");
@@ -48,9 +49,8 @@ public class CrashLogger {
 
     public static void logCrash(Throwable t, String additionalInfo) {
         try (FileWriter fileWriter = new FileWriter(CRASH_LOG_FILE, true);
-             PrintWriter printWriter = new PrintWriter(fileWriter)) {
+                PrintWriter printWriter = new PrintWriter(fileWriter)) {
 
-            // Timestamp for the crash report
             String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
             printWriter.println("---- Crash Report ----");

@@ -1,5 +1,6 @@
 package net.machiavelli.minecolonytax.raid;
 
+
 import com.minecolonies.api.colony.IColony;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.TaxConfig;
@@ -27,29 +28,25 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Manages entity-based raids and glow effects for colony defense
  */
+/**
+ * @deprecated Entity raid system will be replaced. Code retained for reference.
+ */
+@Deprecated
 public class EntityRaidManager {
     private static final Logger LOGGER = LogManager.getLogger(EntityRaidManager.class);
     
-    // Active entity raids by colony ID
     private static final Map<Integer, ActiveEntityRaid> activeEntityRaids = new ConcurrentHashMap<>();
-    
-    // Recently recruited entities to prevent immediate raid triggers
+    // Tracks recruitment time to prevent newly-recruited entities from immediately triggering raids.
     private static final Map<UUID, Long> recentlyRecruitedEntities = new ConcurrentHashMap<>();
-    
-    // Track last known inside/outside state per colony for boundary crossing detection
+    // Tracks last-known inside/outside state per colony for boundary crossing detection.
     private static final Map<Integer, Map<UUID, Boolean>> entityInsideByColony = new ConcurrentHashMap<>();
-    
-    // Centralized per-colony cooldown tracking (last raid trigger timestamp)
     private static final Map<Integer, Long> lastRaidTimeByColony = new ConcurrentHashMap<>();
-    
-    // Cache for entity type whitelist checking to avoid repeated string matching
+    // Whitelist match results are cached per entity type; cleared every 30s in case config changes.
     private static final Map<net.minecraft.world.entity.EntityType<?>, Boolean> whitelistCache = new ConcurrentHashMap<>();
     private static long lastWhitelistCacheUpdate = 0L;
-    private static final long WHITELIST_CACHE_DURATION = 30000L; // 30 seconds
-    
-    // Configuration constants
-    private static final int RAID_DURATION_SECONDS = 300; // 5 minutes
-    private static final int RECRUITMENT_COOLDOWN_MS = 30000; // 30 seconds
+    private static final long WHITELIST_CACHE_DURATION = 30000L;
+    private static final int RAID_DURATION_SECONDS = 300;
+    private static final int RECRUITMENT_COOLDOWN_MS = 30000;
     
     /**
      * Check if an entity should trigger a raid based on recruitment and alliance status
@@ -57,8 +54,8 @@ public class EntityRaidManager {
     public static boolean shouldTriggerEntityRaid(Entity entity, IColony colony) {
         if (entity == null || colony == null) {
             if (TaxConfig.isEntityRaidDebugEnabled()) {
-                LOGGER.warn("[EntityRaid] ⚠️ NULL CHECK FAILED: entity={}, colony={}", 
-                    (entity != null ? entity.getType().getDescriptionId() : "null"), 
+                LOGGER.warn("[EntityRaid] Null check failed: entity={}, colony={}",
+                    (entity != null ? entity.getType().getDescriptionId() : "null"),
                     (colony != null ? colony.getName() : "null"));
             }
             return false;
@@ -67,21 +64,18 @@ public class EntityRaidManager {
         EntityRaidDebugLogger.logFilterStep(entity, colony, "RAID_TRIGGER_CHECK", true, 
             "Checking raid trigger for entity: " + entity.getType().getDescriptionId());
         
-        // Check if this is a recruit entity
         if (!isRecruitEntity(entity)) {
-            EntityRaidDebugLogger.logFilterStep(entity, colony, "RECRUIT_CHECK", false, 
+            EntityRaidDebugLogger.logFilterStep(entity, colony, "RECRUIT_CHECK", false,
                 "Entity is not a recruit, no raid triggered");
             return false;
         }
-        
-        // Check if recently recruited (cooldown)
+
         if (isRecentlyRecruited(entity)) {
-            EntityRaidDebugLogger.logGracePeriodCheck(entity, 
+            EntityRaidDebugLogger.logGracePeriodCheck(entity,
                 System.currentTimeMillis() - recentlyRecruitedEntities.getOrDefault(entity.getUUID(), 0L), true);
             return false;
         }
-        
-        // Check if allied to colony (unless bypassed for testing)
+
         if (!TaxConfig.shouldBypassAllianceChecks() && isRecruitAlliedToColony(entity, colony, entity.level())) {
             EntityRaidDebugLogger.logAllianceCheck(entity, colony, true, "ALLIANCE_CHECK_PASSED - Entity is allied, no raid");
             return false;
@@ -105,25 +99,18 @@ public class EntityRaidManager {
         
         int colonyId = colony.getID();
         
-        // Check if raid is already active
         if (activeEntityRaids.containsKey(colonyId)) {
-            EntityRaidDebugLogger.logPrerequisiteCheck(colony, "RAID_NOT_ACTIVE", false, 
+            EntityRaidDebugLogger.logPrerequisiteCheck(colony, "RAID_NOT_ACTIVE", false,
                 "Entity raid already active for colony: " + colony.getName());
             return;
         }
-        
+
         EntityRaidDebugLogger.logEntityDetection(colony, java.util.Arrays.asList(triggerEntity));
-        
-        // Create new active raid
+
         ActiveEntityRaid raid = new ActiveEntityRaid(colony, triggerEntity);
         activeEntityRaids.put(colonyId, raid);
-        // Mark cooldown start
         markRaidTriggered(colonyId);
-        
-        // Apply glow effects to nearby entities
         applyGlowEffectToEntities(colony, triggerEntity.level());
-        
-        // Log raid start
         logFilterCompletion(colony, "RAID_STARTED", 1);
     }
 
@@ -159,14 +146,11 @@ public class EntityRaidManager {
             EntityRaidDebugLogger.logPrerequisiteCheck(raid.getColony(), "RAID_END", true, 
                 "Ending entity raid - Reason: " + reason);
             
-            // Clean up bossbar and notifications
             raid.cleanup();
-            
-            // Remove glow effects
             removeGlowEffectFromEntities(raid.getColony());
-            
-            // Final penalty capped at 20% of current colony revenue (only if not already deducted periodically)
-            if (!"Expired".equals(reason)) { // Don't double-deduct for natural expiration
+
+            // On natural expiry the periodic deduction already ran; only apply final penalty for early end.
+            if (!"Expired".equals(reason)) {
                 try {
                     double pct = TaxConfig.RAID_PENALTY_PERCENTAGE.get() / 100.0;
                     if (pct > 0) {
@@ -279,7 +263,7 @@ public class EntityRaidManager {
         if (TaxConfig.isEntityRaidDebugEnabled() && match) {
             ResourceLocation rl = ForgeRegistries.ENTITY_TYPES.getKey(entityType);
             String registryId = rl != null ? rl.toString() : "";
-            LOGGER.info("[EntityRaid] ✅ WHITELIST MATCH: {} matches pattern in whitelist. registryId={}", 
+            LOGGER.info("[EntityRaid] Whitelist match: {} registryId={}",
                 entityType.getDescriptionId(), registryId);
         }
         
@@ -903,10 +887,10 @@ public class EntityRaidManager {
                 if (pct > 0) {
                     TaxManager.deductColonyTax(colony, pct);
                     // Always log tax deduction for visibility (even without debug)
-                    LOGGER.info("[EntityRaid] ⚠️ TAX DEDUCTED: {}% revenue from colony '{}' during raid", 
+                    LOGGER.info("[EntityRaid] Tax deducted: {}% revenue from colony '{}' during raid",
                         pct * 100, colony.getName());
-                    
-                    // Also notify colony members about the deduction
+
+                    // Notify colony members about the deduction
                     notifyTaxDeduction(pct * 100);
                 }
             } catch (Exception ex) {

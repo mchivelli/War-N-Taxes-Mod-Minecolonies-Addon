@@ -10,10 +10,7 @@ import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 
-/**
- * A disabled recipe that cannot be crafted and serves as a placeholder
- * for disabled Minecolonies building hut recipes.
- */
+/** A recipe that always returns false from matches(), effectively disabling a hut recipe. */
 public class DisabledRecipe extends CustomRecipe {
     
     private final ItemStack resultItem;
@@ -25,28 +22,24 @@ public class DisabledRecipe extends CustomRecipe {
     
     @Override
     public boolean matches(@NotNull CraftingContainer container, @NotNull Level level) {
-        // This recipe never matches, effectively disabling it
         return false;
     }
-    
+
     @Override
     public @NotNull ItemStack assemble(@NotNull CraftingContainer container, @NotNull RegistryAccess registryAccess) {
-        // Return empty stack since this recipe is disabled
         return ItemStack.EMPTY;
     }
-    
+
     @Override
     public boolean canCraftInDimensions(int width, int height) {
-        // This recipe cannot be crafted in any dimensions
         return false;
     }
-    
+
     @Override
     public @NotNull ItemStack getResultItem(@NotNull RegistryAccess registryAccess) {
-        // Return the result item for display purposes, but it can't actually be crafted
         return resultItem.copy();
     }
-    
+
     @Override
     public @NotNull String getGroup() {
         return "disabled_hut_recipe";

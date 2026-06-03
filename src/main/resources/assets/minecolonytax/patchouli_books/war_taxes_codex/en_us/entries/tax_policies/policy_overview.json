@@ -1,0 +1,22 @@
+{
+    "name": "Tax Policy Overview",
+    "category": "minecolonytax:tax_policies",
+    "icon": "minecraft:paper",
+    "sortnum": 0,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "Every colony operates under a $(bold)tax policy$(). The policy you choose affects two things simultaneously: how much revenue your colony collects from taxes, and how that taxation influences your citizens' happiness.$(br2)Policies that raise more money cost you morale. Policies that keep citizens happy bring in less gold. The default is $(bold)Normal$(), which applies no modifiers."
+        },
+        {
+            "type": "patchouli:text",
+            "title": "Changing Your Policy",
+            "text": "Only a colony owner or colony manager can change the tax policy.$(br2)$(bold)/wnt taxpolicy set <policy>$()$(br)Sets your colony's tax policy.$(br2)$(bold)/wnt taxpolicy$()$(br)Shows your current policy and its active modifiers.$(br2)$(bold)/wnt taxpolicy list$()$(br)Lists all available policies with their modifiers."
+        },
+        {
+            "type": "patchouli:text",
+            "title": "When Policies Matter",
+            "text": "Policies interact with the random events system. Some events only trigger on high-revenue policies, and others only fire when happiness is already low. Holding a harsh policy for many tax cycles without managing happiness increases the chance of events like Guard Desertion or Labor Strike.$(br2)The War Profiteering event requires War Economy policy to be active."
+        }
+    ]
+}

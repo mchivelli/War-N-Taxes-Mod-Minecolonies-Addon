@@ -3,6 +3,9 @@ package net.machiavelli.minecolonytax;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import com.minecolonies.api.colony.IColony;
+import com.minecolonies.api.colony.IColonyManager;
+import com.minecolonies.api.colony.permissions.ColonyPlayer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -13,13 +16,17 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import net.machiavelli.minecolonytax.TaxConfig;
 
 /**
- * Tracks the first (primary) colony for each player and the creation order of their colonies.
- * When a player creates multiple colonies, their first colony remains their primary one where they are owner.
+ * Tracks the first (primary) colony for each player and the creation order of
+ * their colonies.
+ * When a player creates multiple colonies, their first colony remains their
+ * primary one where they are owner.
  * In subsequent colonies, they are set to officer rank.
  *
- * If the first colony is deleted, the next-oldest colony automatically becomes the new primary colony.
+ * If the first colony is deleted, the next-oldest colony automatically becomes
+ * the new primary colony.
  */
 public class FirstColonyTracker {
 
@@ -35,7 +42,7 @@ public class FirstColonyTracker {
      * If this is their first colony, it becomes their primary colony.
      *
      * @param playerUUID The player's UUID
-     * @param colonyID The colony ID to add
+     * @param colonyID   The colony ID to add
      * @return true if this is the player's first colony, false otherwise
      */
     public static boolean addColony(UUID playerUUID, int colonyID) {
@@ -55,8 +62,10 @@ public class FirstColonyTracker {
         colonies.add(colonyID);
         boolean isFirst = colonies.size() == 1;
 
-        LOGGER.info("Added colony {} for player {} ({})",
-            colonyID, playerUUID, isFirst ? "PRIMARY" : "SECONDARY #" + colonies.size());
+        if (TaxConfig.isNormalLogging()) {
+            LOGGER.info("Added colony {} for player {} ({})",
+                    colonyID, playerUUID, isFirst ? "PRIMARY" : "SECONDARY #" + colonies.size());
+        }
 
         saveData();
         return isFirst;
@@ -67,7 +76,7 @@ public class FirstColonyTracker {
      * If this was the first colony, the next-oldest colony becomes the new first.
      *
      * @param playerUUID The player's UUID
-     * @param colonyID The colony ID to remove
+     * @param colonyID   The colony ID to remove
      * @return The new first colony ID if it changed, or null if no change
      */
     public static Integer removeColony(UUID playerUUID, int colonyID) {
@@ -83,11 +92,15 @@ public class FirstColonyTracker {
         boolean wasFirst = !colonies.isEmpty() && colonies.get(0) == colonyID;
         colonies.remove(Integer.valueOf(colonyID));
 
-        LOGGER.info("Removed colony {} from player {} tracking", colonyID, playerUUID);
+        if (TaxConfig.isNormalLogging()) {
+            LOGGER.info("Removed colony {} from player {} tracking", colonyID, playerUUID);
+        }
 
         if (colonies.isEmpty()) {
             playerColoniesMap.remove(playerUUID);
-            LOGGER.info("Player {} has no more tracked colonies", playerUUID);
+            if (TaxConfig.isNormalLogging()) {
+                LOGGER.info("Player {} has no more tracked colonies", playerUUID);
+            }
             saveData();
             return null;
         }
@@ -97,8 +110,10 @@ public class FirstColonyTracker {
         // If the removed colony was the first, return the new first colony ID
         if (wasFirst && !colonies.isEmpty()) {
             Integer newFirstColony = colonies.get(0);
-            LOGGER.info("Colony {} is now the PRIMARY colony for player {} (promoted after deletion)",
-                newFirstColony, playerUUID);
+            if (TaxConfig.isNormalLogging()) {
+                LOGGER.info("Colony {} is now the PRIMARY colony for player {} (promoted after deletion)",
+                        newFirstColony, playerUUID);
+            }
             return newFirstColony;
         }
 
@@ -128,7 +143,7 @@ public class FirstColonyTracker {
      * Checks if a colony is a player's first (primary) colony.
      *
      * @param playerUUID The player's UUID
-     * @param colonyID The colony ID to check
+     * @param colonyID   The colony ID to check
      * @return true if this is the player's first colony
      */
     public static boolean isFirstColony(UUID playerUUID, int colonyID) {
@@ -140,7 +155,8 @@ public class FirstColonyTracker {
      * Gets all colonies for a player in creation order.
      *
      * @param playerUUID The player's UUID
-     * @return Unmodifiable list of colony IDs in creation order, or empty list if none
+     * @return Unmodifiable list of colony IDs in creation order, or empty list if
+     *         none
      */
     public static List<Integer> getPlayerColonies(UUID playerUUID) {
         if (playerUUID == null) {
@@ -156,6 +172,23 @@ public class FirstColonyTracker {
     }
 
     /**
+     * Reverse lookup: finds which player UUID has the given colony as their first (primary) colony.
+     * More reliable than calling getOwner() on a colony whose permissions may be corrupted.
+     *
+     * @param colonyId The colony ID to look up
+     * @return The player UUID who registered this as their first colony, or null if not found
+     */
+    public static UUID getFirstColonyOwner(int colonyId) {
+        for (Map.Entry<UUID, List<Integer>> entry : playerColoniesMap.entrySet()) {
+            List<Integer> cols = entry.getValue();
+            if (!cols.isEmpty() && cols.get(0).equals(colonyId)) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    /**
      * Gets the number of colonies a player has.
      *
      * @param playerUUID The player's UUID
@@ -168,6 +201,94 @@ public class FirstColonyTracker {
 
         List<Integer> colonies = playerColoniesMap.get(playerUUID);
         return colonies == null ? 0 : colonies.size();
+    }
+
+    /**
+     * Bootstraps tracking data from an already-running server's colonies.
+     *
+     * Called once after MineColonies finishes loading on first install (or when
+     * firstColonyData.json is absent/incomplete). Uses colony ID as a proxy for
+     * creation order: a lower colony ID was created earlier, so it becomes the
+     * player's primary colony.
+     *
+     * Rules:
+     * - Players with NO existing FCT data: all their colonies are added sorted by
+     *   ID ascending, making the lowest-ID colony their primary.
+     * - Players with PARTIAL FCT data: only missing colony IDs are appended at the
+     *   end; the existing primary is not disturbed.
+     * - Colonies whose MC owner entry has a placeholder name ([AUTO_OWNER],
+     *   [abandoned], etc.) are skipped — those are system artifacts, not real owners.
+     *
+     * @param colonyManager The MineColonies colony manager
+     * @return The number of colony-player records that were newly registered
+     */
+    public static int bootstrapFromExistingColonies(IColonyManager colonyManager) {
+        // Group real colony IDs by their owner UUID
+        Map<UUID, List<Integer>> ownerToColonyIds = new HashMap<>();
+
+        for (IColony colony : colonyManager.getAllColonies()) {
+            UUID ownerUUID = colony.getPermissions().getOwner();
+            if (ownerUUID == null) continue;
+
+            // Skip placeholder system-owner entries created by the abandonment system
+            ColonyPlayer ownerEntry = colony.getPermissions().getPlayers().get(ownerUUID);
+            if (ownerEntry != null) {
+                String name = ownerEntry.getName();
+                if (name != null && (name.contains("[abandoned]")
+                        || name.contains("[AUTO_OWNER]")
+                        || name.toLowerCase().contains("abandoned"))) {
+                    LOGGER.debug("Bootstrap: skipping colony {} — owner entry is a placeholder ({})",
+                            colony.getID(), name);
+                    continue;
+                }
+            }
+
+            ownerToColonyIds.computeIfAbsent(ownerUUID, k -> new ArrayList<>()).add(colony.getID());
+        }
+
+        int seeded = 0;
+        for (Map.Entry<UUID, List<Integer>> entry : ownerToColonyIds.entrySet()) {
+            UUID ownerUUID = entry.getKey();
+            List<Integer> allColonyIds = entry.getValue();
+
+            // Sort by colony ID ascending — lower ID means created earlier
+            allColonyIds.sort(Integer::compare);
+
+            List<Integer> alreadyTracked = playerColoniesMap.getOrDefault(ownerUUID, Collections.emptyList());
+
+            if (alreadyTracked.isEmpty()) {
+                // Fresh player: register all their colonies in creation order
+                List<Integer> newList = new ArrayList<>(allColonyIds);
+                playerColoniesMap.put(ownerUUID, newList);
+                seeded += newList.size();
+                if (TaxConfig.isNormalLogging()) {
+                    LOGGER.info("Bootstrap: registered {} colonies for player {} (primary={})",
+                            newList.size(), ownerUUID, newList.get(0));
+                }
+            } else {
+                // Player already has FCT data — only append truly missing colony IDs
+                List<Integer> tracked = playerColoniesMap.get(ownerUUID);
+                for (int colonyId : allColonyIds) {
+                    if (!tracked.contains(colonyId)) {
+                        tracked.add(colonyId);
+                        seeded++;
+                        if (TaxConfig.isNormalLogging()) {
+                            LOGGER.info("Bootstrap: added missing colony {} to existing FCT entry for player {}",
+                                    colonyId, ownerUUID);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (seeded > 0) {
+            saveData();
+            LOGGER.info("FirstColonyTracker bootstrap complete: {} colony-player records seeded", seeded);
+        } else {
+            LOGGER.debug("FirstColonyTracker bootstrap: all colonies already tracked, no changes");
+        }
+
+        return seeded;
     }
 
     /**
@@ -199,7 +320,8 @@ public class FirstColonyTracker {
         }
 
         try (FileReader reader = new FileReader(file)) {
-            Type type = new TypeToken<ConcurrentHashMap<UUID, List<Integer>>>(){}.getType();
+            Type type = new TypeToken<ConcurrentHashMap<UUID, List<Integer>>>() {
+            }.getType();
             Map<UUID, List<Integer>> loadedData = GSON.fromJson(reader, type);
 
             if (loadedData != null) {

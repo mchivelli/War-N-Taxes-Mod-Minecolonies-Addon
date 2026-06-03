@@ -9,55 +9,56 @@ import net.minecraft.world.level.GameType;
 
 import javax.annotation.Nullable;
 import java.io.File;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
 public class PvPManager {
 
     public static final PvPManager INSTANCE = new PvPManager();
 
     // Map and Arena Data
-    public final Map<String, PvPMap> arenaMapsByName = new HashMap<>();
+    public final Map<String, PvPMap> arenaMapsByName = new ConcurrentHashMap<>();
     public String defaultMapName = null;
-    public final Set<String> lockedMaps = new HashSet<>();
+    public final Set<String> lockedMaps = ConcurrentHashMap.newKeySet();
 
     // Battle State
-    public final Map<String, ActiveBattle> activeBattles = new HashMap<>();
-    public final Map<String, TeamBattle> pendingTeamBattles = new HashMap<>();
-    public final Map<UUID, BattleRequest> pendingRequests = new HashMap<>();
+    public final Map<String, ActiveBattle> activeBattles = new ConcurrentHashMap<>();
+    public final Map<String, TeamBattle> pendingTeamBattles = new ConcurrentHashMap<>();
+    public final Map<UUID, BattleRequest> pendingRequests = new ConcurrentHashMap<>();
 
     // Player State
     @Deprecated // No longer used - inventory save/restore removed to fix duplication glitch
-    public final Map<UUID, ItemStack[]> playerInventories = new HashMap<>();
+    public final Map<UUID, ItemStack[]> playerInventories = new ConcurrentHashMap<>();
     @Deprecated // No longer used - inventory save/restore removed to fix duplication glitch
-    public final Map<UUID, ItemStack[]> playerArmor = new HashMap<>();
-    public final Map<UUID, SpectatorData> spectatorData = new HashMap<>();
-    public final Map<UUID, GameType> playerOriginalGameModes = new HashMap<>();
-    public final Map<String, List<UUID>> activeSpectators = new HashMap<>();
-    public final Map<UUID, PlayerPvPStats> playerStats = new HashMap<>();
+    public final Map<UUID, ItemStack[]> playerArmor = new ConcurrentHashMap<>();
+    public final Map<UUID, SpectatorData> spectatorData = new ConcurrentHashMap<>();
+    public final Map<UUID, GameType> playerOriginalGameModes = new ConcurrentHashMap<>();
+    // Persisted original world position per player (for crash/disconnect recovery while in SPECTATOR).
+    public final Map<UUID, net.minecraft.core.GlobalPos> playerOriginalPositions = new ConcurrentHashMap<>();
+    public final Map<String, List<UUID>> activeSpectators = new ConcurrentHashMap<>();
+    public final Map<UUID, PlayerPvPStats> playerStats = new ConcurrentHashMap<>();
 
     // Battle Timers and Cooldowns
     public final Map<String, Integer> battleTimers = new ConcurrentHashMap<>();
     public final Map<String, Map<UUID, Float>> battleDamage = new ConcurrentHashMap<>();
     public final Map<String, Integer> lastNotificationTime = new ConcurrentHashMap<>();
-    public final Map<UUID, Long> challengeCooldown = new HashMap<>();
-    public final Map<UUID, Long> teamBattleCooldown = new HashMap<>();
+    public final Map<UUID, Long> challengeCooldown = new ConcurrentHashMap<>();
+    public final Map<UUID, Long> teamBattleCooldown = new ConcurrentHashMap<>();
     public final Map<String, Integer> teamBattleCountdownNotifiers = new ConcurrentHashMap<>();
-    public final Map<UUID, Long> lastFriendlyFireNotifications = new HashMap<>();
-    
+    public final Map<UUID, Long> lastFriendlyFireNotifications = new ConcurrentHashMap<>();
+
     // Defeated player tracking (UUID -> battle ID)
     public final Map<UUID, String> defeatedPlayers = new ConcurrentHashMap<>();
 
     // Constants
-    public static final ScheduledExecutorService BATTLE_END_SCHEDULER = Executors.newScheduledThreadPool(1);
+    // BATTLE_END_SCHEDULER removed (was: Executors.newScheduledThreadPool(1)).
+    // All deferred scheduling now uses TickScheduler.scheduleDelayed(...) which runs
+    // callbacks on the main server thread per project rules (CLAUDE.md).
     public static final File ARENA_DATA_FILE = new File("config/warntax/pvp_arena_data.json");
+    public static final File PVP_STATS_FILE = new File("config/warntax/pvp_player_stats.json");
     public static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private PvPManager() {
@@ -83,6 +84,12 @@ public class PvPManager {
         if (pendingRequests.containsKey(playerId) || pendingRequests.values().stream().anyMatch(req -> req.getTargetPlayers().contains(playerId))) {
             return true;
         }
+        // Check if player is in a pending team battle (fix #6)
+        for (TeamBattle tb : pendingTeamBattles.values()) {
+            if (tb.getTeam1().contains(playerId) || tb.getTeam2().contains(playerId)) {
+                return true;
+            }
+        }
         return false;
     }
-} 
+}

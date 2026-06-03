@@ -8,7 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 
 public class SpyEntityRenderer extends HumanoidMobRenderer<SpyEntity, HumanoidModel<SpyEntity>> {
 
-    private static final ResourceLocation TEXTURE = new ResourceLocation("minecraft", "textures/entity/steve.png");
+    private static final ResourceLocation TEXTURE = new ResourceLocation("minecolonytax", "textures/entity/spy/spy.png");
 
     public SpyEntityRenderer(EntityRendererProvider.Context ctx) {
         super(ctx, new HumanoidModel<>(ctx.bakeLayer(ModelLayers.PLAYER)), 0.5f);

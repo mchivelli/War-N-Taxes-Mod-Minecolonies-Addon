@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -53,19 +54,16 @@ public class TaxPolicyManager {
     public static void initialize(MinecraftServer server) {
         SERVER = server;
         loadData();
-        LOGGER.info("TaxPolicyManager initialized with {} colony policies", COLONY_POLICIES.size());
+        if (TaxConfig.isNormalLogging()) LOGGER.info("TaxPolicyManager initialized with {} colony policies", COLONY_POLICIES.size());
     }
 
     public static void shutdown() {
         saveData();
-        LOGGER.info("TaxPolicyManager shutdown complete");
+        if (TaxConfig.isNormalLogging()) LOGGER.info("TaxPolicyManager shutdown complete");
     }
 
     // ==================== Helper Methods ====================
 
-    /**
-     * Get a colony by ID.
-     */
     public static IColony getColony(int colonyId) {
         if (SERVER == null)
             return null;
@@ -106,7 +104,7 @@ public class TaxPolicyManager {
             COLONY_POLICIES.put(colonyId, policy.name());
         }
         saveData();
-        LOGGER.info("Colony {} set tax policy to {}", colonyId, policy.name());
+        if (TaxConfig.isNormalLogging()) LOGGER.info("Colony {} set tax policy to {}", colonyId, policy.name());
     }
 
     /**
@@ -145,32 +143,33 @@ public class TaxPolicyManager {
      * @param policyName The policy name to set
      * @return Command result message
      */
-    public static String setPolicyCommand(ServerPlayer player, String policyName) {
+    public static String setPolicyCommand(ServerPlayer player, String policyName, String colonyTarget) {
         if (!TaxConfig.isTaxPoliciesEnabled()) {
             return "§cTax policies are disabled on this server.";
         }
 
-        // Find player's colony
-        IColony colony = findPlayerColony(player);
+        IColony colony = findPlayerColony(player, colonyTarget);
         if (colony == null) {
+            java.util.List<IColony> owned = findAllPlayerColonies(player);
+            if (owned.size() > 1 && (colonyTarget == null || colonyTarget.isEmpty())) {
+                StringBuilder msg = new StringBuilder("§cYou own multiple colonies. Specify one:\n");
+                for (IColony c : owned) msg.append("§e  /wnt taxpolicy set ").append(policyName).append(" \"").append(c.getName()).append("\"\n");
+                return msg.toString().trim();
+            }
             return "§cYou must own or manage a colony to set tax policy.";
         }
 
-        // Check permission
         if (!colony.getPermissions().getRank(player.getUUID()).isColonyManager()) {
             return "§cYou must be a colony manager to change tax policy.";
         }
 
-        // Parse policy
         TaxPolicy policy = TaxPolicy.fromString(policyName);
         if (policy == null) {
             return "§cInvalid policy. Available: NORMAL, LOW, HIGH, WAR_ECONOMY";
         }
 
-        // Set the policy
         setPolicy(colony.getID(), policy);
 
-        // Build confirmation message
         StringBuilder msg = new StringBuilder();
         msg.append("§a=== Tax Policy Changed ===\n");
         msg.append("§fColony: §e").append(colony.getName()).append("\n");
@@ -205,14 +204,19 @@ public class TaxPolicyManager {
      * @param player The player executing the command
      * @return Command result message
      */
-    public static String viewPolicyCommand(ServerPlayer player) {
+    public static String viewPolicyCommand(ServerPlayer player, String colonyTarget) {
         if (!TaxConfig.isTaxPoliciesEnabled()) {
             return "§cTax policies are disabled on this server.";
         }
 
-        // Find player's colony
-        IColony colony = findPlayerColony(player);
+        IColony colony = findPlayerColony(player, colonyTarget);
         if (colony == null) {
+            java.util.List<IColony> owned = findAllPlayerColonies(player);
+            if (owned.size() > 1 && (colonyTarget == null || colonyTarget.isEmpty())) {
+                StringBuilder msg = new StringBuilder("§cYou own multiple colonies. Specify one:\n");
+                for (IColony c : owned) msg.append("§e  /wnt taxpolicy \"").append(c.getName()).append("\"\n");
+                return msg.toString().trim();
+            }
             return "§cYou must be part of a colony to view tax policy.";
         }
 
@@ -293,24 +297,52 @@ public class TaxPolicyManager {
 
     /**
      * Find a colony that the player owns or manages.
+     *
+     * @param player      The player.
+     * @param colonyTarget Optional colony name or numeric ID to narrow selection.
+     *                     Pass null or empty string to get the player's only colony,
+     *                     or produce an ambiguous-colony error if they own multiple.
+     * @return Matching colony, or null if none found / ambiguous without a target.
      */
-    private static IColony findPlayerColony(ServerPlayer player) {
-        if (SERVER == null) return null;
+    private static IColony findPlayerColony(ServerPlayer player, String colonyTarget) {
+        java.util.List<IColony> owned = findAllPlayerColonies(player);
+        if (owned.isEmpty()) return null;
 
+        if (colonyTarget == null || colonyTarget.isEmpty()) {
+            // If the player has exactly one colony, return it unambiguously
+            return owned.size() == 1 ? owned.get(0) : null;
+        }
+
+        // Try matching by numeric ID first, then by name (case-insensitive)
+        try {
+            int id = Integer.parseInt(colonyTarget);
+            return owned.stream().filter(c -> c.getID() == id).findFirst().orElse(null);
+        } catch (NumberFormatException ignored) {}
+
+        String lower = colonyTarget.toLowerCase(java.util.Locale.ROOT);
+        return owned.stream()
+                .filter(c -> c.getName().toLowerCase(java.util.Locale.ROOT).contains(lower))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Returns all colonies that the player owns or manages, across all loaded worlds.
+     */
+    public static java.util.List<IColony> findAllPlayerColonies(ServerPlayer player) {
+        if (SERVER == null) return java.util.List.of();
+        java.util.List<IColony> result = new java.util.ArrayList<>();
         IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
+        UUID playerUUID = player.getUUID();
         for (var world : SERVER.getAllLevels()) {
             for (IColony colony : colonyManager.getColonies(world)) {
-                // Check if player is owner
-                if (colony.getPermissions().getOwner().equals(player.getUUID())) {
-                    return colony;
-                }
-                // Check if player is colony manager
-                if (colony.getPermissions().getRank(player.getUUID()).isColonyManager()) {
-                    return colony;
+                if (colony.getPermissions().getOwner().equals(playerUUID)
+                        || colony.getPermissions().getRank(playerUUID).isColonyManager()) {
+                    result.add(colony);
                 }
             }
         }
-        return null;
+        return result;
     }
 
     // ==================== Persistence ====================

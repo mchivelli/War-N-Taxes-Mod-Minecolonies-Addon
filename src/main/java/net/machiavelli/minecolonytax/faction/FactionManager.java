@@ -1,5 +1,6 @@
 package net.machiavelli.minecolonytax.faction;
 
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -21,6 +22,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * @deprecated Will be replaced by an external faction/diplomacy mod. Code retained for reference.
+ */
+@Deprecated
 public class FactionManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(FactionManager.class);
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -51,15 +56,19 @@ public class FactionManager {
     }
 
     public static void saveData() {
-        if (!CONFIG_DIR.toFile().exists()) {
-            CONFIG_DIR.toFile().mkdirs();
-        }
+        // Snapshot on calling (server) thread so the worker can't CME on FACTIONS.
+        final Map<UUID, FactionData> snapshot = new HashMap<>(FACTIONS);
 
-        try (FileWriter writer = new FileWriter(FACTIONS_FILE)) {
-            GSON.toJson(FACTIONS, writer);
-        } catch (IOException e) {
-            LOGGER.error("Failed to save factions data", e);
-        }
+        net.machiavelli.minecolonytax.util.AsyncSaveExecutor.submit("factions", () -> {
+            if (!CONFIG_DIR.toFile().exists()) {
+                CONFIG_DIR.toFile().mkdirs();
+            }
+            try (FileWriter writer = new FileWriter(FACTIONS_FILE)) {
+                GSON.toJson(snapshot, writer);
+            } catch (IOException e) {
+                LOGGER.error("Failed to save factions data", e);
+            }
+        });
     }
 
     public static FactionData createFaction(String name, int ownerColonyId) {

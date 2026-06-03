@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 
+import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
@@ -48,16 +49,22 @@ public class EndVassalizationPacket {
                 return;
             }
             
-            // Check if player has permission to end vassalization
-            Rank playerRank = colony.getPermissions().getRank(player.getUUID());
-            if (playerRank == null || !playerRank.isColonyManager()) {
-                player.sendSystemMessage(Component.literal("You don't have permission to end vassalization for this colony!"));
-                return;
-            }
-            
             // Check if colony is actually a vassal
             if (!VassalManager.isColonyVassal(colonyId)) {
                 player.sendSystemMessage(Component.literal("This colony is not a vassal!"));
+                return;
+            }
+
+            // AUDIT FIX (defensive_04 H4): authorize using the SAME rule as VassalManager.revokeRelation —
+            // either the overlord themselves OR a colony manager of the vassal. This unifies the auth
+            // surface across the packet path and the slash-command path so future drift is impossible.
+            UUID actorId = player.getUUID();
+            UUID overlordId = VassalManager.getVassalOverlordUUID(colonyId);
+            Rank playerRank = colony.getPermissions().getRank(actorId);
+            boolean isOverlord = overlordId != null && overlordId.equals(actorId);
+            boolean isVassalManager = playerRank != null && playerRank.isColonyManager();
+            if (!isOverlord && !isVassalManager) {
+                player.sendSystemMessage(Component.literal("You don't have permission to end vassalization for this colony!"));
                 return;
             }
             

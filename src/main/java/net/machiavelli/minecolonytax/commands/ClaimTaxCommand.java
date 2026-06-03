@@ -39,7 +39,6 @@ public class ClaimTaxCommand {
 
     private static final Logger LOGGER = LogManager.getLogger(ClaimTaxCommand.class);
 
-    // Suggestion provider for colony names (with quotes if needed)
     private static final SuggestionProvider<CommandSourceStack> COLONY_SUGGESTIONS = (context, builder) -> {
         ServerPlayer player;
         try {
@@ -52,7 +51,7 @@ public class ClaimTaxCommand {
         List<String> colonyNames = colonyManager.getAllColonies().stream()
                 .filter(colony -> colony.getPermissions().getRank(player.getUUID()).isColonyManager())
                 .map(IColony::getName)
-                .map(name -> name.contains(" ") ? "\"" + name + "\"" : name) // Add quotes for names with spaces
+                .map(name -> name.contains(" ") ? "\"" + name + "\"" : name)
                 .collect(Collectors.toList());
 
         return SharedSuggestionProvider.suggest(colonyNames, builder);
@@ -92,7 +91,6 @@ public class ClaimTaxCommand {
         for (IColony colony : colonies) {
             Rank playerRank = colony.getPermissions().getRank(player.getUUID());
 
-            // Skip if the colony name doesn't match
             if (colonyName != null && !colony.getName().equalsIgnoreCase(colonyName)) {
                 continue;
             }
@@ -100,7 +98,6 @@ public class ClaimTaxCommand {
             if (playerRank != null && playerRank.isColonyManager()) {
                 foundColonies = true;
 
-                // Check tax claiming permissions with owner override
                 boolean isOwner = playerRank.equals(colony.getPermissions().getRankOwner());
                 boolean isOfficer = playerRank.equals(colony.getPermissions().getRankOfficer()) || isOwner;
 
@@ -111,7 +108,6 @@ public class ClaimTaxCommand {
                     continue;
                 }
 
-                // Check if colony is currently being raided before attempting to claim
                 if (RaidManager.getActiveRaidForColony(colony.getID()) != null) {
                     player.sendSystemMessage(Component
                             .literal("Cannot claim tax for colony " + colony.getName()
@@ -120,13 +116,11 @@ public class ClaimTaxCommand {
                     continue;
                 }
 
-                // Check if colony is currently involved in a war (defender or attacker) before
-                // attempting to claim
-                WarData war = WarSystem.ACTIVE_WARS.get(colony.getID()); // defender-side lookup
+                WarData war = WarSystem.ACTIVE_WARS.get(colony.getID());
                 if (war == null) {
                     for (WarData wd : WarSystem.ACTIVE_WARS.values()) {
                         if (wd.getAttackerColony() != null && wd.getAttackerColony().getID() == colony.getID()) {
-                            war = wd; // attacker-side involvement
+                            war = wd;
                             break;
                         }
                     }
@@ -140,11 +134,9 @@ public class ClaimTaxCommand {
                     continue;
                 }
 
-                // Claim tax revenue (now includes raid rewards in main balance)
                 int totalClaimed = TaxManager.claimTax(colony, amount);
 
                 if (totalClaimed > 0) {
-                    // Grant advancement
                     try {
                         net.minecraft.advancements.Advancement adv = player.getServer().getAdvancements()
                                 .getAdvancement(
@@ -158,34 +150,11 @@ public class ClaimTaxCommand {
                     player.sendSystemMessage(Component.translatable("command.claimtax.success",
                             colony.getName(), totalClaimed));
 
-                    // Update player's funds using SDMShop API if enabled
                     if (TaxConfig.isSDMShopConversionEnabled() && SDMShopIntegration.isAvailable()) {
                         long currentBalance = SDMShopIntegration.getMoney(player);
                         SDMShopIntegration.setMoney(player, currentBalance + totalClaimed);
                     } else {
-                        // Use direct inventory manipulation instead of give command for modded items
-                        Item item = ForgeRegistries.ITEMS
-                                .getValue(new ResourceLocation(TaxConfig.getCurrencyItemName()));
-                        if (item != null) {
-                            ItemStack itemStack = new ItemStack(item, totalClaimed);
-                            boolean added = player.getInventory().add(itemStack);
-                            if (!added) {
-                                // If inventory is full, drop items near player
-                                player.drop(itemStack, false);
-                                player.sendSystemMessage(Component.translatable("taxmanager.inventory_full",
-                                        totalClaimed, TaxConfig.getCurrencyItemName()));
-                            } else {
-                                player.sendSystemMessage(Component.translatable("taxmanager.currency_received",
-                                        totalClaimed, TaxConfig.getCurrencyItemName()));
-                            }
-                        } else {
-                            // Fallback to give command if item not found in registry
-                            String itemName = TaxConfig.getCurrencyItemName();
-                            String giveCommand = String.format("give %s %s %d", player.getName().getString(), itemName,
-                                    totalClaimed);
-                            source.getServer().getCommands()
-                                    .performPrefixedCommand(source.getServer().createCommandSourceStack(), giveCommand);
-                        }
+                        net.machiavelli.minecolonytax.util.ItemUtils.giveCurrencyToPlayer(player, totalClaimed);
                     }
                 } else {
                     player.sendSystemMessage(Component.translatable("command.claimtax.no_tax", colony.getName()));

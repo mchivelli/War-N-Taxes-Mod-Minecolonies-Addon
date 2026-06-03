@@ -33,13 +33,15 @@ public class RecallSpyPacket {
                 return;
 
             String playerId = player.getUUID().toString();
-            List<SpyMission> missions = SpyManager.getActiveMissionsForPlayer(playerId);
+            List<SpyMission> activeMissions = SpyManager.getActiveMissionsForPlayer(playerId);
 
-            boolean ownsMission = missions.stream().anyMatch(m -> m.getMissionId().equals(missionId));
+            boolean ownsMission = activeMissions.stream().anyMatch(m -> m.getMissionId().equals(missionId));
             if (ownsMission) {
                 SpyManager.recallSpy(missionId);
-                // Trigger a UI refresh
-                net.machiavelli.minecolonytax.network.NetworkHandler.sendToPlayer(player, new RequestSpyDataPacket());
+                // Trigger a UI refresh — include active + completed (intel preserved on recall)
+                List<SpyMission> updatedMissions = SpyManager.getMissionsForPlayer(playerId);
+                net.machiavelli.minecolonytax.network.NetworkHandler.sendToPlayer(player,
+                        new SpyDataResponsePacket(updatedMissions));
             }
         });
         ctx.get().setPacketHandled(true);

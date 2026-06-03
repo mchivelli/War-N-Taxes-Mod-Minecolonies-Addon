@@ -4,15 +4,16 @@ import net.machiavelli.minecolonytax.network.NetworkHandler;
 import net.machiavelli.minecolonytax.vassalization.VassalManager;
 import net.machiavelli.minecolonytax.recipe.ModRecipeSerializers;
 import net.machiavelli.minecolonytax.commands.RecipeDisableTestCommand;
-import net.machiavelli.minecolonytax.commands.WarChestCommand;
+import net.machiavelli.minecolonytax.commands.TreasuryCommand;
 import net.machiavelli.minecolonytax.commands.RaidRepairCommand;
 import net.machiavelli.minecolonytax.commands.FactionCommand;
 import net.machiavelli.minecolonytax.commands.TaxPolicyCommand;
 import net.machiavelli.minecolonytax.commands.RandomEventsCommand;
-import net.machiavelli.minecolonytax.economy.WarChestManager;
+import net.machiavelli.minecolonytax.economy.TreasuryManager;
 import net.machiavelli.minecolonytax.economy.policy.TaxPolicyManager;
+import net.machiavelli.minecolonytax.data.HistoryManager;
 import net.machiavelli.minecolonytax.raid.GuardResistanceHandler;
-import net.machiavelli.minecolonytax.webapi.WebAPIServer;
+import net.machiavelli.minecolonytax.db.WarStatsDB;
 import net.machiavelli.minecolonytax.faction.FactionManager;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
@@ -27,42 +28,43 @@ import net.minecraftforge.common.MinecraftForge;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.UUID;
+
 @Mod(MineColonyTax.MOD_ID)
 public class MineColonyTax {
     public static final String MOD_ID = "minecolonytax";
     public static final Logger LOGGER = LogManager.getLogger();
 
-    // Web API Server instance (SERVER-SIDE ONLY)
-    private static WebAPIServer webAPIServer = null;
+    /**
+     * Guards against registering FCT event handlers more than once.
+     * DefaultEventBus is a JVM-lifetime singleton — in single-player, onServerStarting
+     * fires on every world load without clearing the handler list. Without this flag,
+     * each world load would add another duplicate handler.
+     */
+    private static boolean fctEventBusSubscribed = false;
 
     public MineColonyTax() {
-        // Register configuration - Use COMMON type to prevent world-directory
-        // serverconfig creation
-        // This ensures config goes ONLY to /config/warntax/ and NOT to
-        // world/serverconfig/
-        // Single registration prevents duplicate config files and .bak file
-        // proliferation
+        // COMMON config type writes to /config/warntax/ only, not world/serverconfig/
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, TaxConfig.CONFIG, "warntax/minecolonytax.toml");
 
-        // Register recipe serializers
         ModRecipeSerializers.RECIPE_SERIALIZERS.register(FMLJavaModLoadingContext.get().getModEventBus());
 
-        // Register entities
         net.machiavelli.minecolonytax.espionage.ModEntities.ENTITIES
                 .register(FMLJavaModLoadingContext.get().getModEventBus());
 
-        // Register event listeners
+        // Step 11 — siege banner block + item registration. Block is always
+        // registered; the Plant-the-Banner objective gates behaviour at runtime
+        // via EnableExperimentalSiegeObjectives.
+        net.machiavelli.minecolonytax.siege.ModSiegeBlocks.register(
+                FMLJavaModLoadingContext.get().getModEventBus());
+
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::clientSetup);
 
-        // Register server events (including ServerStartingEvent)
         MinecraftForge.EVENT_BUS.register(this);
 
-        // Manually register RaidKillTracker to ensure it works
         MinecraftForge.EVENT_BUS.register(net.machiavelli.minecolonytax.event.RaidKillTracker.class);
-        LOGGER.error("MANUALLY REGISTERED RaidKillTracker event handler!");
-
-        LOGGER.info("MineColonyTax mod initialized with COMMON config type - no serverconfig creation");
+        MinecraftForge.EVENT_BUS.register(net.machiavelli.minecolonytax.util.TickScheduler.class);
     }
 
     private void setup(final FMLCommonSetupEvent event) {
@@ -80,7 +82,7 @@ public class MineColonyTax {
                 Object instance = apiClass.getMethod("get").invoke(null);
                 instance.getClass().getMethod("setConfigFlag", String.class, boolean.class)
                         .invoke(instance, "minecolonytax:show_admin", true);
-                LOGGER.info("Registered Patchouli flag 'minecolonytax:show_admin'");
+                if (TaxConfig.isNormalLogging()) LOGGER.info("Registered Patchouli flag 'minecolonytax:show_admin'");
             } catch (Exception e) {
                 LOGGER.warn("Failed to set Patchouli config flag: {}", e.getMessage());
             }
@@ -89,178 +91,370 @@ public class MineColonyTax {
 
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
-        // Register commands
         RecipeDisableTestCommand.register(event.getServer().getCommands().getDispatcher());
-        WarChestCommand.register(event.getServer().getCommands().getDispatcher());
+        TreasuryCommand.register(event.getServer().getCommands().getDispatcher());
         RaidRepairCommand.register(event.getServer().getCommands().getDispatcher());
         FactionCommand.register(event.getServer().getCommands().getDispatcher());
         TaxPolicyCommand.register(event.getServer().getCommands().getDispatcher());
         RandomEventsCommand.register(event.getServer().getCommands().getDispatcher());
-        LOGGER.info("WarChestCommand registered");
-        LOGGER.info("TaxPolicyCommand registered");
-        LOGGER.info("RandomEventsCommand registered");
+        if (TaxConfig.isNormalLogging()) {
+            LOGGER.info("TreasuryCommand registered");
+            LOGGER.info("TaxPolicyCommand registered");
+            LOGGER.info("RandomEventsCommand registered");
+        }
 
-        LOGGER.info("Server starting - initializing TaxManager with configured interval of {} minutes",
+        if (TaxConfig.isNormalLogging()) LOGGER.info("Server starting - initializing TaxManager with configured interval of {} minutes",
                 TaxConfig.getTaxIntervalInMinutes());
         TaxManager.initialize(event.getServer());
-        LOGGER.info("TaxManager initialization complete");
 
-        // Initialize FirstColonyTracker to manage primary colony ownership
         FirstColonyTracker.loadData();
-        LOGGER.info("FirstColonyTracker initialization complete");
 
-        // Register colony ownership event handler for multi-colony support
-        // TODO: Fix ColonyOwnershipHandler - MineColonies API events changed
-        // net.machiavelli.minecolonytax.event.ColonyOwnershipHandler.register();
-        // LOGGER.info("ColonyOwnershipHandler registered");
+        // Subscribe to colony lifecycle events so FirstColonyTracker stays accurate.
+        // Guard with a static flag: DefaultEventBus is a JVM-lifetime singleton and
+        // does not clear its handler list between server starts in single-player mode.
+        if (!fctEventBusSubscribed) {
+            fctEventBusSubscribed = true;
+            com.minecolonies.api.IMinecoloniesAPI.getInstance().getEventBus()
+                    .subscribe(com.minecolonies.api.eventbus.events.colony.ColonyCreatedModEvent.class, e -> {
+                        UUID ownerUUID = e.getColony().getPermissions().getOwner();
+                        if (ownerUUID != null) {
+                            FirstColonyTracker.addColony(ownerUUID, e.getColony().getID());
+                        }
+                    });
+            com.minecolonies.api.IMinecoloniesAPI.getInstance().getEventBus()
+                    .subscribe(com.minecolonies.api.eventbus.events.colony.ColonyDeletedModEvent.class, e -> {
+                        // Event fires before cap.deleteColony() so permissions are still readable here
+                        UUID ownerUUID = e.getColony().getPermissions().getOwner();
+                        if (ownerUUID != null) {
+                            FirstColonyTracker.removeColony(ownerUUID, e.getColony().getID());
+                        }
+                    });
+        }
 
-        // Initialize War Exhaustion Manager for penalty tracking
+        // Deferred bootstrap: seed FirstColonyTracker for colonies that existed before this
+        // mod was installed. Runs after MineColonies finishes loading all colonies.
+        // Orders colonies by ID ascending so the lowest-ID (oldest) colony becomes primary.
+        net.machiavelli.minecolonytax.util.TickScheduler.scheduleDelayed(() -> {
+            try {
+                com.minecolonies.api.colony.IColonyManager cm =
+                        com.minecolonies.api.IMinecoloniesAPI.getInstance().getColonyManager();
+                FirstColonyTracker.bootstrapFromExistingColonies(cm);
+            } catch (Exception e) {
+                LOGGER.error("FirstColonyTracker bootstrap failed", e);
+            }
+        }, 6000);
+
         net.machiavelli.minecolonytax.economy.WarExhaustionManager.initialize(event.getServer());
-        LOGGER.info("WarExhaustionManager initialization complete");
 
-        // Restore all colony permissions to config defaults (disable war/raid actions)
-        // This ensures clean state after server restarts/crashes
-        LOGGER.info("Restoring all colony war/raid permissions to config defaults...");
+        // Load persisted permission snapshots BEFORE clearing bits so existing snapshots
+        // survive the defaults restore and are available when wars re-enable permissions.
+        net.machiavelli.minecolonytax.permissions.PermissionSnapshot.loadFromFile();
+
         WarSystem.restoreAllColonyPermissionsToDefaults();
-        LOGGER.info("Colony permissions restoration complete");
 
-        // 🚨 AUTOMATIC: Immediate null owner fixes - NO DELAYS, NO MANUAL INTERVENTION
-        LOGGER.error("🚨 AUTOMATIC NULL OWNER PROTECTION: Fixing ALL null owners immediately on startup...");
-
-        // IMMEDIATE fix - run right now, no delays
         try {
             net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.emergencyFixAllNullOwners();
-            LOGGER.info("✅ IMMEDIATE null owner fix completed");
         } catch (Exception e) {
-            LOGGER.error("💥 IMMEDIATE null owner fix failed", e);
+            LOGGER.error("Immediate null owner fix failed", e);
         }
 
-        // Schedule additional safety fixes
-        event.getServer().execute(() -> {
+        // Deferred safety passes let MineColonies finish loading colonies before the fix runs
+        net.machiavelli.minecolonytax.util.TickScheduler.scheduleDelayed(() -> {
             try {
-                Thread.sleep(1000); // 1 second
                 net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.emergencyFixAllNullOwners();
                 net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.cleanupAllColoniesAbandonedEntries();
-                LOGGER.info("✅ DELAYED null owner fix completed");
             } catch (Exception e) {
-                LOGGER.error("💥 DELAYED null owner fix failed", e);
+                LOGGER.error("Delayed null owner fix failed", e);
             }
-        });
+        }, 1000);
 
-        // Final safety net
-        event.getServer().execute(() -> {
+        net.machiavelli.minecolonytax.util.TickScheduler.scheduleDelayed(() -> {
             try {
-                Thread.sleep(3000); // 3 seconds
                 net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.emergencyFixAllNullOwners();
-                LOGGER.info("✅ FINAL null owner verification completed - ALL colonies should be safe now");
             } catch (Exception e) {
-                LOGGER.error("💥 FINAL null owner verification failed", e);
+                LOGGER.error("Final null owner fix failed", e);
             }
-        });
+        }, 3000);
 
-        // Initialize VassalManager so server reference is available for notifications
         VassalManager.initialize(event.getServer());
 
-        // Initialize WarChestManager for war chest tracking
-        WarChestManager.initialize(event.getServer());
-        LOGGER.info("WarChestManager initialized");
+        TreasuryManager.initialize(event.getServer());
+        if (TaxConfig.isNormalLogging()) LOGGER.info("TreasuryManager initialized");
 
-        // Initialize FactionManager
         FactionManager.init();
-        LOGGER.info("FactionManager initialized");
+        if (TaxConfig.isNormalLogging()) LOGGER.info("FactionManager initialized");
 
-        // Initialize TaxPolicyManager
         TaxPolicyManager.initialize(event.getServer());
-        LOGGER.info("TaxPolicyManager initialized");
+        if (TaxConfig.isNormalLogging()) LOGGER.info("TaxPolicyManager initialized");
 
-        // Initialize RandomEventManager
         net.machiavelli.minecolonytax.events.random.RandomEventManager.initialize(event.getServer());
-        LOGGER.info("RandomEventManager initialized");
+        if (TaxConfig.isNormalLogging()) LOGGER.info("RandomEventManager initialized");
 
-        // Initialize SpyManager
+        HistoryManager.loadHistory();
+        if (TaxConfig.isNormalLogging()) LOGGER.info("HistoryManager loaded");
+
         if (TaxConfig.isSpySystemEnabled()) {
             net.machiavelli.minecolonytax.espionage.SpyManager.initialize(event.getServer());
-            LOGGER.info("SpyManager initialized");
+            if (TaxConfig.isNormalLogging()) LOGGER.info("SpyManager initialized");
         }
 
-        // Emergency cleanup of guard resistance effects on startup
-        GuardResistanceHandler.emergencyCleanup();
-        LOGGER.info("Guard resistance effects cleanup completed");
+        if (TaxConfig.isUpgradesEnabled()) {
+            net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.initialize(event.getServer());
+            if (TaxConfig.isNormalLogging()) LOGGER.info("ColonyUpgradeManager initialized");
+        }
 
-        // Start Web API Server if enabled (SERVER-SIDE ONLY)
-        if (TaxConfig.isWebAPIEnabled()) {
+        GuardResistanceHandler.emergencyCleanup();
+
+        // Load the explosion-damage ledger BEFORE resuming wars: a war that resumes
+        // already downtime-expired ends immediately and calls restoreWarDamage(),
+        // which needs the ledger already in memory or the broken blocks are lost.
+        try {
+            net.machiavelli.minecolonytax.siege.WarBlockLedger.loadFromDisk();
+        } catch (Throwable t) {
+            LOGGER.error("Failed to load WarBlockLedger: {}", t.toString());
+        }
+
+        // War persistence must be restored after the colony manager is ready
+        try {
+            WarSystem.loadAndResumeActiveWars();
+            if (TaxConfig.isNormalLogging()) LOGGER.info("War persistence restoration complete");
+        } catch (Throwable t) {
+            LOGGER.error("Failed to restore active wars: {}", t.toString());
+        }
+
+        // Prune ledgers whose war did not survive the restart so they can't
+        // resurrect blocks at a later, unrelated war's end. (Wars that ended during
+        // resume already had their ledger consumed by restoreWarDamage.)
+        try {
+            java.util.Set<UUID> activeWarIds = new java.util.HashSet<>();
+            for (net.machiavelli.minecolonytax.data.WarData w : WarSystem.ACTIVE_WARS.values()) {
+                if (w != null && w.getWarID() != null) activeWarIds.add(w.getWarID());
+            }
+            net.machiavelli.minecolonytax.siege.WarBlockLedger.pruneOrphans(activeWarIds);
+        } catch (Throwable t) {
+            LOGGER.error("Failed to prune WarBlockLedger orphans: {}", t.toString());
+        }
+
+        // Restore Hostile rank to pre-conflict state for any colonies whose conflict
+        // ended while the server was down (snapshot exists but no active war/raid).
+        try {
+            net.machiavelli.minecolonytax.permissions.PermissionSnapshot.restoreAllStale(event.getServer());
+        } catch (Exception e) {
+            LOGGER.error("Failed to run stale permission snapshot restore", e);
+        }
+
+        // Permissions health check: runs after wars are restored so that legitimately
+        // hostile-ranked players in active wars are not incorrectly demoted.
+        // Deferred ~5 s to let MineColonies finish loading all colony data.
+        // This catches stale Hostile rank assignments left by crashes or older mod versions.
+        net.machiavelli.minecolonytax.util.TickScheduler.scheduleDelayed(() -> {
             try {
-                webAPIServer = new WebAPIServer(event.getServer());
-                webAPIServer.start();
-                LOGGER.info("Web API Server initialization complete");
+                net.machiavelli.minecolonytax.permissions.PermissionsHealthCheck.Result result =
+                        net.machiavelli.minecolonytax.permissions.PermissionsHealthCheck.run(event.getServer());
+                if (result.hasIssues()) {
+                    LOGGER.warn("[PermissionsHealthCheck] Corrected stale permission state on startup: {}", result.summary());
+                } else if (TaxConfig.isNormalLogging()) {
+                    LOGGER.info("[PermissionsHealthCheck] {}", result.summary());
+                }
             } catch (Exception e) {
-                LOGGER.error("Failed to start Web API Server: {}", e.getMessage());
-                e.printStackTrace();
+                LOGGER.error("[PermissionsHealthCheck] Startup health check failed", e);
+            }
+        }, 5000);
+
+        // Warn if MineColonies pvp_mode is enabled — it bypasses ALL colony permission
+        // checks for players whose guards enter enemy territory, overriding our per-action
+        // permission system. Wars and raids should use WNT's own permission management.
+        // NOTE: com.minecolonies.core.MineColonies is an INTERNAL class (not the api package);
+        // any refactor on the MC side can throw NoClassDefFoundError (an Error, not Exception),
+        // so the catch must trap Throwable. The whole block is also gated on ModList.isLoaded.
+        if (ModList.get().isLoaded("minecolonies")) {
+            try {
+                if (com.minecolonies.core.MineColonies.getConfig().getServer().pvp_mode.get()) {
+                    LOGGER.warn("[WNT] MineColonies pvp_mode is ENABLED. This bypasses colony permission "
+                            + "checks for players who rally guards into enemy colonies, overriding War 'N Taxes "
+                            + "permission management. Set pvp_mode = false in minecolonies-server.toml for "
+                            + "correct war/raid permission behavior.");
+                }
+            } catch (Throwable t) {
+                // Config not available yet, or MineColonies internal class moved — ignore.
+                if (TaxConfig.isDebugLogging()) {
+                    LOGGER.debug("[WNT] Could not read MineColonies pvp_mode (likely internal API change): {}", t.toString());
+                }
+            }
+        }
+
+        try {
+            net.machiavelli.minecolonytax.occupation.OccupationManager.initialize(event.getServer());
+            if (TaxConfig.isNormalLogging()) LOGGER.info("OccupationManager initialized");
+        } catch (Throwable t) {
+            LOGGER.error("Failed to initialize OccupationManager: {}", t.toString());
+        }
+
+        if (TaxConfig.isBesiegeSystemEnabled()) {
+            try {
+                net.machiavelli.minecolonytax.besiege.BesiegeManager.initialize(event.getServer());
+                if (TaxConfig.isNormalLogging()) LOGGER.info("BesiegeManager initialized");
+                net.machiavelli.minecolonytax.util.TickScheduler.scheduleRepeating(() -> {
+                    try {
+                        net.machiavelli.minecolonytax.besiege.BesiegeManager.tick();
+                    } catch (Throwable t) {
+                        LOGGER.error("Error in BesiegeManager tick: {}", t.toString());
+                    }
+                }, 1000, 1000);
+            } catch (Throwable t) {
+                LOGGER.error("Failed to initialize BesiegeManager: {}", t.toString());
+            }
+        }
+
+        net.machiavelli.minecolonytax.util.TickScheduler.scheduleRepeating(() -> {
+            try {
+                net.machiavelli.minecolonytax.occupation.OccupationManager.checkExpiredOccupations();
+            } catch (Throwable t) {
+                LOGGER.error("Error checking expired occupations: {}", t.toString());
+            }
+        }, 300_000, 300_000);
+
+        if (TaxConfig.isDatabaseEnabled()) {
+            try {
+                WarStatsDB.initialize();
+                if (TaxConfig.isNormalLogging()) LOGGER.info("WarStatsDB initialized");
+                long snapshotMs = TaxConfig.getDatabaseSnapshotIntervalSeconds() * 1000L;
+                net.machiavelli.minecolonytax.util.TickScheduler.scheduleRepeating(() -> {
+                    try {
+                        WarStatsDB.snapshotAllColonies(event.getServer());
+                        WarStatsDB.updateServerState(event.getServer());
+                    } catch (Throwable t) {
+                        LOGGER.error("Error during colony DB snapshot: {}", t.toString());
+                    }
+                }, snapshotMs, snapshotMs);
+            } catch (Exception e) {
+                LOGGER.error("Failed to initialize WarStatsDB: {}", e.getMessage());
             }
         } else {
-            LOGGER.debug("Web API Server is disabled in configuration");
+            if (TaxConfig.isDebugLogging()) LOGGER.debug("WarStats database is disabled in configuration");
         }
     }
 
     @SubscribeEvent
     public void onServerStopping(ServerStoppingEvent event) {
-        // Stop Web API Server
-        if (webAPIServer != null && webAPIServer.isRunning()) {
-            try {
-                webAPIServer.stop();
-                LOGGER.info("Web API Server shutdown complete");
-            } catch (Throwable t) {
-                LOGGER.warn("Error during Web API Server shutdown: {}", t.toString());
-            }
+        try {
+            WarStatsDB.shutdown();
+            if (TaxConfig.isNormalLogging()) LOGGER.info("WarStatsDB shutdown complete");
+        } catch (Throwable t) {
+            LOGGER.warn("Error during WarStatsDB shutdown: {}", t.toString());
         }
 
         try {
             VassalManager.shutdown();
-            LOGGER.info("VassalManager shutdown complete");
+            if (TaxConfig.isNormalLogging()) LOGGER.info("VassalManager shutdown complete");
         } catch (Throwable t) {
             LOGGER.warn("Error during VassalManager shutdown: {}", t.toString());
         }
 
         try {
-            WarChestManager.shutdown();
-            LOGGER.info("WarChestManager shutdown complete");
+            TreasuryManager.shutdown();
+            if (TaxConfig.isNormalLogging()) LOGGER.info("TreasuryManager shutdown complete");
         } catch (Throwable t) {
-            LOGGER.warn("Error during WarChestManager shutdown: {}", t.toString());
+            LOGGER.warn("Error during TreasuryManager shutdown: {}", t.toString());
         }
 
         try {
             net.machiavelli.minecolonytax.economy.WarExhaustionManager.shutdown();
-            LOGGER.info("WarExhaustionManager shutdown complete");
+            if (TaxConfig.isNormalLogging()) LOGGER.info("WarExhaustionManager shutdown complete");
         } catch (Throwable t) {
             LOGGER.warn("Error during WarExhaustionManager shutdown: {}", t.toString());
         }
 
         try {
             FactionManager.saveData();
-            LOGGER.info("FactionManager data saved");
+            if (TaxConfig.isNormalLogging()) LOGGER.info("FactionManager data saved");
         } catch (Throwable t) {
             LOGGER.warn("Error saving FactionManager data: {}", t.toString());
         }
 
         try {
             TaxPolicyManager.shutdown();
-            LOGGER.info("TaxPolicyManager shutdown complete");
+            if (TaxConfig.isNormalLogging()) LOGGER.info("TaxPolicyManager shutdown complete");
         } catch (Throwable t) {
             LOGGER.warn("Error during TaxPolicyManager shutdown: {}", t.toString());
         }
 
         try {
             net.machiavelli.minecolonytax.events.random.RandomEventManager.shutdown();
-            LOGGER.info("RandomEventManager shutdown complete");
+            if (TaxConfig.isNormalLogging()) LOGGER.info("RandomEventManager shutdown complete");
         } catch (Throwable t) {
             LOGGER.warn("Error during RandomEventManager shutdown: {}", t.toString());
         }
 
         try {
+            HistoryManager.saveHistory();
+            if (TaxConfig.isNormalLogging()) LOGGER.info("HistoryManager saved");
+        } catch (Throwable t) {
+            LOGGER.warn("Error saving HistoryManager: {}", t.toString());
+        }
+
+        try {
             net.machiavelli.minecolonytax.espionage.SpyManager.shutdown();
-            LOGGER.info("SpyManager shutdown complete");
+            if (TaxConfig.isNormalLogging()) LOGGER.info("SpyManager shutdown complete");
         } catch (Throwable t) {
             LOGGER.warn("Error during SpyManager shutdown: {}", t.toString());
+        }
+
+        // Save active wars before TickScheduler shutdown — task IDs are still needed for cleanup
+        try {
+            WarSystem.saveActiveWars();
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Active wars saved to disk");
+        } catch (Throwable t) {
+            LOGGER.warn("Error saving active wars: {}", t.toString());
+        }
+
+        // Finish any in-progress block restoration synchronously (before TickScheduler
+        // shutdown cancels the batched task), then persist the remaining active-war
+        // ledgers so blocks broken this session are still restored after a restart
+        // (mirrors active_wars.json).
+        try {
+            net.machiavelli.minecolonytax.siege.WarBlockLedger.flushPendingRestores();
+            net.machiavelli.minecolonytax.siege.WarBlockLedger.saveToDisk();
+            if (TaxConfig.isNormalLogging()) LOGGER.info("WarBlockLedger flushed and saved to disk");
+        } catch (Throwable t) {
+            LOGGER.warn("Error saving WarBlockLedger: {}", t.toString());
+        }
+
+        try {
+            net.machiavelli.minecolonytax.occupation.OccupationManager.shutdown();
+            if (TaxConfig.isNormalLogging()) LOGGER.info("OccupationManager shutdown complete");
+        } catch (Throwable t) {
+            LOGGER.warn("Error during OccupationManager shutdown: {}", t.toString());
+        }
+
+        try {
+            net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.shutdown();
+            if (TaxConfig.isNormalLogging()) LOGGER.info("ColonyUpgradeManager shutdown complete");
+        } catch (Throwable t) {
+            LOGGER.warn("Error during ColonyUpgradeManager shutdown: {}", t.toString());
+        }
+
+        try {
+            net.machiavelli.minecolonytax.besiege.BesiegeManager.shutdown();
+            if (TaxConfig.isNormalLogging()) LOGGER.info("BesiegeManager shutdown complete");
+        } catch (Throwable t) {
+            LOGGER.warn("Error during BesiegeManager shutdown: {}", t.toString());
+        }
+
+        try {
+            net.machiavelli.minecolonytax.util.TickScheduler.shutdown();
+            if (TaxConfig.isNormalLogging()) LOGGER.info("TickScheduler shutdown complete");
+        } catch (Throwable t) {
+            LOGGER.warn("Error during TickScheduler shutdown: {}", t.toString());
+        }
+
+        // Must run AFTER all manager shutdowns above so any final saveData()
+        // they queued is flushed to disk before the JVM exits.
+        try {
+            net.machiavelli.minecolonytax.util.AsyncSaveExecutor.shutdownAndFlush();
+            if (TaxConfig.isNormalLogging()) LOGGER.info("AsyncSaveExecutor flushed");
+        } catch (Throwable t) {
+            LOGGER.warn("Error flushing AsyncSaveExecutor: {}", t.toString());
         }
     }
 }

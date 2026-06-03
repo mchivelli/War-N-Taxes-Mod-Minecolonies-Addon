@@ -7,9 +7,14 @@ import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.events.random.deep.CitizenManipulator;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.monster.Pillager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -53,6 +58,18 @@ public class RandomEventManager {
     /** Map: colonyId → global cooldown expiry timestamp */
     private static final Map<Integer, Long> GLOBAL_COOLDOWNS = new ConcurrentHashMap<>();
 
+    /** Map: colonyId → recent event log, newest first, capped at MAX_LOG_ENTRIES */
+    private static final Map<Integer, LinkedList<EventLogEntry>> EVENT_LOG = new ConcurrentHashMap<>();
+    private static final int MAX_LOG_ENTRIES = 10;
+
+    /**
+     * Map: colonyId → epoch-ms when we first processed this colony.
+     * Used by EventTriggerSystem to determine colony age for new-colony protection.
+     * MineColonies' getLastContactInHours() tracks last player *visit*, not colony age —
+     * for active colonies this is always 0, which would permanently block events.
+     */
+    static final Map<Integer, Long> COLONY_FIRST_SEEN_MS = new ConcurrentHashMap<>();
+
     private static MinecraftServer SERVER;
     private static final Random RANDOM = new Random();
 
@@ -67,8 +84,7 @@ public class RandomEventManager {
     public static void initialize(MinecraftServer server) {
         SERVER = server;
         loadData();
-        LOGGER.info("RandomEventManager initialized with {} active events across {} colonies",
-            countTotalEvents(), ACTIVE_EVENTS.size());
+        if (TaxConfig.isNormalLogging()) LOGGER.info("RandomEventManager initialized with {} active events across {} colonies", countTotalEvents(), ACTIVE_EVENTS.size());
     }
 
     /**
@@ -77,7 +93,7 @@ public class RandomEventManager {
      */
     public static void shutdown() {
         saveData();
-        LOGGER.info("RandomEventManager shutdown complete");
+        if (TaxConfig.isNormalLogging()) LOGGER.info("RandomEventManager shutdown complete");
     }
 
     // ==================== Tax Cycle Integration ====================
@@ -96,6 +112,9 @@ public class RandomEventManager {
         }
 
         int colonyId = colony.getID();
+
+        // Track when we first see this colony (used for new-colony protection age check)
+        COLONY_FIRST_SEEN_MS.putIfAbsent(colonyId, System.currentTimeMillis());
 
         // 1. Update active events (decrement cycles, check expiration)
         updateActiveEvents(colonyId, colony);
@@ -179,7 +198,7 @@ public class RandomEventManager {
         }
 
         // Check new colony protection
-        if (isNewColony(colony)) {
+        if (EventTriggerSystem.isColonyProtected(colony)) {
             return; // Colony too new for events
         }
 
@@ -200,8 +219,8 @@ public class RandomEventManager {
                 continue;
             }
 
-            // Calculate modified probability
-            double probability = calculateProbability(colony, eventType);
+            // Calculate modified probability (policy, war, raid, size modifiers all applied)
+            double probability = EventTriggerSystem.calculateEventProbability(colony, eventType);
 
             // Roll for trigger
             if (RANDOM.nextDouble() < probability) {
@@ -229,6 +248,17 @@ public class RandomEventManager {
         // Add to active events
         ACTIVE_EVENTS.computeIfAbsent(colonyId, k -> new ArrayList<>()).add(event);
 
+        // Record in event log
+        addToEventLog(colonyId, new EventLogEntry(
+            event.getEventId().toString(),
+            eventType.getDisplayName(),
+            eventType.getDescription(),
+            buildCompactStat(eventType),
+            getColorCode(eventType),
+            true,
+            eventType.getDurationCycles()
+        ));
+
         // Set cooldowns
         long cooldownDuration = eventType.getCooldownCycles() * getTaxCycleDurationMs();
         EVENT_COOLDOWNS.computeIfAbsent(colonyId, k -> new ConcurrentHashMap<>())
@@ -242,6 +272,10 @@ public class RandomEventManager {
 
         LOGGER.info("Event {} triggered for colony {} ({})",
             eventType, colonyId, colony.getName());
+        int _evtBal = net.machiavelli.minecolonytax.TaxManager.getStoredTaxForColonyId(colonyId);
+        net.machiavelli.minecolonytax.data.HistoryManager.logWithBalance(colonyId, "EVENT",
+                eventType.getDisplayName() + ": " + buildCompactStat(eventType),
+                _evtBal, _evtBal);
     }
 
     /**
@@ -287,6 +321,44 @@ public class RandomEventManager {
                         blightCount, colony.getName());
                     break;
 
+                case BOUNTIFUL_HARVEST:
+                    // Colony is well-fed — full saturation for all citizens
+                    int harvestCount = CitizenManipulator.setSaturationForAll(colony, 20.0);
+                    LOGGER.info("Bountiful harvest: {} citizens fed in colony {}",
+                        harvestCount, colony.getName());
+                    break;
+
+                case FOOD_SHORTAGE:
+                    // Citizens are hungry — low but non-starving saturation
+                    int shortageCount = CitizenManipulator.setSaturationForAll(colony, 6.0);
+                    LOGGER.info("Food shortage: {} citizens affected in colony {}",
+                        shortageCount, colony.getName());
+                    break;
+
+                case DISEASE_OUTBREAK:
+                    // Infect 10-15% of citizens (lighter than PLAGUE_OUTBREAK's 20-40%)
+                    double outbreakPercentage = 0.10 + (RANDOM.nextDouble() * 0.05);
+                    affectedCitizens = CitizenManipulator.infectWithPlague(colony, outbreakPercentage);
+                    LOGGER.info("Disease outbreak: {} citizens infected in colony {}",
+                        affectedCitizens.size(), colony.getName());
+                    break;
+
+                case BANDIT_HARASSMENT:
+                    // Spawn 2-4 Pillagers near the colony center
+                    int banditCount = 2 + RANDOM.nextInt(3); // 2, 3, or 4
+                    spawnBanditsNearColony(colony, banditCount);
+                    break;
+
+                case GUARD_DESERTION:
+                    // Permanently remove the strongest guard (by total XP) from the colony
+                    String desertedGuard = CitizenManipulator.desertStrongestGuard(colony);
+                    if (desertedGuard != null) {
+                        LOGGER.info("Guard desertion: {} permanently left colony {}", desertedGuard, colony.getName());
+                        // Store name in affectedCitizens as a sentinel — id -1 means "used desertedName"
+                        // We don't restore on expiry; desertion is permanent.
+                    }
+                    break;
+
                 default:
                     // No deep integration for this event type
                     break;
@@ -304,31 +376,46 @@ public class RandomEventManager {
     }
 
     /**
-     * Calculate the probability for an event to trigger.
-     * Applies modifiers based on colony size and configuration.
+     * Spawn pillager bandits near a colony's center block.
+     * Bandits are scattered randomly within a 20-block radius at surface level.
+     * They are natural hostile mobs — no cleanup needed, they despawn or are killed.
      *
-     * @param colony The colony
-     * @param eventType The event type
-     * @return Modified probability (0.0-1.0)
+     * @param colony Target colony
+     * @param count  Number of pillagers to spawn (2-4 recommended)
      */
-    private static double calculateProbability(IColony colony, RandomEventType eventType) {
-        double baseProbability = eventType.getBaseProbability();
+    private static void spawnBanditsNearColony(IColony colony, int count) {
+        try {
+            ServerLevel level = (ServerLevel) colony.getWorld();
+            if (level == null) {
+                LOGGER.warn("Bandit harassment: colony {} has null world, skipping spawn", colony.getName());
+                return;
+            }
 
-        // Apply config multiplier
-        double configMultiplier = TaxConfig.getBaseChanceMultiplier();
-        double probability = baseProbability * configMultiplier;
+            BlockPos center = colony.getCenter();
+            int spawned = 0;
 
-        // Apply colony size modifiers
-        int citizenCount = colony.getCitizenManager().getCitizens().size();
-        if (citizenCount < 20) {
-            probability *= 0.5; // 50% reduced for small colonies
-        } else if (citizenCount >= 100) {
-            probability *= 1.3; // 30% increased for large colonies
-        } else if (citizenCount >= 50) {
-            probability *= 1.2; // 20% increased for medium colonies
+            for (int i = 0; i < count; i++) {
+                // Scatter within ±20 blocks of colony center
+                int offsetX = (RANDOM.nextInt(41)) - 20;
+                int offsetZ = (RANDOM.nextInt(41)) - 20;
+                BlockPos target = new BlockPos(center.getX() + offsetX, center.getY(), center.getZ() + offsetZ);
+
+                // Find the surface height at this position
+                BlockPos surfacePos = level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, target);
+
+                Pillager pillager = EntityType.PILLAGER.create(level);
+                if (pillager != null) {
+                    pillager.moveTo(surfacePos.getX() + 0.5, surfacePos.getY(), surfacePos.getZ() + 0.5, RANDOM.nextFloat() * 360f, 0f);
+                    pillager.finalizeSpawn(level, level.getCurrentDifficultyAt(surfacePos), MobSpawnType.EVENT, null, null);
+                    level.addFreshEntityWithPassengers(pillager);
+                    spawned++;
+                }
+            }
+
+            LOGGER.info("Bandit harassment: spawned {} pillagers near colony {} ({})", spawned, colony.getName(), colony.getID());
+        } catch (Exception e) {
+            LOGGER.warn("Bandit harassment: failed to spawn bandits near colony {}: {}", colony.getName(), e.getMessage());
         }
-
-        return Math.max(0.0, Math.min(1.0, probability));
     }
 
     // ==================== Event Management ====================
@@ -351,6 +438,9 @@ public class RandomEventManager {
             // Decrement remaining cycles
             event.decrementCycle();
 
+            // Keep log entry in sync
+            syncLogEntry(colonyId, event.getEventId().toString(), event.getRemainingCycles());
+
             // Check if expired
             if (event.hasExpired()) {
                 expiredEvents.add(event);
@@ -363,6 +453,7 @@ public class RandomEventManager {
             restoreDeepIntegrationEffects(colony, expired);
 
             events.remove(expired);
+            markLogEntryExpired(colonyId, expired.getEventId().toString());
             notifyColonyPlayers(colony, expired, "expired");
 
             LOGGER.info("Event {} expired for colony {} ({})",
@@ -400,15 +491,17 @@ public class RandomEventManager {
                     break;
 
                 case PLAGUE_OUTBREAK:
-                    // Cure all sick citizens
+                case DISEASE_OUTBREAK:
+                    // Cure all sick citizens when either disease event expires
                     int curedCount = CitizenManipulator.cureAllCitizens(colony);
-                    LOGGER.info("Plague ended: {} citizens cured in colony {}",
-                        curedCount, colony.getName());
+                    LOGGER.info("{} ended: {} citizens cured in colony {}",
+                        type.getDisplayName(), curedCount, colony.getName());
                     break;
 
                 default:
-                    // ROYAL_FEAST and CROP_BLIGHT are one-time saturation changes
-                    // No restoration needed - saturation returns to normal naturally
+                    // Saturation-based events (ROYAL_FEAST, CROP_BLIGHT, BOUNTIFUL_HARVEST, FOOD_SHORTAGE)
+                    // are one-time changes — saturation normalizes naturally as citizens eat.
+                    // BANDIT_HARASSMENT, GUARD_DESERTION, CORRUPT_OFFICIAL etc. have no restoration.
                     break;
             }
         } catch (Exception e) {
@@ -451,23 +544,6 @@ public class RandomEventManager {
     }
 
     /**
-     * Check if a colony is too new for events.
-     *
-     * @param colony The colony
-     * @return true if protected by new colony grace period
-     */
-    private static boolean isNewColony(IColony colony) {
-        int protectionHours = TaxConfig.getNewColonyProtectionHours();
-        if (protectionHours <= 0) {
-            return false;
-        }
-
-        // TODO: Need colony creation timestamp from MineColonies API
-        // For now, assume no protection (will implement in Phase 2)
-        return false;
-    }
-
-    /**
      * Get the tax cycle duration in milliseconds.
      *
      * @return Duration in milliseconds
@@ -486,6 +562,60 @@ public class RandomEventManager {
         return ACTIVE_EVENTS.values().stream()
             .mapToInt(List::size)
             .sum();
+    }
+
+    // ==================== Event Log Helpers ====================
+
+    private static void addToEventLog(int colonyId, EventLogEntry entry) {
+        LinkedList<EventLogEntry> log = EVENT_LOG.computeIfAbsent(colonyId, k -> new LinkedList<>());
+        log.addFirst(entry);
+        while (log.size() > MAX_LOG_ENTRIES) {
+            log.removeLast();
+        }
+    }
+
+    private static void syncLogEntry(int colonyId, String eventId, int remainingCycles) {
+        LinkedList<EventLogEntry> log = EVENT_LOG.get(colonyId);
+        if (log == null) return;
+        for (EventLogEntry e : log) {
+            if (e.getEventId().equals(eventId)) {
+                e.setRemainingCycles(remainingCycles);
+                return;
+            }
+        }
+    }
+
+    private static void markLogEntryExpired(int colonyId, String eventId) {
+        LinkedList<EventLogEntry> log = EVENT_LOG.get(colonyId);
+        if (log == null) return;
+        for (EventLogEntry e : log) {
+            if (e.getEventId().equals(eventId)) {
+                e.setActive(false);
+                e.setRemainingCycles(0);
+                return;
+            }
+        }
+    }
+
+    private static int getColorCode(RandomEventType type) {
+        Integer chatColor = type.getColor().getColor();
+        return chatColor != null ? (0xFF000000 | chatColor) : 0xFF2C1E0E;
+    }
+
+    /** Builds a short inline stat string like "+15% tax  -0.3 hap" for the GUI event row. */
+    private static String buildCompactStat(RandomEventType type) {
+        StringBuilder sb = new StringBuilder();
+        double tax = type.getTaxMultiplier();
+        double hap = type.getHappinessModifier();
+        if (tax != 1.0) {
+            int pct = (int) Math.round((tax - 1.0) * 100);
+            sb.append(pct > 0 ? "+" : "").append(pct).append("% tax");
+        }
+        if (hap != 0.0) {
+            if (sb.length() > 0) sb.append("  ");
+            sb.append(hap > 0 ? "+" : "").append(String.format("%.1f", hap)).append(" hap");
+        }
+        return sb.toString();
     }
 
     /**
@@ -655,6 +785,40 @@ public class RandomEventManager {
                 }
             }
 
+            // Load event log
+            if (root.has("eventLog")) {
+                JsonObject logJson = root.getAsJsonObject("eventLog");
+                for (String colonyIdStr : logJson.keySet()) {
+                    int colonyId = Integer.parseInt(colonyIdStr);
+                    JsonArray logArray = logJson.getAsJsonArray(colonyIdStr);
+                    LinkedList<EventLogEntry> log = new LinkedList<>();
+                    for (JsonElement element : logArray) {
+                        JsonObject entryJson = element.getAsJsonObject();
+                        String compactStat = entryJson.has("compactStat")
+                                ? entryJson.get("compactStat").getAsString() : "";
+                        log.add(new EventLogEntry(
+                            entryJson.get("eventId").getAsString(),
+                            entryJson.get("displayName").getAsString(),
+                            entryJson.get("description").getAsString(),
+                            compactStat,
+                            entryJson.get("colorCode").getAsInt(),
+                            entryJson.get("isActive").getAsBoolean(),
+                            entryJson.get("remainingCycles").getAsInt()
+                        ));
+                    }
+                    EVENT_LOG.put(colonyId, log);
+                }
+            }
+
+            // Load colony first-seen timestamps
+            if (root.has("colonyFirstSeen")) {
+                JsonObject firstSeenJson = root.getAsJsonObject("colonyFirstSeen");
+                for (String colonyIdStr : firstSeenJson.keySet()) {
+                    int colonyId = Integer.parseInt(colonyIdStr);
+                    COLONY_FIRST_SEEN_MS.put(colonyId, firstSeenJson.get(colonyIdStr).getAsLong());
+                }
+            }
+
             LOGGER.info("Loaded random events data from {}", STORAGE_FILE);
         } catch (Exception e) {
             LOGGER.error("Failed to load random events data: {}", e.getMessage());
@@ -717,6 +881,32 @@ public class RandomEventManager {
             }
             root.add("eventCooldowns", cooldownsJson);
 
+            // Save event log
+            JsonObject logJson = new JsonObject();
+            for (Map.Entry<Integer, LinkedList<EventLogEntry>> logEntry : EVENT_LOG.entrySet()) {
+                JsonArray logArray = new JsonArray();
+                for (EventLogEntry entry : logEntry.getValue()) {
+                    JsonObject entryJson = new JsonObject();
+                    entryJson.addProperty("eventId", entry.getEventId());
+                    entryJson.addProperty("displayName", entry.getDisplayName());
+                    entryJson.addProperty("description", entry.getDescription());
+                    entryJson.addProperty("compactStat", entry.getCompactStat());
+                    entryJson.addProperty("colorCode", entry.getColorCode());
+                    entryJson.addProperty("isActive", entry.isActive());
+                    entryJson.addProperty("remainingCycles", entry.getRemainingCycles());
+                    logArray.add(entryJson);
+                }
+                logJson.add(logEntry.getKey().toString(), logArray);
+            }
+            root.add("eventLog", logJson);
+
+            // Save colony first-seen timestamps (for new-colony protection)
+            JsonObject firstSeenJson = new JsonObject();
+            for (Map.Entry<Integer, Long> entry : COLONY_FIRST_SEEN_MS.entrySet()) {
+                firstSeenJson.addProperty(entry.getKey().toString(), entry.getValue());
+            }
+            root.add("colonyFirstSeen", firstSeenJson);
+
             // Write to file
             try (Writer writer = Files.newBufferedWriter(path)) {
                 GSON.toJson(root, writer);
@@ -740,6 +930,31 @@ public class RandomEventManager {
      */
     public static List<ActiveEvent> getActiveEvents(int colonyId) {
         return new ArrayList<>(ACTIVE_EVENTS.getOrDefault(colonyId, new ArrayList<>()));
+    }
+
+    /**
+     * Get recent event log for a colony, newest first (for GUI display).
+     *
+     * @param colonyId The colony ID
+     * @return Snapshot list of log entries
+     */
+    public static List<EventLogEntry> getEventLog(int colonyId) {
+        LinkedList<EventLogEntry> log = EVENT_LOG.get(colonyId);
+        return log != null ? new ArrayList<>(log) : new ArrayList<>();
+    }
+
+    /**
+     * Remove a specific entry from the event log (player-initiated dismiss in GUI).
+     *
+     * @param colonyId The colony ID
+     * @param eventId  The event UUID string to remove
+     */
+    public static void dismissFromEventLog(int colonyId, String eventId) {
+        LinkedList<EventLogEntry> log = EVENT_LOG.get(colonyId);
+        if (log == null) return;
+        log.removeIf(e -> e.getEventId().equals(eventId));
+        if (log.isEmpty()) EVENT_LOG.remove(colonyId);
+        saveData();
     }
 
     /**
@@ -782,5 +997,27 @@ public class RandomEventManager {
     public static void forceTriggerEvent(IColony colony, RandomEventType eventType) {
         triggerEvent(colony, eventType);
         LOGGER.info("Force-triggered event {} for colony {}", eventType, colony.getID());
+    }
+
+    /**
+     * Reset all event state for a colony so it behaves as if freshly set up.
+     * Clears protection (sets first-seen to 25h ago), all cooldowns, and active events.
+     * Admin/testing use only — wired to /wnt events reset.
+     *
+     * @param colonyId The colony ID
+     */
+    public static void resetColonyEventState(int colonyId) {
+        // Set first-seen to 25 hours ago so new-colony protection is expired
+        COLONY_FIRST_SEEN_MS.put(colonyId, System.currentTimeMillis() - 25 * 3_600_000L);
+
+        // Clear per-event and global cooldowns
+        EVENT_COOLDOWNS.remove(colonyId);
+        GLOBAL_COOLDOWNS.remove(colonyId);
+
+        // Clear any active events (without restoring effects — this is an admin reset)
+        ACTIVE_EVENTS.remove(colonyId);
+
+        saveData();
+        LOGGER.info("Reset all event state for colony {}", colonyId);
     }
 }

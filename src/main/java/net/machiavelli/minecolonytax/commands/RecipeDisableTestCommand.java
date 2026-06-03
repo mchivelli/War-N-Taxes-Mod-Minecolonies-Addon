@@ -14,9 +14,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Set;
 
-/**
- * Command to test the recipe disabling feature
- */
 public class RecipeDisableTestCommand {
     
     private static final Logger LOGGER = LoggerFactory.getLogger(RecipeDisableTestCommand.class);
@@ -81,10 +78,6 @@ public class RecipeDisableTestCommand {
         return shouldDisable ? 1 : 0;
     }
 }
-
-
-
-
 
 
 

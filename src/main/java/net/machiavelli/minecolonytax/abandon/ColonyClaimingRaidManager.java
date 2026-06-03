@@ -8,7 +8,12 @@ import com.minecolonies.api.colony.permissions.Action;
 import com.minecolonies.api.colony.permissions.IPermissions;
 import com.minecolonies.api.colony.permissions.Rank;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
-import com.minecolonies.core.entity.mobs.EntityMercenary;
+// Intentionally do NOT import com.minecolonies.core.entity.mobs.EntityMercenary —
+// it lives in the INTERNAL core package, not the api/* surface. We work through the
+// API-typed EntityType<? extends PathfinderMob> ModEntities.MERCENARY and operate on
+// the result as a Mob, so a future class move/rename cannot brick this manager.
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.PathfinderMob;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.WarSystem;
 import net.minecraft.ChatFormatting;
@@ -97,12 +102,16 @@ public class ColonyClaimingRaidManager {
             return false;
         }
         
+        // Early non-atomic check (cheap fast path). The authoritative race-free check is the
+        // putIfAbsent below — without that, two concurrent claimants both pass containsKey and
+        // one overwrites the other's raid state, orphaning a boss bar and double-converting
+        // citizens. AUDIT FIX (defensive_04 H5).
         if (activeClaimingRaids.containsKey(colony.getID())) {
             claimingPlayer.sendSystemMessage(Component.literal("A claiming raid is already in progress for this colony!")
                     .withStyle(ChatFormatting.RED));
             return false;
         }
-        
+
         // Check claiming requirements (includes former owner/officer bypass)
         ClaimingRequirementResult requirementResult = checkClaimingRequirements(claimingPlayer, colony);
         if (!requirementResult.canClaim) {
@@ -114,7 +123,7 @@ public class ColonyClaimingRaidManager {
         // Log if this is a former owner/officer claiming back their colony
         boolean isFormerMember = ColonyAbandonmentManager.wasFormerOwnerOrOfficer(colony.getID(), claimingPlayer.getUUID());
         if (isFormerMember) {
-            LOGGER.info("RECLAIM ATTEMPT: Former owner/officer {} is attempting to reclaim their abandoned colony {}", 
+            if (TaxConfig.isNormalLogging()) LOGGER.info("RECLAIM ATTEMPT: Former owner/officer {} is attempting to reclaim their abandoned colony {}",
                 claimingPlayer.getName().getString(), colony.getName());
             claimingPlayer.sendSystemMessage(Component.literal("You are reclaiming your former colony. Requirements bypassed but you must complete the claiming raid!")
                     .withStyle(ChatFormatting.YELLOW));
@@ -123,8 +132,16 @@ public class ColonyClaimingRaidManager {
         try {
             // Create raid data
             ClaimingRaidData raidData = new ClaimingRaidData(colony.getID(), claimingPlayer.getUUID(), colony.getCenter());
-            activeClaimingRaids.put(colony.getID(), raidData);
-            
+            // AUDIT FIX (defensive_04 H5): atomic check-then-insert. A non-null return means a
+            // concurrent claimant already inserted their own raid — bail without doing any side
+            // effects (citizen conversion, boss bar). The earlier containsKey check is just a
+            // fast-fail; this is the authoritative one.
+            if (activeClaimingRaids.putIfAbsent(colony.getID(), raidData) != null) {
+                claimingPlayer.sendSystemMessage(Component.literal("A claiming raid is already in progress for this colony!")
+                        .withStyle(ChatFormatting.RED));
+                return false;
+            }
+
             // Convert citizens to hostile militia
             int citizenCount = convertCitizensToMilitia(colony, claimingPlayer, raidData);
             
@@ -138,19 +155,19 @@ public class ColonyClaimingRaidManager {
                     int totalDefenders = citizenCount + mercenaryCount;
                     net.machiavelli.minecolonytax.militia.CitizenMilitiaManager.getInstance()
                             .setTotalDefenders(colony.getID(), totalDefenders);
-                    LOGGER.info("Updated total defenders to {} (citizens: {}, mercenaries: {}) for claiming raid in colony {}", 
+                    if (TaxConfig.isDebugLogging()) LOGGER.info("Updated total defenders to {} (citizens: {}, mercenaries: {}) for claiming raid in colony {}",
                             totalDefenders, citizenCount, mercenaryCount, colony.getName());
                 }
             }
             
             // Create boss bar
-            LOGGER.info("Creating boss bar for claiming raid in colony {} for player {}", 
+            if (TaxConfig.isDebugLogging()) LOGGER.info("Creating boss bar for claiming raid in colony {} for player {}",
                 colony.getName(), claimingPlayer.getName().getString());
             createRaidBossBar(raidData, claimingPlayer);
             
             // Verify boss bar was created
             if (raidData.bossEvent != null) {
-                LOGGER.info("Boss bar successfully created for claiming raid");
+                if (TaxConfig.isDebugLogging()) LOGGER.info("Boss bar successfully created for claiming raid");
             } else {
                 LOGGER.error("Failed to create boss bar for claiming raid");
             }
@@ -183,15 +200,15 @@ public class ColonyClaimingRaidManager {
             claimingPlayer.sendSystemMessage(startMessage);
             
             // Send brief notification to nearby players (smaller radius)
-            Component nearbyMessage = Component.literal("⚔ CLAIMING RAID STARTED ⚔")
+            Component nearbyMessage = Component.literal("CLAIMING RAID STARTED")
                     .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
                     .append(Component.literal("\n" + claimingPlayer.getName().getString() + " is claiming " + colony.getName())
                            .withStyle(ChatFormatting.YELLOW));
             
             broadcastToNearbyPlayers(colony, nearbyMessage, 100); // Reduced radius
             
-            LOGGER.info("Started claiming raid for colony {} ({}) by player {} with {} defenders", 
-                       colony.getName(), colony.getID(), claimingPlayer.getName().getString(), 
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Started claiming raid for colony {} ({}) by player {} with {} defenders",
+                       colony.getName(), colony.getID(), claimingPlayer.getName().getString(),
                        citizenCount + mercenaryCount);
             
             return true;
@@ -253,7 +270,7 @@ public class ColonyClaimingRaidManager {
         if (convertedCount > 0) {
             net.machiavelli.minecolonytax.militia.CitizenMilitiaManager.getInstance()
                     .setTotalDefenders(colony.getID(), convertedCount);
-            LOGGER.info("Registered {} citizens as militia defenders for claiming raid in colony {}", 
+            if (TaxConfig.isDebugLogging()) LOGGER.info("Registered {} citizens as militia defenders for claiming raid in colony {}",
                     convertedCount, colony.getName());
         }
         
@@ -269,29 +286,35 @@ public class ColonyClaimingRaidManager {
             Level world = colony.getWorld();
             
             for (int i = 0; i < mercenaryCount; i++) {
-                EntityMercenary mercenary = (EntityMercenary) com.minecolonies.api.entity.ModEntities.MERCENARY.create(world);
+                // ModEntities.MERCENARY is EntityType<? extends PathfinderMob> in the API
+                // package — we operate on the result via the vanilla Mob API only, so a
+                // refactor of the concrete EntityMercenary subclass cannot break us.
+                PathfinderMob mercenary = com.minecolonies.api.entity.ModEntities.MERCENARY.create(world);
                 if (mercenary == null) continue;
-                
+
                 // Position mercenary near colony center
                 BlockPos spawnPos = findMercenarySpawnPosition(colony.getCenter(), world);
                 mercenary.setPos(spawnPos.getX(), spawnPos.getY(), spawnPos.getZ());
-                
+
                 // Make mercenary hostile to claiming player
-                mercenary.setTarget(claimingPlayer);
-                
+                ((Mob) mercenary).setTarget(claimingPlayer);
+
                 // Add effects
-                mercenary.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 
+                mercenary.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE,
                         TaxConfig.getClaimingRaidDurationMinutes() * 60 * 20, 2));
-                mercenary.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 
+                mercenary.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST,
                         TaxConfig.getClaimingRaidDurationMinutes() * 60 * 20, 1));
-                
+
                 world.addFreshEntity(mercenary);
                 raidData.spawnedMercenaries.add(mercenary);
             }
-            
+
             return mercenaryCount;
-            
-        } catch (Exception e) {
+
+        } catch (Throwable e) {
+            // Catch Throwable so a NoClassDefFoundError on the internal EntityMercenary
+            // class (referenced through the EntityType<? extends PathfinderMob>) does not
+            // bubble out of this manager.
             LOGGER.error("Error spawning defending mercenaries for colony {}", colony.getID(), e);
             return 0;
         }
@@ -367,7 +390,7 @@ public class ColonyClaimingRaidManager {
             // Add the claiming player
             try {
                 raidData.bossEvent.addPlayer(claimingPlayer);
-                LOGGER.info("BOSS BAR CREATED: Player {} added to boss bar for colony {} ({} defenders, {} minute timer)", 
+                if (TaxConfig.isDebugLogging()) LOGGER.info("BOSS BAR CREATED: Player {} added to boss bar for colony {} ({} defenders, {} minute timer)",
                     claimingPlayer.getName().getString(), colony.getName(), totalDefenders, minutes);
             } catch (Exception e) {
                 LOGGER.error("Failed to add claiming player to boss bar: {}", e.getMessage());
@@ -396,7 +419,7 @@ public class ColonyClaimingRaidManager {
                         }
                     }
                     
-                    LOGGER.info("BOSS BAR SETUP: Added {} nearby players to boss bar", playersAdded);
+                    if (TaxConfig.isDebugLogging()) LOGGER.info("BOSS BAR SETUP: Added {} nearby players to boss bar", playersAdded);
                 } catch (Exception e) {
                     LOGGER.error("Error adding nearby players to boss bar: {}", e.getMessage());
                 }
@@ -405,7 +428,7 @@ public class ColonyClaimingRaidManager {
             // Force an immediate update to ensure the boss bar shows correctly with current time
             try {
                 updateRaidBossBar(raidData);
-                LOGGER.info("BOSS BAR INITIALIZED: Successfully created and updated boss bar for colony {}", colony.getName());
+                if (TaxConfig.isDebugLogging()) LOGGER.info("BOSS BAR INITIALIZED: Successfully created and updated boss bar for colony {}", colony.getName());
             } catch (Exception e) {
                 LOGGER.error("Failed to perform initial boss bar update: {}", e.getMessage());
             }
@@ -606,7 +629,7 @@ public class ColonyClaimingRaidManager {
             
             // Clean up dead defenders from tracking (fallback mechanism)
             if (!deadCitizens.isEmpty() || !deadMercenaries.isEmpty()) {
-                LOGGER.info("CLEANUP: Removing {} dead citizens and {} dead mercenaries from tracking in colony {}", 
+                if (TaxConfig.isDebugLogging()) LOGGER.info("CLEANUP: Removing {} dead citizens and {} dead mercenaries from tracking in colony {}",
                     deadCitizens.size(), deadMercenaries.size(), colony.getName());
                 
                 raidData.hostileCitizens.removeAll(deadCitizens);
@@ -615,9 +638,9 @@ public class ColonyClaimingRaidManager {
             
             // VICTORY CONDITION: All defenders must be dead - no shortcuts, no idle victories!
             if (aliveDefenderCount == 0) {
-                LOGGER.info("CLAIMING RAID VICTORY: All {} defenders eliminated in colony {} by {}", 
+                if (TaxConfig.isNormalLogging()) LOGGER.info("CLAIMING RAID VICTORY: All {} defenders eliminated in colony {} by {}",
                     raidData.hostileCitizens.size() + raidData.spawnedMercenaries.size(),
-                    colony.getName(), 
+                    colony.getName(),
                     claimingPlayer.getName().getString());
                 
                 // Remove from active raids immediately to prevent duplicate processing
@@ -717,7 +740,7 @@ public class ColonyClaimingRaidManager {
                         .withStyle(ChatFormatting.RED));
             }
             
-            LOGGER.info("Claiming raid for colony {} ended unsuccessfully: {}", raidData.colonyId, reason);
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Claiming raid for colony {} ended unsuccessfully: {}", raidData.colonyId, reason);
             
         } catch (Exception e) {
             LOGGER.error("Error ending claiming raid for colony {}", raidData.colonyId, e);
@@ -750,14 +773,14 @@ public class ColonyClaimingRaidManager {
             // We NEVER remove players from colonies - only change their ranks
             IPermissions permissions = colony.getPermissions();
             
-            LOGGER.info("COLONY CORRUPTION PREVENTION: Safely updating permissions for colony {} without removing any players", colony.getName());
+            if (TaxConfig.isDebugLogging()) LOGGER.info("COLONY CORRUPTION PREVENTION: Safely updating permissions for colony {} without removing any players", colony.getName());
             
             // STEP 0: Clean up system owner from abandoned state
             UUID systemOwnerUUID = ColonyAbandonmentManager.createSystemOwner();
             if (permissions.getPlayers().containsKey(systemOwnerUUID)) {
                 try {
                     permissions.removePlayer(systemOwnerUUID);
-                    LOGGER.info("CLEANUP: Removed system owner from claimed colony {}", colony.getName());
+                    if (TaxConfig.isDebugLogging()) LOGGER.info("CLEANUP: Removed system owner from claimed colony {}", colony.getName());
                 } catch (Exception e) {
                     LOGGER.error("Failed to remove system owner from colony {}: {}", colony.getName(), e.getMessage());
                 }
@@ -772,12 +795,12 @@ public class ColonyClaimingRaidManager {
             if (wasAlreadyInColony) {
                 // Player was already in colony - promote to Owner
                 permissions.setPlayerRank(claimingPlayer.getUUID(), permissions.getRankOwner(), colony.getWorld());
-                LOGGER.info("CLAIMING SUCCESS: Promoted existing player {} to OWNER of colony {}", 
+                if (TaxConfig.isNormalLogging()) LOGGER.info("CLAIMING SUCCESS: Promoted existing player {} to OWNER of colony {}",
                     claimingPlayer.getName().getString(), colony.getName());
             } else {
                 // Player was not in colony - add them as Owner
                 permissions.addPlayer(claimingPlayer.getUUID(), claimingPlayer.getName().getString(), permissions.getRankOwner());
-                LOGGER.info("CLAIMING SUCCESS: Added new player {} as OWNER of colony {}", 
+                if (TaxConfig.isNormalLogging()) LOGGER.info("CLAIMING SUCCESS: Added new player {} as OWNER of colony {}",
                     claimingPlayer.getName().getString(), colony.getName());
             }
             
@@ -785,7 +808,7 @@ public class ColonyClaimingRaidManager {
             try {
                 java.lang.reflect.Method setOwnerMethod = permissions.getClass().getMethod("setOwner", UUID.class);
                 setOwnerMethod.invoke(permissions, claimingPlayer.getUUID());
-                LOGGER.info("🏛️ CLAIMING OWNER SET: {} is now the actual owner of claimed colony {}", 
+                if (TaxConfig.isNormalLogging()) LOGGER.info("Claiming owner set: {} is now the actual owner of claimed colony {}",
                     claimingPlayer.getName().getString(), colony.getName());
             } catch (Exception e) {
                 LOGGER.warn("Could not set claiming player as actual owner directly, trying alternative: {}", e.getMessage());
@@ -794,7 +817,7 @@ public class ColonyClaimingRaidManager {
                         if (method.getName().equals("setOwner") && method.getParameterCount() == 1) {
                             method.setAccessible(true);
                             method.invoke(permissions, claimingPlayer.getUUID());
-                            LOGGER.info("🏛️ CLAIMING OWNER SET (alt): {} is now the actual owner of claimed colony {}", 
+                            if (TaxConfig.isNormalLogging()) LOGGER.info("Claiming owner set (alt): {} is now the actual owner of claimed colony {}",
                                 claimingPlayer.getName().getString(), colony.getName());
                             break;
                         }
@@ -807,7 +830,7 @@ public class ColonyClaimingRaidManager {
             // STEP 2: Restore normal permissions for neutral players (they were restricted during abandonment)
             Rank neutralRank = permissions.getRankNeutral();
             
-            LOGGER.info("Restoring normal neutral permissions for abandoned colony {}", colony.getName());
+            if (TaxConfig.isDebugLogging()) LOGGER.info("Restoring normal neutral permissions for abandoned colony {}", colony.getName());
             
             // Restore basic interaction permissions for neutral players
             permissions.setPermission(neutralRank, Action.ACCESS_HUTS, true);
@@ -820,20 +843,19 @@ public class ColonyClaimingRaidManager {
             permissions.setPermission(neutralRank, Action.BREAK_BLOCKS, false);
             permissions.setPermission(neutralRank, Action.PLACE_BLOCKS, false);
             
-            LOGGER.info("Colony {} permissions safely updated - claimer is Officer, all players preserved", colony.getName());
+            if (TaxConfig.isNormalLogging()) LOGGER.info("Colony {} permissions safely updated - claimer is Officer, all players preserved", colony.getName());
             
             if (isFormerMember) {
-                LOGGER.info("RECLAIMED: Former owner/officer {} has reclaimed colony {} and set as Officer", 
+                if (TaxConfig.isNormalLogging()) LOGGER.info("RECLAIMED: Former owner/officer {} has reclaimed colony {} and set as Officer",
                     claimingPlayer.getName().getString(), colony.getName());
             } else {
-                LOGGER.info("CLAIMED: New claimer {} has claimed colony {} and set as Officer", 
+                if (TaxConfig.isNormalLogging()) LOGGER.info("CLAIMED: New claimer {} has claimed colony {} and set as Officer",
                     claimingPlayer.getName().getString(), colony.getName());
             }
             
             // Mark colony as no longer abandoned
             ColonyAbandonmentManager.markColonyAsClaimed(colony.getID());
             
-            // 🎯 CLEANUP: Remove attack permissions after successful claiming
             setClaimingInteractionPermissions(colony, false);
             
             // Clean up effects and hostility from citizens
@@ -1049,8 +1071,17 @@ public class ColonyClaimingRaidManager {
      */
     public static boolean isPlayerInClaimingRaid(UUID playerId, int colonyId) {
         ClaimingRaidData raidData = activeClaimingRaids.get(colonyId);
-        return raidData != null && raidData.claimingPlayerId.equals(playerId) && 
+        return raidData != null && raidData.claimingPlayerId.equals(playerId) &&
                (System.currentTimeMillis() < raidData.endTime);
+    }
+
+    /**
+     * Returns true if there is an active claiming raid on the given colony right now.
+     * Used by PermissionsHealthCheck to avoid false-positive permission resets.
+     */
+    public static boolean isColonyBeingClaimed(int colonyId) {
+        ClaimingRaidData raidData = activeClaimingRaids.get(colonyId);
+        return raidData != null && System.currentTimeMillis() < raidData.endTime;
     }
     
     /**
@@ -1305,7 +1336,7 @@ public class ColonyClaimingRaidManager {
             perms.setPermission(hostile, action, allowed);
         }
         
-        // 🎯 CRITICAL: Also handle attack permissions for neutral rank during raids
+        // Also update neutral rank attack permissions during raids
         if (allowed) {
             // Grant attack permissions during raid
             perms.setPermission(neutral, Action.HURT_CITIZEN, true);

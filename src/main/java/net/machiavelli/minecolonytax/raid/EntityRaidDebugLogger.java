@@ -11,10 +11,13 @@ import java.util.List;
 import java.util.UUID;
 
 /**
+ * @deprecated Entity raid system will be replaced. Code retained for reference.
+ *
  * Comprehensive debug logging system for EntityRaid functionality.
  * Provides structured logging with different verbosity levels to help diagnose
  * issues with entity detection, filtering, and raid triggering.
  */
+@Deprecated
 public class EntityRaidDebugLogger {
 
     private static final Logger LOGGER = LogManager.getLogger(EntityRaidDebugLogger.class);

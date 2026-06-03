@@ -7,6 +7,7 @@ import com.minecolonies.api.colony.permissions.Rank;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.integration.SDMShopIntegration;
+import net.machiavelli.minecolonytax.permissions.TaxPermissionManager;
 import net.machiavelli.minecolonytax.vassalization.VassalManager;
 import net.machiavelli.minecolonytax.WarSystem;
 import net.machiavelli.minecolonytax.raid.RaidManager;
@@ -35,7 +36,15 @@ public class ClaimTaxPacket {
     
     public ClaimTaxPacket(FriendlyByteBuf buf) {
         this.colonyId = buf.readInt();
-        this.amount = buf.readInt();
+        int rawAmount = buf.readInt();
+        // SECURITY: reject malicious/negative amounts. Only -1 (claim all), -2 (vassal claim), and strictly positive
+        // values are valid. Any other negative value (including Integer.MIN_VALUE) is clamped to 0 so the handler
+        // returns a no-op instead of letting TaxManager.claimTax compute storedTax - (negative) and inflate the
+        // ledger. See audit/CODEX_INDEPENDENT.md CRIT-1.
+        if (rawAmount != -1 && rawAmount != -2 && rawAmount <= 0) {
+            rawAmount = 0;
+        }
+        this.amount = rawAmount;
     }
     
     public void toBytes(FriendlyByteBuf buf) {
@@ -48,7 +57,14 @@ public class ClaimTaxPacket {
         context.enqueueWork(() -> {
             ServerPlayer player = context.getSender();
             if (player == null) return;
-            
+
+            // SECURITY: reject any amount that is not a valid sentinel (-1 claim-all, -2 vassal) or strictly positive.
+            // The decoder already clamps invalid values to 0; this is a defense-in-depth check.
+            if (amount == 0 || (amount < 0 && amount != -1 && amount != -2)) {
+                player.sendSystemMessage(Component.literal("Invalid tax claim amount."));
+                return;
+            }
+
             // Find the colony
             IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
             IColony colony = colonyManager.getAllColonies().stream()
@@ -65,12 +81,18 @@ public class ClaimTaxPacket {
             int claimedAmount = 0;
             
             if (amount == -2) {
-                // Vassal tribute claim - check if player owns this vassal
-                claimedAmount = VassalManager.claimVassalTribute(player.getUUID(), colonyId);
-                if (claimedAmount <= 0) {
+                // Vassal tribute claim - check if player owns this vassal.
+                // SECURITY (audit Top-12 #3): VassalManager.claimVassalTribute already deducts from the vassal AND
+                // credits the overlord's stored-tax ledger. Previously this path then ALSO added money directly to
+                // the player's SDMShop balance / dropped a currency item, double-paying every tribute. Now we only
+                // confirm the transfer and let the player claim the overlord ledger via the normal regular-claim path.
+                int tribute = VassalManager.claimVassalTribute(player.getUUID(), colonyId);
+                if (tribute <= 0) {
                     player.sendSystemMessage(Component.literal("No tribute available from this vassal colony."));
                     return;
                 }
+                player.sendSystemMessage(Component.literal("§aTransferred " + tribute + " tribute from " + colony.getName() + " to your overlord colony's tax balance."));
+                return;
             } else {
                 // Regular tax claim - check colony permissions
                 Rank playerRank = colony.getPermissions().getRank(player.getUUID());
@@ -78,7 +100,17 @@ public class ClaimTaxPacket {
                     player.sendSystemMessage(Component.literal("You don't have permission to claim tax from this colony!"));
                     return;
                 }
-                
+
+                // SECURITY: also honor per-player / officer-toggle settings managed by TaxPermissionManager.
+                // The slash-command path (ClaimTaxCommand) gates on this; the packet path must too, otherwise
+                // owners who revoke an officer's tax-claim permission see the officer still claim via GUI.
+                boolean isOwner = playerRank.equals(colony.getPermissions().getRankOwner());
+                boolean isOfficer = playerRank.equals(colony.getPermissions().getRankOfficer()) || isOwner;
+                if (!TaxPermissionManager.canPlayerClaimTax(colony.getID(), player.getUUID(), isOwner, isOfficer)) {
+                    player.sendSystemMessage(Component.literal("You do not have permission to claim taxes for this colony. Contact a colony owner."));
+                    return;
+                }
+
                 // Check for war restrictions
                 if (WarSystem.ACTIVE_WARS.containsKey(colonyId)) {
                     player.sendSystemMessage(Component.literal("Cannot claim tax while colony is at war!"));

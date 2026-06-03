@@ -1,5 +1,6 @@
 package net.machiavelli.minecolonytax.commands;
 
+
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -20,15 +21,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Commands for managing and testing entity raids
+ * @deprecated Entity raid system will be replaced. Code retained for reference.
  */
+@Deprecated
 public class EntityRaidCommands {
 
     private static final Logger LOGGER = LogManager.getLogger(EntityRaidCommands.class);
 
-    /**
-     * Register entity raid commands
-     */
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("wnt")
                 .then(Commands.literal("entityraid")
@@ -49,9 +48,6 @@ public class EntityRaidCommands {
         );
     }
 
-    /**
-     * Show current entity raid status
-     */
     public static int showEntityRaidStatus(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         
@@ -94,9 +90,6 @@ public class EntityRaidCommands {
         }
     }
 
-    /**
-     * Show current entity raid configuration
-     */
     public static int showEntityRaidConfig(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         
@@ -142,9 +135,6 @@ public class EntityRaidCommands {
         }
     }
 
-    /**
-     * End an active entity raid
-     */
     public static int endEntityRaid(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         int colonyId = IntegerArgumentType.getInteger(context, "colonyId");
@@ -168,15 +158,11 @@ public class EntityRaidCommands {
         }
     }
 
-    /**
-     * Test entity raid system by triggering a raid on a specific colony
-     */
     public static int testEntityRaid(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         String colonyName = StringArgumentType.getString(context, "colonyName");
-        
+
         try {
-            // Find colony by name
             IColony foundColony = null;
             for (IColony c : IColonyManager.getInstance().getAllColonies()) {
                 if (c.getName().equalsIgnoreCase(colonyName)) {
@@ -190,8 +176,8 @@ public class EntityRaidCommands {
                 return 0;
             }
             
-            final IColony colony = foundColony; // Make effectively final for lambda use
-            
+            final IColony colony = foundColony;
+
             if (EntityRaidManager.hasActiveEntityRaid(colony.getID())) {
                 source.sendFailure(Component.literal("Colony already has an active entity raid: " + colonyName));
                 return 0;
@@ -202,22 +188,17 @@ public class EntityRaidCommands {
                 return 0;
             }
             
-            // Create a fake entity raid for testing
-            // In a real scenario, this would be triggered by actual entities
             source.sendSuccess(() -> Component.literal("⚠ TEST ENTITY RAID TRIGGERED ⚠")
                     .withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
             
             source.sendSuccess(() -> Component.literal("This is a test of the entity raid system for colony: " + colony.getName())
                     .withStyle(ChatFormatting.YELLOW), true);
             
-            source.sendSuccess(() -> Component.literal("In a real scenario, this would be triggered by " + 
-                    TaxConfig.getEntityRaidThreshold() + " or more whitelisted entities within " + 
+            source.sendSuccess(() -> Component.literal("In a real scenario, this would be triggered by " +
+                    TaxConfig.getEntityRaidThreshold() + " or more whitelisted entities within " +
                     TaxConfig.getEntityRaidDetectionRadius() + " blocks of the colony.")
                     .withStyle(ChatFormatting.GRAY), false);
-            
-            // Note: We don't actually trigger a raid here since it would require fake entities
-            // This is just a configuration and system test
-            
+
             return 1;
         } catch (Exception e) {
             LOGGER.error("Error testing entity raid", e);
@@ -226,14 +207,10 @@ public class EntityRaidCommands {
         }
     }
 
-    /**
-     * Reload entity raid configuration
-     */
     public static int reloadEntityRaidConfig(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        
+
         try {
-            // Note: Forge configs are automatically reloaded, but we can provide feedback
             source.sendSuccess(() -> Component.literal("Entity raid configuration reloaded successfully!")
                     .withStyle(ChatFormatting.GREEN), true);
             

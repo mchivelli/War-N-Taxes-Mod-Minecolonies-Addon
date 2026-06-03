@@ -22,6 +22,16 @@
             "type": "patchouli:text",
             "title": "minecolonytax.entry.player_commands.diplomacy.title",
             "text": "minecolonytax.entry.player_commands.diplomacy"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.player_commands.treasury.title",
+            "text": "minecolonytax.entry.player_commands.treasury"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.player_commands.invest.title",
+            "text": "minecolonytax.entry.player_commands.invest"
         }
     ]
 }

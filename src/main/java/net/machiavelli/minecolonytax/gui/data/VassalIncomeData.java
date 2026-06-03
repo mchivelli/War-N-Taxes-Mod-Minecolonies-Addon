@@ -1,9 +1,16 @@
 package net.machiavelli.minecolonytax.gui.data;
 
-/**
- * Data container for vassal income information displayed in the GUI
- */
 public class VassalIncomeData {
+
+    /**
+     * The kind of tributary relationship represented by this row. Lets the
+     * Vassals tab render different badges:
+     *  - VASSAL: classic war-vassalage (gold badge)
+     *  - TAX_OCCUPIED: primary colony under besiege tax-occupation (red badge)
+     *  - PROVISIONAL: secondary colony mid-conversion to permanent claim (orange badge)
+     */
+    public enum VassalKind { VASSAL, TAX_OCCUPIED, PROVISIONAL }
+
     private final int vassalColonyId;
     private final String vassalColonyName;
     private final int tributeRate;
@@ -11,12 +18,19 @@ public class VassalIncomeData {
     private final int lastTribute;
     private final long lastPayment;
     private final boolean canClaim;
-    
+    private final VassalKind kind;
+
     // UI state for claim button
     private int claimButtonX, claimButtonY, claimButtonWidth, claimButtonHeight;
-    
-    public VassalIncomeData(int vassalColonyId, String vassalColonyName, int tributeRate, 
+
+    public VassalIncomeData(int vassalColonyId, String vassalColonyName, int tributeRate,
                            int tributeOwed, int lastTribute, long lastPayment, boolean canClaim) {
+        this(vassalColonyId, vassalColonyName, tributeRate, tributeOwed, lastTribute, lastPayment, canClaim, VassalKind.VASSAL);
+    }
+
+    public VassalIncomeData(int vassalColonyId, String vassalColonyName, int tributeRate,
+                           int tributeOwed, int lastTribute, long lastPayment, boolean canClaim,
+                           VassalKind kind) {
         this.vassalColonyId = vassalColonyId;
         this.vassalColonyName = vassalColonyName;
         this.tributeRate = tributeRate;
@@ -24,9 +38,13 @@ public class VassalIncomeData {
         this.lastTribute = lastTribute;
         this.lastPayment = lastPayment;
         this.canClaim = canClaim;
+        this.kind = kind != null ? kind : VassalKind.VASSAL;
+    }
+
+    public VassalKind getKind() {
+        return kind;
     }
     
-    // Getters
     public int getVassalColonyId() { return vassalColonyId; }
     public String getVassalColonyName() { return vassalColonyName; }
     public int getTributeRate() { return tributeRate; }
@@ -35,7 +53,6 @@ public class VassalIncomeData {
     public long getLastPayment() { return lastPayment; }
     public boolean canClaim() { return canClaim; }
     
-    // Button bounds for UI interaction
     public void setClaimButtonBounds(int x, int y, int width, int height) {
         this.claimButtonX = x;
         this.claimButtonY = y;

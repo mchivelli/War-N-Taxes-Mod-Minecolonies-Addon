@@ -22,13 +22,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Commands for managing random events.
- *
- * Usage:
- *   /wnt events <colonyId> - View active events for a colony
- *   /wnt triggerevent <colonyId> <eventType> - (Admin) Manually trigger an event
- */
 public class RandomEventsCommand {
 
     private static final SuggestionProvider<CommandSourceStack> EVENT_TYPE_SUGGESTIONS = (context, builder) ->
@@ -40,7 +33,6 @@ public class RandomEventsCommand {
             );
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        // /wnt events <colonyId>
         dispatcher.register(
                 Commands.literal("wnt")
                         .then(Commands.literal("events")
@@ -49,7 +41,6 @@ public class RandomEventsCommand {
                         )
         );
 
-        // /wnt triggerevent <colonyId> <eventType>
         dispatcher.register(
                 Commands.literal("wnt")
                         .then(Commands.literal("triggerevent")
@@ -61,26 +52,34 @@ public class RandomEventsCommand {
                                 )
                         )
         );
+
+        dispatcher.register(
+                Commands.literal("wnt")
+                        .then(Commands.literal("events")
+                                .then(Commands.literal("reset")
+                                        .requires(source -> source.hasPermission(2)) // Requires OP
+                                        .then(Commands.argument("colonyId", IntegerArgumentType.integer(1))
+                                                .executes(RandomEventsCommand::resetColonyEvents))
+                                )
+                        )
+        );
     }
 
     private static int viewActiveEvents(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         int colonyId = IntegerArgumentType.getInteger(ctx, "colonyId");
 
-        // Get colony
         IColony colony = IColonyManager.getInstance().getColonyByDimension(colonyId, player.serverLevel().dimension());
         if (colony == null) {
             player.sendSystemMessage(Component.literal("§cColony not found: " + colonyId));
             return 0;
         }
 
-        // Check if player is owner or officer
         if (!colony.getPermissions().hasPermission(player, com.minecolonies.api.colony.permissions.Action.MANAGE_HUTS)) {
             player.sendSystemMessage(Component.literal("§cYou must be an owner or officer of this colony!"));
             return 0;
         }
 
-        // Get active events
         List<ActiveEvent> activeEvents = RandomEventManager.getActiveEvents(colonyId);
 
         if (activeEvents.isEmpty()) {
@@ -91,10 +90,8 @@ public class RandomEventsCommand {
 
         // Display active events
         player.sendSystemMessage(Component.literal("§6=== Active Events for " + colony.getName() + " ===\n"));
-
         for (ActiveEvent event : activeEvents) {
             RandomEventType type = event.getType();
-
             player.sendSystemMessage(Component.literal(""));
             player.sendSystemMessage(Component.literal(type.getColor() + "§l" + type.getDisplayName()));
             player.sendSystemMessage(Component.literal("  §7Description: §f" + type.getDescription()));
@@ -102,7 +99,6 @@ public class RandomEventsCommand {
             player.sendSystemMessage(Component.literal("  §7Happiness: " + formatHappiness(type.getHappinessModifier())));
             player.sendSystemMessage(Component.literal("  §7Remaining: §e" + event.getRemainingCycles() + " cycles"));
 
-            // Show affected citizens for deep integration events
             if (!event.getAffectedCitizens().isEmpty()) {
                 player.sendSystemMessage(Component.literal("  §7Affected Citizens: §e" +
                     event.getAffectedCitizens().size() + " citizens"));
@@ -120,14 +116,12 @@ public class RandomEventsCommand {
         int colonyId = IntegerArgumentType.getInteger(ctx, "colonyId");
         String eventTypeName = StringArgumentType.getString(ctx, "eventType");
 
-        // Get colony
         IColony colony = IColonyManager.getInstance().getColonyByDimension(colonyId, player.serverLevel().dimension());
         if (colony == null) {
             player.sendSystemMessage(Component.literal("§cColony not found: " + colonyId));
             return 0;
         }
 
-        // Parse event type
         RandomEventType eventType;
         try {
             eventType = RandomEventType.valueOf(eventTypeName.toUpperCase());
@@ -140,14 +134,11 @@ public class RandomEventsCommand {
             return 0;
         }
 
-        // Trigger event (bypasses all checks)
         try {
             RandomEventManager.forceTriggerEvent(colony, eventType);
 
             player.sendSystemMessage(Component.literal("§aSuccessfully triggered " + eventType.getDisplayName() +
                 " for colony " + colony.getName()));
-
-            // Notify colony owner/officers
             colony.getMessagePlayerEntities().forEach(serverPlayer -> {
                 if (!serverPlayer.equals(player)) {
                     serverPlayer.sendSystemMessage(Component.literal(
@@ -162,6 +153,28 @@ public class RandomEventsCommand {
             player.sendSystemMessage(Component.literal("§cFailed to trigger event: " + e.getMessage()));
             return 0;
         }
+    }
+
+    private static int resetColonyEvents(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        int colonyId = IntegerArgumentType.getInteger(ctx, "colonyId");
+
+        IColony colony = IColonyManager.getInstance().getColonyByDimension(colonyId, player.serverLevel().dimension());
+        if (colony == null) {
+            player.sendSystemMessage(Component.literal("§cColony not found: " + colonyId));
+            return 0;
+        }
+
+        RandomEventManager.resetColonyEventState(colonyId);
+
+        player.sendSystemMessage(Component.literal("§a[Events] Reset complete for colony §e" + colony.getName() + "§a (ID: " + colonyId + ")"));
+        player.sendSystemMessage(Component.literal("§7  - Protection cleared (first-seen set to 25h ago)"));
+        player.sendSystemMessage(Component.literal("§7  - All event cooldowns cleared"));
+        player.sendSystemMessage(Component.literal("§7  - Active events removed"));
+        player.sendSystemMessage(Component.literal("§7Events will auto-roll on the next tax cycle, or use:"));
+        player.sendSystemMessage(Component.literal("§e  /wnt triggerevent " + colonyId + " <EVENT_TYPE>"));
+
+        return Command.SINGLE_SUCCESS;
     }
 
     private static String formatModifier(double multiplier) {

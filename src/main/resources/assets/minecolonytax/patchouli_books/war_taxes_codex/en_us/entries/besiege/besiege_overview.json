@@ -1,0 +1,26 @@
+{
+    "name": "minecolonytax.entry.besiege_overview.name",
+    "icon": "minecraft:iron_sword",
+    "category": "minecolonytax:besiege",
+    "sortnum": 0,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.besiege_overview.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.besiege_overview.requirements.title",
+            "text": "minecolonytax.entry.besiege_overview.requirements"
+        },
+        {
+            "type": "patchouli:relations",
+            "title": "minecolonytax.entry.besiege_overview.related.title",
+            "entries": [
+                "minecolonytax:besiege/besiege_mechanics",
+                "minecolonytax:besiege/besiege_occupation"
+            ],
+            "text": "minecolonytax.entry.besiege_overview.related"
+        }
+    ]
+}

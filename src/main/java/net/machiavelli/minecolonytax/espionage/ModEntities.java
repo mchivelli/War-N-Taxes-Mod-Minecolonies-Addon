@@ -18,7 +18,7 @@ public class ModEntities {
 
     public static final RegistryObject<EntityType<SpyEntity>> SPY = ENTITIES.register("spy",
             () -> EntityType.Builder.of(SpyEntity::new, MobCategory.CREATURE)
-                    .sized(0.6F, 1.8F) // Same size as a player/citizen
+                    .sized(0.6F, 1.8F)
                     .build("spy"));
 
     @Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)

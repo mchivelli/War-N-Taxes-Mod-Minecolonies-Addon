@@ -17,10 +17,6 @@ import net.minecraftforge.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-/**
- * Handles block protection for abandoned colonies.
- * Prevents players from breaking or placing blocks in abandoned colonies.
- */
 @Mod.EventBusSubscriber
 public class AbandonedColonyProtectionHandler {
     
@@ -32,10 +28,7 @@ public class AbandonedColonyProtectionHandler {
         
         Player player = event.getPlayer();
         if (player == null || !(player instanceof ServerPlayer)) return;
-        
         ServerPlayer serverPlayer = (ServerPlayer) player;
-        
-        // Check if this block is in an abandoned colony
         if (isBlockInAbandonedColony(event.getPos(), (Level) event.getLevel(), serverPlayer)) {
             event.setCanceled(true);
             serverPlayer.sendSystemMessage(Component.literal("You cannot break blocks in abandoned colonies!")
@@ -51,8 +44,6 @@ public class AbandonedColonyProtectionHandler {
         
         if (event.getEntity() instanceof ServerPlayer) {
             ServerPlayer serverPlayer = (ServerPlayer) event.getEntity();
-            
-            // Check if this block is in an abandoned colony
             if (isBlockInAbandonedColony(event.getPos(), (Level) event.getLevel(), serverPlayer)) {
                 event.setCanceled(true);
                 serverPlayer.sendSystemMessage(Component.literal("You cannot place blocks in abandoned colonies!")
@@ -68,15 +59,11 @@ public class AbandonedColonyProtectionHandler {
         if (event.getLevel().isClientSide()) return;
         
         if (event.getEntity() instanceof ServerPlayer serverPlayer) {
-            // Check if this block is in an abandoned colony
             if (isBlockInAbandonedColony(event.getPos(), (Level) event.getLevel(), serverPlayer)) {
-                // Allow certain interactions during claiming raids
-                if (isPlayerInActiveClaimingRaid(serverPlayer, 
+                if (isPlayerInActiveClaimingRaid(serverPlayer,
                     IColonyManager.getInstance().getColonyByPosFromWorld((Level) event.getLevel(), event.getPos()))) {
-                    return; // Allow interactions during claiming raids
+                    return;
                 }
-                
-                // Block the interaction for abandoned colonies
                 event.setCanceled(true);
                 serverPlayer.sendSystemMessage(Component.literal("You cannot interact with blocks in abandoned colonies!")
                         .withStyle(ChatFormatting.RED));
@@ -86,43 +73,26 @@ public class AbandonedColonyProtectionHandler {
         }
     }
     
-    /**
-     * Check if a block position is within an abandoned colony.
-     * @param pos The block position
-     * @param level The world level
-     * @param player The player attempting the action
-     * @return true if the block is in an abandoned colony and should be protected
-     */
     private static boolean isBlockInAbandonedColony(BlockPos pos, Level level, ServerPlayer player) {
         try {
-            // Get the colony at this position
             IColony colony = IColonyManager.getInstance().getColonyByPosFromWorld(level, pos);
             if (colony == null) {
-                return false; // No colony here
+                return false;
             }
-            
-            // Check if the colony is abandoned
             if (!ColonyAbandonmentManager.isColonyAbandoned(colony)) {
-                return false; // Colony is not abandoned
+                return false;
             }
-            
-            // Check if player is an admin (permission level 2 or higher) - admins can always modify
+            // Admins bypass
             if (player.hasPermissions(2)) {
-                return false; // Allow admins to modify abandoned colonies
+                return false;
             }
-            
-            // Check if player has permission to modify blocks in this colony
-            // During claiming raids, the claiming player should be able to break blocks
+            // The claiming player must be able to interact during their raid
             if (isPlayerInActiveClaimingRaid(player, colony)) {
-                return false; // Allow block breaking during claiming raids
+                return false;
             }
-            
-            // CRITICAL: Block ALL other players from modifying abandoned colonies
-            // This includes former owners, officers, and anyone else
-            LOGGER.debug("Blocking {} from modifying blocks in abandoned colony {} at {}", 
+            LOGGER.debug("Blocking {} from modifying blocks in abandoned colony {} at {}",
                 player.getName().getString(), colony.getName(), pos);
-            
-            return true; // Block is in abandoned colony and player doesn't have permission
+            return true;
             
         } catch (Exception e) {
             LOGGER.error("Error checking abandoned colony protection for position {}", pos, e);
@@ -130,12 +100,6 @@ public class AbandonedColonyProtectionHandler {
         }
     }
     
-    /**
-     * Check if a player is currently in an active claiming raid for the given colony.
-     * @param player The player
-     * @param colony The colony
-     * @return true if the player is actively claiming this colony
-     */
     private static boolean isPlayerInActiveClaimingRaid(ServerPlayer player, IColony colony) {
         try {
             return net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager

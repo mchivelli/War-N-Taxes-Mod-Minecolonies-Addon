@@ -37,10 +37,7 @@ public class RaidPenaltyManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String STORAGE_FILE = "config/warntax/raid_penalties.json";
 
-    /**
-     * key = colonyId, value = timestamp when penalty expires
-     * (System.currentTimeMillis())
-     */
+    /** key = colonyId, value = System.currentTimeMillis() expiry for the active penalty */
     private static final Map<Integer, Long> RAID_PENALTIES = new ConcurrentHashMap<>();
 
     private static MinecraftServer SERVER;
@@ -50,7 +47,7 @@ public class RaidPenaltyManager {
     public static void initialize(MinecraftServer server) {
         SERVER = server;
         loadData(server);
-        LOGGER.info("RaidPenaltyManager initialized with {} active penalties", RAID_PENALTIES.size());
+        if (TaxConfig.isNormalLogging()) LOGGER.info("RaidPenaltyManager initialized with {} active penalties", RAID_PENALTIES.size());
     }
 
     public static void shutdown() {
@@ -59,14 +56,13 @@ public class RaidPenaltyManager {
 
     // ==================== Helper Methods ====================
 
-    /**
-     * Get a colony by ID.
-     */
     public static IColony getColony(int colonyId) {
         if (SERVER == null)
             return null;
-        IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-        return colonyManager.getColonyByWorld(colonyId, SERVER.overworld());
+        return IMinecoloniesAPI.getInstance().getColonyManager().getAllColonies().stream()
+                .filter(c -> c.getID() == colonyId)
+                .findFirst()
+                .orElse(null);
     }
 
     // ==================== Penalty Operations ====================
@@ -98,7 +94,6 @@ public class RaidPenaltyManager {
             return false;
         }
 
-        // Clean up expired penalties
         if (System.currentTimeMillis() >= expiryTime) {
             RAID_PENALTIES.remove(colonyId);
             saveData();
@@ -185,11 +180,9 @@ public class RaidPenaltyManager {
             return false;
         }
 
-        // Deduct repair cost from tax balance
         double repairPercent = (double) repairCost / taxBalance;
         TaxManager.deductColonyTax(colony, repairPercent);
 
-        // Remove penalty
         RAID_PENALTIES.remove(colonyId);
         saveData();
 
@@ -256,7 +249,6 @@ public class RaidPenaltyManager {
                 RAID_PENALTIES.clear();
                 RAID_PENALTIES.putAll(loaded);
 
-                // Clean up expired entries
                 long now = System.currentTimeMillis();
                 RAID_PENALTIES.entrySet().removeIf(e -> e.getValue() <= now);
             }

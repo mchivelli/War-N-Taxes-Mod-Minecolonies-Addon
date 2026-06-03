@@ -1,0 +1,17 @@
+{
+    "name": "minecolonytax.entry.besiege_occupation.name",
+    "icon": "minecraft:chain",
+    "category": "minecolonytax:besiege",
+    "sortnum": 2,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.besiege_occupation.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.besiege_occupation.reclaim.title",
+            "text": "minecolonytax.entry.besiege_occupation.reclaim"
+        }
+    ]
+}

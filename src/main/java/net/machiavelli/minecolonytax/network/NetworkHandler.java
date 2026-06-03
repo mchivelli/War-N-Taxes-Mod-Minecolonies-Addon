@@ -11,14 +11,19 @@ import net.machiavelli.minecolonytax.network.packets.RequestOfficerDataPacket;
 import net.machiavelli.minecolonytax.network.packets.OfficerDataResponsePacket;
 import net.machiavelli.minecolonytax.network.packets.RequestColonyDataPacket;
 import net.machiavelli.minecolonytax.network.packets.OpenTaxGUIPacket;
-import net.machiavelli.minecolonytax.network.packets.RequestWarChestDataPacket;
-import net.machiavelli.minecolonytax.network.packets.WarChestDataResponsePacket;
-import net.machiavelli.minecolonytax.network.packets.WarChestActionPacket;
+import net.machiavelli.minecolonytax.network.packets.RequestTreasuryDataPacket;
+import net.machiavelli.minecolonytax.network.packets.TreasuryDataResponsePacket;
+import net.machiavelli.minecolonytax.network.packets.TreasuryActionPacket;
 import net.machiavelli.minecolonytax.network.packets.SetTaxPolicyPacket;
 import net.machiavelli.minecolonytax.network.packets.RequestSpyDataPacket;
 import net.machiavelli.minecolonytax.network.packets.SpyDataResponsePacket;
 import net.machiavelli.minecolonytax.network.packets.DeploySpyPacket;
+import net.machiavelli.minecolonytax.network.packets.DismissEventPacket;
+import net.machiavelli.minecolonytax.network.packets.DismissSpyMissionPacket;
 import net.machiavelli.minecolonytax.network.packets.RecallSpyPacket;
+import net.machiavelli.minecolonytax.network.packets.RequestInvestmentDataPacket;
+import net.machiavelli.minecolonytax.network.packets.InvestmentDataResponsePacket;
+import net.machiavelli.minecolonytax.network.packets.BuyInvestmentPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkDirection;
@@ -27,7 +32,7 @@ import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.simple.SimpleChannel;
 
 public class NetworkHandler {
-        public static final String PROTOCOL_VERSION = "1";
+        public static final String PROTOCOL_VERSION = "3";
         public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
                         new ResourceLocation(MineColonyTax.MOD_ID, "main"),
                         () -> PROTOCOL_VERSION,
@@ -41,15 +46,15 @@ public class NetworkHandler {
         }
 
         public static void register() {
-                // Register existing EntityGlowPacket
-                CHANNEL.registerMessage(
-                                nextId(),
-                                EntityGlowPacket.class,
-                                EntityGlowPacket::encode,
-                                EntityGlowPacket::decode,
-                                EntityGlowPacket::handle);
+                // PLAY_TO_CLIENT: only the server can send EntityGlowPacket. Without the
+                // direction constraint, Forge accepts the packet from either side, allowing
+                // a malicious client to spam the netty decode path on the server.
+                CHANNEL.messageBuilder(EntityGlowPacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
+                                .decoder(EntityGlowPacket::decode)
+                                .encoder(EntityGlowPacket::encode)
+                                .consumerMainThread(EntityGlowPacket::handle)
+                                .add();
 
-                // Register new GUI packets
                 CHANNEL.messageBuilder(RequestColonyDataPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
                                 .decoder(RequestColonyDataPacket::new)
                                 .encoder(RequestColonyDataPacket::toBytes)
@@ -104,40 +109,36 @@ public class NetworkHandler {
                                 .consumerMainThread(OfficerDataResponsePacket::handle)
                                 .add();
 
-                // OpenTaxGUIPacket - server to client, tells client to open Tax GUI
                 CHANNEL.messageBuilder(OpenTaxGUIPacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
                                 .decoder(OpenTaxGUIPacket::new)
                                 .encoder(OpenTaxGUIPacket::encode)
                                 .consumerMainThread(OpenTaxGUIPacket::handle)
                                 .add();
 
-                // War Chest packets
-                CHANNEL.messageBuilder(RequestWarChestDataPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
-                                .decoder(RequestWarChestDataPacket::new)
-                                .encoder(RequestWarChestDataPacket::toBytes)
-                                .consumerMainThread(RequestWarChestDataPacket::handle)
+                CHANNEL.messageBuilder(RequestTreasuryDataPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                                .decoder(RequestTreasuryDataPacket::new)
+                                .encoder(RequestTreasuryDataPacket::toBytes)
+                                .consumerMainThread(RequestTreasuryDataPacket::handle)
                                 .add();
 
-                CHANNEL.messageBuilder(WarChestDataResponsePacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
-                                .decoder(WarChestDataResponsePacket::new)
-                                .encoder(WarChestDataResponsePacket::toBytes)
-                                .consumerMainThread(WarChestDataResponsePacket::handle)
+                CHANNEL.messageBuilder(TreasuryDataResponsePacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
+                                .decoder(TreasuryDataResponsePacket::new)
+                                .encoder(TreasuryDataResponsePacket::toBytes)
+                                .consumerMainThread(TreasuryDataResponsePacket::handle)
                                 .add();
 
-                CHANNEL.messageBuilder(WarChestActionPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
-                                .decoder(WarChestActionPacket::new)
-                                .encoder(WarChestActionPacket::toBytes)
-                                .consumerMainThread(WarChestActionPacket::handle)
+                CHANNEL.messageBuilder(TreasuryActionPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                                .decoder(TreasuryActionPacket::new)
+                                .encoder(TreasuryActionPacket::toBytes)
+                                .consumerMainThread(TreasuryActionPacket::handle)
                                 .add();
 
-                // Tax Policy packet
                 CHANNEL.messageBuilder(SetTaxPolicyPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
                                 .decoder(SetTaxPolicyPacket::new)
                                 .encoder(SetTaxPolicyPacket::toBytes)
                                 .consumerMainThread(SetTaxPolicyPacket::handle)
                                 .add();
 
-                // Espionage packets
                 CHANNEL.messageBuilder(RequestSpyDataPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
                                 .decoder(RequestSpyDataPacket::new)
                                 .encoder(RequestSpyDataPacket::toBytes)
@@ -162,7 +163,37 @@ public class NetworkHandler {
                                 .consumerMainThread(RecallSpyPacket::handle)
                                 .add();
 
-                MineColonyTax.LOGGER.info("Network channel registered with {} packets", packetId);
+                CHANNEL.messageBuilder(DismissSpyMissionPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                                .decoder(DismissSpyMissionPacket::new)
+                                .encoder(DismissSpyMissionPacket::toBytes)
+                                .consumerMainThread(DismissSpyMissionPacket::handle)
+                                .add();
+
+                CHANNEL.messageBuilder(DismissEventPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                                .decoder(DismissEventPacket::new)
+                                .encoder(DismissEventPacket::toBytes)
+                                .consumerMainThread(DismissEventPacket::handle)
+                                .add();
+
+                CHANNEL.messageBuilder(RequestInvestmentDataPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                                .decoder(RequestInvestmentDataPacket::new)
+                                .encoder(RequestInvestmentDataPacket::toBytes)
+                                .consumerMainThread(RequestInvestmentDataPacket::handle)
+                                .add();
+
+                CHANNEL.messageBuilder(InvestmentDataResponsePacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
+                                .decoder(InvestmentDataResponsePacket::new)
+                                .encoder(InvestmentDataResponsePacket::toBytes)
+                                .consumerMainThread(InvestmentDataResponsePacket::handle)
+                                .add();
+
+                CHANNEL.messageBuilder(BuyInvestmentPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                                .decoder(BuyInvestmentPacket::new)
+                                .encoder(BuyInvestmentPacket::toBytes)
+                                .consumerMainThread(BuyInvestmentPacket::handle)
+                                .add();
+
+                if (net.machiavelli.minecolonytax.TaxConfig.isNormalLogging()) MineColonyTax.LOGGER.info("Network channel registered with {} packets", packetId);
         }
 
         public static <MSG> void sendToServer(MSG message) {

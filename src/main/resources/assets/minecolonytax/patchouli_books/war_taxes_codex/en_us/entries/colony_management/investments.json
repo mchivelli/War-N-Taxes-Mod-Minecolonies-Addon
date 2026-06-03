@@ -1,0 +1,32 @@
+{
+    "name": "minecolonytax.entry.investments.name",
+    "icon": "minecraft:diamond",
+    "category": "minecolonytax:colony_management",
+    "sortnum": 3,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.investments.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.investments.military.title",
+            "text": "minecolonytax.entry.investments.military"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.investments.espionage.title",
+            "text": "minecolonytax.entry.investments.espionage"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.investments.economy.title",
+            "text": "minecolonytax.entry.investments.economy"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.investments.buying.title",
+            "text": "minecolonytax.entry.investments.buying"
+        }
+    ]
+}

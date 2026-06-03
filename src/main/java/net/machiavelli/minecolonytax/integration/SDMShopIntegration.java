@@ -2,6 +2,7 @@ package net.machiavelli.minecolonytax.integration;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraftforge.fml.ModList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -59,6 +60,13 @@ public class SDMShopIntegration {
     private static Method legacyGetMoney = null;
     private static Method legacySetMoney = null;
 
+    /**
+     * Cached short-circuit flag — true when SDMShop is not loaded at all so we can
+     * skip reflective probes entirely. Evaluated once at class init; ModList is
+     * populated by Forge before mod static initializers run, so this is safe here.
+     */
+    private static boolean modPresent = false;
+
     static {
         initialize();
     }
@@ -67,6 +75,20 @@ public class SDMShopIntegration {
         if (initialized)
             return;
         initialized = true;
+
+        // ModList.isLoaded short-circuit: skip the reflection probe entirely when
+        // SDMShop is absent so we don't spam INFO/WARN every server start.
+        try {
+            modPresent = ModList.get() != null && ModList.get().isLoaded("sdmshop");
+        } catch (Throwable t) {
+            // ModList not ready (very early classload) — fall through to probe.
+            modPresent = false;
+        }
+        if (!modPresent) {
+            // Quiet — no SDMShop installed. The mode stays NONE; isAvailable() will
+            // return false and every public method short-circuits.
+            return;
+        }
 
         LOGGER.info("Attempting to initialize SDMShop/SDM-Economy integration...");
 
@@ -271,6 +293,7 @@ public class SDMShopIntegration {
      * Check if SDMShop/SDM-Economy integration is available
      */
     public static boolean isAvailable() {
+        if (!modPresent) return false;
         refreshServerInstance();
         return mode != IntegrationMode.NONE &&
                 (mode != IntegrationMode.CURRENCY_DATA || currencyPlayerDataServer != null);
@@ -280,6 +303,7 @@ public class SDMShopIntegration {
      * Get money from a player using SDMShop/SDM-Economy API
      */
     public static long getMoney(ServerPlayer player) {
+        if (!modPresent) return 0;
         if (player == null) {
             LOGGER.debug("Player is null");
             return 0;
@@ -357,6 +381,7 @@ public class SDMShopIntegration {
      * Set money for a player using SDMShop/SDM-Economy API
      */
     public static boolean setMoney(ServerPlayer player, long amount) {
+        if (!modPresent) return false;
         if (player == null) {
             LOGGER.debug("Player is null");
             return false;
@@ -453,6 +478,7 @@ public class SDMShopIntegration {
      * Add money to a player using SDMShop/SDM-Economy API
      */
     public static boolean addMoney(ServerPlayer player, long amount) {
+        if (!modPresent) return false;
         if (player == null) {
             return false;
         }

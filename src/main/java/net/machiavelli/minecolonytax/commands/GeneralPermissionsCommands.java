@@ -17,16 +17,10 @@ import org.apache.logging.log4j.Logger;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Commands for managing general colony permissions
- */
 public class GeneralPermissionsCommands {
 
     private static final Logger LOGGER = LogManager.getLogger(GeneralPermissionsCommands.class);
 
-    /**
-     * Register general permissions commands
-     */
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("wnt")
                 .then(Commands.literal("permissions")
@@ -51,9 +45,6 @@ public class GeneralPermissionsCommands {
         );
     }
 
-    /**
-     * Show current general permissions status
-     */
     public static int showPermissionsStatus(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         
@@ -91,9 +82,6 @@ public class GeneralPermissionsCommands {
         }
     }
 
-    /**
-     * Show current general permissions configuration
-     */
     public static int showPermissionsConfig(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         
@@ -113,9 +101,7 @@ public class GeneralPermissionsCommands {
                         .withStyle(ChatFormatting.GRAY), false);
             }
             
-            source.sendSuccess(() -> Component.literal("  Description: These actions are allowed for ALL players")
-                    .withStyle(ChatFormatting.YELLOW), false);
-            source.sendSuccess(() -> Component.literal("  (including strangers and enemies) within colony boundaries.")
+            source.sendSuccess(() -> Component.literal("  These actions are allowed for all players (including strangers and enemies) within colony boundaries.")
                     .withStyle(ChatFormatting.YELLOW), false);
             
             return 1;
@@ -126,9 +112,6 @@ public class GeneralPermissionsCommands {
         }
     }
 
-    /**
-     * Apply general permissions to all colonies
-     */
     public static int applyGeneralPermissions(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         
@@ -151,9 +134,6 @@ public class GeneralPermissionsCommands {
         }
     }
 
-    /**
-     * Remove general permissions from all colonies
-     */
     public static int removeGeneralPermissions(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         
@@ -171,9 +151,6 @@ public class GeneralPermissionsCommands {
         }
     }
 
-    /**
-     * Reload general permissions (remove and reapply based on current config)
-     */
     public static int reloadGeneralPermissions(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         
@@ -195,9 +172,6 @@ public class GeneralPermissionsCommands {
         }
     }
 
-    /**
-     * Apply general permissions to a specific colony
-     */
     public static int applyToSpecificColony(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         int colonyId = IntegerArgumentType.getInteger(context, "colonyId");
@@ -227,9 +201,6 @@ public class GeneralPermissionsCommands {
         }
     }
 
-    /**
-     * Remove general permissions from a specific colony
-     */
     public static int removeFromSpecificColony(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         int colonyId = IntegerArgumentType.getInteger(context, "colonyId");

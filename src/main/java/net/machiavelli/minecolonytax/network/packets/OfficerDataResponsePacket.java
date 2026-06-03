@@ -1,9 +1,9 @@
 package net.machiavelli.minecolonytax.network.packets;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.client.Minecraft;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
-import net.machiavelli.minecolonytax.gui.TaxManagementScreen;
 import net.machiavelli.minecolonytax.gui.data.OfficerData;
 
 import java.util.function.Supplier;
@@ -53,12 +53,16 @@ public class OfficerDataResponsePacket {
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            // Update the GUI with officer data
-            Minecraft mc = Minecraft.getInstance();
-            if (mc.screen instanceof TaxManagementScreen) {
-                TaxManagementScreen screen = (TaxManagementScreen) mc.screen;
-                screen.updateOfficerData(officers, colonyId);
-            }
+            // Update the GUI with officer data — wrap to avoid class-loading client-only
+            // classes (Minecraft, TaxManagementScreen) on a dedicated server.
+            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                if (mc.screen instanceof net.machiavelli.minecolonytax.gui.TaxManagementScreen) {
+                    net.machiavelli.minecolonytax.gui.TaxManagementScreen screen =
+                            (net.machiavelli.minecolonytax.gui.TaxManagementScreen) mc.screen;
+                    screen.updateOfficerData(officers, colonyId);
+                }
+            });
         });
         ctx.get().setPacketHandled(true);
     }

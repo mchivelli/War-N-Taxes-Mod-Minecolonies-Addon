@@ -6,6 +6,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * @deprecated Will be replaced by an external faction/diplomacy mod. Code retained for reference.
+ */
+@Deprecated
 public class FactionData {
     private final UUID id;
     private String name;

@@ -2,19 +2,18 @@ package net.machiavelli.minecolonytax;
 
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
-import com.minecolonies.api.colony.buildings.IBuilding; // Corrected import
+import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.colony.permissions.Action;
 import com.minecolonies.api.colony.permissions.IPermissions;
 import com.minecolonies.api.colony.permissions.Rank;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import dev.ftb.mods.ftbteams.FTBTeamsAPIImpl;
-import dev.ftb.mods.ftbteams.api.Team;
-import dev.ftb.mods.ftbteams.api.TeamManager;
-import dev.ftb.mods.ftbteams.data.PartyTeam;
+import net.machiavelli.minecolonytax.compat.ColonyBuildingUtil;
+import net.machiavelli.minecolonytax.compat.FtbTeamsCompat;
 import net.machiavelli.minecolonytax.data.HistoryManager;
 import net.machiavelli.minecolonytax.data.PlayerWarDataManager;
 import net.machiavelli.minecolonytax.data.WarData;
 import net.machiavelli.minecolonytax.event.WarEconomyHandler;
+import net.machiavelli.minecolonytax.event.WarEventHandler;
 import net.machiavelli.minecolonytax.event.WarVictoryEvent;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -29,17 +28,24 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.scores.Scoreboard;
-import net.minecraft.world.level.Level;
 import net.minecraftforge.server.ServerLifecycleHooks;
-import net.machiavelli.minecolonytax.event.WarEventHandler;
 import net.machiavelli.minecolonytax.raid.GuardResistanceHandler;
+import net.machiavelli.minecolonytax.util.TickScheduler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.time.Instant;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.Reader;
+import java.io.Writer;
+import java.lang.reflect.Type;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -72,18 +78,12 @@ public class WarSystem {
         return rank.isColonyManager() || !rank.isHostile();
     }
 
-    private static boolean isFTBTeamsLoaded() {
-        try {
-            Class.forName("dev.ftb.mods.ftbteams.api.TeamManager");
-            return true;
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-    }
-
-    public static final boolean FTB_TEAMS_INSTALLED = isFTBTeamsLoaded();
-    public static final TeamManager FTB_TEAM_MANAGER = FTB_TEAMS_INSTALLED ? FTBTeamsAPIImpl.INSTANCE.getManager()
-            : null;
+    /**
+     * Legacy boolean flag — preserved for external callers that read it directly.
+     * Routes through {@link FtbTeamsCompat#isInstalled()} which is classloader-safe.
+     * Do NOT add new typed FTB Teams statics here — use {@link FtbTeamsCompat}.
+     */
+    public static final boolean FTB_TEAMS_INSTALLED = FtbTeamsCompat.isInstalled();
     public static final Map<Integer, WarData> ACTIVE_WARS = new ConcurrentHashMap<>();
 
     private static final Component JOIN_MSG = Component.literal("[Join War]")
@@ -101,12 +101,15 @@ public class WarSystem {
                     .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                             Component.literal("Click to leave the war!").withStyle(ChatFormatting.AQUA))));
 
-    public static final long WAR_PHASE_DURATION_SECONDS = 60; // For debugging
+    public static final long WAR_PHASE_DURATION_SECONDS = 60;
 
-    public static void initiateWar(ServerPlayer attacker, UUID defender, Team attackerTeam, Team defenderTeam,
+    public static void initiateWar(ServerPlayer attacker, UUID defender,
+            FtbTeamsCompat.TeamHandle attackerTeam, FtbTeamsCompat.TeamHandle defenderTeam,
             IColony colony, IColony attackerColony) {
-        UUID attackerTeamID = (FTB_TEAMS_INSTALLED && attackerTeam != null) ? attackerTeam.getId() : attacker.getUUID();
-        UUID defenderTeamID = (FTB_TEAMS_INSTALLED && defenderTeam != null) ? defenderTeam.getId()
+        UUID attackerTeamID = (FTB_TEAMS_INSTALLED && attackerTeam != null)
+                ? FtbTeamsCompat.getTeamId(attackerTeam) : attacker.getUUID();
+        UUID defenderTeamID = (FTB_TEAMS_INSTALLED && defenderTeam != null)
+                ? FtbTeamsCompat.getTeamId(defenderTeam)
                 : colony.getPermissions().getOwner();
 
         ServerBossEvent bossEvent = new ServerBossEvent(
@@ -122,17 +125,16 @@ public class WarSystem {
 
         int playerLives = TaxConfig.PLAYER_LIVES_IN_WAR.get(); // Use config
 
-        // Always start with the primary participants
         data.getAttackerLives().put(attacker.getUUID(), playerLives);
         data.getDefenderLives().put(colony.getPermissions().getOwner(), playerLives);
 
         // Assign hostile rank to the main attacker on defender's colony
         assignWarParticipantRanks(attacker.getUUID(), colony, attackerColony, true);
 
-        // Add attacker colony members (Officers and Friends) using Minecolonies API
         if (attackerColony != null) {
             IPermissions attackerPerms = attackerColony.getPermissions();
-            System.out.println("[DEBUG] Adding attacker colony members from " + attackerColony.getName());
+            if (TaxConfig.isDebugLogging())
+                if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Adding attacker colony members from " + attackerColony.getName());
 
             attackerPerms.getPlayers().forEach((uuid, player) -> {
                 if (!uuid.equals(attacker.getUUID())) { // Don't add attacker twice
@@ -140,8 +142,9 @@ public class WarSystem {
                     if (rank != null && (rank.equals(attackerPerms.getRankOfficer())
                             || rank.equals(attackerPerms.getRankFriend()))) {
                         data.getAttackerLives().put(uuid, playerLives);
-                        System.out.println(
-                                "[DEBUG] Added attacker colony member " + uuid + " with rank " + rank.getName());
+                        if (TaxConfig.isDebugLogging())
+                            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug(
+                                    "[DEBUG] Added attacker colony member " + uuid + " with rank " + rank.getName());
 
                         // Assign hostile rank to this attacker on defender's colony
                         assignWarParticipantRanks(uuid, colony, attackerColony, true);
@@ -174,9 +177,9 @@ public class WarSystem {
             });
         }
 
-        // Add defender colony members (Officers and Friends) using Minecolonies API
         IPermissions defenderPerms = colony.getPermissions();
-        System.out.println("[DEBUG] Adding defender colony members from " + colony.getName());
+        if (TaxConfig.isDebugLogging())
+            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Adding defender colony members from " + colony.getName());
 
         defenderPerms.getPlayers().forEach((uuid, player) -> {
             if (!uuid.equals(colony.getPermissions().getOwner())) { // Don't add owner twice
@@ -184,7 +187,9 @@ public class WarSystem {
                 if (rank != null && (rank.equals(defenderPerms.getRankOfficer())
                         || rank.equals(defenderPerms.getRankFriend()))) {
                     data.getDefenderLives().put(uuid, playerLives);
-                    System.out.println("[DEBUG] Added defender colony member " + uuid + " with rank " + rank.getName());
+                    if (TaxConfig.isDebugLogging())
+                        if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug(
+                                "[DEBUG] Added defender colony member " + uuid + " with rank " + rank.getName());
 
                     // Assign hostile rank to this defender on attacker's colony (if it exists)
                     assignWarParticipantRanks(uuid, colony, attackerColony, false);
@@ -215,15 +220,16 @@ public class WarSystem {
             }
         });
 
-        // Optional: Add FTB Team members if FTB Teams is installed
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
-            System.out.println("[DEBUG] FTB Teams detected, adding team members as additional participants");
+        if (FTB_TEAMS_INSTALLED) {
+            if (TaxConfig.isDebugLogging())
+                if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] FTB Teams detected, adding team members as additional participants");
 
             if (attackerTeam != null) {
-                attackerTeam.getMembers().forEach(uuid -> {
+                FtbTeamsCompat.getTeamMembers(attackerTeam).forEach(uuid -> {
                     if (!data.getAttackerLives().containsKey(uuid)) { // Don't add if already added via colony
                         data.getAttackerLives().put(uuid, playerLives);
-                        System.out.println("[DEBUG] Added FTB team member to attackers: " + uuid);
+                        if (TaxConfig.isDebugLogging())
+                            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Added FTB team member to attackers: " + uuid);
 
                         // Assign hostile rank to this attacker on defender's colony
                         assignWarParticipantRanks(uuid, colony, attackerColony, true);
@@ -250,10 +256,11 @@ public class WarSystem {
             }
 
             if (defenderTeam != null) {
-                defenderTeam.getMembers().forEach(uuid -> {
+                FtbTeamsCompat.getTeamMembers(defenderTeam).forEach(uuid -> {
                     if (!data.getDefenderLives().containsKey(uuid)) { // Don't add if already added via colony
                         data.getDefenderLives().put(uuid, playerLives);
-                        System.out.println("[DEBUG] Added FTB team member to defenders: " + uuid);
+                        if (TaxConfig.isDebugLogging())
+                            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Added FTB team member to defenders: " + uuid);
 
                         // Assign hostile rank to this defender on attacker's colony (if it exists)
                         assignWarParticipantRanks(uuid, colony, attackerColony, false);
@@ -287,16 +294,63 @@ public class WarSystem {
         data.initialDefenderTotalLives = data.getDefenderLives().values().stream().mapToInt(Integer::intValue).sum();
         ACTIVE_WARS.put(colony.getID(), data);
 
+        // Mark defender for home-field drain advantage
+        net.machiavelli.minecolonytax.economy.TreasuryManager.setColonyAsDefender(colony.getID());
+
+        // Schedule treasury drain every 60 seconds for both sides
+        scheduleTreasuryDrain(data, colony, attackerColony);
+
         // Apply War Exhaustion - both colonies generate less tax during war
         net.machiavelli.minecolonytax.economy.WarExhaustionManager.applyWarStatus(colony.getID());
         if (attackerColony != null) {
             net.machiavelli.minecolonytax.economy.WarExhaustionManager.applyWarStatus(attackerColony.getID());
         }
+
+        // Record war declaration in DB
+        net.machiavelli.minecolonytax.db.WarStatsDB.recordWarDeclared(
+                attacker.getUUID(), attacker.getName().getString(), defender);
+    }
+
+    /**
+     * Schedule a repeating treasury drain task for both attacker and defender.
+     * Drains every 60 seconds; also does a periodic save every 5 minutes.
+     */
+    private static void scheduleTreasuryDrain(WarData data, IColony defenderColony, IColony attackerColony) {
+        if (!TaxConfig.isTreasuryEnabled()) return;
+
+        final int defenderColonyId = defenderColony.getID();
+        final int attackerColonyId = attackerColony != null ? attackerColony.getID() : -1;
+        final long[] tickCount = {0}; // mutable counter for periodic save
+
+        data.warChestDrainTaskId = TickScheduler.scheduleRepeating(() -> {
+            tickCount[0]++;
+
+            int defenderResult = net.machiavelli.minecolonytax.economy.TreasuryManager.drainTreasury(defenderColonyId);
+            int attackerResult = attackerColonyId >= 0
+                    ? net.machiavelli.minecolonytax.economy.TreasuryManager.drainTreasury(attackerColonyId)
+                    : Integer.MAX_VALUE;
+
+            // Periodic save every 5 drain ticks (5 minutes)
+            if (tickCount[0] % 5 == 0) {
+                net.machiavelli.minecolonytax.economy.TreasuryManager.shutdown(); // calls saveData()
+            }
+
+            // Auto-surrender if either side is depleted
+            if (defenderResult == -1 || attackerResult == -1) {
+                IColony colony = defenderResult == -1 ? defenderColony : attackerColony;
+                if (colony != null) {
+                    endWar(colony);
+                }
+            }
+        }, 60_000, 60_000);
     }
 
     public static void setWarInteractionPermissions(IColony colony, boolean allowed) {
         if (!TaxConfig.ENABLE_WAR_ACTIONS.get())
             return;
+        if (allowed) {
+            net.machiavelli.minecolonytax.permissions.PermissionSnapshot.snapshotBefore(colony);
+        }
         IPermissions perms = colony.getPermissions();
         Rank hostile = perms.getRankHostile();
         for (Action a : TaxConfig.getWarActions()) {
@@ -326,15 +380,18 @@ public class WarSystem {
                 // Attackers get hostile rank on defender colony
                 IPermissions defenderPerms = defenderColony.getPermissions();
                 defenderPerms.setPlayerRank(playerUUID, defenderPerms.getRankHostile(), defenderColony.getWorld());
-                System.out.println("[DEBUG] Assigned hostile rank to attacker " + playerUUID + " on defender colony "
-                        + defenderColony.getName());
+                if (TaxConfig.isDebugLogging())
+                    System.out
+                            .println("[DEBUG] Assigned hostile rank to attacker " + playerUUID + " on defender colony "
+                                    + defenderColony.getName());
             } else {
                 // Defenders get hostile rank on attacker colony (if it exists)
                 if (attackerColony != null) {
                     IPermissions attackerPerms = attackerColony.getPermissions();
                     attackerPerms.setPlayerRank(playerUUID, attackerPerms.getRankHostile(), attackerColony.getWorld());
-                    System.out.println("[DEBUG] Assigned hostile rank to defender " + playerUUID
-                            + " on attacker colony " + attackerColony.getName());
+                    if (TaxConfig.isDebugLogging())
+                        if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Assigned hostile rank to defender " + playerUUID
+                                + " on attacker colony " + attackerColony.getName());
                 }
             }
         } catch (Exception e) {
@@ -345,6 +402,9 @@ public class WarSystem {
     public static void setRaidInteractionPermissions(IColony colony, boolean allowed) {
         if (!TaxConfig.ENABLE_WAR_ACTIONS.get())
             return;
+        if (allowed) {
+            net.machiavelli.minecolonytax.permissions.PermissionSnapshot.snapshotBefore(colony);
+        }
         IPermissions perms = colony.getPermissions();
         Rank hostile = perms.getRankHostile();
         for (Action a : TaxConfig.getRaidActions()) {
@@ -353,10 +413,14 @@ public class WarSystem {
     }
 
     /**
-     * Restore all colonies' war and raid permissions to their config defaults
+     * Restore all colonies' war, raid, and claiming permissions to their config defaults
      * (disabled).
      * Should be called on server startup to clean up any leftover permissions from
-     * crashes/restarts.
+     * crashes/restarts. This includes:
+     * - War actions on Hostile rank
+     * - Raid actions on Hostile rank
+     * - Claiming raid actions on Hostile rank (OPEN_CONTAINER etc.)
+     * - Claiming raid attack permissions on Neutral rank (HURT_CITIZEN, ATTACK_CITIZEN, etc.)
      */
     public static void restoreAllColonyPermissionsToDefaults() {
         try {
@@ -370,18 +434,74 @@ public class WarSystem {
             for (Level level : server.getAllLevels()) {
                 for (IColony colony : IColonyManager.getInstance().getColonies(level)) {
                     if (colony != null) {
-                        // Disable war actions (set to false)
+                        // Disable war actions on Hostile rank
                         setWarInteractionPermissions(colony, false);
-                        // Disable raid actions (set to false)
+                        // Disable raid actions on Hostile rank
                         setRaidInteractionPermissions(colony, false);
+                        // Disable claiming raid actions on Hostile rank + Neutral rank attack perms
+                        restoreClaimingPermissionsToDefaults(colony);
                         coloniesRestored++;
                     }
                 }
             }
 
-            WARSYSTEM_LOGGER.info("Restored war/raid permissions to config defaults for {} colonies", coloniesRestored);
+            WARSYSTEM_LOGGER.info("Restored war/raid/claiming permissions to config defaults for {} colonies", coloniesRestored);
         } catch (Exception e) {
             WARSYSTEM_LOGGER.error("Failed to restore colony permissions to defaults", e);
+        }
+    }
+
+    /**
+     * Revoke any leftover claiming-raid permissions from a colony.
+     * Called unconditionally on startup (does not check whether claiming system is enabled,
+     * because leftover permissions from a previous config must still be cleaned up).
+     */
+    private static void restoreClaimingPermissionsToDefaults(IColony colony) {
+        try {
+            IPermissions perms = colony.getPermissions();
+
+            // Clean up Hostile rank claiming actions (OPEN_CONTAINER is not in WarActions/RaidActions)
+            Rank hostile = perms.getRankHostile();
+            perms.setPermission(hostile, Action.OPEN_CONTAINER, false);
+
+            // Clean up Neutral rank attack permissions that claiming raids grant
+            Rank neutral = perms.getRankNeutral();
+            perms.setPermission(neutral, Action.HURT_CITIZEN, false);
+            perms.setPermission(neutral, Action.ATTACK_CITIZEN, false);
+            perms.setPermission(neutral, Action.HURT_VISITOR, false);
+            perms.setPermission(neutral, Action.ATTACK_ENTITY, false);
+            perms.setPermission(neutral, Action.SHOOT_ARROW, false);
+            perms.setPermission(neutral, Action.THROW_POTION, false);
+            perms.setPermission(neutral, Action.RIGHTCLICK_ENTITY, false);
+            perms.setPermission(neutral, Action.FILL_BUCKET, false);
+        } catch (Exception e) {
+            WARSYSTEM_LOGGER.debug("Error restoring claiming permissions for colony {}", colony.getID(), e);
+        }
+    }
+
+    /**
+     * Demote a set of players from the Hostile rank to Neutral on the given colony.
+     * Called at war end to clean up rank assignments made by assignWarParticipantRanks().
+     * Skips the colony owner and players who are not currently in the Hostile rank.
+     */
+    public static void demoteParticipantsFromHostile(IColony colony, java.util.Set<UUID> participants) {
+        if (colony == null || colony.getWorld() == null || participants == null) return;
+        IPermissions perms = colony.getPermissions();
+        Rank neutral = perms.getRankNeutral();
+        UUID colonyOwner = perms.getOwner();
+
+        for (UUID uuid : participants) {
+            if (uuid.equals(colonyOwner)) continue; // Never demote the colony owner
+            try {
+                Rank current = perms.getRank(uuid);
+                if (current != null && current.isHostile()) {
+                    perms.setPlayerRank(uuid, neutral, colony.getWorld());
+                    if (TaxConfig.isDebugLogging())
+                        WARSYSTEM_LOGGER.debug("Demoted {} from Hostile to Neutral on colony {} after war end.", uuid, colony.getName());
+                }
+            } catch (Exception e) {
+                WARSYSTEM_LOGGER.warn("Failed to demote player {} from hostile rank on colony {} at war end", uuid, colony.getName(), e);
+            }
         }
     }
 
@@ -441,6 +561,7 @@ public class WarSystem {
                         .withStyle(style -> style.withColor(ChatFormatting.RED).withBold(true));
                 broadcastToServer(ratioMsg);
             }
+            endWar(war.getColony()); // clean up — bare return would leak the war in ACTIVE_WARS
             return;
         }
 
@@ -489,6 +610,57 @@ public class WarSystem {
             applyGuardGlow(war.getAttackerColony());
         }
         applyWarGlowToParticipants(war);
+
+        // Step 11 — when experimental objectives are enabled, give each attacker
+        // a Siege Banner at INWAR transition. They can plant it inside the
+        // defender's Town Hall to start the capture timer.
+        if (TaxConfig.isExperimentalSiegeObjectivesEnabled()) {
+            try {
+                if (war.getColony() != null && war.getColony().getWorld() != null
+                        && war.getColony().getWorld().getServer() != null) {
+                    var server = war.getColony().getWorld().getServer();
+                    var bannerItem = net.machiavelli.minecolonytax.siege.ModSiegeBlocks.SIEGE_BANNER_ITEM.get();
+                    for (UUID attackerUUID : war.getAttackerLives().keySet()) {
+                        ServerPlayer p = server.getPlayerList().getPlayer(attackerUUID);
+                        if (p != null && !p.getInventory().contains(new net.minecraft.world.item.ItemStack(bannerItem))) {
+                            p.getInventory().add(new net.minecraft.world.item.ItemStack(bannerItem, 1));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                WARSYSTEM_LOGGER.warn("Failed to hand Siege Banners to attackers: {}", e.getMessage());
+            }
+        }
+
+        // Militia upgrade reinforcements — spawn on BOTH sides if either colony
+        // has the upgrade. Defender side primarily (per design), attacker side
+        // optionally so an upgraded attacker colony also gets the boost.
+        // Idempotent — re-entry checks the existing set is empty first.
+        if (war.militiaSupport.isEmpty()) {
+            try {
+                // Defender militia
+                if (war.getColony() != null) {
+                    int defenderGuardCount = (int) war.getColony().getCitizenManager().getCitizens().stream()
+                            .filter(c -> c.getJob() != null && c.getJob().isGuard())
+                            .count();
+                    // No specific attacker-target — let the militia find via vanilla aggro
+                    net.machiavelli.minecolonytax.militia.MilitiaSpawner.spawnReinforcements(
+                            war.getColony(), defenderGuardCount, null,
+                            war.militiaSupport, TaxConfig.WAR_DURATION_MINUTES.get());
+                }
+                // Attacker militia (their colony also benefits from the upgrade)
+                if (war.getAttackerColony() != null) {
+                    int attackerGuardCount = (int) war.getAttackerColony().getCitizenManager().getCitizens().stream()
+                            .filter(c -> c.getJob() != null && c.getJob().isGuard())
+                            .count();
+                    net.machiavelli.minecolonytax.militia.MilitiaSpawner.spawnReinforcements(
+                            war.getAttackerColony(), attackerGuardCount, null,
+                            war.militiaSupport, TaxConfig.WAR_DURATION_MINUTES.get());
+                }
+            } catch (Exception e) {
+                WARSYSTEM_LOGGER.warn("Militia spawn during war start failed: {}", e.getMessage());
+            }
+        }
 
         // Apply resistance effects to defending guards during war
         GuardResistanceHandler.applyResistanceToGuardsForWar(war.getColony());
@@ -570,12 +742,15 @@ public class WarSystem {
         if (war.getColony().getWorld() == null || war.getColony().getWorld().getServer() == null)
             return;
 
-        System.out.println(
-                "[DEBUG] War victory detected - Attackers win: " + attackersWin + ", Defenders win: " + defendersWin);
-        System.out.println(
-                "[DEBUG] All attackers dead: " + allAttackersDead + ", All defenders dead: " + allDefendersDead);
-        System.out.println("[DEBUG] Attacker guards: " + war.getRemainingAttackerGuards() + ", Defender guards: "
-                + war.getRemainingDefenderGuards());
+        if (TaxConfig.isDebugLogging()) {
+            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug(
+                    "[DEBUG] War victory detected - Attackers win: " + attackersWin + ", Defenders win: "
+                            + defendersWin);
+            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug(
+                    "[DEBUG] All attackers dead: " + allAttackersDead + ", All defenders dead: " + allDefendersDead);
+            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Attacker guards: " + war.getRemainingAttackerGuards() + ", Defender guards: "
+                    + war.getRemainingDefenderGuards());
+        }
 
         if (defendersWin) {
             String defenderColonyName = war.getColony().getName();
@@ -596,13 +771,14 @@ public class WarSystem {
                 if (defender != null) {
                 }
             }
-            applyWarEconomyTransfers(war, false);
-
-            // Record war loss for attacker (they lost when defenders won)
+            // Record war loss BEFORE economic transfers so immunity check uses pre-war
+            // balance
             if (war.getAttackerColony() != null) {
                 net.machiavelli.minecolonytax.economy.WarExhaustionManager
                         .recordWarLoss(war.getAttackerColony().getID());
             }
+            applyWarEconomyTransfers(war, false);
+
         } else if (attackersWin) {
             String defenderColonyName = war.getColony().getName();
             String attackerColonyName = war.getAttackerColony() != null ? war.getAttackerColony().getName()
@@ -625,14 +801,23 @@ public class WarSystem {
                     net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(new WarVictoryEvent(attackerPlayer));
                 }
             }
+            // Record war loss for defender (they lost when attackers won)
+            net.machiavelli.minecolonytax.economy.WarExhaustionManager.recordWarLoss(war.getColony().getID());
             // Apply victory/defeat balance transfers - attackers win, defenders pay
             applyWarEconomyTransfers(war, true);
 
-            // Record war loss for defender (they lost when attackers won)
-            net.machiavelli.minecolonytax.economy.WarExhaustionManager.recordWarLoss(war.getColony().getID());
-
             if (TaxConfig.ENABLE_COLONY_TRANSFER.get()) {
-                transferOwnership(war.getColony(), war.getAttacker());
+                if (TaxConfig.isOccupationSystemEnabled()) {
+                    // Occupation phase: occupier collects taxes but can't interact, original owner
+                    // has time to reclaim
+                    net.machiavelli.minecolonytax.occupation.OccupationManager.startOccupation(
+                            war.getColony(), war.getAttacker(), war.getAttackerColony());
+                    WARSYSTEM_LOGGER.info("Colony {} is now occupied by {} (occupation system active)",
+                            war.getColony().getName(), war.getAttacker());
+                } else {
+                    // Direct transfer (legacy behavior)
+                    transferOwnership(war.getColony(), war.getAttacker());
+                }
             } else if (TaxConfig.isWarVassalizationEnabled()) {
                 // Vassalize the losing colony instead of transferring ownership
                 int tributePercent = TaxConfig.getWarVassalizationTributePercentage();
@@ -695,14 +880,14 @@ public class WarSystem {
             }
         }
 
-        int freezeHours = TaxConfig.getWarTaxFreezeHours();
-        if (freezeHours > 0) {
-            TaxManager.freezeColonyTax(war.getColony().getID(), freezeHours);
+        int freezeCycles = TaxConfig.getWarTaxFreezeCycles();
+        if (freezeCycles > 0) {
+            TaxManager.freezeColonyTax(war.getColony().getID(), freezeCycles);
             if (war.getAttackerColony() != null) {
-                TaxManager.freezeColonyTax(war.getAttackerColony().getID(), freezeHours);
+                TaxManager.freezeColonyTax(war.getAttackerColony().getID(), freezeCycles);
             }
             if (war.getColony().getWorld() != null && war.getColony().getWorld().getServer() != null) {
-                String freezeMsg = "Tax generation frozen for " + freezeHours + " hours due to war stalemate!";
+                String freezeMsg = "Tax generation frozen for " + freezeCycles + " cycles due to war stalemate!";
                 Component notification = Component.literal(freezeMsg).withStyle(ChatFormatting.GOLD);
                 sendNotificationToWarParticipants(war.getColony(), war.getAttackerColony(), notification);
             }
@@ -857,7 +1042,7 @@ public class WarSystem {
                     int expectedTaxRevenue = 0;
 
                     // Calculate an expected tax based on the attacker's colony revenue potential
-                    for (IBuilding building : winnerColony.getBuildingManager().getBuildings().values()) {
+                    for (IBuilding building : ColonyBuildingUtil.getBuildings(winnerColony)) {
                         String buildingType = building.getBuildingDisplayName();
                         double baseTax = TaxConfig.getBaseTaxForBuilding(buildingType);
                         double upgradeTax = TaxConfig.getUpgradeTaxForBuilding(buildingType)
@@ -869,7 +1054,7 @@ public class WarSystem {
                     reparationsAmount = (int) (expectedTaxRevenue * transferPercentage);
 
                     // Ensure minimum reparations amount if any buildings exist
-                    if (reparationsAmount <= 0 && !winnerColony.getBuildingManager().getBuildings().isEmpty()) {
+                    if (reparationsAmount <= 0 && !ColonyBuildingUtil.getBuildings(winnerColony).isEmpty()) {
                         reparationsAmount = TaxConfig.getDebtLimit() / 10; // A minimum reparation amount
                     }
                 }
@@ -1039,26 +1224,78 @@ public class WarSystem {
         }
     }
 
-    public static void transferOwnership(IColony colony, UUID newOwnerUUID) {
-        if (colony.getWorld() == null || colony.getWorld().getServer() == null)
-            return;
+    /**
+     * Transfers a colony's deed to a new owner, OR routes the action through
+     * the appropriate fallback per the Siege SMP ruleset.
+     *
+     * @return true if the deed actually moved; false if the transfer was blocked
+     *         (e.g. primary colony protection), vassalized as fallback, or failed
+     *         for any other reason. Callers MUST inspect this so they don't
+     *         broadcast "permanently claimed" when the deed never moved.
+     */
+    public static boolean transferOwnership(IColony colony, UUID newOwnerUUID) {
+        if (colony == null) {
+            return false;
+        }
+        if (colony.getWorld() == null || colony.getWorld().getServer() == null) {
+            return false;
+        }
+
+        // Siege SMP ruleset: primary colonies are protected from ownership transfer
+        // by default. Fall back to vassalization if enabled, so the war still has
+        // a meaningful consequence for the loser.
+        if (!net.machiavelli.minecolonytax.permissions.ColonyTierGuard.canTransferOwnership(colony)) {
+            WARSYSTEM_LOGGER.info("Ownership transfer denied for colony {}: {}",
+                    colony.getID(),
+                    net.machiavelli.minecolonytax.permissions.ColonyTierGuard.getTransferDenialReason(colony));
+            if (TaxConfig.isWarVassalizationEnabled()) {
+                int tributePercent = TaxConfig.getWarVassalizationTributePercentage();
+                int durationHours = TaxConfig.getWarVassalizationDurationHours();
+                boolean vassalized = net.machiavelli.minecolonytax.vassalization.VassalManager.forceVassalize(
+                        colony, newOwnerUUID, tributePercent, durationHours);
+                if (vassalized) {
+                    WARSYSTEM_LOGGER.info("Primary colony {} vassalized by {} instead of transferred ({}% tribute for {}h)",
+                            colony.getName(), newOwnerUUID, tributePercent, durationHours);
+                    WarData war = ACTIVE_WARS.get(colony.getID());
+                    Component msg = Component.literal(colony.getName()
+                            + " is a Primary colony — vassalized instead of conquered.")
+                            .withStyle(Style.EMPTY.withColor(ChatFormatting.GOLD).withBold(true));
+                    sendNotificationToWarParticipants(colony, war != null ? war.getAttackerColony() : null, msg);
+                }
+            }
+            return false;
+        }
+
         ServerPlayer newOwner = colony.getWorld().getServer().getPlayerList().getPlayer(newOwnerUUID);
-        if (newOwner == null)
-            return;
+        if (newOwner == null) {
+            return false;
+        }
         if (colony.getPermissions().setOwner(newOwner)) {
             colony.markDirty();
             Component msg = Component.literal(colony.getName() + " conquered by " + newOwner.getName().getString())
                     .withStyle(Style.EMPTY.withColor(ChatFormatting.DARK_RED).withBold(true));
             WarData war = ACTIVE_WARS.get(colony.getID());
             sendNotificationToWarParticipants(colony, war != null ? war.getAttackerColony() : null, msg);
+            return true;
         } else {
             WARSYSTEM_LOGGER.error("Ownership transfer failed for colony {}", colony.getID());
+            return false;
         }
     }
 
     public static void endWar(IColony colony) {
-        // Get war data before removing it from active wars
-        WarData warData = ACTIVE_WARS.get(colony.getID());
+        if (colony == null) return;
+        // Finding 10: make endWar idempotent. Atomically remove the WarData from
+        // ACTIVE_WARS; if it was already removed (a concurrent endWar call from a
+        // different code path), bail out — re-running the rest of this method
+        // would double-fire demotions, history records, treasury cleanup, etc.
+        WarData warData = ACTIVE_WARS.remove(colony.getID());
+        if (warData == null) {
+            // Already ended — nothing to do. (Previously this code re-ran all
+            // cleanup with warData == null, producing best-effort no-ops scattered
+            // with NPE risk.)
+            return;
+        }
 
         // Remove resistance effects from guards in both colonies
         if (warData != null) {
@@ -1069,6 +1306,34 @@ public class WarSystem {
 
             // Clean up militia system for both colonies
             cleanupWarMilitiaSystem(warData);
+
+            // Restore all explosion-damaged blocks ledgered for this war.
+            // Bug #8 fix: previously the ledger only accumulated and never restored.
+            try {
+                if (warData.getColony() != null && warData.getColony().getWorld() != null) {
+                    net.machiavelli.minecolonytax.siege.WarBlockLedger.restoreWarDamage(
+                            warData.getWarID(), warData.getColony().getWorld());
+                }
+            } catch (Exception e) {
+                WARSYSTEM_LOGGER.error("Failed to restore war block ledger for war {}", warData.getWarID(), e);
+            }
+
+            // Drop any Town Hall demolition hit state so it doesn't leak between wars.
+            try {
+                net.machiavelli.minecolonytax.siege.TownHallDemolitionObjective.onWarEnded(warData.getWarID());
+            } catch (Exception ignored) {}
+
+            // Drop any Plant-the-Banner capture state for the same reason.
+            try {
+                net.machiavelli.minecolonytax.siege.PlantTheBannerObjective.onWarEnded(warData.getWarID());
+            } catch (Exception ignored) {}
+
+            // Despawn militia-upgrade reinforcements (NOT victory-counted, just combat extenders).
+            try {
+                net.machiavelli.minecolonytax.militia.MilitiaSpawner.despawnAll(warData.militiaSupport);
+            } catch (Exception e) {
+                WARSYSTEM_LOGGER.warn("Failed to despawn war militia: {}", e.getMessage());
+            }
         }
 
         // Disable war actions for both sides
@@ -1079,8 +1344,25 @@ public class WarSystem {
             setWarInteractionPermissions(warData.getAttackerColony(), false);
         }
 
-        // Now remove from active wars
-        warData = ACTIVE_WARS.remove(colony.getID());
+        // Demote war participants out of the Hostile rank on both colonies.
+        // Attackers were assigned hostile on the defender colony; defenders on the attacker colony.
+        if (warData != null) {
+            if (warData.getAttackerLives() != null) {
+                demoteParticipantsFromHostile(colony, warData.getAttackerLives().keySet());
+            }
+            if (warData.getAttackerColony() != null && warData.getDefenderLives() != null) {
+                demoteParticipantsFromHostile(warData.getAttackerColony(), warData.getDefenderLives().keySet());
+            }
+        }
+
+        // (Removed from ACTIVE_WARS at the top of this method as part of the
+        // Finding 10 idempotency fix — no further read/remove needed.)
+
+        // Restore Hostile rank to pre-war state now that the war is no longer active
+        net.machiavelli.minecolonytax.permissions.PermissionSnapshot.restoreIfNoConflict(colony);
+        if (warData != null && warData.getAttackerColony() != null) {
+            net.machiavelli.minecolonytax.permissions.PermissionSnapshot.restoreIfNoConflict(warData.getAttackerColony());
+        }
 
         // Remove War Exhaustion status and start recovery period
         net.machiavelli.minecolonytax.economy.WarExhaustionManager.removeWarStatus(colony.getID());
@@ -1089,10 +1371,20 @@ public class WarSystem {
                     .removeWarStatus(warData.getAttackerColony().getID());
         }
 
+        // Clear war chest roles for both sides
+        net.machiavelli.minecolonytax.economy.TreasuryManager.clearColonyRole(colony.getID());
+        if (warData != null && warData.getAttackerColony() != null) {
+            net.machiavelli.minecolonytax.economy.TreasuryManager.clearColonyRole(warData.getAttackerColony().getID());
+        }
+
         if (warData != null) {
-            if (warData.timerTask != null) {
-                warData.timerTask.cancel();
-                warData.timerTask = null;
+            if (warData.countdownTaskId >= 0) {
+                TickScheduler.cancel(warData.countdownTaskId);
+                warData.countdownTaskId = -1;
+            }
+            if (warData.warChestDrainTaskId >= 0) {
+                TickScheduler.cancel(warData.warChestDrainTaskId);
+                warData.warChestDrainTaskId = -1;
             }
             if (warData.bossEvent != null) {
                 warData.bossEvent.removeAllPlayers();
@@ -1202,11 +1494,18 @@ public class WarSystem {
                 boolean isDefenderVictory = warData.getRemainingDefenderGuards() > 0;
                 Map<UUID, Integer> winnerLivesMap = isDefenderVictory ? warData.getDefenderLives()
                         : warData.getAttackerLives();
+                Map<UUID, Integer> loserLivesMap = isDefenderVictory ? warData.getAttackerLives()
+                        : warData.getDefenderLives();
                 if (colony.getWorld() != null && colony.getWorld().getServer() != null) {
                     for (UUID uuid : winnerLivesMap.keySet()) {
                         ServerPlayer player = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
                         if (player != null)
                             PlayerWarDataManager.incrementWarsWon(player);
+                    }
+                    for (UUID uuid : loserLivesMap.keySet()) {
+                        ServerPlayer player = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
+                        if (player != null)
+                            PlayerWarDataManager.incrementWarsLost(player);
                     }
                 }
                 if (!TaxConfig.ENABLE_COLONY_TRANSFER.get()) {
@@ -1231,16 +1530,38 @@ public class WarSystem {
                 outcome = warData.getPenaltyReport();
             }
 
+            // Record war outcome in DB
+            boolean ledToOccupation = warData.getPenaltyReport().contains("TOTAL VICTORY")
+                    && TaxConfig.ENABLE_COLONY_TRANSFER.get();
+            net.machiavelli.minecolonytax.db.WarStatsDB.recordWarEnd(
+                    warData,
+                    net.machiavelli.minecolonytax.db.WarStatsDB.determineOutcome(warData),
+                    amountTransferred,
+                    ledToOccupation);
+
             String attackerName = warData.getAttackerColony() != null ? warData.getAttackerColony().getName()
                     : "Unknown Attacker";
-            String eventString = String.format(
-                    "[WAR] Colony '%s' was attacked by '%s'. Outcome: %s. Amount Transferred: %d",
-                    colony.getName(),
-                    attackerName,
-                    outcome,
-                    amountTransferred);
 
-            HistoryManager.getColonyHistory(colony.getID()).addEvent(eventString);
+            // Determine outcome from each colony's perspective
+            boolean isStalemate = warData.getPenaltyReport().isEmpty()
+                    || warData.getPenaltyReport().toLowerCase().contains("stalemate");
+            boolean defenderWon = !isStalemate && warData.getPenaltyReport().contains("TOTAL VICTORY")
+                    && warData.getRemainingDefenderGuards() > 0;
+            String defenderOutcome = isStalemate ? "STALEMATE" : (defenderWon ? "VICTORY" : "DEFEAT");
+            String attackerOutcome = isStalemate ? "STALEMATE" : (defenderWon ? "DEFEAT" : "VICTORY");
+
+            // addWarEntry also writes a legacy string for WarHistoryCommand compatibility
+            int _defBefore = TaxManager.getStoredTaxForColonyId(colony.getID());
+            int _defAfter  = _defBefore - (int) amountTransferred;
+            int _atkBefore = warData.getAttackerColony() != null
+                    ? TaxManager.getStoredTaxForColonyId(warData.getAttackerColony().getID()) : 0;
+            int _atkAfter  = _atkBefore + (int) amountTransferred;
+            HistoryManager.getColonyHistory(colony.getID())
+                    .addWarEntry(attackerName, defenderOutcome, amountTransferred, _defBefore, _defAfter);
+            if (warData.getAttackerColony() != null) {
+                HistoryManager.getColonyHistory(warData.getAttackerColony().getID())
+                        .addWarEntry(colony.getName(), attackerOutcome, amountTransferred, _atkBefore, _atkAfter);
+            }
             HistoryManager.saveHistory();
             WARSYSTEM_LOGGER.info("War ended for colony {}", colony.getName());
         }
@@ -1339,6 +1660,11 @@ public class WarSystem {
                 if (p != null)
                     PlayerWarDataManager.incrementWarsWon(p);
             }
+            for (UUID atkUUID : war.getAttackerLives().keySet()) {
+                ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(atkUUID);
+                if (p != null)
+                    PlayerWarDataManager.incrementWarsLost(p);
+            }
             handleVictoryRewards(war, true); // true for defender victory
             endWar(war.getColony());
             return;
@@ -1358,6 +1684,11 @@ public class WarSystem {
                 ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(atkUUID);
                 if (p != null)
                     PlayerWarDataManager.incrementWarsWon(p);
+            }
+            for (UUID defUUID : war.getDefenderLives().keySet()) {
+                ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(defUUID);
+                if (p != null)
+                    PlayerWarDataManager.incrementWarsLost(p);
             }
             handleVictoryRewards(war, false); // false for attacker victory
             endWar(war.getColony());
@@ -1439,6 +1770,11 @@ public class WarSystem {
                 if (p != null)
                     PlayerWarDataManager.incrementWarsWon(p);
             }
+            for (UUID atkUUID : war.getAttackerLives().keySet()) {
+                ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(atkUUID);
+                if (p != null)
+                    PlayerWarDataManager.incrementWarsLost(p);
+            }
         } else if (defenderNormalizedStrength + epsilon < attackerNormalizedStrength) { // Defenders lost proportionally
                                                                                         // more
             reportOutcome = "Strategic Victory: Attackers win! Defenders lost proportionally more strength.";
@@ -1468,6 +1804,11 @@ public class WarSystem {
                 ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(atkUUID);
                 if (p != null)
                     PlayerWarDataManager.incrementWarsWon(p);
+            }
+            for (UUID defUUID : war.getDefenderLives().keySet()) {
+                ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(defUUID);
+                if (p != null)
+                    PlayerWarDataManager.incrementWarsLost(p);
             }
         } else { // Proportional losses are too close - stalemate
             reportOutcome = "Stalemate (Timeout - Proportional Losses): Both sides fought hard but neither gained a clear advantage. Penalties apply.";
@@ -1544,9 +1885,74 @@ public class WarSystem {
         Map<UUID, Integer> winnerLives = defendersWon ? war.getDefenderLives() : war.getAttackerLives();
         IColony loserColony = defendersWon ? war.getAttackerColony() : war.getColony();
 
-        if (TaxConfig.ENABLE_COLONY_TRANSFER.get() && !defendersWon) { // Attackers win and transfer is on
-            transferOwnership(war.getColony(), war.getAttacker());
-            war.setPenaltyReport("TOTAL VICTORY - Colony transferred to attackers!");
+        if (TaxConfig.ENABLE_COLONY_TRANSFER.get() && !defendersWon) { // ATTACKER WINS - Target colony enters occupied
+                                                                       // state
+            if (TaxConfig.isOccupationSystemEnabled()) {
+                net.machiavelli.minecolonytax.occupation.OccupationManager.startOccupation(
+                        war.getColony(), war.getAttacker(), war.getAttackerColony());
+                war.setPenaltyReport("TOTAL VICTORY - Colony is now OCCUPIED! Original owner has " +
+                        TaxConfig.getOccupationDurationDays() + " days to reclaim.");
+            } else {
+                transferOwnership(war.getColony(), war.getAttacker());
+                war.setPenaltyReport("TOTAL VICTORY - Colony transferred to attackers!");
+            }
+        } else if (TaxConfig.isColonyWagerEnabled() && defendersWon && war.getAttackerColony() != null) {
+            // DEFENDER WINS with COLONY WAGER enabled - Attacker's wagered colony enters
+            // occupied state!
+            if (TaxConfig.isOccupationSystemEnabled()) {
+                net.machiavelli.minecolonytax.occupation.OccupationManager.startOccupation(
+                        war.getAttackerColony(), war.getDefender(), war.getColony());
+                war.setPenaltyReport("⚔ COUNTER-CONQUEST! The attacker's colony is now OCCUPIED by the defenders! " +
+                        "Attacker has " + TaxConfig.getOccupationDurationDays() + " days to reclaim.");
+
+                // Notify both sides about the wager outcome
+                if (war.getColony().getWorld() != null && war.getColony().getWorld().getServer() != null) {
+                    Component wagerLostMsg = Component.empty()
+                            .append(Component.literal("⚔ WAGER LOST! ⚔").withStyle(ChatFormatting.DARK_RED,
+                                    ChatFormatting.BOLD))
+                            .append(Component.literal("\nYou attacked and LOST! Your colony ")
+                                    .withStyle(ChatFormatting.RED))
+                            .append(Component.literal(war.getAttackerColony().getName()).withStyle(ChatFormatting.GOLD,
+                                    ChatFormatting.BOLD))
+                            .append(Component.literal(" is now OCCUPIED by the defenders!")
+                                    .withStyle(ChatFormatting.RED))
+                            .append(Component
+                                    .literal("\nYou have " + TaxConfig.getOccupationDurationDays()
+                                            + " days to wage a reclamation war.")
+                                    .withStyle(ChatFormatting.YELLOW));
+
+                    Component wagerWonMsg = Component.empty()
+                            .append(Component.literal("⚔ COUNTER-CONQUEST! ⚔").withStyle(ChatFormatting.GOLD,
+                                    ChatFormatting.BOLD))
+                            .append(Component.literal(
+                                    "\nYou successfully defended your colony and captured the attacker's wagered colony ")
+                                    .withStyle(ChatFormatting.GREEN))
+                            .append(Component.literal(war.getAttackerColony().getName()).withStyle(ChatFormatting.GOLD,
+                                    ChatFormatting.BOLD))
+                            .append(Component.literal("!").withStyle(ChatFormatting.GREEN))
+                            .append(Component.literal("\nYou can now collect "
+                                    + (int) (TaxConfig.getOccupationTaxPercentage() * 100) + "% of their taxes!")
+                                    .withStyle(ChatFormatting.YELLOW));
+
+                    // Notify attacker
+                    ServerPlayer attackerPlayer = war.getColony().getWorld().getServer().getPlayerList()
+                            .getPlayer(war.getAttacker());
+                    if (attackerPlayer != null) {
+                        attackerPlayer.sendSystemMessage(wagerLostMsg);
+                    }
+
+                    // Notify defender
+                    ServerPlayer defenderPlayer = war.getColony().getWorld().getServer().getPlayerList()
+                            .getPlayer(war.getDefender());
+                    if (defenderPlayer != null) {
+                        defenderPlayer.sendSystemMessage(wagerWonMsg);
+                    }
+                }
+            } else {
+                // No occupation system - direct transfer of attacker's colony to defender
+                transferOwnership(war.getAttackerColony(), war.getDefender());
+                war.setPenaltyReport("⚔ COUNTER-CONQUEST! Attacker's colony transferred to the defenders!");
+            }
         } else {
             if (loserColony == null) {
                 war.setPenaltyReport("TOTAL VICTORY - Loser colony not found for economic penalties.");
@@ -1578,71 +1984,90 @@ public class WarSystem {
     }
 
     public static Map<UUID, Integer> getLivesForPlayer(WarData war, ServerPlayer player) {
-        System.out.println("[DEBUG] getLivesForPlayer called for player " + player.getName().getString() + " ("
-                + player.getUUID() + ")");
-        System.out.println("[DEBUG] FTB_TEAMS_INSTALLED: " + FTB_TEAMS_INSTALLED);
-        System.out.println("[DEBUG] Attacker lives: " + war.getAttackerLives());
-        System.out.println("[DEBUG] Defender lives: " + war.getDefenderLives());
+        if (TaxConfig.isDebugLogging()) {
+            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] getLivesForPlayer called for player " + player.getName().getString() + " ("
+                    + player.getUUID() + ")");
+            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] FTB_TEAMS_INSTALLED: " + FTB_TEAMS_INSTALLED);
+            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Attacker lives: " + war.getAttackerLives());
+            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Defender lives: " + war.getDefenderLives());
+        }
 
         // First check if player is directly in the lives maps
         UUID playerUUID = player.getUUID();
-        System.out.println("[DEBUG] Checking if attacker lives contains player UUID: "
-                + war.getAttackerLives().containsKey(playerUUID));
-        System.out.println("[DEBUG] Checking if defender lives contains player UUID: "
-                + war.getDefenderLives().containsKey(playerUUID));
+        if (TaxConfig.isDebugLogging()) {
+            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Checking if attacker lives contains player UUID: "
+                    + war.getAttackerLives().containsKey(playerUUID));
+            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Checking if defender lives contains player UUID: "
+                    + war.getDefenderLives().containsKey(playerUUID));
+        }
 
         if (war.getAttackerLives().containsKey(playerUUID)) {
-            System.out.println("[DEBUG] Player found in attacker lives, returning attacker lives");
+            if (TaxConfig.isDebugLogging())
+                if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player found in attacker lives, returning attacker lives");
             return war.getAttackerLives();
         } else if (war.getDefenderLives().containsKey(playerUUID)) {
-            System.out.println("[DEBUG] Player found in defender lives, returning defender lives");
+            if (TaxConfig.isDebugLogging())
+                if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player found in defender lives, returning defender lives");
             return war.getDefenderLives();
         }
 
         // Check if player is in attacker or defender allies
         if (war.getAttackerAllies().contains(playerUUID)) {
-            System.out.println("[DEBUG] Player found in attacker allies, returning attacker lives");
+            if (TaxConfig.isDebugLogging())
+                if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player found in attacker allies, returning attacker lives");
             return war.getAttackerLives();
         } else if (war.getDefenderAllies().contains(playerUUID)) {
-            System.out.println("[DEBUG] Player found in defender allies, returning defender lives");
+            if (TaxConfig.isDebugLogging())
+                if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player found in defender allies, returning defender lives");
             return war.getDefenderLives();
         }
 
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
-            Optional<Team> teamOpt = FTB_TEAM_MANAGER.getPlayerTeamForPlayerID(playerUUID);
-            System.out.println("[DEBUG] Player team found: " + teamOpt.isPresent());
+        if (FTB_TEAMS_INSTALLED) {
+            Optional<FtbTeamsCompat.TeamHandle> teamOpt = FtbTeamsCompat.getTeamForPlayer(playerUUID);
+            if (TaxConfig.isDebugLogging())
+                if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player team found: " + teamOpt.isPresent());
             if (teamOpt.isPresent()) {
-                Team team = teamOpt.get();
-                System.out.println("[DEBUG] Player team ID: " + team.getId());
-                System.out.println("[DEBUG] War attacker team ID: " + war.getAttackerTeamID());
-                System.out.println("[DEBUG] War defender team ID: " + war.getDefenderTeamID());
+                FtbTeamsCompat.TeamHandle team = teamOpt.get();
+                UUID teamId = FtbTeamsCompat.getTeamId(team);
+                if (TaxConfig.isDebugLogging()) {
+                    if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player team ID: " + teamId);
+                    if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] War attacker team ID: " + war.getAttackerTeamID());
+                    if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] War defender team ID: " + war.getDefenderTeamID());
+                }
 
-                if (team.getId().equals(war.getAttackerTeamID())) {
-                    System.out.println("[DEBUG] Player is on attacker team, returning attacker lives");
+                if (teamId != null && teamId.equals(war.getAttackerTeamID())) {
+                    if (TaxConfig.isDebugLogging())
+                        if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player is on attacker team, returning attacker lives");
                     return war.getAttackerLives();
-                } else if (team.getId().equals(war.getDefenderTeamID())) {
-                    System.out.println("[DEBUG] Player is on defender team, returning defender lives");
+                } else if (teamId != null && teamId.equals(war.getDefenderTeamID())) {
+                    if (TaxConfig.isDebugLogging())
+                        if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player is on defender team, returning defender lives");
                     return war.getDefenderLives();
                 }
 
                 // Check if player is allied to any participating team
-                Team atkTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
-                if (atkTeam != null && atkTeam.isPartyTeam()
-                        && ((PartyTeam) atkTeam).getMembers().contains(playerUUID)) {
-                    System.out.println("[DEBUG] Player is allied to attacker team, returning attacker lives");
+                FtbTeamsCompat.TeamHandle atkTeam = war.getAttackerTeamID() == null ? null
+                        : FtbTeamsCompat.getTeamById(war.getAttackerTeamID()).orElse(null);
+                if (atkTeam != null && FtbTeamsCompat.partyTeamContains(atkTeam, playerUUID)) {
+                    if (TaxConfig.isDebugLogging())
+                        if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player is allied to attacker team, returning attacker lives");
                     return war.getAttackerLives();
                 }
 
-                Team defTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
-                if (defTeam != null && defTeam.isPartyTeam()
-                        && ((PartyTeam) defTeam).getMembers().contains(playerUUID)) {
-                    System.out.println("[DEBUG] Player is allied to defender team, returning defender lives");
+                FtbTeamsCompat.TeamHandle defTeam = war.getDefenderTeamID() == null ? null
+                        : FtbTeamsCompat.getTeamById(war.getDefenderTeamID()).orElse(null);
+                if (defTeam != null && FtbTeamsCompat.partyTeamContains(defTeam, playerUUID)) {
+                    if (TaxConfig.isDebugLogging())
+                        if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player is allied to defender team, returning defender lives");
                     return war.getDefenderLives();
                 }
 
-                System.out.println("[DEBUG] Player team not participating in war, checking Minecolonies membership");
+                if (TaxConfig.isDebugLogging())
+                    System.out
+                            .println("[DEBUG] Player team not participating in war, checking Minecolonies membership");
             } else {
-                System.out.println("[DEBUG] Player has no FTB team, checking Minecolonies membership");
+                if (TaxConfig.isDebugLogging())
+                    if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player has no FTB team, checking Minecolonies membership");
             }
         }
 
@@ -1650,25 +2075,30 @@ public class WarSystem {
         IColony attackerColony = war.getAttackerColony();
         IColony defenderColony = war.getColony();
 
-        System.out.println("[DEBUG] Checking Minecolonies membership - Attacker colony: "
-                + (attackerColony != null ? attackerColony.getName() : "null"));
-        System.out.println("[DEBUG] Checking Minecolonies membership - Defender colony: "
-                + (defenderColony != null ? defenderColony.getName() : "null"));
+        if (TaxConfig.isDebugLogging()) {
+            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Checking Minecolonies membership - Attacker colony: "
+                    + (attackerColony != null ? attackerColony.getName() : "null"));
+            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Checking Minecolonies membership - Defender colony: "
+                    + (defenderColony != null ? defenderColony.getName() : "null"));
+        }
 
         // Check if player is in attacker colony (owner, officer, or friend)
         if (attackerColony != null) {
             IPermissions attackerPerms = attackerColony.getPermissions();
-            System.out.println("[DEBUG] Player in attacker colony players list: "
-                    + attackerPerms.getPlayers().containsKey(playerUUID));
+            if (TaxConfig.isDebugLogging())
+                if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player in attacker colony players list: "
+                        + attackerPerms.getPlayers().containsKey(playerUUID));
             if (attackerPerms.getPlayers().containsKey(playerUUID)) {
                 Rank playerRank = attackerPerms.getRank(playerUUID);
-                System.out.println("[DEBUG] Player rank in attacker colony: "
-                        + (playerRank != null ? playerRank.getName() : "null"));
+                if (TaxConfig.isDebugLogging())
+                    if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player rank in attacker colony: "
+                            + (playerRank != null ? playerRank.getName() : "null"));
                 if (playerRank != null && (playerRank.equals(attackerPerms.getRankOwner()) ||
                         playerRank.equals(attackerPerms.getRankOfficer()) ||
                         playerRank.equals(attackerPerms.getRankFriend()))) {
-                    System.out.println("[DEBUG] Player is in attacker colony with rank " + playerRank.getName()
-                            + ", returning attacker lives");
+                    if (TaxConfig.isDebugLogging())
+                        if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player is in attacker colony with rank " + playerRank.getName()
+                                + ", returning attacker lives");
                     return war.getAttackerLives();
                 }
             }
@@ -1677,23 +2107,27 @@ public class WarSystem {
         // Check if player is in defender colony (owner, officer, or friend)
         if (defenderColony != null) {
             IPermissions defenderPerms = defenderColony.getPermissions();
-            System.out.println("[DEBUG] Player in defender colony players list: "
-                    + defenderPerms.getPlayers().containsKey(playerUUID));
+            if (TaxConfig.isDebugLogging())
+                if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player in defender colony players list: "
+                        + defenderPerms.getPlayers().containsKey(playerUUID));
             if (defenderPerms.getPlayers().containsKey(playerUUID)) {
                 Rank playerRank = defenderPerms.getRank(playerUUID);
-                System.out.println("[DEBUG] Player rank in defender colony: "
-                        + (playerRank != null ? playerRank.getName() : "null"));
+                if (TaxConfig.isDebugLogging())
+                    if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player rank in defender colony: "
+                            + (playerRank != null ? playerRank.getName() : "null"));
                 if (playerRank != null && (playerRank.equals(defenderPerms.getRankOwner()) ||
                         playerRank.equals(defenderPerms.getRankOfficer()) ||
                         playerRank.equals(defenderPerms.getRankFriend()))) {
-                    System.out.println("[DEBUG] Player is in defender colony with rank " + playerRank.getName()
-                            + ", returning defender lives");
+                    if (TaxConfig.isDebugLogging())
+                        if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player is in defender colony with rank " + playerRank.getName()
+                                + ", returning defender lives");
                     return war.getDefenderLives();
                 }
             }
         }
 
-        System.out.println("[DEBUG] Player not participating in war, returning empty map");
+        if (TaxConfig.isDebugLogging())
+            if (TaxConfig.isDebugLogging()) WARSYSTEM_LOGGER.debug("[DEBUG] Player not participating in war, returning empty map");
         return new HashMap<>(); // Return mutable map instead of Collections.emptyMap()
     }
 
@@ -1712,24 +2146,26 @@ public class WarSystem {
             }
 
             // Check FTB Teams
-            if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
-                Optional<Team> teamOpt = FTB_TEAM_MANAGER.getTeamForPlayerID(player.getUUID());
+            if (FTB_TEAMS_INSTALLED) {
+                Optional<FtbTeamsCompat.TeamHandle> teamOpt = FtbTeamsCompat.getTeamForPlayer(player.getUUID());
                 if (teamOpt.isPresent()) {
-                    Team team = teamOpt.get();
-                    if (team.getId().equals(war.getAttackerTeamID()) || team.getId().equals(war.getDefenderTeamID())) {
+                    FtbTeamsCompat.TeamHandle team = teamOpt.get();
+                    UUID teamId = FtbTeamsCompat.getTeamId(team);
+                    if (teamId != null
+                            && (teamId.equals(war.getAttackerTeamID()) || teamId.equals(war.getDefenderTeamID()))) {
                         return war;
                     }
 
                     // Check if player is allied to any participating team
-                    Team atkTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
-                    if (atkTeam != null && atkTeam.isPartyTeam()
-                            && ((PartyTeam) atkTeam).getMembers().contains(player.getUUID())) {
+                    FtbTeamsCompat.TeamHandle atkTeam = war.getAttackerTeamID() == null ? null
+                            : FtbTeamsCompat.getTeamById(war.getAttackerTeamID()).orElse(null);
+                    if (atkTeam != null && FtbTeamsCompat.partyTeamContains(atkTeam, player.getUUID())) {
                         return war;
                     }
 
-                    Team defTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
-                    if (defTeam != null && defTeam.isPartyTeam()
-                            && ((PartyTeam) defTeam).getMembers().contains(player.getUUID())) {
+                    FtbTeamsCompat.TeamHandle defTeam = war.getDefenderTeamID() == null ? null
+                            : FtbTeamsCompat.getTeamById(war.getDefenderTeamID()).orElse(null);
+                    if (defTeam != null && FtbTeamsCompat.partyTeamContains(defTeam, player.getUUID())) {
                         return war;
                     }
                 }
@@ -1769,47 +2205,40 @@ public class WarSystem {
     }
 
     public static void scheduleTimerWarnings(WarData war, long warDurationMillis) {
-        Timer warningTimer = new Timer();
         long quarter = warDurationMillis / 4;
         for (int i = 1; i <= 3; i++) {
             long delay = quarter * i;
             if (delay <= 0)
                 continue;
-            warningTimer.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    // Check if war still exists in active wars or if the colony world/server is
-                    // null
-                    if (!ACTIVE_WARS.containsKey(war.getColony().getID()) ||
-                            war.getColony().getWorld() == null ||
-                            war.getColony().getWorld().getServer() == null ||
-                            war.bossEvent == null) {
-                        this.cancel();
-                        return;
-                    }
+            TickScheduler.scheduleDelayed(() -> {
+                // Check if war still exists in active wars or if the colony world/server is
+                // null
+                if (!ACTIVE_WARS.containsKey(war.getColony().getID()) ||
+                        war.getColony().getWorld() == null ||
+                        war.getColony().getWorld().getServer() == null ||
+                        war.bossEvent == null) {
+                    return;
+                }
 
-                    // Check war status - don't process for ended wars
-                    if (war.getStatus() != WarData.WarStatus.INWAR) {
-                        this.cancel();
-                        return;
-                    }
+                // Check war status - don't process for ended wars
+                if (war.getStatus() != WarData.WarStatus.INWAR) {
+                    return;
+                }
 
-                    long elapsedSeconds = (System.currentTimeMillis() - war.warStartTime) / 1000;
-                    long warDurationSeconds = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
-                    long remaining = Math.max(0, warDurationSeconds - elapsedSeconds);
-                    String bossText = String.format("War: Attacker Lives: %d | Defender Lives: %d | Time: %02d:%02d",
-                            war.getAttackerLives().values().stream().mapToInt(Integer::intValue).sum(),
-                            war.getDefenderLives().values().stream().mapToInt(Integer::intValue).sum(),
-                            remaining / 60, remaining % 60);
-                    Component newName = Component.literal(bossText);
-                    float newProgress = (float) remaining / warDurationSeconds;
-                    war.bossEvent.setName(newName);
-                    war.bossEvent.setProgress(newProgress);
-                    war.bossEvent.setVisible(true);
-                    if (remaining <= 0) {
-                        handleTimeExpiry(war);
-                        this.cancel();
-                    }
+                long elapsedSeconds = (System.currentTimeMillis() - war.warStartTime) / 1000;
+                long warDurationSeconds = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
+                long remaining = Math.max(0, warDurationSeconds - elapsedSeconds);
+                String bossText = String.format("War: Attacker Lives: %d | Defender Lives: %d | Time: %02d:%02d",
+                        war.getAttackerLives().values().stream().mapToInt(Integer::intValue).sum(),
+                        war.getDefenderLives().values().stream().mapToInt(Integer::intValue).sum(),
+                        remaining / 60, remaining % 60);
+                Component newName = Component.literal(bossText);
+                float newProgress = (float) remaining / warDurationSeconds;
+                war.bossEvent.setName(newName);
+                war.bossEvent.setProgress(newProgress);
+                war.bossEvent.setVisible(true);
+                if (remaining <= 0) {
+                    handleTimeExpiry(war);
                 }
             }, delay);
         }
@@ -1846,15 +2275,19 @@ public class WarSystem {
     public static void onPlayerKilledInWar(ServerPlayer killer, ServerPlayer killed, WarData war) {
         if (killer != null && killed != null && war != null) {
             PlayerWarDataManager.incrementPlayersKilledInWar(killer);
+            PlayerWarDataManager.incrementTimesKilledInWar(killed);
+            net.machiavelli.minecolonytax.db.WarStatsDB.recordWarKill(
+                    killer.getUUID(), killer.getName().getString(),
+                    killed.getUUID(), killed.getName().getString());
         }
     }
 
     public static void startJoinPhase(IColony colony, ServerPlayer attacker, ServerPlayer owner) {
-        Team attackerTeam = FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null
-                ? FTB_TEAM_MANAGER.getTeamForPlayerID(attacker.getUUID()).orElse(null)
+        FtbTeamsCompat.TeamHandle attackerTeam = FTB_TEAMS_INSTALLED
+                ? FtbTeamsCompat.getTeamForPlayer(attacker.getUUID()).orElse(null)
                 : null;
-        Team defenderTeam = FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null
-                ? FTB_TEAM_MANAGER.getTeamForPlayerID(owner.getUUID()).orElse(null)
+        FtbTeamsCompat.TeamHandle defenderTeam = FTB_TEAMS_INSTALLED
+                ? FtbTeamsCompat.getTeamForPlayer(owner.getUUID()).orElse(null)
                 : null;
 
         IColony attackerColony = IColonyManager.getInstance().getColonies(attacker.level()).stream()
@@ -1870,10 +2303,13 @@ public class WarSystem {
         WarData war = getActiveWarForPlayer(owner);
 
         int configuredMinutes = TaxConfig.JOIN_PHASE_DURATION_MINUTES.get();
-        WARSYSTEM_LOGGER.info("[DEBUG] JOIN_PHASE_DURATION_MINUTES config value: {} minutes", configuredMinutes);
-        WARSYSTEM_LOGGER.info("[DEBUG] Config spec: {}", TaxConfig.CONFIG.getClass().getName());
-        WARSYSTEM_LOGGER.info("[DEBUG] Config default value: {}", TaxConfig.JOIN_PHASE_DURATION_MINUTES.getDefault());
-        WARSYSTEM_LOGGER.info("[DEBUG] Config is loaded: {}", TaxConfig.CONFIG.isLoaded());
+        if (TaxConfig.isDebugLogging()) {
+            WARSYSTEM_LOGGER.info("[DEBUG] JOIN_PHASE_DURATION_MINUTES config value: {} minutes", configuredMinutes);
+            WARSYSTEM_LOGGER.info("[DEBUG] Config spec: {}", TaxConfig.CONFIG.getClass().getName());
+            WARSYSTEM_LOGGER.info("[DEBUG] Config default value: {}",
+                    TaxConfig.JOIN_PHASE_DURATION_MINUTES.getDefault());
+            WARSYSTEM_LOGGER.info("[DEBUG] Config is loaded: {}", TaxConfig.CONFIG.isLoaded());
+        }
 
         if (ServerLifecycleHooks.getCurrentServer() != null) {
             // Get the time remaining in a readable format
@@ -1922,7 +2358,7 @@ public class WarSystem {
                 .append(Component.literal(" "))
                 .append(LEAVE_MSG);
 
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
+        if (FTB_TEAMS_INSTALLED) {
             if (attackerTeam != null) {
                 sendNotificationToColonyParticipants(attackerColony, joinAnnouncement);
             }
@@ -1942,7 +2378,7 @@ public class WarSystem {
                 String.format("%02d:%02d", remainingMillis / (60 * 1000), (remainingMillis / 1000) % 60))
                 .withStyle(style -> style.withColor(ChatFormatting.YELLOW).withBold(true));
 
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
+        if (FTB_TEAMS_INSTALLED) {
             if (attackerTeam != null)
                 sendNotificationToColonyParticipants(attackerColony, joinPhaseInfo);
             if (defenderTeam != null)
@@ -1955,74 +2391,61 @@ public class WarSystem {
         // Add countdown sound timer for the last 6 seconds of join phase, but only if
         // join phase is at least 6 seconds long
         if (joinDurationMillis >= 6000) {
-            new Timer().schedule(new TimerTask() {
-                int secondsLeft = 6;
+            final int[] secondsLeft = { 6 };
+            TickScheduler.scheduleRepeating(() -> {
+                try {
+                    if (war == null || war.getColony() == null || !war.isJoinPhaseActive() || secondsLeft[0] < 0) {
+                        return; // Task will be cleaned up when war starts or ends
+                    }
 
-                @Override
-                public void run() {
-                    try {
-                        if (war == null || war.getColony() == null || !war.isJoinPhaseActive()) {
-                            this.cancel();
-                            return;
-                        }
+                    // Play countdown sound to all war participants
+                    Set<UUID> allParticipants = new HashSet<>();
+                    allParticipants.addAll(war.getAttackerLives().keySet());
+                    allParticipants.addAll(war.getDefenderLives().keySet());
 
-                        // Play countdown sound to all war participants
-                        Set<UUID> allParticipants = new HashSet<>();
-                        allParticipants.addAll(war.getAttackerLives().keySet());
-                        allParticipants.addAll(war.getDefenderLives().keySet());
-
-                        // Only play sound if there are participants
-                        if (!allParticipants.isEmpty()) {
-                            // Play countdown sound using Minecraft's bell sound
-                            for (UUID uuid : allParticipants) {
-                                ServerPlayer player = ServerLifecycleHooks.getCurrentServer().getPlayerList()
-                                        .getPlayer(uuid);
-                                if (player != null) {
-                                    player.playSound(net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BELL.get(), 1.0F,
-                                            1.0F);
-                                }
+                    // Only play sound if there are participants
+                    if (!allParticipants.isEmpty()) {
+                        // Play countdown sound using Minecraft's bell sound
+                        for (UUID uuid : allParticipants) {
+                            ServerPlayer player = ServerLifecycleHooks.getCurrentServer() != null
+                                    ? ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(uuid)
+                                    : null;
+                            if (player != null) {
+                                player.playSound(net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BELL.get(), 1.0F,
+                                        1.0F);
                             }
                         }
-
-                        // Notify remaining seconds
-                        notifyWarParticipants(war,
-                                Component
-                                        .literal("⏱ " + secondsLeft + (secondsLeft == 1 ? " second" : " seconds")
-                                                + " until war starts!")
-                                        .withStyle(style -> style.withColor(ChatFormatting.YELLOW).withBold(true)));
-
-                        secondsLeft--;
-                        if (secondsLeft < 0) {
-                            this.cancel();
-                        }
-                    } catch (Exception ex) {
-                        // Catch any exceptions to prevent timer from crashing
-                        WARSYSTEM_LOGGER.error("Error in countdown timer: " + ex.getMessage(), ex);
-                        this.cancel();
                     }
+
+                    // Notify remaining seconds
+                    notifyWarParticipants(war,
+                            Component
+                                    .literal("⏱ " + secondsLeft[0] + (secondsLeft[0] == 1 ? " second" : " seconds")
+                                            + " until war starts!")
+                                    .withStyle(style -> style.withColor(ChatFormatting.YELLOW).withBold(true)));
+
+                    secondsLeft[0]--;
+                } catch (Exception ex) {
+                    WARSYSTEM_LOGGER.error("Error in countdown timer: " + ex.getMessage(), ex);
                 }
             }, Math.max(0, joinDurationMillis - 6000), 1000); // Start 6 seconds before join phase ends, repeat every 1
                                                               // second
         }
 
         // Main timer to start the war when join phase ends
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                if (war == null || war.getColony() == null) {
-                    this.cancel();
-                    return;
-                } // Null check for war
-                war.setStatus(WarData.WarStatus.INWAR);
-                war.warStartTime = System.currentTimeMillis();
-                finalizeWarStart(war);
-                // Enable war actions for both sides
-                setWarInteractionPermissions(war.getColony(), true);
-                if (war.getAttackerColony() != null) {
-                    setWarInteractionPermissions(war.getAttackerColony(), true);
-                }
-                startWarCountdown(war);
+        TickScheduler.scheduleDelayed(() -> {
+            if (war == null || war.getColony() == null) {
+                return;
             }
+            war.setStatus(WarData.WarStatus.INWAR);
+            war.warStartTime = System.currentTimeMillis();
+            finalizeWarStart(war);
+            // Enable war actions for both sides
+            setWarInteractionPermissions(war.getColony(), true);
+            if (war.getAttackerColony() != null) {
+                setWarInteractionPermissions(war.getAttackerColony(), true);
+            }
+            startWarCountdown(war);
         }, joinDurationMillis);
         war.setAccepted(true);
     }
@@ -2090,14 +2513,14 @@ public class WarSystem {
         }
 
         // If FTB Teams is installed, also notify team members
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
+        if (FTB_TEAMS_INSTALLED) {
             WarData war = ACTIVE_WARS.get(defenderColony.getID());
             if (war != null) {
                 // Notify attacker team members
                 if (war.getAttackerTeamID() != null) {
-                    Team attackerTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
-                    if (attackerTeam != null && attackerTeam.isPartyTeam()) {
-                        ((PartyTeam) attackerTeam).getMembers().forEach(uuid -> {
+                    FtbTeamsCompat.TeamHandle attackerTeam = FtbTeamsCompat.getTeamById(war.getAttackerTeamID()).orElse(null);
+                    if (attackerTeam != null && FtbTeamsCompat.isPartyTeam(attackerTeam)) {
+                        FtbTeamsCompat.getPartyMembers(attackerTeam).forEach(uuid -> {
                             if (!notifiedPlayers.contains(uuid)) {
                                 ServerPlayer player = server.getPlayerList().getPlayer(uuid);
                                 if (player != null) {
@@ -2111,9 +2534,9 @@ public class WarSystem {
 
                 // Notify defender team members
                 if (war.getDefenderTeamID() != null) {
-                    Team defenderTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
-                    if (defenderTeam != null && defenderTeam.isPartyTeam()) {
-                        ((PartyTeam) defenderTeam).getMembers().forEach(uuid -> {
+                    FtbTeamsCompat.TeamHandle defenderTeam = FtbTeamsCompat.getTeamById(war.getDefenderTeamID()).orElse(null);
+                    if (defenderTeam != null && FtbTeamsCompat.isPartyTeam(defenderTeam)) {
+                        FtbTeamsCompat.getPartyMembers(defenderTeam).forEach(uuid -> {
                             if (!notifiedPlayers.contains(uuid)) {
                                 ServerPlayer player = server.getPlayerList().getPlayer(uuid);
                                 if (player != null) {
@@ -2134,43 +2557,56 @@ public class WarSystem {
             return;
         }
         final long warDurationSeconds = TaxConfig.WAR_DURATION_MINUTES.get() * 60L;
-        warData.timerTask = new TimerTask() {
-            @Override
-            public void run() {
-                // Check if war still exists in active wars or if the colony world/server is
-                // null
-                if (!ACTIVE_WARS.containsKey(warData.getColony().getID()) ||
-                        warData.getColony().getWorld() == null ||
-                        warData.getColony().getWorld().getServer() == null ||
-                        warData.bossEvent == null) {
-                    this.cancel();
-                    return;
-                }
-
-                // Check war status - don't process for ended wars
-                if (warData.getStatus() != WarData.WarStatus.INWAR) {
-                    this.cancel();
-                    return;
-                }
-
-                long elapsedSeconds = (System.currentTimeMillis() - warData.warStartTime) / 1000;
-                long remaining = Math.max(0, warDurationSeconds - elapsedSeconds);
-                String bossText = String.format("War: Attacker Lives: %d | Defender Lives: %d | Time: %02d:%02d",
-                        warData.getAttackerLives().values().stream().mapToInt(Integer::intValue).sum(),
-                        warData.getDefenderLives().values().stream().mapToInt(Integer::intValue).sum(),
-                        remaining / 60, remaining % 60);
-                Component newName = Component.literal(bossText);
-                float newProgress = (float) remaining / warDurationSeconds;
-                warData.bossEvent.setName(newName);
-                warData.bossEvent.setProgress(newProgress);
-                warData.bossEvent.setVisible(true);
-                if (remaining <= 0) {
-                    handleTimeExpiry(warData);
-                    this.cancel();
-                }
+        warData.countdownTaskId = TickScheduler.scheduleRepeating(() -> {
+            // Check if war still exists in active wars or if the colony world/server is
+            // null
+            if (!ACTIVE_WARS.containsKey(warData.getColony().getID()) ||
+                    warData.getColony().getWorld() == null ||
+                    warData.getColony().getWorld().getServer() == null ||
+                    warData.bossEvent == null) {
+                TickScheduler.cancel(warData.countdownTaskId);
+                warData.countdownTaskId = -1;
+                return;
             }
-        };
-        new Timer().scheduleAtFixedRate(warData.timerTask, 1000, 1000);
+
+            // Check war status - don't process for ended wars
+            if (warData.getStatus() != WarData.WarStatus.INWAR) {
+                TickScheduler.cancel(warData.countdownTaskId);
+                warData.countdownTaskId = -1;
+                return;
+            }
+
+            // Finding 9: defensive guard against wall-clock skew (NTP, manual
+            // clock change, container restart). If now < warStartTime the war
+            // was "born in the future" — almost certainly a backwards clock
+            // adjustment. Reset warStartTime to the current wall clock so the
+            // war doesn't appear to never expire (or instantly expire). This is
+            // a soft repair, not a monotonic rewrite — sufficient to avoid
+            // every-war-killed-on-NTP-skew bugs.
+            long nowMs = System.currentTimeMillis();
+            if (nowMs < warData.warStartTime) {
+                WARSYSTEM_LOGGER.warn("War {}: wall clock went backwards (now={} < warStartTime={}). "
+                        + "Resetting warStartTime to now; war will continue from the new clock value.",
+                        warData.getWarID(), nowMs, warData.warStartTime);
+                warData.warStartTime = nowMs;
+            }
+            long elapsedSeconds = (nowMs - warData.warStartTime) / 1000;
+            long remaining = Math.max(0, warDurationSeconds - elapsedSeconds);
+            String bossText = String.format("War: Attacker Lives: %d | Defender Lives: %d | Time: %02d:%02d",
+                    warData.getAttackerLives().values().stream().mapToInt(Integer::intValue).sum(),
+                    warData.getDefenderLives().values().stream().mapToInt(Integer::intValue).sum(),
+                    remaining / 60, remaining % 60);
+            Component newName = Component.literal(bossText);
+            float newProgress = (float) remaining / warDurationSeconds;
+            warData.bossEvent.setName(newName);
+            warData.bossEvent.setProgress(newProgress);
+            warData.bossEvent.setVisible(true);
+            if (remaining <= 0) {
+                handleTimeExpiry(warData);
+                TickScheduler.cancel(warData.countdownTaskId);
+                warData.countdownTaskId = -1;
+            }
+        }, 1000, 1000);
     }
 
     public static void sendColonyMessage(IColony colony, Component message) {
@@ -2191,10 +2627,10 @@ public class WarSystem {
         });
     }
 
-    public static void sendMessageToTeam(Team team, Component msg) {
+    public static void sendMessageToTeam(FtbTeamsCompat.TeamHandle team, Component msg) {
         if (team == null || ServerLifecycleHooks.getCurrentServer() == null)
             return;
-        for (UUID member : team.getMembers()) {
+        for (UUID member : FtbTeamsCompat.getTeamMembers(team)) {
             ServerPlayer sp = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(member);
             if (sp != null)
                 sp.sendSystemMessage(msg);
@@ -2204,43 +2640,90 @@ public class WarSystem {
     /**
      * Finds a valid colony owned by the player that meets the requirements to
      * declare war on the target.
-     * Checks building requirements, guard counts, and war chest status.
+     * Checks building requirements, guard counts, and treasury status.
+     * 
+     * SPECIAL CASE: Occupied colonies can be used for RECLAMATION wars against the
+     * occupier's colony.
+     * This allows players whose only colony is occupied to still fight back!
      * 
      * @param player        The player attempting to declare war
      * @param targetColony  The target colony
-     * @param checkWarChest Whether to check war chest requirements (usually true)
+     * @param checkTreasury Whether to check treasury requirements (usually true)
      * @return The first valid IColony found, or null if none meet requirements
      */
-    public static IColony findValidAttackerColony(ServerPlayer player, IColony targetColony, boolean checkWarChest) {
+    public static IColony findValidAttackerColony(ServerPlayer player, IColony targetColony, boolean checkTreasury) {
         if (player == null || targetColony == null)
             return null;
 
+        UUID playerUUID = player.getUUID();
+        int primaryColonyId = FirstColonyTracker.getFirstColony(playerUUID);
         List<IColony> playerColonies = IColonyManager.getInstance().getColonies(player.level()).stream()
-                .filter(c -> c.getPermissions().getOwner().equals(player.getUUID()))
-                .toList();
+                .filter(c -> c.getPermissions().getOwner().equals(playerUUID))
+                .sorted((a, b) -> {
+                    if (a.getID() == primaryColonyId) return -1;
+                    if (b.getID() == primaryColonyId) return 1;
+                    return 0;
+                })
+                .collect(java.util.stream.Collectors.toList());
 
         for (IColony potentialAttacker : playerColonies) {
             // Cannot attack yourself
             if (potentialAttacker.getID() == targetColony.getID())
                 continue;
 
-            // Check building/guard requirements
-            if (TaxConfig.isWarBuildingRequirementsEnabled()) {
-                net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager.RequirementResult reqs = net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager
-                        .checkWarRequirements(potentialAttacker);
-                if (!reqs.meetsRequirements)
-                    continue;
-            } else {
-                int guardCount = countGuards(potentialAttacker);
-                if (guardCount < TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get())
-                    continue;
+            // RECLAMATION WAR EXCEPTION: Relax requirements when fighting to reclaim an
+            // occupied colony.
+            // Two scenarios are covered:
+            // A) Player targets their OWN occupied colony - any attacker colony gets relaxed reqs
+            // B) Player targets the OCCUPIER's colony using their occupied colony as attacker
+            boolean isReclamationWar = false;
+            if (TaxConfig.isOccupationSystemEnabled()) {
+                // Scenario B: This attacker colony is occupied - check if targeting the occupier
+                net.machiavelli.minecolonytax.occupation.OccupationManager.OccupationData attackerOccData = 
+                    net.machiavelli.minecolonytax.occupation.OccupationManager.getOccupation(potentialAttacker.getID());
+                if (attackerOccData != null && attackerOccData.getOriginalOwnerUUID().equals(player.getUUID())) {
+                    UUID occupierUUID = attackerOccData.getOccupierUUID();
+                    if (targetColony.getPermissions().getOwner().equals(occupierUUID)) {
+                        isReclamationWar = true;
+                        WARSYSTEM_LOGGER.info(
+                                "Reclamation war (B): {} using occupied colony {} to attack occupier's colony {}",
+                                player.getName().getString(), potentialAttacker.getName(), targetColony.getName());
+                    }
+                }
+
+                // Scenario A: The TARGET colony is the player's own occupied colony
+                if (!isReclamationWar) {
+                    net.machiavelli.minecolonytax.occupation.OccupationManager.OccupationData targetOccData = 
+                        net.machiavelli.minecolonytax.occupation.OccupationManager.getOccupation(targetColony.getID());
+                    if (targetOccData != null && targetOccData.getOriginalOwnerUUID().equals(player.getUUID())) {
+                        isReclamationWar = true;
+                        WARSYSTEM_LOGGER.info(
+                                "Reclamation war (A): {} using colony {} to reclaim their occupied colony {}",
+                                player.getName().getString(), potentialAttacker.getName(), targetColony.getName());
+                    }
+                }
             }
 
-            // Check War Chest
-            if (checkWarChest) {
-                if (!net.machiavelli.minecolonytax.economy.WarChestManager.canDeclareWar(potentialAttacker.getID(),
-                        targetColony.getID())) {
-                    continue;
+            // Check building/guard requirements (skip for reclamation wars - desperation
+            // allows it!)
+            if (!isReclamationWar) {
+                if (TaxConfig.isWarBuildingRequirementsEnabled()) {
+                    net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager.RequirementResult reqs = net.machiavelli.minecolonytax.requirements.BuildingRequirementsManager
+                            .checkWarRequirements(potentialAttacker);
+                    if (!reqs.meetsRequirements)
+                        continue;
+                } else {
+                    int guardCount = countGuards(potentialAttacker);
+                    if (guardCount < TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get())
+                        continue;
+                }
+
+                // Check treasury (skip for reclamation wars - fighting for freedom!)
+                if (checkTreasury) {
+                    if (!net.machiavelli.minecolonytax.economy.TreasuryManager.canDeclareWar(potentialAttacker.getID(),
+                            targetColony.getID())) {
+                        continue;
+                    }
                 }
             }
 
@@ -2258,6 +2741,46 @@ public class WarSystem {
             source.sendFailure(Component.literal("Target colony must have at least "
                     + TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get() + " guards! (Found: " + targetGuards + ")"));
             return 0;
+        }
+
+        // Check if this is a reclamation war (two scenarios):
+        // A) Player targets their OWN occupied colony directly
+        // B) Player targets the OCCUPIER's colony while their own colony is occupied
+        if (TaxConfig.isOccupationSystemEnabled()) {
+            // Scenario A: Target IS the player's occupied colony
+            net.machiavelli.minecolonytax.occupation.OccupationManager.OccupationData targetOccData =
+                    net.machiavelli.minecolonytax.occupation.OccupationManager.getOccupation(targetColony.getID());
+            if (targetOccData != null && targetOccData.getOriginalOwnerUUID().equals(attacker.getUUID())) {
+                net.machiavelli.minecolonytax.occupation.OccupationManager
+                        .markReclamationAttempted(targetColony.getID());
+                attacker.sendSystemMessage(Component.literal(
+                        "\u2694 RECLAMATION WAR! You are fighting to reclaim your occupied colony!")
+                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                WARSYSTEM_LOGGER.info("Reclamation war (A) initiated by {} for occupied colony {}",
+                        attacker.getName().getString(), targetColony.getName());
+            } else {
+                // Scenario B: Player's colony is occupied and they're attacking the occupier
+                // Find if any of the attacker's colonies are occupied by the target colony's owner
+                UUID targetOwner = targetColony.getPermissions().getOwner();
+                List<IColony> attackerColonies = IColonyManager.getInstance().getColonies(source.getLevel()).stream()
+                        .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                        .toList();
+                for (IColony ac : attackerColonies) {
+                    net.machiavelli.minecolonytax.occupation.OccupationManager.OccupationData acOccData =
+                            net.machiavelli.minecolonytax.occupation.OccupationManager.getOccupation(ac.getID());
+                    if (acOccData != null && acOccData.getOriginalOwnerUUID().equals(attacker.getUUID())
+                            && acOccData.getOccupierUUID().equals(targetOwner)) {
+                        net.machiavelli.minecolonytax.occupation.OccupationManager
+                                .markReclamationAttempted(ac.getID());
+                        attacker.sendSystemMessage(Component.literal(
+                                "\u2694 RECLAMATION WAR! You are attacking the occupier of your colony " + ac.getName() + "!")
+                                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                        WARSYSTEM_LOGGER.info("Reclamation war (B) initiated by {} - attacking occupier's colony {}, reclaiming {}",
+                                attacker.getName().getString(), targetColony.getName(), ac.getName());
+                        break;
+                    }
+                }
+            }
         }
 
         // Find a valid attacker colony using the new helper
@@ -2288,10 +2811,62 @@ public class WarSystem {
             return 0;
         }
 
-        ServerPlayer owner = level.getServer().getPlayerList().getPlayer(targetColony.getPermissions().getOwner());
-        if (owner == null) {
-            source.sendFailure(Component.literal("Target colony owner is offline!"));
+        // Block war if attacker colony is at maximum debt
+        if (TaxConfig.isDebtBlocksWar() && TaxConfig.getDebtLimit() > 0) {
+            int attackerBalance = net.machiavelli.minecolonytax.TaxManager.getStoredTaxForColony(attackerColony);
+            if (attackerBalance <= -TaxConfig.getDebtLimit()) {
+                source.sendFailure(Component.literal("Your colony (" + attackerColony.getName()
+                        + ") is bankrupt! Pay off your tax debt before declaring war.")
+                        .withStyle(ChatFormatting.RED));
+                return 0;
+            }
+        }
+
+        // Block if the chosen attacker colony is already in a war
+        if (ACTIVE_WARS.containsKey(attackerColony.getID())) {
+            source.sendFailure(Component.literal("Your colony " + attackerColony.getName()
+                    + " is already under attack — cannot start another war!")
+                    .withStyle(ChatFormatting.RED));
             return 0;
+        }
+        boolean attackerAlreadyWaging = ACTIVE_WARS.values().stream()
+                .anyMatch(wd -> wd.getAttackerColony() != null
+                        && wd.getAttackerColony().getID() == attackerColony.getID());
+        if (attackerAlreadyWaging) {
+            source.sendFailure(Component.literal("Your colony " + attackerColony.getName()
+                    + " is already engaged in a war — end it before starting another!")
+                    .withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
+        ServerPlayer owner = level.getServer().getPlayerList().getPlayer(targetColony.getPermissions().getOwner());
+
+        // Check if this is a PRIMARY or SECONDARY colony for offline attack rules
+        UUID targetOwnerUUID = targetColony.getPermissions().getOwner();
+        boolean isPrimaryColony = FirstColonyTracker.isFirstColony(targetOwnerUUID, targetColony.getID());
+
+        if (owner == null) {
+            // Owner is offline - check if we can still attack based on colony type
+            if (TaxConfig.isOutpostVulnerabilityEnabled() && !isPrimaryColony) {
+                // SECONDARY COLONY (Outpost) - Can be attacked while owner is offline
+                WARSYSTEM_LOGGER.info("Outpost attack initiated on {} (owner offline) by {}",
+                        targetColony.getName(), attacker.getName().getString());
+                source.sendSuccess(() -> Component.literal(
+                        "⚔ OUTPOST ASSAULT! Target colony owner is offline, but this is a secondary colony (outpost). Attack proceeds!")
+                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+                // Continue with auto-accept flow for offline outpost attacks
+                return processOfflineOutpostAttack(attacker, targetColony, attackerColony, source);
+            } else {
+                // PRIMARY COLONY - Owner must be online
+                if (isPrimaryColony) {
+                    source.sendFailure(Component.literal(
+                            "Target colony is a PRIMARY colony (capital). The owner must be online to defend!"));
+                } else {
+                    source.sendFailure(
+                            Component.literal("Target colony owner is offline! (Outpost vulnerability is disabled)"));
+                }
+                return 0;
+            }
         }
 
         if (!TaxConfig.WAR_ACCEPTANCE_REQUIRED.get()) {
@@ -2348,26 +2923,23 @@ public class WarSystem {
             }
         }
         pendingWarRequests.put(targetColony.getID(), new WarRequest(attacker.getUUID(), targetColony.getID()));
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                Object removedRequest = pendingWarRequests.remove(targetColony.getID());
-                if (removedRequest != null) {
-                    if (targetColony.getWorld() != null && targetColony.getWorld().getServer() != null) {
-                        ServerPlayer targetOwner = targetColony.getWorld().getServer().getPlayerList()
-                                .getPlayer(targetColony.getPermissions().getOwner());
-                        if (targetOwner != null) {
-                            targetOwner.sendSystemMessage(
-                                    Component.translatable("war.request.expired.defender")
-                                            .withStyle(style -> style.withColor(ChatFormatting.RED)));
-                        }
-                        ServerPlayer attackerPlayer = targetColony.getWorld().getServer().getPlayerList()
-                                .getPlayer(attacker.getUUID());
-                        if (attackerPlayer != null) {
-                            attackerPlayer.sendSystemMessage(
-                                    Component.translatable("war.request.expired.attacker", targetColony.getName())
-                                            .withStyle(style -> style.withColor(ChatFormatting.RED)));
-                        }
+        TickScheduler.scheduleDelayed(() -> {
+            Object removedRequest = pendingWarRequests.remove(targetColony.getID());
+            if (removedRequest != null) {
+                if (targetColony.getWorld() != null && targetColony.getWorld().getServer() != null) {
+                    ServerPlayer targetOwner = targetColony.getWorld().getServer().getPlayerList()
+                            .getPlayer(targetColony.getPermissions().getOwner());
+                    if (targetOwner != null) {
+                        targetOwner.sendSystemMessage(
+                                Component.translatable("war.request.expired.defender")
+                                        .withStyle(style -> style.withColor(ChatFormatting.RED)));
+                    }
+                    ServerPlayer attackerPlayer = targetColony.getWorld().getServer().getPlayerList()
+                            .getPlayer(attacker.getUUID());
+                    if (attackerPlayer != null) {
+                        attackerPlayer.sendSystemMessage(
+                                Component.translatable("war.request.expired.attacker", targetColony.getName())
+                                        .withStyle(style -> style.withColor(ChatFormatting.RED)));
                     }
                 }
             }
@@ -2404,6 +2976,138 @@ public class WarSystem {
         WARSYSTEM_LOGGER.info("[War] Attacker UUID: {}", attacker.getUUID());
         WARSYSTEM_LOGGER.info("[War] Target Colony Owner: {}", targetColony.getPermissions().getOwner());
         return 1;
+    }
+
+    /**
+     * Handles attacks on secondary colonies (outposts) when the owner is offline.
+     * The war proceeds with auto-accept and the attacker fights against the
+     * colony's guards.
+     * The defender can still win if the attacker runs out of lives or time expires.
+     */
+    private static int processOfflineOutpostAttack(ServerPlayer attacker, IColony targetColony,
+            IColony attackerColony, CommandSourceStack source) {
+
+        if (ServerLifecycleHooks.getCurrentServer() != null) {
+            Component outpostAssaultMsg = Component.empty()
+                    .append(Component.literal("⚔️ OUTPOST ASSAULT ⚔️").withStyle(ChatFormatting.GOLD,
+                            ChatFormatting.BOLD))
+                    .append(Component.literal("\n----------------------------------------")
+                            .withStyle(ChatFormatting.DARK_GRAY))
+                    .append(Component.literal("\n").withStyle(ChatFormatting.YELLOW))
+                    .append(Component.literal(attackerColony.getName()).withStyle(ChatFormatting.DARK_RED,
+                            ChatFormatting.BOLD))
+                    .append(Component.literal(" is assaulting the outpost ").withStyle(ChatFormatting.YELLOW))
+                    .append(Component.literal(targetColony.getName()).withStyle(ChatFormatting.BLUE,
+                            ChatFormatting.BOLD))
+                    .append(Component.literal("!").withStyle(ChatFormatting.YELLOW))
+                    .append(Component.literal("\n⚠ Owner is OFFLINE - Guards will defend automatically!")
+                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD))
+                    .append(Component.literal("\n----------------------------------------")
+                            .withStyle(ChatFormatting.DARK_GRAY));
+            broadcastToServer(outpostAssaultMsg);
+        }
+
+        // Start the war immediately with the attacker - no join phase needed since
+        // owner is offline
+        FtbTeamsCompat.TeamHandle attackerTeam = FTB_TEAMS_INSTALLED
+                ? FtbTeamsCompat.getTeamForPlayer(attacker.getUUID()).orElse(null)
+                : null;
+
+        // Initiate war without a defender player - guards will fight
+        initiateOfflineOutpostWar(attacker, targetColony, attackerColony, attackerTeam);
+
+        return 1;
+    }
+
+    /**
+     * Initiates a war against an outpost when the owner is offline.
+     * Special handling: No defender players, only guards defend.
+     */
+    private static void initiateOfflineOutpostWar(ServerPlayer attacker, IColony targetColony,
+            IColony attackerColony, FtbTeamsCompat.TeamHandle attackerTeam) {
+
+        int attackerGuards = countGuards(attackerColony);
+        int defenderGuards = countGuards(targetColony);
+
+        WarData warData = new WarData(
+                attacker.getUUID(),
+                targetColony.getPermissions().getOwner(), // Defender owner UUID (offline)
+                attackerTeam != null ? FtbTeamsCompat.getTeamId(attackerTeam) : null,
+                null, // No defender team
+                System.currentTimeMillis(),
+                null, // No boss event yet - created below
+                targetColony,
+                attackerColony);
+
+        // Mark this as an offline outpost war
+        warData.setOfflineOutpostWar(true);
+
+        // IMPORTANT: Set attacker guards to 0 for offline outpost wars.
+        // The attacker's guards are at their HOME colony, not on the battlefield.
+        // Without this, the victory check (attackerLives==0 && attackerGuards==0)
+        // would never trigger - making the attacker invincible!
+        warData.remainingAttackerGuards = 0;
+
+        ACTIVE_WARS.put(targetColony.getID(), warData);
+        int _defStartBal = TaxManager.getStoredTaxForColonyId(targetColony.getID());
+        HistoryManager.logWithBalance(targetColony.getID(), "WAR",
+                "War started — attacked by " + attacker.getName().getString(),
+                _defStartBal, _defStartBal);
+        if (attackerColony != null) {
+            int _atkStartBal = TaxManager.getStoredTaxForColonyId(attackerColony.getID());
+            HistoryManager.logWithBalance(attackerColony.getID(), "WAR",
+                    "War started — attacking " + targetColony.getName(),
+                    _atkStartBal, _atkStartBal);
+        }
+
+        // Mark defender for home-field drain advantage + schedule drain
+        net.machiavelli.minecolonytax.economy.TreasuryManager.setColonyAsDefender(targetColony.getID());
+        scheduleTreasuryDrain(warData, targetColony, attackerColony);
+
+        // Add attacker to the war
+        warData.getAttackerLives().put(attacker.getUUID(), TaxConfig.PLAYER_LIVES_IN_WAR.get());
+
+        // Create boss bar for the attacker
+        warData.bossEvent = new ServerBossEvent(
+                Component.literal("Outpost Assault - " + targetColony.getName()),
+                BossEvent.BossBarColor.RED,
+                BossEvent.BossBarOverlay.PROGRESS);
+        warData.bossEvent.setProgress(1.0f);
+        warData.bossEvent.setVisible(true);
+        warData.bossEvent.addPlayer(attacker);
+
+        // Set war status to IN WAR immediately (no join phase for offline attacks)
+        warData.setStatus(WarData.WarStatus.INWAR);
+        warData.warStartTime = System.currentTimeMillis();
+
+        // Enable war interactions
+        setWarInteractionPermissions(targetColony, true);
+        setWarInteractionPermissions(attackerColony, true);
+
+        // Assign hostile rank to attacker in target colony
+        Rank hostileRank = targetColony.getPermissions().getRankHostile();
+        targetColony.getPermissions().addPlayer(attacker.getGameProfile(), hostileRank);
+
+        // Apply glow effects and resistance buffs
+        // TODO: Implement applyGlowEffect and applyGuardResistance for offline outpost
+        // wars
+        // applyGlowEffect(attacker, targetColony);
+        // applyGuardResistance(targetColony);
+
+        // Start the war countdown
+        startWarCountdown(warData);
+
+        // Notify the attacker
+        attacker.sendSystemMessage(
+                Component.literal("⚔ ASSAULT BEGUN! Defeat the colony guards or hold the outpost until time expires!")
+                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        attacker.sendSystemMessage(Component
+                .literal("⚠ You have " + TaxConfig.PLAYER_LIVES_IN_WAR.get()
+                        + " lives. Lose them all and the outpost's owner wins!")
+                .withStyle(ChatFormatting.RED));
+
+        WARSYSTEM_LOGGER.info("Offline outpost war started: {} vs {} (defender offline)",
+                attackerColony.getName(), targetColony.getName());
     }
 
     public static int processWageWarRequestWithExtortion(ServerPlayer attacker, IColony targetColony,
@@ -2446,6 +3150,18 @@ public class WarSystem {
             source.sendFailure(Component.literal("Cannot declare war on your own colony!"));
             return 0;
         }
+
+        // Block extortion/war if attacker colony is at maximum debt
+        if (TaxConfig.isDebtBlocksWar() && TaxConfig.getDebtLimit() > 0) {
+            int attackerBalance = net.machiavelli.minecolonytax.TaxManager.getStoredTaxForColony(attackerColony);
+            if (attackerBalance <= -TaxConfig.getDebtLimit()) {
+                source.sendFailure(Component.literal("Your colony (" + attackerColony.getName()
+                        + ") is bankrupt! Pay off your tax debt before declaring war.")
+                        .withStyle(ChatFormatting.RED));
+                return 0;
+            }
+        }
+
         ServerPlayer owner = level.getServer().getPlayerList().getPlayer(targetColony.getPermissions().getOwner());
         if (owner == null) {
             source.sendFailure(Component.literal("Target colony owner is offline!"));
@@ -2682,22 +3398,23 @@ public class WarSystem {
         }
 
         // Check FTB Teams
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
-            Team playerTeam = FTB_TEAM_MANAGER.getTeamForPlayerID(player.getUUID()).orElse(null);
-            Team atkTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
-            Team defTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
+        if (FTB_TEAMS_INSTALLED) {
+            FtbTeamsCompat.TeamHandle playerTeam = FtbTeamsCompat.getTeamForPlayer(player.getUUID()).orElse(null);
+            FtbTeamsCompat.TeamHandle atkTeam = war.getAttackerTeamID() == null ? null
+                    : FtbTeamsCompat.getTeamById(war.getAttackerTeamID()).orElse(null);
+            FtbTeamsCompat.TeamHandle defTeam = war.getDefenderTeamID() == null ? null
+                    : FtbTeamsCompat.getTeamById(war.getDefenderTeamID()).orElse(null);
 
             // Direct team membership
-            if (playerTeam != null && (playerTeam.getId().equals(war.getAttackerTeamID()) ||
-                    playerTeam.getId().equals(war.getDefenderTeamID()))) {
+            UUID playerTeamId = playerTeam == null ? null : FtbTeamsCompat.getTeamId(playerTeam);
+            if (playerTeamId != null && (playerTeamId.equals(war.getAttackerTeamID()) ||
+                    playerTeamId.equals(war.getDefenderTeamID()))) {
                 return true;
             }
 
             // Allied team membership
-            if ((atkTeam != null && atkTeam.isPartyTeam()
-                    && ((PartyTeam) atkTeam).getMembers().contains(player.getUUID())) ||
-                    (defTeam != null && defTeam.isPartyTeam()
-                            && ((PartyTeam) defTeam).getMembers().contains(player.getUUID()))) {
+            if (FtbTeamsCompat.partyTeamContains(atkTeam, player.getUUID())
+                    || FtbTeamsCompat.partyTeamContains(defTeam, player.getUUID())) {
                 return true;
             }
         }
@@ -2782,26 +3499,27 @@ public class WarSystem {
         boolean canJoinDefenders = false;
 
         // Check FTB Teams first
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
-            Team playerTeam = FTB_TEAM_MANAGER.getTeamForPlayerID(player.getUUID()).orElse(null);
-            Team atkTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
-            Team defTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
+        if (FTB_TEAMS_INSTALLED) {
+            FtbTeamsCompat.TeamHandle playerTeam = FtbTeamsCompat.getTeamForPlayer(player.getUUID()).orElse(null);
+            FtbTeamsCompat.TeamHandle atkTeam = war.getAttackerTeamID() == null ? null
+                    : FtbTeamsCompat.getTeamById(war.getAttackerTeamID()).orElse(null);
+            FtbTeamsCompat.TeamHandle defTeam = war.getDefenderTeamID() == null ? null
+                    : FtbTeamsCompat.getTeamById(war.getDefenderTeamID()).orElse(null);
 
             // Direct team membership
-            if (playerTeam != null && playerTeam.getId().equals(war.getAttackerTeamID())) {
+            UUID playerTeamId = playerTeam == null ? null : FtbTeamsCompat.getTeamId(playerTeam);
+            if (playerTeamId != null && playerTeamId.equals(war.getAttackerTeamID())) {
                 canJoinAttackers = true;
             }
-            if (playerTeam != null && playerTeam.getId().equals(war.getDefenderTeamID())) {
+            if (playerTeamId != null && playerTeamId.equals(war.getDefenderTeamID())) {
                 canJoinDefenders = true;
             }
 
             // Allied team membership
-            if (atkTeam != null && atkTeam.isPartyTeam()
-                    && ((PartyTeam) atkTeam).getMembers().contains(player.getUUID())) {
+            if (FtbTeamsCompat.partyTeamContains(atkTeam, player.getUUID())) {
                 canJoinAttackers = true;
             }
-            if (defTeam != null && defTeam.isPartyTeam()
-                    && ((PartyTeam) defTeam).getMembers().contains(player.getUUID())) {
+            if (FtbTeamsCompat.partyTeamContains(defTeam, player.getUUID())) {
                 canJoinDefenders = true;
             }
         }
@@ -3091,9 +3809,9 @@ public class WarSystem {
      *         invalid
      */
     public static int countGuardTowers(IColony colony) {
-        if (colony == null || colony.getBuildingManager() == null)
+        if (colony == null)
             return 0;
-        return (int) colony.getBuildingManager().getBuildings().values().stream()
+        return (int) ColonyBuildingUtil.getBuildings(colony).stream()
                 .filter(WarSystem::isGuardTower)
                 .count();
     }
@@ -3105,10 +3823,26 @@ public class WarSystem {
      * @param building The building to check
      * @return true if the building is a guard tower, false otherwise
      */
+    // Cache: building Class -> whether it's a guard tower. There are only a
+    // handful of distinct building classes, so this stabilises after a few
+    // ticks and removes per-call string allocations from the hot path.
+    private static final java.util.Map<Class<?>, Boolean> GUARD_TOWER_CLASS_CACHE =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     public static boolean isGuardTower(IBuilding building) {
         if (building == null)
             return false;
 
+        Boolean cached = GUARD_TOWER_CLASS_CACHE.get(building.getClass());
+        if (cached != null) {
+            return cached;
+        }
+        boolean result = computeIsGuardTower(building);
+        GUARD_TOWER_CLASS_CACHE.put(building.getClass(), result);
+        return result;
+    }
+
+    private static boolean computeIsGuardTower(IBuilding building) {
         // Method 1: Check display name (current approach)
         String displayName = building.getBuildingDisplayName();
         if (displayName != null && "Guard Tower".equalsIgnoreCase(displayName)) {
@@ -3210,52 +3944,7 @@ public class WarSystem {
                 .append(Component.literal("\n⏰ You have " + timeLimitMinutes + " minutes to decide!")
                         .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD))
                 .append(Component.literal("\n\nChoose quickly:\n").withStyle(ChatFormatting.WHITE))
-                .append(createStartWarButton(targetColony))
-                .append("  ")
-                .append(createPayExtortionButton(targetColony, extortionPercent));
-
-        owner.sendSystemMessage(message);
-
-        // Start timer for auto-war start (daemon thread to avoid blocking shutdown)
-        new Timer(true).schedule(new TimerTask() {
-            @Override
-            public void run() {
-                Object pendingRequest = pendingWarRequests.remove(targetColony.getID());
-                if (pendingRequest instanceof WarRequestWithExtortion) {
-                    // Time expired, start war automatically
-                    WARSYSTEM_LOGGER.info("Extortion time limit expired for colony {}. Starting war automatically.",
-                            targetColony.getID());
-
-                    if (targetColony.getWorld() != null && targetColony.getWorld().getServer() != null) {
-                        ServerPlayer targetOwner = targetColony.getWorld().getServer().getPlayerList()
-                                .getPlayer(targetColony.getPermissions().getOwner());
-                        if (targetOwner != null) {
-                            targetOwner.sendSystemMessage(
-                                    Component.literal("⏰ Time expired! War begins automatically!")
-                                            .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
-                        }
-
-                        ServerPlayer attackerPlayer = targetColony.getWorld().getServer().getPlayerList()
-                                .getPlayer(attacker.getUUID());
-                        if (attackerPlayer != null) {
-                            attackerPlayer.sendSystemMessage(
-                                    Component
-                                            .literal("⏰ " + targetColony.getName()
-                                                    + " failed to respond in time. War begins!")
-                                            .withStyle(ChatFormatting.GOLD));
-                        }
-
-                        // Start the war join phase
-                        startJoinPhase(targetColony, attacker, targetOwner);
-                    }
-                }
-            }
-        }, timeLimitMs);
-
-        attacker.sendSystemMessage(Component
-                .literal("War declaration with " + extortionPercent + "% extortion demand sent to "
-                        + targetColony.getName() + ". They have " + timeLimitMinutes + " minutes to respond.")
-                .withStyle(ChatFormatting.YELLOW));
+                .append(createStartWarButton(targetColony));
     }
 
     /**
@@ -3296,5 +3985,518 @@ public class WarSystem {
                         .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                                 Component.literal("Click to pay " + extortionPercent + "% of your balance to avoid war")
                                         .withStyle(ChatFormatting.YELLOW))));
+    }
+
+    // ==================== WAR PERSISTENCE ====================
+
+    private static final Gson WAR_GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final String WAR_STORAGE_FILE = "config/warntax/active_wars.json";
+
+    private static class WarSaveEntry {
+        String warID;
+        String attacker;
+        String defender;
+        String attackerTeamID;
+        String defenderTeamID;
+        int defenderColonyId;
+        int attackerColonyId;
+        long warStartTime;
+        long joinPhaseEndTime;
+        String status;
+        boolean accepted;
+        boolean stalemateTriggered;
+        Map<String, Integer> attackerLives;
+        Map<String, Integer> defenderLives;
+        List<Integer> defenderGuardIDs;
+        List<Integer> attackerGuardIDs;
+        List<String> attackerAllies;
+        List<String> defenderAllies;
+        List<String> spectators;
+        List<String> lastLifeInventoryPreservation;
+        int initialAttackerGuards;
+        int remainingAttackerGuards;
+        int initialDefenderGuards;
+        int remainingDefenderGuards;
+        int initialAttackerTotalLives;
+        int initialDefenderTotalLives;
+        String penaltyReport;
+        // Added 2026-05-25 (audit fix): previously these fields were silently dropped
+        // on save/restore — see WarData restoration constructor docstring.
+        Map<String, Boolean> originalHostilePerms;            // Action.name() -> boolean
+        Map<String, Boolean> originalHostilePermsForAttacker;
+        List<String> acceptedAllies;
+        List<String> declinedAllies;
+        boolean offlineOutpostWar;
+        ProposalSaveEntry activeProposal; // null if no proposal in flight
+    }
+
+    private static class ProposalSaveEntry {
+        String type;     // PeaceProposal.Type.name()
+        int amount;
+        String proposer; // UUID.toString()
+        long createdTime;
+    }
+
+    private static class WarSaveData {
+        List<WarSaveEntry> wars;
+    }
+
+    public static void saveActiveWars() {
+        try {
+            Path path = Paths.get(WAR_STORAGE_FILE);
+            Files.createDirectories(path.getParent());
+
+            WarSaveData saveData = new WarSaveData();
+            saveData.wars = new ArrayList<>();
+
+            for (Map.Entry<Integer, WarData> entry : ACTIVE_WARS.entrySet()) {
+                WarData war = entry.getValue();
+
+                // Finding 11 (audit CRIT — CRASH-3b): defenderTeamID can be null for
+                // wars against abandoned colonies (no FTB Teams + colony owner null).
+                // Previously war.getDefenderTeamID().toString() NPE'd here, aborting
+                // the save loop and dropping ALL subsequent wars from disk.
+                // Write a sentinel UUID instead and log a warning so the war still
+                // round-trips. (Loader treats sentinel as "no defender team".)
+                UUID atkTid = war.getAttackerTeamID();
+                UUID defTid = war.getDefenderTeamID();
+                if (atkTid == null) {
+                    WARSYSTEM_LOGGER.warn("War {} for colony {} has null attackerTeamID; persisting with sentinel UUID.",
+                            war.getWarID(), entry.getKey());
+                    atkTid = NULL_TEAM_ID_SENTINEL;
+                }
+                if (defTid == null) {
+                    WARSYSTEM_LOGGER.warn("War {} for colony {} has null defenderTeamID (abandoned colony?); persisting with sentinel UUID.",
+                            war.getWarID(), entry.getKey());
+                    defTid = NULL_TEAM_ID_SENTINEL;
+                }
+
+                WarSaveEntry e = new WarSaveEntry();
+                e.warID = war.getWarID().toString();
+                e.attacker = war.getAttacker().toString();
+                e.defender = war.getDefender().toString();
+                e.attackerTeamID = atkTid.toString();
+                e.defenderTeamID = defTid.toString();
+                e.defenderColonyId = entry.getKey();
+                e.attackerColonyId = war.getAttackerColony() != null ? war.getAttackerColony().getID() : -1;
+                e.warStartTime = war.warStartTime;
+                e.joinPhaseEndTime = war.joinPhaseEndTime;
+                e.status = war.getStatus().name();
+                e.accepted = war.isAccepted();
+                e.stalemateTriggered = war.isStalemateTriggered();
+                e.penaltyReport = war.getPenaltyReport();
+                e.initialAttackerGuards = war.initialAttackerGuards;
+                e.remainingAttackerGuards = war.remainingAttackerGuards;
+                e.initialDefenderGuards = war.initialDefenderGuards;
+                e.remainingDefenderGuards = war.remainingDefenderGuards;
+                e.initialAttackerTotalLives = war.initialAttackerTotalLives;
+                e.initialDefenderTotalLives = war.initialDefenderTotalLives;
+
+                e.attackerLives = new HashMap<>();
+                war.getAttackerLives().forEach((uuid, lives) -> e.attackerLives.put(uuid.toString(), lives));
+                e.defenderLives = new HashMap<>();
+                war.getDefenderLives().forEach((uuid, lives) -> e.defenderLives.put(uuid.toString(), lives));
+
+                e.defenderGuardIDs = new ArrayList<>(war.getDefenderGuardIDs());
+                e.attackerGuardIDs = new ArrayList<>(war.getAttackerGuardIDs());
+                e.attackerAllies = new ArrayList<>();
+                war.getAttackerAllies().forEach(uuid -> e.attackerAllies.add(uuid.toString()));
+                e.defenderAllies = new ArrayList<>();
+                war.getDefenderAllies().forEach(uuid -> e.defenderAllies.add(uuid.toString()));
+                e.spectators = new ArrayList<>();
+                war.getSpectators().forEach(uuid -> e.spectators.add(uuid.toString()));
+                e.lastLifeInventoryPreservation = new ArrayList<>();
+                war.getLastLifeInventoryPreservation()
+                        .forEach(uuid -> e.lastLifeInventoryPreservation.add(uuid.toString()));
+
+                // Previously-dropped fields. Stored as Action.name() -> Boolean so the
+                // serialized form is forward/backward-compat with Action enum changes.
+                if (war.originalHostilePerms != null) {
+                    e.originalHostilePerms = new HashMap<>();
+                    war.originalHostilePerms.forEach((a, b) -> e.originalHostilePerms.put(a.name(), b));
+                }
+                if (war.originalHostilePermsForAttacker != null) {
+                    e.originalHostilePermsForAttacker = new HashMap<>();
+                    war.originalHostilePermsForAttacker.forEach((a, b) -> e.originalHostilePermsForAttacker.put(a.name(), b));
+                }
+                e.acceptedAllies = new ArrayList<>();
+                war.getAcceptedAllies().forEach(uuid -> e.acceptedAllies.add(uuid.toString()));
+                e.declinedAllies = new ArrayList<>();
+                war.getDeclinedAllies().forEach(uuid -> e.declinedAllies.add(uuid.toString()));
+                e.offlineOutpostWar = war.isOfflineOutpostWar();
+
+                net.machiavelli.minecolonytax.peace.PeaceProposal pp = war.getActiveProposal();
+                if (pp != null) {
+                    ProposalSaveEntry pe = new ProposalSaveEntry();
+                    pe.type = pp.getType().name();
+                    pe.amount = pp.getAmount();
+                    pe.proposer = pp.getProposer() != null ? pp.getProposer().toString() : null;
+                    pe.createdTime = pp.getCreatedTime();
+                    e.activeProposal = pe;
+                }
+
+                saveData.wars.add(e);
+            }
+
+            // Finding 3: atomic write — write to a tmp file, then atomic-move it
+            // over the live file. Falls back to a plain replace on Windows builds
+            // that lack ATOMIC_MOVE support (catches AtomicMoveNotSupportedException).
+            Path tmp = path.resolveSibling(path.getFileName() + ".tmp");
+            try (Writer writer = new FileWriter(tmp.toFile())) {
+                WAR_GSON.toJson(saveData, writer);
+            }
+            try {
+                Files.move(tmp, path,
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException windowsFallback) {
+                Files.move(tmp, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            WARSYSTEM_LOGGER.info("Saved {} active wars to {}", saveData.wars.size(), WAR_STORAGE_FILE);
+        } catch (Exception ex) {
+            WARSYSTEM_LOGGER.error("Failed to save active wars", ex);
+        }
+    }
+
+    /** Sentinel UUID used in serialized form when an attacker/defender team ID was null at save time. */
+    private static final UUID NULL_TEAM_ID_SENTINEL = new UUID(0L, 0L);
+
+    public static void loadAndResumeActiveWars() {
+        Path path = Paths.get(WAR_STORAGE_FILE);
+        if (!Files.exists(path)) {
+            WARSYSTEM_LOGGER.info("No saved wars file found, skipping war restoration");
+            return;
+        }
+
+        try (Reader reader = new FileReader(path.toFile())) {
+            WarSaveData saveData = WAR_GSON.fromJson(reader, WarSaveData.class);
+            if (saveData == null || saveData.wars == null || saveData.wars.isEmpty()) {
+                WARSYSTEM_LOGGER.info("No wars to restore from save file");
+                Files.deleteIfExists(path);
+                return;
+            }
+
+            MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+            if (server == null) {
+                WARSYSTEM_LOGGER.warn("Cannot restore wars: server not available");
+                return;
+            }
+
+            int restored = 0;
+            int skipped = 0;
+            int total = saveData.wars.size();
+
+            for (WarSaveEntry e : saveData.wars) {
+                try {
+                    if (resumeWarFromSave(e, server)) {
+                        restored++;
+                    } else {
+                        skipped++;
+                    }
+                } catch (Exception ex) {
+                    WARSYSTEM_LOGGER.error("Failed to restore war {} for colony {}", e.warID, e.defenderColonyId, ex);
+                    skipped++;
+                }
+            }
+
+            WARSYSTEM_LOGGER.info("War restoration complete: {} restored, {} skipped", restored, skipped);
+
+            // Finding 4: only delete the source file when EVERY war was successfully
+            // restored. On partial failure, rename the file to active_wars.json.failed-<ts>
+            // for forensic recovery — never silently drop unrestored entries.
+            if (skipped == 0) {
+                Files.deleteIfExists(path);
+            } else {
+                Path failedPath = path.resolveSibling(
+                        path.getFileName() + ".failed-" + System.currentTimeMillis());
+                try {
+                    Files.move(path, failedPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    WARSYSTEM_LOGGER.warn("Partial war restore ({} of {} skipped). Original save preserved at {}",
+                            skipped, total, failedPath);
+                } catch (Exception moveEx) {
+                    WARSYSTEM_LOGGER.error("Could not move active_wars.json to .failed-<ts>; leaving it in place at {}",
+                            path, moveEx);
+                }
+            }
+
+        } catch (Exception ex) {
+            WARSYSTEM_LOGGER.error("Failed to load active wars from disk", ex);
+        }
+    }
+
+    private static boolean resumeWarFromSave(WarSaveEntry e, MinecraftServer server) {
+        IColony defenderColony = null;
+        IColony attackerColony = null;
+        for (Level level : server.getAllLevels()) {
+            if (defenderColony == null) {
+                defenderColony = IColonyManager.getInstance().getColonies(level).stream()
+                        .filter(c -> c.getID() == e.defenderColonyId).findFirst().orElse(null);
+            }
+            if (e.attackerColonyId > 0 && attackerColony == null) {
+                attackerColony = IColonyManager.getInstance().getColonies(level).stream()
+                        .filter(c -> c.getID() == e.attackerColonyId).findFirst().orElse(null);
+            }
+            if (defenderColony != null && (e.attackerColonyId <= 0 || attackerColony != null))
+                break;
+        }
+
+        if (defenderColony == null) {
+            WARSYSTEM_LOGGER.warn("Cannot restore war {}: defender colony {} no longer exists", e.warID,
+                    e.defenderColonyId);
+            return false;
+        }
+        if (e.attackerColonyId > 0 && attackerColony == null) {
+            WARSYSTEM_LOGGER.warn("Cannot restore war {}: attacker colony {} no longer exists", e.warID,
+                    e.attackerColonyId);
+            return false;
+        }
+
+        WarData.WarStatus status;
+        try {
+            status = WarData.WarStatus.valueOf(e.status);
+        } catch (IllegalArgumentException ex) {
+            WARSYSTEM_LOGGER.warn("Cannot restore war {}: invalid status '{}'", e.warID, e.status);
+            return false;
+        }
+
+        Map<UUID, Integer> attackerLives = new HashMap<>();
+        if (e.attackerLives != null) {
+            e.attackerLives.forEach((k, v) -> attackerLives.put(UUID.fromString(k), v));
+        }
+        Map<UUID, Integer> defenderLives = new HashMap<>();
+        if (e.defenderLives != null) {
+            e.defenderLives.forEach((k, v) -> defenderLives.put(UUID.fromString(k), v));
+        }
+        Set<Integer> defenderGuardIDSet = e.defenderGuardIDs != null ? new HashSet<>(e.defenderGuardIDs) : new HashSet<>();
+        Set<Integer> attackerGuardIDSet = e.attackerGuardIDs != null ? new HashSet<>(e.attackerGuardIDs) : new HashSet<>();
+        Set<UUID> attackerAlliesSet = parseUUIDList(e.attackerAllies);
+        Set<UUID> defenderAlliesSet = parseUUIDList(e.defenderAllies);
+        Set<UUID> spectatorsSet = parseUUIDList(e.spectators);
+        Set<UUID> lastLifeSet = parseUUIDList(e.lastLifeInventoryPreservation);
+
+        long now = System.currentTimeMillis();
+        // Finding 5: wars that ran out their clock while the server was down
+        // previously logged "expired during server downtime, skipping" and gave
+        // the victor zero rewards / no occupation / no rank cleanup. Instead,
+        // construct the WarData, register it in ACTIVE_WARS, then immediately
+        // run the normal end-of-war handler so reparations, ranks, occupation
+        // hooks, and history all fire. handleTimeExpiry() is the canonical
+        // end-of-time-elapsed entry point used by the countdown tick.
+        boolean expiredDuringDowntime = false;
+        if (status == WarData.WarStatus.INWAR) {
+            long warDurationMs = TaxConfig.WAR_DURATION_MINUTES.get() * 60 * 1000L;
+            if (now >= e.warStartTime + warDurationMs) {
+                WARSYSTEM_LOGGER.info("War {} expired during server downtime — resolving via handleTimeExpiry", e.warID);
+                expiredDuringDowntime = true;
+            }
+        } else if (status == WarData.WarStatus.JOINING) {
+            if (now >= e.joinPhaseEndTime) {
+                WARSYSTEM_LOGGER.info("War {} join phase expired during downtime, transitioning to INWAR", e.warID);
+                status = WarData.WarStatus.INWAR;
+                e.warStartTime = now;
+            }
+        }
+
+        // Convert sentinel team IDs (written by saveActiveWars for wars whose
+        // team IDs were null at save time) back into null so callers see the
+        // same invariant they had before the save.
+        UUID atkTid;
+        UUID defTid;
+        try {
+            atkTid = UUID.fromString(e.attackerTeamID);
+            if (NULL_TEAM_ID_SENTINEL.equals(atkTid)) atkTid = null;
+        } catch (IllegalArgumentException iae) { atkTid = null; }
+        try {
+            defTid = UUID.fromString(e.defenderTeamID);
+            if (NULL_TEAM_ID_SENTINEL.equals(defTid)) defTid = null;
+        } catch (IllegalArgumentException iae) { defTid = null; }
+
+        ServerBossEvent bossEvent = new ServerBossEvent(
+                Component.literal("War for " + defenderColony.getName()),
+                BossEvent.BossBarColor.RED,
+                BossEvent.BossBarOverlay.PROGRESS);
+        bossEvent.setProgress(1.0f);
+        bossEvent.setVisible(true);
+
+        // Reconstruct restored fields (formerly silently dropped — see WarData.java).
+        Map<Action, Boolean> restoredHostilePerms = null;
+        if (e.originalHostilePerms != null) {
+            restoredHostilePerms = new HashMap<>();
+            for (Map.Entry<String, Boolean> en : e.originalHostilePerms.entrySet()) {
+                try { restoredHostilePerms.put(Action.valueOf(en.getKey()), en.getValue()); }
+                catch (IllegalArgumentException ignored) {} // forward-compat: skip unknown Action names
+            }
+        }
+        Map<Action, Boolean> restoredHostilePermsAtk = null;
+        if (e.originalHostilePermsForAttacker != null) {
+            restoredHostilePermsAtk = new HashMap<>();
+            for (Map.Entry<String, Boolean> en : e.originalHostilePermsForAttacker.entrySet()) {
+                try { restoredHostilePermsAtk.put(Action.valueOf(en.getKey()), en.getValue()); }
+                catch (IllegalArgumentException ignored) {}
+            }
+        }
+        Set<UUID> acceptedAlliesSet = parseUUIDList(e.acceptedAllies);
+        Set<UUID> declinedAlliesSet = parseUUIDList(e.declinedAllies);
+        net.machiavelli.minecolonytax.peace.PeaceProposal restoredProposal = null;
+        if (e.activeProposal != null && e.activeProposal.type != null && e.activeProposal.proposer != null) {
+            try {
+                restoredProposal = new net.machiavelli.minecolonytax.peace.PeaceProposal(
+                        net.machiavelli.minecolonytax.peace.PeaceProposal.Type.valueOf(e.activeProposal.type),
+                        e.activeProposal.amount,
+                        UUID.fromString(e.activeProposal.proposer));
+                // PeaceProposal.createdTime defaults to "now" on construction — close
+                // enough for restored proposals; the timeout check is a relative delta.
+            } catch (IllegalArgumentException ignored) {}
+        }
+
+        WarData warData = new WarData(
+                UUID.fromString(e.warID),
+                UUID.fromString(e.attacker),
+                UUID.fromString(e.defender),
+                atkTid,
+                defTid,
+                e.warStartTime, e.joinPhaseEndTime,
+                bossEvent, defenderColony, attackerColony,
+                status, e.accepted,
+                e.initialAttackerGuards, e.remainingAttackerGuards,
+                e.initialDefenderGuards, e.remainingDefenderGuards,
+                e.initialAttackerTotalLives, e.initialDefenderTotalLives,
+                attackerLives, defenderLives,
+                defenderGuardIDSet, attackerGuardIDSet, attackerAlliesSet, defenderAlliesSet,
+                spectatorsSet, lastLifeSet,
+                e.penaltyReport, e.stalemateTriggered,
+                restoredHostilePerms, restoredHostilePermsAtk,
+                acceptedAlliesSet, declinedAlliesSet,
+                e.offlineOutpostWar,
+                restoredProposal);
+
+        ACTIVE_WARS.put(e.defenderColonyId, warData);
+
+        // Finding 5 cont'd: war ran past its clock while we were down. Register
+        // the WarData (so handleTimeExpiry/endWar can find it via ACTIVE_WARS),
+        // then immediately resolve. handleTimeExpiry takes care of victor logic,
+        // reparations, ranks, etc. If the canonical end-of-time path lives at
+        // a different entrypoint in this codebase, this still has the WarData
+        // in ACTIVE_WARS so handleTimeExpiry / endWar must be wired correctly.
+        // TODO: if handleTimeExpiry isn't safe at boot (e.g. needs world ticks),
+        // demote this to a TickScheduler.scheduleDelayed(.., 100ms) call.
+        if (expiredDuringDowntime) {
+            try {
+                handleTimeExpiry(warData);
+            } catch (Throwable t) {
+                WARSYSTEM_LOGGER.error("Failed to resolve downtime-expired war {} via handleTimeExpiry; falling back to endWar.", e.warID, t);
+                try { endWar(defenderColony); } catch (Throwable t2) {
+                    WARSYSTEM_LOGGER.error("Fallback endWar also failed for downtime-expired war {}; war removed without rewards.", e.warID, t2);
+                    ACTIVE_WARS.remove(e.defenderColonyId);
+                }
+            }
+            // True for the loader: we processed this war successfully.
+            return true;
+        }
+
+        // Restore defender tracking + drain scheduling
+        net.machiavelli.minecolonytax.economy.TreasuryManager.setColonyAsDefender(e.defenderColonyId);
+        scheduleTreasuryDrain(warData, defenderColony, attackerColony);
+
+        for (UUID uuid : warData.getAttackerLives().keySet()) {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p != null)
+                bossEvent.addPlayer(p);
+        }
+        for (UUID uuid : warData.getDefenderLives().keySet()) {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p != null)
+                bossEvent.addPlayer(p);
+        }
+
+        setWarInteractionPermissions(defenderColony, true);
+        if (attackerColony != null) {
+            setWarInteractionPermissions(attackerColony, true);
+        }
+
+        final IColony finalDefenderColony = defenderColony;
+
+        if (warData.getStatus() == WarData.WarStatus.INWAR) {
+            applyWarGlowToParticipants(warData);
+            applyGuardGlow(defenderColony);
+            if (attackerColony != null) {
+                applyGuardGlow(attackerColony);
+            }
+
+            GuardResistanceHandler.applyResistanceToGuardsForWar(defenderColony);
+            if (attackerColony != null) {
+                GuardResistanceHandler.applyResistanceToGuardsForWar(attackerColony);
+            }
+
+            startWarCountdown(warData);
+
+            long warDurationMs = TaxConfig.WAR_DURATION_MINUTES.get() * 60 * 1000L;
+            long elapsed = now - warData.warStartTime;
+            long remaining = warDurationMs - elapsed;
+            if (remaining > 0) {
+                scheduleTimerWarnings(warData, remaining);
+            }
+
+            updateBossBar(warData);
+            WARSYSTEM_LOGGER.info("Restored INWAR war {} for colony {} ({} ms remaining)",
+                    e.warID, defenderColony.getName(), remaining);
+        } else if (warData.getStatus() == WarData.WarStatus.JOINING) {
+            warData.alliesBossEvent = new ServerBossEvent(
+                    Component.literal("Joining War - " + defenderColony.getName()),
+                    BossEvent.BossBarColor.YELLOW,
+                    BossEvent.BossBarOverlay.PROGRESS);
+            warData.alliesBossEvent.setProgress(1.0f);
+            warData.alliesBossEvent.setVisible(true);
+
+            long remainingJoinMs = warData.getJoinPhaseEndTime() - now;
+            if (remainingJoinMs > 0) {
+                final int colonyId = e.defenderColonyId;
+                TickScheduler.scheduleDelayed(() -> {
+                    if (!ACTIVE_WARS.containsKey(colonyId))
+                        return;
+                    WarData w = ACTIVE_WARS.get(colonyId);
+                    if (w == null || w.getStatus() != WarData.WarStatus.JOINING)
+                        return;
+                    w.setStatus(WarData.WarStatus.INWAR);
+                    w.warStartTime = System.currentTimeMillis();
+                    finalizeWarStart(w);
+                    setWarInteractionPermissions(w.getColony(), true);
+                    if (w.getAttackerColony() != null) {
+                        setWarInteractionPermissions(w.getAttackerColony(), true);
+                    }
+                    startWarCountdown(w);
+                    long warDurationMillis = TaxConfig.WAR_DURATION_MINUTES.get() * 60 * 1000L;
+                    scheduleTimerWarnings(w, warDurationMillis);
+                }, remainingJoinMs);
+            }
+
+            updateBossBar(warData);
+            WARSYSTEM_LOGGER.info("Restored JOINING war {} for colony {} ({} ms until war starts)",
+                    e.warID, defenderColony.getName(), remainingJoinMs);
+        }
+
+        Component restoreMsg = Component.literal("⚔ War Restored: ")
+                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                .append(Component
+                        .literal("The war for " + finalDefenderColony.getName()
+                                + " has been resumed after server restart.")
+                        .withStyle(ChatFormatting.YELLOW));
+        broadcastToServer(restoreMsg);
+
+        return true;
+    }
+
+    private static Set<UUID> parseUUIDList(List<String> list) {
+        Set<UUID> result = new HashSet<>();
+        if (list != null) {
+            for (String s : list) {
+                try {
+                    result.add(UUID.fromString(s));
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+        }
+        return result;
     }
 }

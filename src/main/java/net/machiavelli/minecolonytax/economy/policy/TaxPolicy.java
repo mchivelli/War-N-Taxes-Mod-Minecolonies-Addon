@@ -7,24 +7,9 @@ import net.machiavelli.minecolonytax.TaxConfig;
  * Each policy affects both tax revenue generation and citizen happiness.
  */
 public enum TaxPolicy {
-    /**
-     * Default policy - no modifiers applied.
-     */
     NORMAL("Normal", "Balanced approach - no modifiers"),
-
-    /**
-     * Low tax policy - less revenue but happier citizens.
-     */
     LOW("Low Tax", "Reduced revenue but improved citizen happiness"),
-
-    /**
-     * High tax policy - more revenue but unhappier citizens.
-     */
     HIGH("High Tax", "Increased revenue but reduced citizen happiness"),
-
-    /**
-     * War economy policy - maximum revenue boost during wartime with happiness penalty.
-     */
     WAR_ECONOMY("War Economy", "Maximum revenue boost at significant happiness cost");
 
     private final String displayName;
@@ -50,9 +35,9 @@ public enum TaxPolicy {
     public double getRevenueModifier() {
         return switch (this) {
             case NORMAL -> 1.0;
-            case LOW -> 1.0 + TaxConfig.getTaxPolicyLowRevenueModifier(); // negative modifier
-            case HIGH -> 1.0 + TaxConfig.getTaxPolicyHighRevenueModifier(); // positive modifier
-            case WAR_ECONOMY -> 1.0 + TaxConfig.getTaxPolicyWarRevenueModifier(); // high positive modifier
+            case LOW -> 1.0 + TaxConfig.getTaxPolicyLowRevenueModifier();
+            case HIGH -> 1.0 + TaxConfig.getTaxPolicyHighRevenueModifier();
+            case WAR_ECONOMY -> 1.0 + TaxConfig.getTaxPolicyWarRevenueModifier();
         };
     }
 
@@ -64,9 +49,9 @@ public enum TaxPolicy {
     public double getHappinessModifier() {
         return switch (this) {
             case NORMAL -> 0.0;
-            case LOW -> TaxConfig.getTaxPolicyLowHappinessModifier(); // positive modifier
-            case HIGH -> TaxConfig.getTaxPolicyHighHappinessModifier(); // negative modifier
-            case WAR_ECONOMY -> TaxConfig.getTaxPolicyWarHappinessModifier(); // negative modifier
+            case LOW -> TaxConfig.getTaxPolicyLowHappinessModifier();
+            case HIGH -> TaxConfig.getTaxPolicyHighHappinessModifier();
+            case WAR_ECONOMY -> TaxConfig.getTaxPolicyWarHappinessModifier();
         };
     }
 

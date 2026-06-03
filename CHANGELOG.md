@@ -5,7 +5,174 @@ All notable changes to the War N Tax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.2.0] - 2026-02-13
+## [Unreleased]
+
+### Fixed - Colony Ownership Tracking
+
+- `FirstColonyTracker` now correctly identifies and displays the real owner of a colony's primary slot in the Officer Tracking debug command; previously showed `[abandoned]` due to corrupted permission entries
+- Added `getFirstColonyOwner()` reverse lookup so any system (besiege, debug display) can reliably resolve which player holds a colony as their primary without touching potentially-corrupted MineColonies permission data
+- Added `bootstrapFromExistingColonies()` so the tracker automatically seeds data for colonies that existed before the mod was installed; uses colony ID as a creation-order proxy (lower ID = older = primary)
+- Placeholder owner entries created by MineColonies' abandonment system (`[abandoned]`, `[AUTO_OWNER]`) are now detected and skipped during bootstrap and display
+- Fixed duplicate MineColonies event bus subscriptions in single-player: the `ColonyCreatedModEvent` / `ColonyDeletedModEvent` handlers are now guarded by a static flag because `DefaultEventBus` is a JVM-lifetime singleton that accumulates handlers across world loads
+- `OfficerColonyVisitTracker` now loads persisted visit timestamps at server start; previously the file was written but never read back, causing WnT abandonment timers to reset to MineColonies' own timer value on every restart
+- Officer Tracking debug command no longer lists the colony owner as an officer; also filters out `[abandoned]` placeholder entries from the officers list
+- Besiege system now uses `FirstColonyTracker` as its primary guard when checking whether a target colony is someone's primary colony, falling back to permissions-based lookup only when FCT data is absent
+
+### Fixed - War Chest Integration
+
+- War chest drain is now active during wars: both attacker and defender chests drain every 60 seconds while a war is ongoing
+- Defender home-field advantage (reduced drain rate) is now applied when a war starts and cleared when it ends
+- War chest balance is now shown in the tax report alongside the auto-deposit line
+- War chest commands (`/wnt warchest status/deposit/withdraw`) now accept an optional `[colonyId]` argument; when omitted, the colony is resolved by position first, then ownership fallback
+- Colony suggestion provider added to war chest commands for tab-completion of managed colony IDs
+- Removed unnecessary disk writes from `drainWarChest()` and `deductFromWarChest()` — persistence is now batched every 5 minutes during the drain loop instead of on every tick
+- War chest drain tasks are properly cancelled when wars end and re-scheduled when wars are restored after server restart
+
+### Changed - War Chest Balance
+
+- Default `WarChestDrainPercent` reduced from 0.02 (2%) to 0.004 (0.4%) — a full 25,000 chest now lasts approximately 4 hours instead of 50 minutes
+- Default `WarChestDrainPerMinute` (flat fallback) reduced from 50 to 10, also yielding approximately 4 hours of war sustainment
+
+### Fixed - War Declaration
+
+- Attacker colony selection now prefers the player's primary (first) colony when declaring war, preventing secondary colonies from being wagered unintentionally
+- A colony already engaged in an active war can no longer start a second war simultaneously, preventing concurrent war conflicts
+- Besieged and occupied colonies are now correctly blocked from tax claiming in the GUI
+
+### Added - Status Notifications & GUI
+
+- Besieged and occupied colony status is now displayed in the colony list GUI ("Besieged" in red, "Occupied" in orange)
+- Players now receive login notifications for active wars, besieges, and occupations on their colonies, including when events occurred while they were offline
+
+## [5.0.0] - 2026-03-13
+
+### Added - Colony Occupation System
+
+- Winning a war no longer immediately transfers a colony. Instead the losing colony enters an **Occupation phase**
+- The occupier collects a share of the losing colony's taxes during the occupation window (configurable, default 50%)
+- The original owner retains full control of their colony and has a set number of days to fight back before ownership transfers (default 7 days)
+- Occupiers cannot interact with the occupied colony's buildings or items during this period
+- Occupation state persists across server restarts
+- New config options: `EnableOccupationSystem`, `OccupationDurationDays`, `OccupationTaxPercentage`
+
+### Added - War Persistence
+
+- Active wars now survive server restarts and crashes
+- All war state is saved to disk on server shutdown and automatically restored on startup
+- Wars that expired during downtime are discarded cleanly; wars still in the join phase are promoted to active
+- Server broadcasts a notification when a war is restored after restart
+
+### Added - Espionage System (Full Expansion)
+
+- Spies now have a **travel phase** before arriving at the target colony; travel time is based on distance and is configurable
+- Intel is gathered progressively over time across three tiers: early (basic colony info), mid (guards and treasury), late (full roster and leadership)
+- Detected spies now attempt to **flee** the colony rather than dying instantly; escape is confirmed only when the spy clears the colony border
+- Recalling a spy mid-travel cancels the mission immediately; recalling an active spy triggers a return journey
+- Completed missions (escaped or recalled) retain their intel for review for up to one hour
+- Killed spies lose all gathered intel
+- Spy intel can be received as a written in-game book (Shadow Network report format)
+- JourneyMap waypoints are created for active spy missions when JourneyMap is installed (source and destination markers)
+
+### Added - Happiness Integration
+
+- War N Taxes now applies its own happiness modifiers directly into the MineColonies happiness system
+- Active random events and tax policy contribute to colony happiness visible in the standard MineColonies UI
+
+### Added - Crafting Recipe
+
+- The War N Taxes Codex (Patchouli guide book) can now be crafted in-game: 8 gold nuggets surrounding a book
+
+### Changed - Tax System Overhaul
+
+- Guard Tower boost minimum threshold reduced from 5 towers to 1 — the bonus now starts from your very first tower rather than requiring 5 before any benefit applies
+- Guard Tower income now scales linearly at +8% per tower, replacing the old flat +50% jump; cap is 80%
+- Bugfix: Corrected the Guard Tower multiplier calculation that was producing incorrect values for high tower counts
+- Tax generation now has a hard floor of 30% — no combination of war penalties, strikes, or exhaustion can reduce a colony below this minimum
+- War tax freeze is now cycle-based (default 3 cycles) rather than hours-based, ensuring consistent penalties regardless of server configuration
+- Tax revenue cap raised to 10,000 coins (was 5,000)
+- Debt limit enabled at 2,000 coins (was disabled by default)
+
+### Changed - Economy & Config Rebalance
+
+- War victory and defeat penalty percentages rebalanced to 20% each (was 25% / 15%)
+- War Chest auto-deposit halved to 5%; drain rate reduced; capacity reduced — wars now require active manual funding rather than passive accumulation
+- Defender war chest drain rate reduced to encourage fair fights
+- Raid tax percentages reduced significantly to better reflect raid scale
+- Trade routes nerfed: income cut from 5 to 1 coin per chunk, max distance cut from 1,000 to 100 chunks, max routes reduced from 3 to 2, maintenance cost halved
+- Infrastructure investments: base cost raised to 1,500 coins, max stacks halved to 5, and diminishing returns tightened (each purchase is less effective than the last)
+- Faction creation now costs 5,000 coins (was 1,000)
+- Default extortion demand raised from 15% to 20% of the defender's balance
+- Guard bribe cost increased to 2,500 coins; detection risk also increased, making bribing guards a riskier action
+- Ransom immunity after paying extortion reduced from 24 hours to 4 hours
+- War penalties now have a combined cap to prevent stacking beyond a configurable maximum
+- Peace proposals expire after a configurable timeout
+
+### Changed - Random Event Balance
+
+- **Labor Strike**: Tax penalty reduced from -40% to -30%
+- **Plague Outbreak**: Tax penalty reduced from -35% to -25%
+- **Guard Desertion**: Tax penalty reduced from -30% to -20%
+- Negative events are less punishing overall to keep long-term play rewarding rather than discouraging
+
+### Changed - Infrastructure
+
+- All building lookups now route through a compatibility shim that automatically detects the installed MineColonies API version; the mod now works with both older and newer MineColonies builds without separate releases
+- Internal timers replaced with a server-thread-safe task scheduler, eliminating potential cross-thread state issues
+- MineColonies, Structurize, BlockUI, and DomumOrnamentum dependencies upgraded to current versions
+- JourneyMap added as an optional dependency
+- Easy Factions removed (was causing crashes in some environments)
+
+---
+
+## [4.2.0] - 2026-03-07
+
+### Added - High Stakes War System
+
+- **NEW FEATURE**: **Primary vs Secondary Colony Rules** (`EnableOutpostVulnerability`)
+  - First colony a player creates is their **Primary Colony (Capital)** - can only be attacked when owner is online
+  - All additional colonies are **Secondary Colonies (Outposts)** - can be attacked even when owner is offline
+  - Offline outpost attacks: Guards defend automatically, war proceeds without defender player participation
+  - Tracked via `FirstColonyTracker` - persists to `config/warntax/firstColonyData.json`
+
+- **NEW FEATURE**: **Colony Wager System** (`EnableColonyWager`)
+  - Attacker's colony becomes a **WAGER** in every war declaration
+  - If attacker wins: Target colony enters OCCUPIED state (existing behavior)
+  - If defender wins: **Attacker's colony enters OCCUPIED state!** (Counter-Conquest)
+  - Creates high-risk, high-reward warfare - attackers cannot safely grief weaker players
+  - Notification messages for both sides on wager outcome
+
+- **NEW FEATURE**: **Reclamation War Exception**
+  - Players can declare war **from inside their occupied colony** against the occupier
+  - Building requirements and war chest costs **waived** for reclamation wars
+  - Allows players whose only colony is occupied to still fight back
+  - Logged as "Reclamation war exception" in `WARSYSTEM_LOGGER`
+
+### Changed
+
+- **`WarSystem.java`**: Modified `processWageWarRequest` to check `FirstColonyTracker` for primary/secondary colony status
+- **`WarSystem.java`**: Added `processOfflineOutpostAttack` and `initiateOfflineOutpostWar` methods for offline outpost attacks
+- **`WarSystem.java`**: Modified `findValidAttackerColony` to allow occupied colonies for reclamation wars
+- **`WarSystem.java`**: Modified `handleVictoryRewards` to implement Colony Wager System
+- **`WarData.java`**: Added `offlineOutpostWar` field and getter/setter
+- **`TaxConfig.java`**: Added `EnableOutpostVulnerability` (default: true) and `EnableColonyWager` (default: true) config options
+
+### Documentation
+
+- **`wiki/War_System.md`**: Added new "High Stakes War System" section (Section 2) documenting:
+  - Primary vs Secondary Colonies (Outpost Vulnerability)
+  - Colony Wager System mechanics
+  - Reclamation Wars special privileges
+
+## [4.1.0] - 2026-03-06
+
+### Changed - Logging System Overhaul
+
+- **OVERHAUL**: Centralized logging system across all files to drastically reduce console spam
+- **`TaxConfig.java`**: Added new `LOG_LEVEL` configuration (`0` = Minimal/Errors only, `1` = Normal Info, `2` = Debug Logging)
+- **`WarSystem.java` & `WarEventHandler.java`**: Over 50 `System.out.println` calls wrapped with `isDebugLogging()` or `isNormalLogging()`
+- **All Managers**: Over 150 `LOGGER.info()` calls systematically wrapped with log level guards, allowing server admins to silence verbose mod logs completely
+  - Affected files: `ColonyAbandonmentManager`, `ColonyClaimingRaidManager`, `RaidManager`, `MineColonyTax`, `PlayerWarDataCapability`, `WarChestManager`, `TaxPermissionManager`, `CitizenMilitiaManager`, `SpyManager`, `WarExhaustionManager`
+- Error (`LOGGER.error`) and Warning (`LOGGER.warn`) messages remain always visible for critical system diagnostics
 
 ### Added - Random Events System
 
@@ -100,10 +267,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WarManager integration for war-dependent events
 - Colony news feed GUI
 - Event chains (one event triggers another)
-
----
-
-## [4.1.0] - 2026-01-29
 
 ### Fixed
 - **War Chest UI**: Fixed hardcoded "gold" currency labels - now displays configured currency (SDMShop $ or item name)

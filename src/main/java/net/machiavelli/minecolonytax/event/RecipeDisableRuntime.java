@@ -12,6 +12,8 @@ import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.registries.ForgeRegistries;
+import net.machiavelli.minecolonytax.TaxConfig;
+import org.apache.logging.log4j.LogManager;
 import net.minecraftforge.event.server.ServerStartedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,8 +23,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Runtime disabler that removes MineColonies hut crafting recipes when the config is enabled.
- * This runs after datapacks have loaded (server start and datapack reload) and edits the RecipeManager maps via reflection.
+ * Runtime disabler that removes MineColonies hut crafting recipes when the
+ * config is enabled.
+ * This runs after datapacks have loaded (server start and datapack reload) and
+ * edits the RecipeManager maps via reflection.
  */
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class RecipeDisableRuntime {
@@ -110,18 +114,22 @@ public final class RecipeDisableRuntime {
             // Collect crafting recipes that output hut blocks
             List<? extends Recipe<?>> craftingRecipes = manager.getAllRecipesFor(RecipeType.CRAFTING);
             Set<ResourceLocation> toRemove = craftingRecipes.stream()
-                .filter(r -> isHutOutput(r, server))
-                .map(Recipe::getId)
-                .collect(Collectors.toSet());
+                    .filter(r -> isHutOutput(r, server))
+                    .map(Recipe::getId)
+                    .collect(Collectors.toSet());
 
             if (toRemove.isEmpty()) {
-                LOGGER.info("RecipeDisabler: No hut crafting recipes found to remove (maybe already removed).");
+                if (TaxConfig.isNormalLogging()) {
+                    LOGGER.info("RecipeDisabler: No hut crafting recipes found to remove (maybe already removed).");
+                }
                 return;
             }
 
             // Reflectively remove from RecipeManager maps
             removeFromManager(manager, toRemove);
-            LOGGER.info("RecipeDisabler: Disabled {} MineColonies hut crafting recipes.", toRemove.size());
+            if (TaxConfig.isNormalLogging()) {
+                LOGGER.info("RecipeDisabler: Disabled {} MineColonies hut crafting recipes.", toRemove.size());
+            }
         } catch (Throwable t) {
             LOGGER.error("RecipeDisabler: Failed to disable hut recipes.", t);
         }
@@ -139,8 +147,8 @@ public final class RecipeDisableRuntime {
     @SuppressWarnings("unchecked")
     private static void removeFromManager(RecipeManager manager, Set<ResourceLocation> toRemove) throws Exception {
         // Potential field names across mappings
-        String[] recipesFieldNames = new String[] {"recipes", "byType", "f_44006_"};
-        String[] byNameFieldNames = new String[] {"byName", "f_44007_"};
+        String[] recipesFieldNames = new String[] { "recipes", "byType", "f_44006_" };
+        String[] byNameFieldNames = new String[] { "byName", "f_44007_" };
 
         Field recipesField = findField(manager.getClass(), recipesFieldNames);
         Field byNameField = findField(manager.getClass(), byNameFieldNames);
@@ -152,10 +160,9 @@ public final class RecipeDisableRuntime {
         recipesField.setAccessible(true);
         byNameField.setAccessible(true);
 
-        Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipesByType =
-            (Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>>) recipesField.get(manager);
-        Map<ResourceLocation, Recipe<?>> byName =
-            (Map<ResourceLocation, Recipe<?>>) byNameField.get(manager);
+        Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipesByType = (Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>>) recipesField
+                .get(manager);
+        Map<ResourceLocation, Recipe<?>> byName = (Map<ResourceLocation, Recipe<?>>) byNameField.get(manager);
 
         Map<ResourceLocation, Recipe<?>> craftingMap = recipesByType.get(RecipeType.CRAFTING);
         if (craftingMap == null) {
@@ -173,10 +180,9 @@ public final class RecipeDisableRuntime {
         for (String n : names) {
             try {
                 return clazz.getDeclaredField(n);
-            } catch (NoSuchFieldException ignored) { }
+            } catch (NoSuchFieldException ignored) {
+            }
         }
         return null;
     }
 }
-
-

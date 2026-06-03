@@ -31,10 +31,7 @@ public class DisabledRecipeProvider extends RecipeProvider {
     private static final Set<ResourceLocation> DISABLED_HUT_RECIPES = new HashSet<>();
     
     static {
-        // Initialize the set of hut blocks that should have recipes disabled
-        // These are all the buildings that have taxes or maintenance costs defined in TaxConfig
-        
-        // Buildings with taxes (from BUILDING_TAXES)
+        // Buildings with taxes (from TaxConfig BUILDING_TAXES)
         addHutBlock(ModBlocks.blockHutAlchemist);
         addHutBlock(ModBlocks.blockHutConcreteMixer);
         addHutBlock(ModBlocks.blockHutFletcher);
@@ -100,17 +97,10 @@ public class DisabledRecipeProvider extends RecipeProvider {
     
     @Override
     protected void buildRecipes(@NotNull Consumer<FinishedRecipe> consumer) {
-        // Only generate disabled recipes if the feature is enabled
         if (!TaxConfig.isDisableHutRecipesEnabled()) {
-            LOGGER.info("Recipe disabling is not enabled - skipping disabled recipe generation");
             return;
         }
-        
-        LOGGER.info("Recipe disabling is enabled - generating disabled recipe files for buildings with taxes/maintenance costs");
-        
-        // Generate disabled recipes for each hut block
         for (ResourceLocation blockId : DISABLED_HUT_RECIPES) {
-            // Create a disabled recipe that overrides the original
             ItemStack resultItem = new ItemStack(ForgeRegistries.BLOCKS.getValue(blockId));
             if (!resultItem.isEmpty()) {
                 ResourceLocation recipeId = new ResourceLocation("minecolonytax", "disabled_" + blockId.getPath());
@@ -147,8 +137,6 @@ public class DisabledRecipeProvider extends RecipeProvider {
                 LOGGER.debug("Generated disabled recipe for: {} -> {}", blockId, recipeId);
             }
         }
-        
-        LOGGER.info("Generated {} disabled recipe files", DISABLED_HUT_RECIPES.size());
     }
     
     /**

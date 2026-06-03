@@ -26,7 +26,9 @@ import java.util.stream.Collectors;
 
 /**
  * Manages trade routes between colonies for passive income generation.
+ * @deprecated Trade Network feature is disabled by default and scheduled for removal.
  */
+@Deprecated
 public class TradeRouteManager {
 
     private static final Logger LOGGER = LogManager.getLogger(TradeRouteManager.class);
@@ -41,7 +43,6 @@ public class TradeRouteManager {
 
     private static MinecraftServer server;
 
-    /* ============== Data Models ============== */
 
     public static class TradeRouteData {
         public int colonyId1;
@@ -106,19 +107,22 @@ public class TradeRouteManager {
         List<TradeRouteProposal> proposals = new ArrayList<>();
     }
 
-    /* ============== Lifecycle ============== */
 
     public static void initialize(MinecraftServer srv) {
         server = srv;
         loadData();
-        LOGGER.info("TradeRouteManager initialized with {} active routes", ACTIVE_ROUTES.size());
+        if (TaxConfig.isNormalLogging()) {
+            LOGGER.info("TradeRouteManager initialized with {} active routes", ACTIVE_ROUTES.size());
+        }
     }
 
     public static void shutdown() {
         saveData();
         ACTIVE_ROUTES.clear();
         PENDING_PROPOSALS.clear();
-        LOGGER.info("TradeRouteManager shut down");
+        if (TaxConfig.isNormalLogging()) {
+            LOGGER.info("TradeRouteManager shut down");
+        }
     }
 
     private static void loadData() {
@@ -162,7 +166,6 @@ public class TradeRouteManager {
         }
     }
 
-    /* ============== Proposal Management ============== */
 
     public static String proposeTradeRoute(ServerPlayer player, int targetColonyId) {
         if (!TaxConfig.isTradeRoutesEnabled()) {
@@ -314,7 +317,6 @@ public class TradeRouteManager {
         return "§cNo route with #" + partnerColonyId + ".";
     }
 
-    /* ============== Income/Maintenance ============== */
 
     public static int calculateTradeRouteIncome(int colonyId) {
         if (!TaxConfig.isTradeRoutesEnabled())
@@ -351,7 +353,6 @@ public class TradeRouteManager {
         return totalMaintenance / 2;
     }
 
-    /* ============== Query Methods ============== */
 
     public static List<TradeRouteData> getRoutesForColony(int colonyId) {
         return ACTIVE_ROUTES.values().stream()
@@ -376,7 +377,6 @@ public class TradeRouteManager {
         return ACTIVE_ROUTES.containsKey(key);
     }
 
-    /* ============== Helpers ============== */
 
     public static int calculateDistance(IColony c1, IColony c2) {
         BlockPos p1 = c1.getCenter();

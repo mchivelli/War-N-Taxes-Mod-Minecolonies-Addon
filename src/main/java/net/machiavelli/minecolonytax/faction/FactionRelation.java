@@ -1,5 +1,9 @@
 package net.machiavelli.minecolonytax.faction;
 
+/**
+ * @deprecated Will be replaced by an external faction/diplomacy mod. Code retained for reference.
+ */
+@Deprecated
 public enum FactionRelation {
     ALLY,
     NEUTRAL,

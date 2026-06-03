@@ -4,6 +4,7 @@ import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
 import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
+import net.machiavelli.minecolonytax.compat.ColonyBuildingUtil;
 import net.machiavelli.minecolonytax.MineColonyTax;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.raid.EntityRaidManager;
@@ -29,14 +30,9 @@ public class ColonyEventListener {
 
     private static final Logger LOGGER = LogManager.getLogger(ColonyEventListener.class);
 
-    // Map to track building levels in each colony
     private static final Map<Integer, Map<IBuilding, Integer>> colonyBuildingLevels = new HashMap<>();
-    
-    // New tick counter and interval (20 ticks = ~1 second)
     private static int tickCounter = 0;
     private static final int CHECK_INTERVAL_TICKS = 20;
-
-    // Entity raid scan scheduler
     private static int entityScanTickCounter = 0;
 
     @SubscribeEvent
@@ -45,65 +41,60 @@ public class ColonyEventListener {
             return;
         }
 
-        // Always advance entity raid lifecycle each server tick when enabled
         if (TaxConfig.ENABLE_ENTITY_RAIDS.get()) {
             EntityRaidManager.tick();
-        }
 
-        // Periodically scan for whitelisted entities near colonies to meet threshold
-        // Reduced frequency to avoid spam - scan every 10 seconds instead of every second
-        if (TaxConfig.ENABLE_ENTITY_RAIDS.get()) {
             entityScanTickCounter++;
-            if (entityScanTickCounter >= 200) { // Every 10 seconds (200 ticks)
+            if (entityScanTickCounter >= 200) {
                 entityScanTickCounter = 0;
                 scanColoniesForEntityRaids();
             }
         }
 
+        // Building-level scan only needs to run once per second, not every tick.
+        // Detection of new/upgraded buildings is purely cosmetic (logging) — the
+        // tax/war systems read building data on their own schedules.
+        if (++tickCounter < CHECK_INTERVAL_TICKS) {
+            return;
+        }
+        tickCounter = 0;
+
+        boolean logUpgrades = TaxConfig.showColonyInitializationLogs();
         List<IColony> colonies = IColonyManager.getInstance().getAllColonies();
 
         for (IColony colony : colonies) {
-            int colonyId = colony.getID();
-            Map<IBuilding, Integer> buildingLevels = colonyBuildingLevels.computeIfAbsent(colonyId, k -> new HashMap<>());
+            try {
+                int colonyId = colony.getID();
+                Map<IBuilding, Integer> buildingLevels = colonyBuildingLevels.computeIfAbsent(colonyId, k -> new HashMap<>());
 
-            int guardTowerCount = 0;
-            int newOrUpgradedBuildingsCount = 0;
+                int guardTowerCount = 0;
+                int newOrUpgradedBuildingsCount = 0;
 
-            for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
-                int currentLevel = building.getBuildingLevel();
+                for (IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
+                    int currentLevel = building.getBuildingLevel();
 
-                // Count Guard Towers
-                if (isGuardTower(building)) {
-                    guardTowerCount++;
+                    if (isGuardTower(building)) {
+                        guardTowerCount++;
+                    }
+
+                    Integer prev = buildingLevels.get(building);
+                    if (prev == null || prev < currentLevel) {
+                        newOrUpgradedBuildingsCount++;
+                        buildingLevels.put(building, currentLevel);
+                    }
                 }
 
-                            // Check if the building is new or has been upgraded (tracking only, no tax generation)
-            if (!buildingLevels.containsKey(building) || buildingLevels.get(building) < currentLevel) {
-                newOrUpgradedBuildingsCount++;
-                
-                // Update the cached building level (for tracking purposes only)
-                buildingLevels.put(building, currentLevel);
-            }
-            }
+                if (newOrUpgradedBuildingsCount > 0 && logUpgrades) {
+                    LOGGER.info("Colony '{}': Detected {} new/upgraded buildings (Guards: {})",
+                               colony.getName(), newOrUpgradedBuildingsCount, guardTowerCount);
+                }
 
-            // Condensed logging: Only log summary if buildings were processed and logging is enabled
-            if (newOrUpgradedBuildingsCount > 0 && TaxConfig.showColonyInitializationLogs()) {
-                LOGGER.info("Colony '{}': Detected {} new/upgraded buildings (Guards: {})", 
-                           colony.getName(), newOrUpgradedBuildingsCount, guardTowerCount);
+            } catch (Exception e) {
+                LOGGER.error("Error processing colony {} during tick: {}", colony.getID(), e.getMessage());
             }
-            
-            // Guard tower boost is now properly implemented in TaxManager.generateTaxesForAllColonies()
-            // This ensures it's applied consistently with the main tax generation cycle
         }
     }
 
-    /**
-     * Periodically scans all colonies and triggers an entity raid when the
-     * number of eligible whitelisted entities currently inside the colony boundary
-     * meets or exceeds the configured threshold.
-     * Uses EntityRaidManager.shouldTriggerEntityRaid for per-entity filtering
-     * (whitelist, cooldown, alliance), and respects a per-colony cooldown.
-     */
     private static void scanColoniesForEntityRaids() {
         try {
             final int threshold = Math.max(1, TaxConfig.getEntityRaidThreshold());
@@ -111,19 +102,16 @@ public class ColonyEventListener {
 
             List<IColony> colonies = IColonyManager.getInstance().getAllColonies();
             for (IColony colony : colonies) {
-                // Skip if different dimension type or world not ready
                 if (colony == null || colony.getWorld() == null || !(colony.getWorld() instanceof ServerLevel)) {
                     continue;
                 }
 
                 final int colonyId = colony.getID();
 
-                // Skip if a raid is already active
                 if (EntityRaidManager.hasActiveEntityRaid(colonyId)) {
                     continue;
                 }
 
-                // Per-colony cooldown
                 long now = System.currentTimeMillis();
                 if (EntityRaidManager.isOnCooldown(colonyId, cooldownMs)) {
                     long last = EntityRaidManager.getLastRaidTime(colonyId);
@@ -134,20 +122,16 @@ public class ColonyEventListener {
                     continue;
                 }
 
-                // Scan entities currently inside colony boundary
                 ServerLevel level = (ServerLevel) colony.getWorld();
-
                 int eligibleCount = 0;
                 Entity firstTrigger = null;
 
-                // Only log scanning at high debug levels to reduce spam
                 if (TaxConfig.isEntityRaidDebugEnabled() && TaxConfig.getEntityRaidDebugLevel() >= 2) {
-                    LOGGER.info("[EntityRaid-SCAN] 🔍 Scanning colony '{}' for whitelisted entities currently INSIDE boundary", 
+                    LOGGER.info("[EntityRaid-SCAN] Scanning colony '{}' for whitelisted entities currently INSIDE boundary",
                         colony.getName());
                 }
 
                 for (Entity e : level.getEntities().getAll()) {
-                    // Check if this entity qualifies (whitelist, not allied, not in grace) AND is inside the colony
                     try {
                         if (EntityRaidManager.shouldTriggerEntityRaid(e, colony)) {
                             boolean inside = false;
@@ -161,18 +145,15 @@ public class ColonyEventListener {
                             }
                             eligibleCount++;
                             if (firstTrigger == null) firstTrigger = e;
-                            // Only log individual entities at maximum debug level to avoid spam
                             if (TaxConfig.isEntityRaidDebugEnabled() && TaxConfig.getEntityRaidDebugLevel() >= 3) {
-                                LOGGER.debug("[EntityRaid-SCAN] ✅ Entity {} is INSIDE boundary and qualifies (count: {})",
+                                LOGGER.debug("[EntityRaid-SCAN] Entity {} is INSIDE boundary and qualifies (count: {})",
                                     e.getType().getDescriptionId(), eligibleCount);
                             }
-                            // Early exit once threshold reached
                             if (eligibleCount >= threshold) {
                                 break;
                             }
                         }
                     } catch (Exception ex) {
-                        // Robustness: never let one bad entity break the scan
                         if (TaxConfig.isEntityRaidDebugEnabled()) {
                             LOGGER.warn("[EntityRaid-SCAN] Error evaluating entity near colony '{}': {}",
                                     colony.getName(), ex.toString());
@@ -196,66 +177,25 @@ public class ColonyEventListener {
         }
     }
 
-    /**
-     * Determines if a building is a guard tower using multiple identification methods.
-     * @param building The building to check
-     * @return true if the building is a guard tower, false otherwise
-     */
     private static boolean isGuardTower(IBuilding building) {
-        if (building == null) return false;
-        
-        // Method 1: Check display name (current approach)
-        String displayName = building.getBuildingDisplayName();
-        if (displayName != null && "Guard Tower".equalsIgnoreCase(displayName)) {
-            return true;
-        }
-        
-        // Method 2: Check if class name contains "guardtower"
-        String className = building.getClass().getName().toLowerCase();
-        if (className.contains("guardtower")) {
-            return true;
-        }
-        
-        // Method 3: Check if the building has guard-related functionality
-        // This is a fallback in case the building class structure changes
-        try {
-            // Try to get the schematic name if available
-            String toString = building.toString().toLowerCase();
-            if (toString.contains("guardtower") || toString.contains("guard_tower")) {
-                return true;
-            }
-        } catch (Exception e) {
-            // Ignore any reflection exceptions
-        }
-        
-        return false;
+        // Delegate to the cached WarSystem implementation to avoid duplicated
+        // per-tick string allocations.
+        return net.machiavelli.minecolonytax.WarSystem.isGuardTower(building);
     }
     
     @SubscribeEvent
     public static void onGuardDeath(LivingDeathEvent event) {
-        // Check if this is a guard citizen killed during a raid
         if (!(event.getEntity() instanceof AbstractEntityCitizen citizen)) return;
-        
         var citizenData = citizen.getCitizenData();
         if (citizenData == null || citizenData.getJob() == null) return;
-        
-        // Check if this citizen is a guard
         if (!citizenData.getJob().isGuard()) return;
-        
         IColony colony = citizenData.getColony();
         if (colony == null) return;
-        
-        // Check if there's an active raid on this colony
         ActiveRaidData raidData = RaidManager.getActiveRaidByColony(colony.getID());
         if (raidData == null) return;
-        
-        // Increment guard kills counter
         raidData.incrementGuardsKilled();
-        
-        LOGGER.info("Guard killed during raid! Colony: {}, Guards killed: {}/{}", 
+        if (TaxConfig.isNormalLogging()) LOGGER.info("Guard killed during raid! Colony: {}, Guards killed: {}/{}",
             colony.getName(), raidData.getGuardsKilled(), raidData.getTotalGuards());
-        
-        // Update boss bar to show guard kill progress
         if (raidData.getBossEvent() != null) {
             double killPercentage = raidData.getGuardKillPercentage();
             String progressText = String.format("Raid Progress: %d/%d Guards Defeated (%.1f%%)", 

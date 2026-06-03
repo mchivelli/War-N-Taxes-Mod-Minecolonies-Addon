@@ -19,7 +19,8 @@
             "entries": [
                 "minecolonytax:war_system/declaring_war",
                 "minecolonytax:war_system/war_phases",
-                "minecolonytax:war_system/war_vassalization"
+                "minecolonytax:war_system/war_vassalization",
+                "minecolonytax:colony_management/treasury"
             ],
             "text": "minecolonytax.entry.war_overview.learn_more"
         }

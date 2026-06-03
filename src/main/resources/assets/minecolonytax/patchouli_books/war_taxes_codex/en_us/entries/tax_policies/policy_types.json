@@ -1,0 +1,28 @@
+{
+    "name": "Policy Types",
+    "category": "minecolonytax:tax_policies",
+    "icon": "minecraft:paper",
+    "sortnum": 1,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "title": "Normal",
+            "text": "$(bold)Command:$() /wnt taxpolicy set NORMAL$(br2)The default policy. No modifiers are applied to revenue or happiness. Use this when you have no pressing economic need and want predictable results."
+        },
+        {
+            "type": "patchouli:text",
+            "title": "Low Tax",
+            "text": "$(bold)Command:$() /wnt taxpolicy set LOW$(br2)Reduces tax revenue by $(bold)25%$() but adds $(bold)+0.2$() to citizen happiness growth each cycle.$(br2)Best used when your colony happiness is low, you are recovering from a war penalty, or you want to reduce the chance of negative random events."
+        },
+        {
+            "type": "patchouli:text",
+            "title": "High Tax",
+            "text": "$(bold)Command:$() /wnt taxpolicy set HIGH$(br2)Increases tax revenue by $(bold)25%$() but reduces citizen happiness growth by $(bold)0.15$() each cycle.$(br2)Best used for short bursts when you need gold quickly — for example, to fund a treasury before declaring war or purchasing upgrades."
+        },
+        {
+            "type": "patchouli:text",
+            "title": "War Economy",
+            "text": "$(bold)Command:$() /wnt taxpolicy set WAR_ECONOMY$(br2)Increases tax revenue by $(bold)50%$() but reduces happiness growth by $(bold)0.25$() per cycle. The harshest policy available.$(br2)Sustained use risks negative events like Guard Desertion, Labor Strike, and Plague Outbreak. Switch back to Normal or Low once you have the funds you need."
+        }
+    ]
+}

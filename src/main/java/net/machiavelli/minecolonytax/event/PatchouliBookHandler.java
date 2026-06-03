@@ -5,6 +5,7 @@ import net.machiavelli.minecolonytax.TaxConfig;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -41,18 +42,24 @@ public class PatchouliBookHandler {
             return;
         }
 
-        // Check if player already received the book
-        CompoundTag persistentData = player.getPersistentData();
-        if (persistentData.getBoolean(BOOK_GIVEN_TAG)) {
+        // Check if player already received the book.
+        // We use the Player.PERSISTED_NBT_TAG sub-compound so the flag survives
+        // death and respawn (Forge copies this compound during PlayerEvent.Clone).
+        CompoundTag forgeData = player.getPersistentData();
+        CompoundTag persisted = forgeData.getCompound(Player.PERSISTED_NBT_TAG);
+        if (persisted.getBoolean(BOOK_GIVEN_TAG)) {
             LOGGER.debug("Player {} already has the War & Taxes Codex", player.getName().getString());
             return;
         }
 
         // Try to give the book using Patchouli API
         if (giveBookToPlayer(player)) {
-            // Mark that we gave the book
-            persistentData.putBoolean(BOOK_GIVEN_TAG, true);
-            LOGGER.info("Gave War & Taxes Codex to new player: {}", player.getName().getString());
+            // Mark that we gave the book (persists across death/respawn)
+            persisted.putBoolean(BOOK_GIVEN_TAG, true);
+            forgeData.put(Player.PERSISTED_NBT_TAG, persisted);
+            if (TaxConfig.isNormalLogging()) {
+                LOGGER.info("Gave War & Taxes Codex to new player: {}", player.getName().getString());
+            }
         }
     }
 
@@ -102,7 +109,12 @@ public class PatchouliBookHandler {
      * Reset the book given flag for a player (useful for testing)
      */
     public static void resetBookGiven(ServerPlayer player) {
-        player.getPersistentData().remove(BOOK_GIVEN_TAG);
-        LOGGER.info("Reset book given flag for player: {}", player.getName().getString());
+        CompoundTag forgeData = player.getPersistentData();
+        CompoundTag persisted = forgeData.getCompound(Player.PERSISTED_NBT_TAG);
+        persisted.remove(BOOK_GIVEN_TAG);
+        forgeData.put(Player.PERSISTED_NBT_TAG, persisted);
+        if (TaxConfig.isNormalLogging()) {
+            LOGGER.info("Reset book given flag for player: {}", player.getName().getString());
+        }
     }
 }

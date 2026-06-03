@@ -1,0 +1,19 @@
+{
+  "name": "War Weariness",
+  "category": "minecolonytax:war_economy",
+  "icon": "minecraft:shield",
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "$(bold)War weariness$() is a protection mechanic for colonies that have been driven to near-bankruptcy. It is not a penalty — it is a comeback shield.$(br2)When your colony loses a war, the mod checks your current tax balance. If that balance is at or below the threshold (default: 500 coins), your colony receives temporary $(bold)war immunity$() lasting 24 hours."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "During immunity, no player can declare war on your colony, and your colony cannot declare war on others. This window is intended for economic recovery, not aggression.$(br2)Immunity is $(bold)not automatic$() after every loss. It only triggers if your tax balance is truly depleted at the moment of defeat. A well-funded colony that loses a war receives no immunity."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(bold)Strategic implication:$() Players targeting a weakened colony cannot simply keep attacking after each win. Once the defender is driven below the threshold, they are protected for 24 hours.$(br2)As the weary colony, use the immunity window to rebuild your tax balance and treasury before the protection expires."
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "War Reparations",
+  "category": "minecolonytax:war_economy",
+  "icon": "minecraft:iron_ingot",
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "$(bold)War reparations$() are a severe economic penalty applied to colonies that lose wars repeatedly. A single loss does not trigger reparations. The system tracks your losses over a rolling 7-day window.$(br2)If your colony loses $(bold)3 wars within 7 days$() (configurable), the reparations debuff activates immediately. The loss counter then resets, so reparations cannot stack from the same streak."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "While under reparations, tax generation is cut by an additional $(bold)20%$() on top of any exhaustion penalty you are already carrying. This lasts for $(bold)72 hours$() by default.$(br2)All war penalties combined cannot exceed a 50% total reduction, and a hard floor ensures your colony never drops below 10% income regardless of how many penalties apply."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(bold)Vassalization exception:$() If you are vassalized as the result of a war loss, the tribute you pay replaces reparations instead of stacking with them.$(br2)$(bold)To avoid reparations:$() If you have two recent losses, avoid further conflict until the 7-day window resets, or negotiate a peace treaty before the third loss is recorded."
+    }
+  ]
+}

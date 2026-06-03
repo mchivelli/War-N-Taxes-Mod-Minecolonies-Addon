@@ -20,7 +20,9 @@ import java.util.List;
 
 /**
  * Commands for managing trade routes between colonies
+ * @deprecated Trade Network feature is disabled by default and scheduled for removal.
  */
+@Deprecated
 public class TradeRouteCommand {
 
     public static LiteralArgumentBuilder<CommandSourceStack> register() {

@@ -71,12 +71,10 @@ public class TaxDebtCommand {
         boolean foundColony = false;
 
         for (IColony colony : colonyManager.getAllColonies()) {
-            // Only process colonies where the player is a manager
             Rank playerRank = colony.getPermissions().getRank(player.getUUID());
             if (playerRank == null || !playerRank.isColonyManager()) {
                 continue;
             }
-            // If a colony name is provided, check for a match (ignoring case)
             if (colonyName != null && !colony.getName().equalsIgnoreCase(colonyName)) {
                 continue;
             }

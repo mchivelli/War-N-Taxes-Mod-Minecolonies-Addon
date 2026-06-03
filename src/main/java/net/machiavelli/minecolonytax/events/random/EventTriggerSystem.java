@@ -47,28 +47,6 @@ public class EventTriggerSystem {
     }
 
     /**
-     * Roll to see if an event should trigger.
-     *
-     * @param colony The colony to check
-     * @param type The event type
-     * @return true if the event should trigger
-     */
-    public static boolean shouldTriggerEvent(IColony colony, RandomEventType type) {
-        // Check if conditions are met
-        if (!type.meetsConditions(colony)) {
-            return false;
-        }
-
-        // Calculate modified probability
-        double probability = calculateEventProbability(colony, type);
-
-        // Roll random
-        double roll = RANDOM.nextDouble();
-
-        return roll < probability;
-    }
-
-    /**
      * Get colony size modifier for event probability.
      *
      * Scaling:
@@ -198,12 +176,13 @@ public class EventTriggerSystem {
     }
 
     /**
-     * Check if colony is currently at war.
+     * Check if colony is currently at war (as attacker or defender).
+     * Package-private so RandomEventType can delegate to it.
      *
      * @param colonyId The colony ID
      * @return true if colony is in an active war
      */
-    private static boolean isColonyAtWar(int colonyId) {
+    static boolean isColonyAtWar(int colonyId) {
         // Check WarSystem for active wars
         try {
             // Check if colony is defender
@@ -256,13 +235,18 @@ public class EventTriggerSystem {
             return false;  // Protection disabled
         }
 
-        // Get colony age in hours
-        int colonyAgeHours = colony.getLastContactInHours();
+        // Use our own tracked first-seen time. MineColonies' getLastContactInHours()
+        // measures time since last player *visit*, not colony age — it is 0 for any
+        // active colony and would permanently block events. We record the first time
+        // we process each colony in onTaxCycle and use that as the age baseline.
+        Long firstSeenMs = RandomEventManager.COLONY_FIRST_SEEN_MS.get(colony.getID());
+        if (firstSeenMs == null) {
+            // Not yet tracked — first tax cycle for this colony, treat as just-created
+            return true;
+        }
 
-        // Note: lastContactInHours gives time since last player visit, not colony age
-        // This is an approximation - ideally we'd track actual colony creation time
-        // For now, assume very young colonies haven't been visited much
-        return colonyAgeHours < protectionHours;
+        long ageHours = (System.currentTimeMillis() - firstSeenMs) / 3_600_000L;
+        return ageHours < protectionHours;
     }
 
     /**

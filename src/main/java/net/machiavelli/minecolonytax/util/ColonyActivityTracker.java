@@ -11,22 +11,14 @@ import org.apache.logging.log4j.Logger;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Utility class for tracking colony activity and providing centralized methods
- * for activity-related operations across the tax system.
- */
 public class ColonyActivityTracker {
     
     private static final Logger LOGGER = LogManager.getLogger(ColonyActivityTracker.class);
     
-    // Cache for recently computed activity status to improve performance
     private static final Map<Integer, ActivityStatus> activityCache = new ConcurrentHashMap<>();
     private static long lastCacheUpdate = 0L;
     private static final long CACHE_VALIDITY_MS = 300000L; // 5 minutes
     
-    /**
-     * Data class to hold colony activity information.
-     */
     public static class ActivityStatus {
         public final boolean isActive;
         public final int lastContactHours;
@@ -43,90 +35,58 @@ public class ColonyActivityTracker {
         }
     }
     
-    /**
-     * Check if a specific colony is currently active based on inactivity settings.
-     * ENHANCED: Now considers officer visits in addition to owner visits.
-     * 
-     * @param colony The colony to check
-     * @return true if the colony is active (should generate taxes), false if inactive
-     */
+    /** Returns true if the colony should generate taxes (owner or officer visited recently). */
     public static boolean isColonyActive(IColony colony) {
         if (!TaxConfig.isColonyInactivityTaxPauseEnabled()) {
-            return true; // System disabled, all colonies are considered active
+            return true;
         }
         
         int colonyId = colony.getID();
         ActivityStatus cached = activityCache.get(colonyId);
         
-        // Use cached result if still valid
         if (cached != null && !cached.isExpired()) {
             return cached.isActive;
         }
-        
-        // Calculate fresh activity status
+
         int lastContactHours = colony.getLastContactInHours();
-        
-        // CRITICAL FIX: Check if officers have visited recently
+
+        // Use officer visit time if more recent than owner visit
         long officerVisitHours = net.machiavelli.minecolonytax.event.OfficerColonyVisitTracker.getHoursSinceOfficerVisit(colonyId);
         if (officerVisitHours >= 0 && officerVisitHours < lastContactHours) {
-            // Officers visited more recently - use that time
             lastContactHours = (int) officerVisitHours;
         }
-        
+
         int threshold = TaxConfig.getColonyInactivityHoursThreshold();
         boolean isActive = lastContactHours < threshold;
-        
-        // Cache the result
         activityCache.put(colonyId, new ActivityStatus(isActive, lastContactHours));
         
         return isActive;
     }
     
-    /**
-     * Get detailed activity status for a colony.
-     * ENHANCED: Now considers officer visits in addition to owner visits.
-     * 
-     * @param colony The colony to check
-     * @return ActivityStatus containing detailed information
-     */
     public static ActivityStatus getColonyActivityStatus(IColony colony) {
         if (!TaxConfig.isColonyInactivityTaxPauseEnabled()) {
             return new ActivityStatus(true, colony.getLastContactInHours());
         }
-        
+
         int colonyId = colony.getID();
         ActivityStatus cached = activityCache.get(colonyId);
-        
-        // Use cached result if still valid
         if (cached != null && !cached.isExpired()) {
             return cached;
         }
-        
-        // Calculate fresh activity status
+
         int lastContactHours = colony.getLastContactInHours();
-        
-        // CRITICAL FIX: Check if officers have visited recently
         long officerVisitHours = net.machiavelli.minecolonytax.event.OfficerColonyVisitTracker.getHoursSinceOfficerVisit(colonyId);
         if (officerVisitHours >= 0 && officerVisitHours < lastContactHours) {
-            // Officers visited more recently - use that time
             lastContactHours = (int) officerVisitHours;
         }
-        
+
         int threshold = TaxConfig.getColonyInactivityHoursThreshold();
         boolean isActive = lastContactHours < threshold;
-        
         ActivityStatus status = new ActivityStatus(isActive, lastContactHours);
         activityCache.put(colonyId, status);
-        
         return status;
     }
-    
-    /**
-     * Get activity statistics for all colonies across all worlds.
-     * 
-     * @param server The server instance to scan
-     * @return Map containing activity statistics
-     */
+
     public static Map<String, Integer> getGlobalActivityStatistics(net.minecraft.server.MinecraftServer server) {
         Map<String, Integer> stats = new HashMap<>();
         stats.put("total", 0);
@@ -156,12 +116,6 @@ public class ColonyActivityTracker {
         return stats;
     }
     
-    /**
-     * Get a list of all inactive colonies across all worlds.
-     * 
-     * @param server The server instance to scan
-     * @return List of inactive colonies
-     */
     public static List<IColony> getInactiveColonies(net.minecraft.server.MinecraftServer server) {
         List<IColony> inactiveColonies = new ArrayList<>();
         
@@ -183,9 +137,6 @@ public class ColonyActivityTracker {
         return inactiveColonies;
     }
     
-    /**
-     * Clear the activity cache. Useful for forcing fresh calculations.
-     */
     public static void clearCache() {
         activityCache.clear();
         lastCacheUpdate = System.currentTimeMillis();
@@ -194,9 +145,6 @@ public class ColonyActivityTracker {
         }
     }
     
-    /**
-     * Clean up expired entries from the activity cache.
-     */
     public static void cleanupExpiredCache() {
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastCacheUpdate > CACHE_VALIDITY_MS) {
@@ -218,33 +166,15 @@ public class ColonyActivityTracker {
         }
     }
     
-    /**
-     * Get the number of hours since a colony was last contacted by owners/officers.
-     * This is a convenience method that wraps the MineColonies API call.
-     * 
-     * @param colony The colony to check
-     * @return Hours since last contact
-     */
     public static int getHoursSinceLastContact(IColony colony) {
         return colony.getLastContactInHours();
     }
     
-    /**
-     * Check if the inactivity system is enabled and configured properly.
-     * 
-     * @return true if the system is properly configured and enabled
-     */
     public static boolean isInactivitySystemEnabled() {
         return TaxConfig.isColonyInactivityTaxPauseEnabled() && 
                TaxConfig.getColonyInactivityHoursThreshold() > 0;
     }
     
-    /**
-     * Get a human-readable string describing the colony's activity status.
-     * 
-     * @param colony The colony to describe
-     * @return Activity status description
-     */
     public static String getActivityStatusDescription(IColony colony) {
         if (!TaxConfig.isColonyInactivityTaxPauseEnabled()) {
             return "Active (inactivity system disabled)";

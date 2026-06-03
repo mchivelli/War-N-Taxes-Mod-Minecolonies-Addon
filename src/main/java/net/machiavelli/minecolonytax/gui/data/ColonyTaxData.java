@@ -1,8 +1,5 @@
 package net.machiavelli.minecolonytax.gui.data;
 
-/**
- * Data container for colony tax information displayed in the GUI
- */
 public class ColonyTaxData {
     private final int colonyId;
     private final String colonyName;
@@ -14,6 +11,8 @@ public class ColonyTaxData {
     private final boolean canClaimTax;
     private final boolean isAtWar;
     private final boolean isBeingRaided;
+    private final boolean isBesieged;
+    private final boolean isOccupied;
     private final boolean isVassal;
     private final int vassalTributeRate;
     private final boolean hasVassals;
@@ -22,7 +21,9 @@ public class ColonyTaxData {
     private final int debtAmount;
     private final int approximateRevenuePerInterval;
     private final boolean isOwner;
-    private final String taxPolicy; // Tax policy name (NORMAL, LOW, HIGH, WAR_ECONOMY)
+    private final String taxPolicy;
+    private final double colonyHappiness;
+    private final double happinessMultiplier;
 
     // UI state
     private int claimButtonX, claimButtonY, claimButtonWidth, claimButtonHeight;
@@ -33,7 +34,8 @@ public class ColonyTaxData {
                         boolean canClaimTax, boolean isAtWar, boolean isBeingRaided,
                         boolean isVassal, int vassalTributeRate, boolean hasVassals, int vassalCount,
                         long lastTaxGeneration, int debtAmount, int approximateRevenuePerInterval, boolean isOwner,
-                        String taxPolicy) {
+                        String taxPolicy, double colonyHappiness, double happinessMultiplier,
+                        boolean isBesieged, boolean isOccupied) {
         this.colonyId = colonyId;
         this.colonyName = colonyName;
         this.taxBalance = taxBalance;
@@ -44,6 +46,8 @@ public class ColonyTaxData {
         this.canClaimTax = canClaimTax;
         this.isAtWar = isAtWar;
         this.isBeingRaided = isBeingRaided;
+        this.isBesieged = isBesieged;
+        this.isOccupied = isOccupied;
         this.isVassal = isVassal;
         this.vassalTributeRate = vassalTributeRate;
         this.hasVassals = hasVassals;
@@ -53,9 +57,10 @@ public class ColonyTaxData {
         this.approximateRevenuePerInterval = approximateRevenuePerInterval;
         this.isOwner = isOwner;
         this.taxPolicy = taxPolicy;
+        this.colonyHappiness = colonyHappiness;
+        this.happinessMultiplier = happinessMultiplier;
     }
 
-    // Getters
     public int getColonyId() { return colonyId; }
     public String getColonyName() { return colonyName; }
     public int getTaxBalance() { return taxBalance; }
@@ -66,13 +71,14 @@ public class ColonyTaxData {
     public boolean canClaimTax() { return canClaimTax; }
     public boolean isAtWar() { return isAtWar; }
     public boolean isBeingRaided() { return isBeingRaided; }
+    public boolean isBesieged() { return isBesieged; }
+    public boolean isOccupied() { return isOccupied; }
     public boolean isVassal() { return isVassal; }
     public int getVassalTributeRate() { return vassalTributeRate; }
     public boolean hasVassals() { return hasVassals; }
     public int getVassalCount() { return vassalCount; }
     public long getLastTaxGeneration() { return lastTaxGeneration; }
-    
-    // UI state methods
+
     public void setClaimButtonBounds(int x, int y, int width, int height) {
         this.claimButtonX = x;
         this.claimButtonY = y;
@@ -97,24 +103,16 @@ public class ColonyTaxData {
                mouseY >= permissionButtonY && mouseY < permissionButtonY + permissionButtonHeight;
     }
     
-    /**
-     * Gets the tax fill percentage (0.0 to 1.0)
-     */
+    /** Tax fill percentage in [0.0, 1.0]. */
     public double getTaxFillPercentage() {
         if (maxTaxRevenue <= 0) return 0.0;
         return Math.max(0.0, Math.min(1.0, (double) taxBalance / maxTaxRevenue));
     }
     
-    /**
-     * Gets minutes since last tax generation
-     */
     public long getMinutesSinceLastGeneration() {
         return (System.currentTimeMillis() - lastTaxGeneration) / 60000;
     }
     
-    /**
-     * Checks if colony has enough guard towers for tax boost
-     */
     public boolean hasGuardTowerBoost(int requiredTowers) {
         return guardTowerCount >= requiredTowers;
     }
@@ -123,10 +121,9 @@ public class ColonyTaxData {
     public int getApproximateRevenuePerInterval() { return approximateRevenuePerInterval; }
     public boolean isOwner() { return isOwner; }
     public String getTaxPolicy() { return taxPolicy; }
+    public double getColonyHappiness() { return colonyHappiness; }
+    public double getHappinessMultiplier() { return happinessMultiplier; }
 
-    /**
-     * Checks if colony has debt (negative tax balance)
-     */
     public boolean hasDebt() {
         return taxBalance < 0;
     }

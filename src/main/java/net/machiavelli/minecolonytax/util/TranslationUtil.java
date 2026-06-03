@@ -5,33 +5,16 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 
-/**
- * Utility class for translation and styled message generation.
- * Ensures consistent formatting and makes text internationalization easier.
- */
 public class TranslationUtil {
 
     /**
-     * Creates a styled message with title and body for broadcasting.
-     * Format:
-     * [TITLE]
-     * ----------------------------------------
-     * [BODY]
-     * ----------------------------------------
-     *
-     * @param titleKey Translation key for title
-     * @param titleArgs Format arguments for title
-     * @param bodyKey Translation key for body
-     * @param bodyArgs Format arguments for body
-     * @param titleColor Color for the title
-     * @param bodyColor Color for the body text
-     * @return A fully styled MutableComponent
+     * Builds a bold title + separator + body component block for broadcast messages.
+     * Layout: TITLE / ---------- / body / ----------
      */
-    public static MutableComponent createStyledMessage(String titleKey, Object[] titleArgs, 
+    public static MutableComponent createStyledMessage(String titleKey, Object[] titleArgs,
                                                       String bodyKey, Object[] bodyArgs,
-                                                      ChatFormatting titleColor, 
+                                                      ChatFormatting titleColor,
                                                       ChatFormatting bodyColor) {
-        // Create title with translation
         MutableComponent message = Component.translatable(titleKey, titleArgs)
                 .withStyle(titleColor)
                 .withStyle(ChatFormatting.BOLD);
