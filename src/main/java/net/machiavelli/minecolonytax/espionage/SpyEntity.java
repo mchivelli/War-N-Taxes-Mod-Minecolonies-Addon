@@ -374,8 +374,9 @@ public class SpyEntity extends PathfinderMob {
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (this.level().isClientSide) {
-            net.minecraft.client.Minecraft.getInstance()
-                    .setScreen(new net.machiavelli.minecolonytax.gui.SpyDialogScreen());
+            // Delegated to a client-only class so SpyEntity (classloaded during entity
+            // registration on the dedicated server) never references client GUI types.
+            net.machiavelli.minecolonytax.client.MctClientNetHandlers.openSpyDialog();
             return InteractionResult.sidedSuccess(true);
         }
         return InteractionResult.sidedSuccess(false);

@@ -1,14 +1,11 @@
 package net.machiavelli.minecolonytax;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
-import net.neoforged.fml.common.EventBusSubscriber;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-@EventBusSubscriber
 public class TaxConfig {
 
         private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();

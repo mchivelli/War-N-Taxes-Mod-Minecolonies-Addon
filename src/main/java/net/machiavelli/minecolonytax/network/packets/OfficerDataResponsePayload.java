@@ -52,12 +52,6 @@ public record OfficerDataResponsePayload(int colonyId, String officerJson) imple
     }
 
     public static void handle(OfficerDataResponsePayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            List<OfficerData> officers = payload.getOfficers();
-            Minecraft mc = Minecraft.getInstance();
-            if (mc.screen instanceof TaxManagementScreen screen) {
-                screen.updateOfficerData(officers, payload.colonyId);
-            }
-        });
+        context.enqueueWork(() -> net.machiavelli.minecolonytax.client.MctClientNetHandlers.officerData(payload));
     }
 }

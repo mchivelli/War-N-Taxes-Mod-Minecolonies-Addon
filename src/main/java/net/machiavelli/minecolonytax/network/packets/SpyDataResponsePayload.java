@@ -82,16 +82,6 @@ public record SpyDataResponsePayload(String jsonPayload) implements CustomPacket
     }
 
     public static void handle(SpyDataResponsePayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            java.lang.reflect.Type listType = new TypeToken<List<SpyMissionData>>() {}.getType();
-            List<SpyMissionData> missions = GSON.fromJson(payload.jsonPayload, listType);
-
-            TaxManagementScreen.updateLatestMissions(missions);
-            SpyJourneyMapPlugin.syncWaypoints(missions);
-            Minecraft mc = Minecraft.getInstance();
-            if (mc.screen instanceof TaxManagementScreen screen) {
-                screen.updateSpyData(missions);
-            }
-        });
+        context.enqueueWork(() -> net.machiavelli.minecolonytax.client.MctClientNetHandlers.spyData(payload));
     }
 }

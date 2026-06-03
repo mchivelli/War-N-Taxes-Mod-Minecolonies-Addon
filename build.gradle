@@ -91,12 +91,24 @@ dependencies {
     implementation "curse.maven:blockui-522992:6367809"
     implementation "curse.maven:domum-ornamentum-527361:6688449"
     
-    // SDMShop dependency (1.21.1 NeoForge version)
-    // Note: SDM Economy API not available yet for 1.21.1, using compatibility layer
-    implementation "curse.maven:sdm-shop-948942:7173785"
+    // SDMShop integration is OPTIONAL and accessed purely via reflection (string class
+    // names in SDMShopIntegration/SDMShopCompat) + console commands in RaidManager — it is
+    // NOT a compile dependency. We do not bundle it at runtime because SDMShop 3.3.1 requires
+    // SDM Economy (net.sixik.sdmeconomy) which is a separate mod; loading SDMShop without it
+    // crashes mod construction. The integration is also currently stubbed for 1.21.1. Users who
+    // install SDMShop (+ SDM Economy) get the integration auto-detected via reflection.
+    // To work on the integration in dev, re-enable and also add the SDM Economy dependency:
+    // implementation "curse.maven:sdm-shop-948942:7173785"
     
     // FTB Teams dependency (1.21.1 NeoForge version)
     implementation "curse.maven:ftb-teams-forge-404468:7170718"
+
+    // Transitive runtime dependencies required by SDMShop + FTB Teams.
+    // Without these the dedicated server aborts in pre-load (ftbteams needs ftblibrary
+    // + architectury; sdmshop needs architectury). Versions chosen to satisfy
+    // architectury>=13.0.8 and ftblibrary>=2101.1.25 for NeoForge 1.21.1.
+    implementation "curse.maven:architectury-api-419699:5786327"   // Architectury API 13.0.8
+    implementation "curse.maven:ftb-library-404465:7746959"        // FTB Library 2101.1.31
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

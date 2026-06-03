@@ -30,9 +30,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager;
+import net.neoforged.fml.common.Mod;import net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager;
 import net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager;
 import com.minecolonies.api.colony.permissions.IPermissions;
 
@@ -46,7 +44,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import net.machiavelli.minecolonytax.raid.ActiveRaidData;
 
-@EventBusSubscriber(modid = "minecolonytax", bus = EventBusSubscriber.Bus.GAME)
 public class WntCommands {
 
     private static final Logger LOGGER = LogManager.getLogger(WntCommands.class);

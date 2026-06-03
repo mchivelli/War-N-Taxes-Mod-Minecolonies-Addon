@@ -12,6 +12,9 @@ loaderVersion="${loader_version_range}"
 # The license for your mod
 license="MIT"
 
+# Mod list (the [[mods]] table header is REQUIRED — without it FML reports
+# "Missing mods list" and refuses to load the file as a valid mod).
+[[mods]]
 # The mod ID - must match the @Mod annotation
 modId="${mod_id}"
 
@@ -61,15 +64,15 @@ authors="${mod_authors}"
 
 [[dependencies.${mod_id}]]
     modId="sdmshop"
-    type="required"
+    type="optional"
     versionRange="[2.0,)"
     ordering="AFTER"
     side="BOTH"
 
 [[dependencies.${mod_id}]]
     modId="ftbteams"
-    type="required"
-    versionRange="[2101.3.0,)"
+    type="optional"
+    versionRange="[2101.1.0,)"
     ordering="AFTER"
     side="BOTH"
 

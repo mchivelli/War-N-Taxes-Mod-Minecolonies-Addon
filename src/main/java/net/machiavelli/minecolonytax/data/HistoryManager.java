@@ -6,8 +6,6 @@ import com.google.gson.reflect.TypeToken;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.common.EventBusSubscriber;
-
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -22,7 +20,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-@EventBusSubscriber
 public class HistoryManager
 {
     private static final Logger LOGGER = LogManager.getLogger();

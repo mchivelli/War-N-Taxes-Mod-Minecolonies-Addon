@@ -141,7 +141,7 @@ technical class names in player-facing pages.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **MinecolonyTaxAddon-Dev-1.21 Neoforge** (51044 symbols, 139104 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **MinecolonyTaxAddon-Dev-1.21 Neoforge** (50925 symbols, 139191 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

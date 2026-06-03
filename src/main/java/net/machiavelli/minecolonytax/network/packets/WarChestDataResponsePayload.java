@@ -55,12 +55,6 @@ public record WarChestDataResponsePayload(
     }
 
     public static void handle(WarChestDataResponsePayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            Minecraft mc = Minecraft.getInstance();
-            if (mc.screen instanceof TaxManagementScreen screen) {
-                screen.updateWarChestData(payload.colonyId, payload.balance, payload.maxCapacity,
-                        payload.drainPerMinute, payload.taxBalance, payload.autoSurrender, payload.minPercentForWar);
-            }
-        });
+        context.enqueueWork(() -> net.machiavelli.minecolonytax.client.MctClientNetHandlers.warChestData(payload));
     }
 }

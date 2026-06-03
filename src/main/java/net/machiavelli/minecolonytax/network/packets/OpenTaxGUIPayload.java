@@ -27,9 +27,6 @@ public record OpenTaxGUIPayload() implements CustomPacketPayload {
     }
 
     public static void handle(OpenTaxGUIPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            Minecraft mc = Minecraft.getInstance();
-            mc.setScreen(new TaxManagementScreen());
-        });
+        context.enqueueWork(() -> net.machiavelli.minecolonytax.client.MctClientNetHandlers.openTaxGui());
     }
 }

@@ -60,14 +60,8 @@ public record ColonyDataResponsePayload(String colonyJson, String vassalJson) im
     }
 
     public static void handle(ColonyDataResponsePayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            List<ColonyTaxData> colonyData = payload.getColonyData();
-            List<VassalIncomeData> vassalData = payload.getVassalData();
-            Minecraft mc = Minecraft.getInstance();
-            if (mc.screen instanceof TaxManagementScreen screen) {
-                screen.updateColonyData(colonyData);
-                screen.updateVassalData(vassalData);
-            }
-        });
+        // Client work delegated to a client-only class so this payload (loaded on the dedicated
+        // server during network registration) never references net.minecraft.client.* types.
+        context.enqueueWork(() -> net.machiavelli.minecolonytax.client.MctClientNetHandlers.colonyData(payload));
     }
 }
