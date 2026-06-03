@@ -613,7 +613,7 @@ public class RandomEventManager {
             LOGGER.info("Loaded random events data from {}", STORAGE_FILE);
         } catch (Exception e) {
             LOGGER.error("Failed to load random events data: {}", e.getMessage());
-            e.printStackTrace();
+            LOGGER.debug("Full stack trace:", e);
         }
     }
 
@@ -680,7 +680,7 @@ public class RandomEventManager {
             LOGGER.debug("Saved random events data to {}", STORAGE_FILE);
         } catch (Exception e) {
             LOGGER.error("Failed to save random events data: {}", e.getMessage());
-            e.printStackTrace();
+            LOGGER.debug("Full stack trace:", e);
         }
     }
 

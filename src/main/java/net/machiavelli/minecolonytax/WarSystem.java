@@ -130,14 +130,14 @@ public class WarSystem {
         // Add attacker colony members (Officers and Friends) using Minecolonies API
         if (attackerColony != null) {
             IPermissions attackerPerms = attackerColony.getPermissions();
-            System.out.println("[DEBUG] Adding attacker colony members from " + attackerColony.getName());
+            WARSYSTEM_LOGGER.debug("[DEBUG] Adding attacker colony members from " + attackerColony.getName());
             
             attackerPerms.getPlayers().forEach((uuid, player) -> {
                 if (!uuid.equals(attacker.getUUID())) { // Don't add attacker twice
                     Rank rank = attackerPerms.getRank(uuid);
                     if (rank != null && (rank.equals(attackerPerms.getRankOfficer()) || rank.equals(attackerPerms.getRankFriend()))) {
                         data.getAttackerLives().put(uuid, playerLives);
-                        System.out.println("[DEBUG] Added attacker colony member " + uuid + " with rank " + rank.getName());
+                        WARSYSTEM_LOGGER.debug("[DEBUG] Added attacker colony member " + uuid + " with rank " + rank.getName());
                         
                         // Assign hostile rank to this attacker on defender's colony
                         assignWarParticipantRanks(uuid, colony, attackerColony, true);
@@ -168,14 +168,14 @@ public class WarSystem {
         
         // Add defender colony members (Officers and Friends) using Minecolonies API
         IPermissions defenderPerms = colony.getPermissions();
-        System.out.println("[DEBUG] Adding defender colony members from " + colony.getName());
+        WARSYSTEM_LOGGER.debug("[DEBUG] Adding defender colony members from " + colony.getName());
         
         defenderPerms.getPlayers().forEach((uuid, player) -> {
             if (!uuid.equals(colony.getPermissions().getOwner())) { // Don't add owner twice
                 Rank rank = defenderPerms.getRank(uuid);
                 if (rank != null && (rank.equals(defenderPerms.getRankOfficer()) || rank.equals(defenderPerms.getRankFriend()))) {
                     data.getDefenderLives().put(uuid, playerLives);
-                    System.out.println("[DEBUG] Added defender colony member " + uuid + " with rank " + rank.getName());
+                    WARSYSTEM_LOGGER.debug("[DEBUG] Added defender colony member " + uuid + " with rank " + rank.getName());
                     
                     // Assign hostile rank to this defender on attacker's colony (if it exists)
                     assignWarParticipantRanks(uuid, colony, attackerColony, false);
@@ -205,13 +205,13 @@ public class WarSystem {
         
         // Optional: Add FTB Team members if FTB Teams is installed
         if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
-            System.out.println("[DEBUG] FTB Teams detected, adding team members as additional participants");
+            WARSYSTEM_LOGGER.debug("[DEBUG] FTB Teams detected, adding team members as additional participants");
             
             if (attackerTeam != null) {
                 attackerTeam.getMembers().forEach(uuid -> {
                     if (!data.getAttackerLives().containsKey(uuid)) { // Don't add if already added via colony
                         data.getAttackerLives().put(uuid, playerLives);
-                        System.out.println("[DEBUG] Added FTB team member to attackers: " + uuid);
+                        WARSYSTEM_LOGGER.debug("[DEBUG] Added FTB team member to attackers: " + uuid);
                         
                         // Assign hostile rank to this attacker on defender's colony
                         assignWarParticipantRanks(uuid, colony, attackerColony, true);
@@ -240,7 +240,7 @@ public class WarSystem {
                 defenderTeam.getMembers().forEach(uuid -> {
                     if (!data.getDefenderLives().containsKey(uuid)) { // Don't add if already added via colony
                         data.getDefenderLives().put(uuid, playerLives);
-                        System.out.println("[DEBUG] Added FTB team member to defenders: " + uuid);
+                        WARSYSTEM_LOGGER.debug("[DEBUG] Added FTB team member to defenders: " + uuid);
                         
                         // Assign hostile rank to this defender on attacker's colony (if it exists)
                         assignWarParticipantRanks(uuid, colony, attackerColony, false);
@@ -297,13 +297,13 @@ public class WarSystem {
                 // Attackers get hostile rank on defender colony
                 IPermissions defenderPerms = defenderColony.getPermissions();
                 defenderPerms.setPlayerRank(playerUUID, defenderPerms.getRankHostile(), defenderColony.getWorld());
-                System.out.println("[DEBUG] Assigned hostile rank to attacker " + playerUUID + " on defender colony " + defenderColony.getName());
+                WARSYSTEM_LOGGER.debug("[DEBUG] Assigned hostile rank to attacker " + playerUUID + " on defender colony " + defenderColony.getName());
             } else {
                 // Defenders get hostile rank on attacker colony (if it exists)
                 if (attackerColony != null) {
                     IPermissions attackerPerms = attackerColony.getPermissions();
                     attackerPerms.setPlayerRank(playerUUID, attackerPerms.getRankHostile(), attackerColony.getWorld());
-                    System.out.println("[DEBUG] Assigned hostile rank to defender " + playerUUID + " on attacker colony " + attackerColony.getName());
+                    WARSYSTEM_LOGGER.debug("[DEBUG] Assigned hostile rank to defender " + playerUUID + " on attacker colony " + attackerColony.getName());
                 }
             }
         } catch (Exception e) {
@@ -521,9 +521,9 @@ public class WarSystem {
         
         if (war.getColony().getWorld() == null || war.getColony().getWorld().getServer() == null) return;
         
-        System.out.println("[DEBUG] War victory detected - Attackers win: " + attackersWin + ", Defenders win: " + defendersWin);
-        System.out.println("[DEBUG] All attackers dead: " + allAttackersDead + ", All defenders dead: " + allDefendersDead);
-        System.out.println("[DEBUG] Attacker guards: " + war.getRemainingAttackerGuards() + ", Defender guards: " + war.getRemainingDefenderGuards());
+        WARSYSTEM_LOGGER.debug("[DEBUG] War victory detected - Attackers win: " + attackersWin + ", Defenders win: " + defendersWin);
+        WARSYSTEM_LOGGER.debug("[DEBUG] All attackers dead: " + allAttackersDead + ", All defenders dead: " + allDefendersDead);
+        WARSYSTEM_LOGGER.debug("[DEBUG] Attacker guards: " + war.getRemainingAttackerGuards() + ", Defender guards: " + war.getRemainingDefenderGuards());
 
         if (defendersWin) {
             String defenderColonyName = war.getColony().getName();
@@ -1377,66 +1377,66 @@ public class WarSystem {
     }
 
     public static Map<UUID, Integer> getLivesForPlayer(WarData war, ServerPlayer player) {
-        System.out.println("[DEBUG] getLivesForPlayer called for player " + player.getName().getString() + " (" + player.getUUID() + ")");
-        System.out.println("[DEBUG] FTB_TEAMS_INSTALLED: " + FTB_TEAMS_INSTALLED);
-        System.out.println("[DEBUG] Attacker lives: " + war.getAttackerLives());
-        System.out.println("[DEBUG] Defender lives: " + war.getDefenderLives());
+        WARSYSTEM_LOGGER.debug("[DEBUG] getLivesForPlayer called for player " + player.getName().getString() + " (" + player.getUUID() + ")");
+        WARSYSTEM_LOGGER.debug("[DEBUG] FTB_TEAMS_INSTALLED: " + FTB_TEAMS_INSTALLED);
+        WARSYSTEM_LOGGER.debug("[DEBUG] Attacker lives: " + war.getAttackerLives());
+        WARSYSTEM_LOGGER.debug("[DEBUG] Defender lives: " + war.getDefenderLives());
         
         // First check if player is directly in the lives maps
         UUID playerUUID = player.getUUID();
-        System.out.println("[DEBUG] Checking if attacker lives contains player UUID: " + war.getAttackerLives().containsKey(playerUUID));
-        System.out.println("[DEBUG] Checking if defender lives contains player UUID: " + war.getDefenderLives().containsKey(playerUUID));
+        WARSYSTEM_LOGGER.debug("[DEBUG] Checking if attacker lives contains player UUID: " + war.getAttackerLives().containsKey(playerUUID));
+        WARSYSTEM_LOGGER.debug("[DEBUG] Checking if defender lives contains player UUID: " + war.getDefenderLives().containsKey(playerUUID));
         
         if (war.getAttackerLives().containsKey(playerUUID)) {
-            System.out.println("[DEBUG] Player found in attacker lives, returning attacker lives");
+            WARSYSTEM_LOGGER.debug("[DEBUG] Player found in attacker lives, returning attacker lives");
             return war.getAttackerLives();
         } else if (war.getDefenderLives().containsKey(playerUUID)) {
-            System.out.println("[DEBUG] Player found in defender lives, returning defender lives");
+            WARSYSTEM_LOGGER.debug("[DEBUG] Player found in defender lives, returning defender lives");
             return war.getDefenderLives();
         }
         
         // Check if player is in attacker or defender allies
         if (war.getAttackerAllies().contains(playerUUID)) {
-            System.out.println("[DEBUG] Player found in attacker allies, returning attacker lives");
+            WARSYSTEM_LOGGER.debug("[DEBUG] Player found in attacker allies, returning attacker lives");
             return war.getAttackerLives();
         } else if (war.getDefenderAllies().contains(playerUUID)) {
-            System.out.println("[DEBUG] Player found in defender allies, returning defender lives");
+            WARSYSTEM_LOGGER.debug("[DEBUG] Player found in defender allies, returning defender lives");
             return war.getDefenderLives();
         }
         
         if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
             Optional<Team> teamOpt = FTB_TEAM_MANAGER.getPlayerTeamForPlayerID(playerUUID);
-            System.out.println("[DEBUG] Player team found: " + teamOpt.isPresent());
+            WARSYSTEM_LOGGER.debug("[DEBUG] Player team found: " + teamOpt.isPresent());
             if (teamOpt.isPresent()) {
                 Team team = teamOpt.get();
-                System.out.println("[DEBUG] Player team ID: " + team.getId());
-                System.out.println("[DEBUG] War attacker team ID: " + war.getAttackerTeamID());
-                System.out.println("[DEBUG] War defender team ID: " + war.getDefenderTeamID());
+                WARSYSTEM_LOGGER.debug("[DEBUG] Player team ID: " + team.getId());
+                WARSYSTEM_LOGGER.debug("[DEBUG] War attacker team ID: " + war.getAttackerTeamID());
+                WARSYSTEM_LOGGER.debug("[DEBUG] War defender team ID: " + war.getDefenderTeamID());
                 
                 if (team.getId().equals(war.getAttackerTeamID())) {
-                    System.out.println("[DEBUG] Player is on attacker team, returning attacker lives");
+                    WARSYSTEM_LOGGER.debug("[DEBUG] Player is on attacker team, returning attacker lives");
                     return war.getAttackerLives();
                 } else if (team.getId().equals(war.getDefenderTeamID())) {
-                    System.out.println("[DEBUG] Player is on defender team, returning defender lives");
+                    WARSYSTEM_LOGGER.debug("[DEBUG] Player is on defender team, returning defender lives");
                     return war.getDefenderLives();
                 }
                 
                 // Check if player is allied to any participating team
                 Team atkTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
                 if (atkTeam != null && atkTeam.isPartyTeam() && ((PartyTeam) atkTeam).getMembers().contains(playerUUID)) {
-                    System.out.println("[DEBUG] Player is allied to attacker team, returning attacker lives");
+                    WARSYSTEM_LOGGER.debug("[DEBUG] Player is allied to attacker team, returning attacker lives");
                     return war.getAttackerLives();
                 }
                 
                 Team defTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
                 if (defTeam != null && defTeam.isPartyTeam() && ((PartyTeam) defTeam).getMembers().contains(playerUUID)) {
-                    System.out.println("[DEBUG] Player is allied to defender team, returning defender lives");
+                    WARSYSTEM_LOGGER.debug("[DEBUG] Player is allied to defender team, returning defender lives");
                     return war.getDefenderLives();
                 }
                 
-                System.out.println("[DEBUG] Player team not participating in war, checking Minecolonies membership");
+                WARSYSTEM_LOGGER.debug("[DEBUG] Player team not participating in war, checking Minecolonies membership");
             } else {
-                System.out.println("[DEBUG] Player has no FTB team, checking Minecolonies membership");
+                WARSYSTEM_LOGGER.debug("[DEBUG] Player has no FTB team, checking Minecolonies membership");
             }
         }
         
@@ -1444,20 +1444,20 @@ public class WarSystem {
         IColony attackerColony = war.getAttackerColony();
         IColony defenderColony = war.getColony();
         
-        System.out.println("[DEBUG] Checking Minecolonies membership - Attacker colony: " + (attackerColony != null ? attackerColony.getName() : "null"));
-        System.out.println("[DEBUG] Checking Minecolonies membership - Defender colony: " + (defenderColony != null ? defenderColony.getName() : "null"));
+        WARSYSTEM_LOGGER.debug("[DEBUG] Checking Minecolonies membership - Attacker colony: " + (attackerColony != null ? attackerColony.getName() : "null"));
+        WARSYSTEM_LOGGER.debug("[DEBUG] Checking Minecolonies membership - Defender colony: " + (defenderColony != null ? defenderColony.getName() : "null"));
         
         // Check if player is in attacker colony (owner, officer, or friend)
         if (attackerColony != null) {
             IPermissions attackerPerms = attackerColony.getPermissions();
-            System.out.println("[DEBUG] Player in attacker colony players list: " + attackerPerms.getPlayers().containsKey(playerUUID));
+            WARSYSTEM_LOGGER.debug("[DEBUG] Player in attacker colony players list: " + attackerPerms.getPlayers().containsKey(playerUUID));
             if (attackerPerms.getPlayers().containsKey(playerUUID)) {
                 Rank playerRank = attackerPerms.getRank(playerUUID);
-                System.out.println("[DEBUG] Player rank in attacker colony: " + (playerRank != null ? playerRank.getName() : "null"));
+                WARSYSTEM_LOGGER.debug("[DEBUG] Player rank in attacker colony: " + (playerRank != null ? playerRank.getName() : "null"));
                 if (playerRank != null && (playerRank.equals(attackerPerms.getRankOwner()) || 
                                           playerRank.equals(attackerPerms.getRankOfficer()) ||
                                           playerRank.equals(attackerPerms.getRankFriend()))) {
-                    System.out.println("[DEBUG] Player is in attacker colony with rank " + playerRank.getName() + ", returning attacker lives");
+                    WARSYSTEM_LOGGER.debug("[DEBUG] Player is in attacker colony with rank " + playerRank.getName() + ", returning attacker lives");
                     return war.getAttackerLives();
                 }
             }
@@ -1466,20 +1466,20 @@ public class WarSystem {
         // Check if player is in defender colony (owner, officer, or friend)
         if (defenderColony != null) {
             IPermissions defenderPerms = defenderColony.getPermissions();
-            System.out.println("[DEBUG] Player in defender colony players list: " + defenderPerms.getPlayers().containsKey(playerUUID));
+            WARSYSTEM_LOGGER.debug("[DEBUG] Player in defender colony players list: " + defenderPerms.getPlayers().containsKey(playerUUID));
             if (defenderPerms.getPlayers().containsKey(playerUUID)) {
                 Rank playerRank = defenderPerms.getRank(playerUUID);
-                System.out.println("[DEBUG] Player rank in defender colony: " + (playerRank != null ? playerRank.getName() : "null"));
+                WARSYSTEM_LOGGER.debug("[DEBUG] Player rank in defender colony: " + (playerRank != null ? playerRank.getName() : "null"));
                 if (playerRank != null && (playerRank.equals(defenderPerms.getRankOwner()) || 
                                           playerRank.equals(defenderPerms.getRankOfficer()) ||
                                           playerRank.equals(defenderPerms.getRankFriend()))) {
-                    System.out.println("[DEBUG] Player is in defender colony with rank " + playerRank.getName() + ", returning defender lives");
+                    WARSYSTEM_LOGGER.debug("[DEBUG] Player is in defender colony with rank " + playerRank.getName() + ", returning defender lives");
                     return war.getDefenderLives();
                 }
             }
         }
         
-        System.out.println("[DEBUG] Player not participating in war, returning empty map");
+        WARSYSTEM_LOGGER.debug("[DEBUG] Player not participating in war, returning empty map");
         return new HashMap<>(); // Return mutable map instead of Collections.emptyMap()
     }
 

@@ -68,16 +68,16 @@ public class WarEventHandler {
             return;
         }
         
-        System.out.println("[DEBUG] WarEventHandler.onPlayerDeath fired for " + player.getName().getString());
+        MineColonyTax.LOGGER.debug("[DEBUG] WarEventHandler.onPlayerDeath fired for " + player.getName().getString());
         WarData war = WarSystem.getActiveWarForPlayer(player);
         if (war == null) return;
 
         // Debug logging to confirm event trigger.
-        System.out.println("[DEBUG] WarEventHandler.onPlayerDeath triggered confirmed for " + player.getName().getString());
+        MineColonyTax.LOGGER.debug("[DEBUG] WarEventHandler.onPlayerDeath triggered confirmed for " + player.getName().getString());
         
         // Check if war is still in join phase - don't deduct lives during join phase
         if (war.isJoinPhaseActive()) {
-            System.out.println("[DEBUG] War is still in join phase, not deducting lives for " + player.getName().getString());
+            MineColonyTax.LOGGER.debug("[DEBUG] War is still in join phase, not deducting lives for " + player.getName().getString());
             return;
         }
         
@@ -87,7 +87,7 @@ public class WarEventHandler {
         
         // If player is on their last life and keepInventoryOnLastLife is enabled, prepare for inventory preservation
         if (currentLives == 1 && TaxConfig.KEEP_INVENTORY_ON_LAST_LIFE.get()) {
-            System.out.println("[DEBUG] Player " + player.getName().getString() + " is on last life with keepInventoryOnLastLife enabled - preserving inventory on respawn");
+            MineColonyTax.LOGGER.debug("[DEBUG] Player " + player.getName().getString() + " is on last life with keepInventoryOnLastLife enabled - preserving inventory on respawn");
             
             // Save the player's inventory for restoration on respawn
             ItemStack[] inventoryCopy = new ItemStack[player.getInventory().getContainerSize()];
@@ -102,7 +102,7 @@ public class WarEventHandler {
             // Mark that this player should have keep inventory enabled for this death
             event.getEntity().getTags().add("war_keep_inventory");
             
-            System.out.println("[DEBUG] Inventory saved for last life preservation for " + player.getName().getString());
+            MineColonyTax.LOGGER.debug("[DEBUG] Inventory saved for last life preservation for " + player.getName().getString());
         }
 
         // Check if killed by another player and track it
@@ -115,7 +115,7 @@ public class WarEventHandler {
                 // Check if the dead player is an active raider
                 if (entry.getKey().equals(player.getUUID())) {
                     // Call the raid kill handler
-                    System.out.println("[DEBUG] Raider killed during raid: " + player.getName().getString());
+                    MineColonyTax.LOGGER.debug("[DEBUG] Raider killed during raid: " + player.getName().getString());
                     RaidManager.handleRaiderKilled(entry.getValue(), killer);
                     break;
                 }
@@ -124,19 +124,19 @@ public class WarEventHandler {
 
         // Debug: Check if player was properly initialized in war
         UUID playerUUID = player.getUUID();
-        System.out.println("[DEBUG] Player " + player.getName().getString() + " died during war. Lives map before: " + lives);
-        System.out.println("[DEBUG] Player UUID: " + playerUUID + ", lives before death: " + lives.get(playerUUID));
+        MineColonyTax.LOGGER.debug("[DEBUG] Player " + player.getName().getString() + " died during war. Lives map before: " + lives);
+        MineColonyTax.LOGGER.debug("[DEBUG] Player UUID: " + playerUUID + ", lives before death: " + lives.get(playerUUID));
         
         // Check if this is an empty map (player not in war) - skip processing if so
         if (lives.isEmpty()) {
-            System.out.println("[DEBUG] Player " + player.getName().getString() + " is not participating in any war, skipping lives processing");
+            MineColonyTax.LOGGER.debug("[DEBUG] Player " + player.getName().getString() + " is not participating in any war, skipping lives processing");
             return;
         }
         
         // Ensure player is properly initialized if they somehow weren't
         int defaultLives = TaxConfig.PLAYER_LIVES_IN_WAR.get();
         if (!lives.containsKey(playerUUID)) {
-            System.out.println("[DEBUG] Player " + player.getName().getString() + " was not in lives map, initializing with " + defaultLives + " lives");
+            MineColonyTax.LOGGER.debug("[DEBUG] Player " + player.getName().getString() + " was not in lives map, initializing with " + defaultLives + " lives");
             lives.put(playerUUID, defaultLives);
         }
         
@@ -144,15 +144,15 @@ public class WarEventHandler {
         int remaining = lives.compute(playerUUID, (k, v) -> {
             if (v == null || v <= 0) {
                 // Safety check: if somehow still null or invalid, use default minus 1
-                System.out.println("[DEBUG] Lives value was null or invalid (" + v + "), using default " + defaultLives + " minus 1");
+                MineColonyTax.LOGGER.debug("[DEBUG] Lives value was null or invalid (" + v + "), using default " + defaultLives + " minus 1");
                 return defaultLives - 1;
             } else {
                 // Normal case: decrement lives
                 return Math.max(0, v - 1);
             }
         });
-        System.out.println("[DEBUG] " + player.getName().getString() + " now has " + remaining + " lives after death.");
-        System.out.println("[DEBUG] Lives map after: " + lives);
+        MineColonyTax.LOGGER.debug("[DEBUG] " + player.getName().getString() + " now has " + remaining + " lives after death.");
+        MineColonyTax.LOGGER.debug("[DEBUG] Lives map after: " + lives);
 
         // Play death sound and remove glow effect
         player.playSound(net.minecraft.sounds.SoundEvents.GHAST_DEATH, 1.0F, 1.0F);
@@ -177,20 +177,20 @@ public class WarEventHandler {
         UUID playerUUID = player.getUUID();
         Map<UUID, Integer> lives = WarSystem.getLivesForPlayer(war, player);
         
-        System.out.println("[DEBUG] RESPAWN - Player " + player.getName().getString() + " respawning");
-        System.out.println("[DEBUG] RESPAWN - Lives map: " + lives);
-        System.out.println("[DEBUG] RESPAWN - Player UUID: " + playerUUID);
-        System.out.println("[DEBUG] RESPAWN - Contains player key: " + lives.containsKey(playerUUID));
+        MineColonyTax.LOGGER.debug("[DEBUG] RESPAWN - Player " + player.getName().getString() + " respawning");
+        MineColonyTax.LOGGER.debug("[DEBUG] RESPAWN - Lives map: " + lives);
+        MineColonyTax.LOGGER.debug("[DEBUG] RESPAWN - Player UUID: " + playerUUID);
+        MineColonyTax.LOGGER.debug("[DEBUG] RESPAWN - Contains player key: " + lives.containsKey(playerUUID));
         
         // Check if this is an empty map (player not in war) - skip processing if so
         if (lives.isEmpty()) {
-            System.out.println("[DEBUG] RESPAWN - Player " + player.getName().getString() + " is not participating in any war, skipping respawn processing");
+            MineColonyTax.LOGGER.debug("[DEBUG] RESPAWN - Player " + player.getName().getString() + " is not participating in any war, skipping respawn processing");
             return;
         }
         
         int currentLives = lives.getOrDefault(playerUUID, 0);
         
-        System.out.println("[DEBUG] RESPAWN - Player " + player.getName().getString() + " respawned with " + currentLives + " lives remaining");
+        MineColonyTax.LOGGER.debug("[DEBUG] RESPAWN - Player " + player.getName().getString() + " respawned with " + currentLives + " lives remaining");
         
         // Check if this player died on their last life and we need to restore their inventory
         if (war.getLastLifeInventoryPreservation().contains(playerUUID) && savedInventories.containsKey(playerUUID)) {
@@ -218,7 +218,7 @@ public class WarEventHandler {
                     .withStyle(style -> style.withColor(ChatFormatting.GOLD).withBold(true)));
             
             // Confirm to console
-            System.out.println("[INFO] Restored inventory for player " + player.getName().getString() + " after last life death");
+            MineColonyTax.LOGGER.debug("[INFO] Restored inventory for player " + player.getName().getString() + " after last life death");
             
             // Check for victory after processing
             WarSystem.checkForVictory(war);
@@ -298,7 +298,7 @@ public class WarEventHandler {
             // We don't need to do anything with boss bars here, as the ServerBossEvent 
             // automatically removes disconnected players
             
-            System.out.println("[DEBUG] Player " + player.getName().getString() + " disconnected during active war");
+            MineColonyTax.LOGGER.debug("[DEBUG] Player " + player.getName().getString() + " disconnected during active war");
         }
         
         // Check if player is in an active raid
@@ -311,7 +311,7 @@ public class WarEventHandler {
             // Do not end the raid when the raider disconnects
             // The raid will continue and the player can reconnect to it
             
-            System.out.println("[DEBUG] Player " + player.getName().getString() + " disconnected during active raid");
+            MineColonyTax.LOGGER.debug("[DEBUG] Player " + player.getName().getString() + " disconnected during active raid");
         }
     }
 
@@ -437,7 +437,7 @@ public class WarEventHandler {
             
             WarSystem.updateBossBar(war);
             WarSystem.checkForVictory(war);
-            System.out.println("[DEBUG] Attacker Guards: " + war.getRemainingAttackerGuards() +
+            MineColonyTax.LOGGER.debug("[DEBUG] Attacker Guards: " + war.getRemainingAttackerGuards() +
                     " | Defender Guards: " + war.getRemainingDefenderGuards());
         }
     }

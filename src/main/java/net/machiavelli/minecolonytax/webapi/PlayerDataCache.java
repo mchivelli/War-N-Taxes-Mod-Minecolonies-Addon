@@ -122,7 +122,7 @@ public class PlayerDataCache {
 
         } catch (Exception e) {
             MineColonyTax.LOGGER.error("Error refreshing player data cache: {}", e.getMessage());
-            e.printStackTrace();
+            MineColonyTax.LOGGER.debug("Full stack trace:", e);
         } finally {
             refreshing = false;
         }

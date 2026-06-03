@@ -2412,7 +2412,7 @@ public class TaxConfig {
                                                                 .valueOf(s.toUpperCase());
                                         } catch (IllegalArgumentException e) {
                                                 // Log error or handle invalid action string
-                                                System.err.println("Invalid war action in config: " + s);
+                                                MineColonyTax.LOGGER.warn("Invalid war action in config: " + s);
                                                 return null;
                                         }
                                 })
@@ -2429,7 +2429,7 @@ public class TaxConfig {
                                                                 .valueOf(s.toUpperCase());
                                         } catch (IllegalArgumentException e) {
                                                 // Log error or handle invalid action string
-                                                System.err.println("Invalid raid action in config: " + s);
+                                                MineColonyTax.LOGGER.warn("Invalid raid action in config: " + s);
                                                 return null;
                                         }
                                 })
@@ -2446,7 +2446,7 @@ public class TaxConfig {
                                                                 .valueOf(s.toUpperCase());
                                         } catch (IllegalArgumentException e) {
                                                 // Log error or handle invalid claiming action string
-                                                System.err.println("Invalid claiming action in config: " + s);
+                                                MineColonyTax.LOGGER.warn("Invalid claiming action in config: " + s);
                                                 return null;
                                         }
                                 })
@@ -2553,7 +2553,7 @@ public class TaxConfig {
                                                                 .valueOf(s.toUpperCase());
                                         } catch (IllegalArgumentException e) {
                                                 // Log error or handle invalid action string
-                                                System.err.println("Invalid general colony action in config: " + s);
+                                                MineColonyTax.LOGGER.warn("Invalid general colony action in config: " + s);
                                                 return null;
                                         }
                                 })
