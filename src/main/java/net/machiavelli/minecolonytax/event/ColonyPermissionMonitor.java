@@ -4,9 +4,11 @@ import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.permissions.ColonyPlayer;
 import net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager;
 import net.minecraft.server.MinecraftServer;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.common.EventBusSubscriber;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -18,9 +20,9 @@ import java.util.stream.Collectors;
 
 /**
  * Monitors colony permissions to detect when officers are added to abandoned colonies.
- * When officers are added to an abandoned colony, it should no longer be considered abandoned.
+ * OPTIMIZED: Only checks when players join/leave the server for maximum efficiency.
  */
-@Mod.EventBusSubscriber
+@EventBusSubscriber
 public class ColonyPermissionMonitor {
     
     private static final Logger LOGGER = LogManager.getLogger(ColonyPermissionMonitor.class);
@@ -28,24 +30,31 @@ public class ColonyPermissionMonitor {
     // Track the last known officer count for each colony
     private static final Map<Integer, Set<UUID>> lastKnownOfficers = new ConcurrentHashMap<>();
     
-    // Only check every 5 seconds to avoid performance issues
-    private static int tickCounter = 0;
-    private static final int CHECK_INTERVAL = 100; // 5 seconds at 20 TPS
-    
+    /**
+     * OPTIMIZED: Check when a player logs in - they might have been added as an officer while offline.
+     */
     @SubscribeEvent
-    public static void onServerTick(ServerTickEvent.Post event) {
-tickCounter++;
-        if (tickCounter < CHECK_INTERVAL) {
-            return;
+    public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            LOGGER.debug("Player {} logged in - checking for abandoned colony officer changes", player.getName().getString());
+            checkColonyOfficerChanges(player.getServer());
         }
-        tickCounter = 0;
-        
-        // Check all colonies for officer changes
-        checkColonyOfficerChanges(event.getServer());
+    }
+    
+    /**
+     * OPTIMIZED: Check when a player logs out - colony might become abandoned if they were the last officer.
+     */
+    @SubscribeEvent
+    public static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            LOGGER.debug("Player {} logged out - checking for abandoned colony officer changes", player.getName().getString());
+            checkColonyOfficerChanges(player.getServer());
+        }
     }
     
     /**
      * Check all colonies for changes in officer status.
+     * OPTIMIZED: Only called on player join/leave events.
      */
     private static void checkColonyOfficerChanges(MinecraftServer server) {
         try {

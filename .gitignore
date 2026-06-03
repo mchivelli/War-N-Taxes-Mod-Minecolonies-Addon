@@ -23,3 +23,23 @@ eclipse
 # Files from Forge MDK
 forge*changelog.txt
 run
+run2
+.gitnexus
+
+# Local agent tooling / code intelligence
+.claude
+
+# Maven-publish local repo (build.gradle publishing block)
+repo
+
+# Logs & crash dumps
+*.log
+hs_err_pid*
+replay_pid*
+
+# Migration leftovers / scratch files
+*.old
+*.backup
+*.new
+*.orig
+*.disabled

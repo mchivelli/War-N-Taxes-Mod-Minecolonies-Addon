@@ -1,5 +1,7 @@
 package net.machiavelli.minecolonytax.raid;
 
+import net.minecraft.core.registries.BuiltInRegistries;
+
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
 import com.minecolonies.api.colony.permissions.Action;
@@ -517,7 +519,7 @@ public class RaidManager {
             }
             
             // Give items to the killer
-            net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEMS.getValue(net.minecraft.resources.ResourceLocation.parse(TaxConfig.getCurrencyItemName()));
+            net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(TaxConfig.getCurrencyItemName()));
             if (item != null) {
                 net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, raidPenalty);
                 boolean added = killer.getInventory().add(itemStack);
@@ -1259,7 +1261,7 @@ public class RaidManager {
                     }
                 } else {
                     // Fallback to giving items if SDM not enabled
-                    net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEMS.getValue(net.minecraft.resources.ResourceLocation.parse(TaxConfig.getCurrencyItemName()));
+                    net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(TaxConfig.getCurrencyItemName()));
                     if (item != null) {
                         net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, amountToDeduct);
                         boolean added = raiderPlayer.getInventory().add(itemStack);

@@ -11,6 +11,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.common.EventBusSubscriber;
 import net.minecraft.core.registries.BuiltInRegistries;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -19,7 +20,7 @@ import org.apache.logging.log4j.Logger;
  * CRITICAL EVENT HANDLER: Monitors entity spawn/join events to trigger entity raids
  * This was the missing piece causing entity raids to not work at runtime!
  */
-@Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = EventBusSubscriber.Bus.GAME)
 public class EntityRaidEventHandler {
 
     private static final Logger LOGGER = LogManager.getLogger(EntityRaidEventHandler.class);
@@ -44,7 +45,7 @@ public class EntityRaidEventHandler {
         }
         
         // Log join event for visibility (no early whitelist gating; filtering happens in threshold check)
-        String registryId = String.valueOf(BuiltInRegistries.ENTITY_TYPES.getKey(entity.getType()));
+        String registryId = String.valueOf(BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()));
         EntityRaidDebugLogger.logFilterStep(entity, null, "ENTITY_JOIN_LEVEL", true,
             "Entity joined level: " + registryId + " at " + entity.blockPosition());
         

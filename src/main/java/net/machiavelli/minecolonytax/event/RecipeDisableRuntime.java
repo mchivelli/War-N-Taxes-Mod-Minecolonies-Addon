@@ -6,11 +6,14 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.common.EventBusSubscriber;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import org.slf4j.Logger;
@@ -24,7 +27,7 @@ import java.util.stream.Collectors;
  * Runtime disabler that removes MineColonies hut crafting recipes when the config is enabled.
  * This runs after datapacks have loaded (server start and datapack reload) and edits the RecipeManager maps via reflection.
  */
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
 public final class RecipeDisableRuntime {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RecipeDisableRuntime.class);
@@ -82,7 +85,7 @@ public final class RecipeDisableRuntime {
 
     private static void add(Object blockObj) {
         if (blockObj instanceof net.minecraft.world.level.block.Block block) {
-            ResourceLocation id = BuiltInRegistries.BLOCKS.getKey(block);
+            ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
             if (id != null) {
                 HUT_BLOCK_IDS.add(id);
             }
@@ -108,10 +111,10 @@ public final class RecipeDisableRuntime {
             RecipeManager manager = server.getRecipeManager();
 
             // Collect crafting recipes that output hut blocks
-            List<? extends Recipe<?>> craftingRecipes = manager.getAllRecipesFor(RecipeType.CRAFTING);
+            Collection<RecipeHolder<CraftingRecipe>> craftingRecipes = manager.getAllRecipesFor(RecipeType.CRAFTING);
             Set<ResourceLocation> toRemove = craftingRecipes.stream()
-                .filter(r -> isHutOutput(r, server))
-                .map(Recipe::getId)
+                .filter(h -> isHutOutput(h.value(), server))
+                .map(RecipeHolder::id)
                 .collect(Collectors.toSet());
 
             if (toRemove.isEmpty()) {

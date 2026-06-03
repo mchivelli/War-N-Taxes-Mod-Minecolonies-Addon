@@ -6,13 +6,15 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.neoforge.client.event.RecipesUpdatedEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.registries.ForgeRegistries;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.minecraft.world.item.crafting.CraftingRecipe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +25,7 @@ import java.util.stream.Collectors;
 /**
  * Client-side recipe removal so the recipe book/JEI no longer show hut recipes when disabled.
  */
-@Mod.EventBusSubscriber(value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
 public final class RecipeDisableClient {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RecipeDisableClient.class);
@@ -92,10 +94,10 @@ public final class RecipeDisableClient {
         }
         try {
             RecipeManager manager = event.getRecipeManager();
-            List<? extends Recipe<?>> craftingRecipes = manager.getAllRecipesFor(RecipeType.CRAFTING);
+            Collection<RecipeHolder<CraftingRecipe>> craftingRecipes = manager.getAllRecipesFor(RecipeType.CRAFTING);
             Set<ResourceLocation> toRemove = craftingRecipes.stream()
-                .filter(RecipeDisableClient::isHutOutput)
-                .map(Recipe::getId)
+                .filter(h -> isHutOutput(h.value()))
+                .map(RecipeHolder::id)
                 .collect(Collectors.toSet());
 
             if (toRemove.isEmpty()) {

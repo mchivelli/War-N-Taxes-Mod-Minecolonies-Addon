@@ -5,58 +5,69 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.entity.Entity;
 import net.neoforged.api.distmarker.Dist;
-import net.neoforged.neoforge.event.tick.ClientTickEvent;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
-@Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+/**
+ * Handles entity glow effects on the client side.
+ */
+@EventBusSubscriber(modid = MineColonyTax.MOD_ID, value = Dist.CLIENT)
 public class GlowClientHandler {
-    // entityId -> endGameTime (client world ticks)
-    private static final Map<Integer, Long> glowingEntities = new ConcurrentHashMap<>();
-
+    
+    private static final Map<Integer, Integer> glowingEntities = new HashMap<>();
+    
+    /**
+     * Add an entity to the glow list
+     */
     public static void handleGlowPacket(int entityId, boolean shouldGlow, int durationTicks) {
-        Minecraft mc = Minecraft.getInstance();
-        ClientLevel level = mc.level;
-        if (level == null) return;
-        Entity e = level.getEntity(entityId);
-        if (e == null) return;
-
         if (shouldGlow) {
-            e.setGlowingTag(true);
-            long end = level.getGameTime() + Math.max(0, durationTicks);
-            glowingEntities.put(entityId, end);
+            glowingEntities.put(entityId, durationTicks);
+            MineColonyTax.LOGGER.debug("Added entity {} to glow list for {} ticks", entityId, durationTicks);
         } else {
-            e.setGlowingTag(false);
             glowingEntities.remove(entityId);
+            MineColonyTax.LOGGER.debug("Removed entity {} from glow list", entityId);
         }
     }
-
+    
+    /**
+     * Update glowing entities every tick
+     */
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
-        if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
         ClientLevel level = mc.level;
-        if (level == null) return;
-        long now = level.getGameTime();
-
-        Iterator<Map.Entry<Integer, Long>> it = glowingEntities.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<Integer, Long> entry = it.next();
-            int id = entry.getKey();
-            long end = entry.getValue();
-            Entity e = level.getEntity(id);
-            if (e == null || !e.isAlive() || now >= end) {
-                if (e != null) {
-                    e.setGlowingTag(false);
+        
+        if (level == null) {
+            return;
+        }
+        
+        Iterator<Map.Entry<Integer, Integer>> iterator = glowingEntities.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<Integer, Integer> entry = iterator.next();
+            int entityId = entry.getKey();
+            int remaining = entry.getValue();
+            
+            Entity entity = level.getEntity(entityId);
+            if (entity != null) {
+                entity.setGlowingTag(true);
+                
+                // Decrease duration
+                remaining--;
+                if (remaining <= 0) {
+                    entity.setGlowingTag(false);
+                    iterator.remove();
+                    MineColonyTax.LOGGER.debug("Glow expired for entity {}", entityId);
+                } else {
+                    entry.setValue(remaining);
                 }
-                it.remove();
             } else {
-                // Re-assert glow each tick to override any server metadata updates
-                e.setGlowingTag(true);
+                // Entity no longer exists
+                iterator.remove();
             }
         }
     }

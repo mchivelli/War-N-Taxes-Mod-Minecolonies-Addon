@@ -31,7 +31,7 @@ public class ItemUtils {
         }
         
         // Try to get the item from the registry
-        Item item = BuiltInRegistries.ITEMS.getValue(ResourceLocation.parse(itemName));
+        Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(itemName));
         if (item != null) {
             // Use direct inventory manipulation
             ItemStack itemStack = new ItemStack(item, amount);

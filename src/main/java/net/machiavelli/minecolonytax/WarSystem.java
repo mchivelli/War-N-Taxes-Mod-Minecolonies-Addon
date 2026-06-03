@@ -548,7 +548,7 @@ public class WarSystem {
                 ServerPlayer attackerPlayer = war.getColony().getWorld().getServer().getPlayerList().getPlayer(attackerUUID); 
                 if (attackerPlayer != null) {
                     PlayerWarDataManager.incrementWarsWon(attackerPlayer);
-                    net.minecraftforge.common.NeoForge.EVENT_BUS.post(new WarVictoryEvent(attackerPlayer));
+                    net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new WarVictoryEvent(attackerPlayer));
                 }
             }
             // Apply victory/defeat balance transfers - attackers win, defenders pay
@@ -1732,7 +1732,7 @@ public class WarSystem {
                             for (UUID uuid : allParticipants) {
                                 ServerPlayer player = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(uuid);
                                 if (player != null) {
-                                    player.playSound(net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BELL.get(), 1.0F, 1.0F);
+                                    player.playSound(net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BELL.value(), 1.0F, 1.0F);
                                 }
                             }
                         }

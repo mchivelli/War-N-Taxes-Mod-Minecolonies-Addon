@@ -10,6 +10,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 /**
@@ -22,7 +23,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
  *   PlayerWarData data = player.getData(PlayerWarDataAttachment.PLAYER_WAR_DATA);
  *   data.incrementPlayersKilledInWar();
  */
-@Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID)
+@EventBusSubscriber(modid = MineColonyTax.MOD_ID)
 public class PlayerWarDataAttachment {
 
     // DeferredRegister for attachment types (register on MOD bus)

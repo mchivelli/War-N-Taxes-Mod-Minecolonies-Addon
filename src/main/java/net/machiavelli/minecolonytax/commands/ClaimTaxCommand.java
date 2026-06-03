@@ -144,7 +144,7 @@ public class ClaimTaxCommand {
                         SDMShopCompat.setMoney(player, currentBalance + totalClaimed);
                     } else {
                         // Use direct inventory manipulation instead of give command for modded items
-                        Item item = BuiltInRegistries.ITEMS.getValue(ResourceLocation.parse(TaxConfig.getCurrencyItemName()));
+                        Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(TaxConfig.getCurrencyItemName()));
                         if (item != null) {
                             ItemStack itemStack = new ItemStack(item, totalClaimed);
                             boolean added = player.getInventory().add(itemStack);

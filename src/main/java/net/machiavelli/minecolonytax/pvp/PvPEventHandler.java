@@ -16,11 +16,13 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.common.EventBusSubscriber;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import net.neoforged.fml.loading.FMLEnvironment;
@@ -38,7 +40,7 @@ import java.util.UUID;
 import java.util.Set;
 import java.util.HashSet;
 
-@Mod.EventBusSubscriber
+@EventBusSubscriber
 public class PvPEventHandler {
     private static final Logger LOGGER = LogManager.getLogger();
     private static final PvPManager pvpManager = PvPManager.INSTANCE;
@@ -201,7 +203,7 @@ public class PvPEventHandler {
     
     @SubscribeEvent
     public static void onPlayerTick(PlayerTickEvent.Post event) {
-        if (event.phase == TickEvent.Phase.END && event.player instanceof ServerPlayer player) {
+        if (event.getEntity() instanceof ServerPlayer player) {
             // Check if player entered an abandoned colony (every 20 ticks = 1 second)
             if (player.tickCount % 20 == 0) {
                 checkForAbandonedColonyEntry(player);
@@ -210,7 +212,7 @@ public class PvPEventHandler {
     }
 
     @SubscribeEvent
-    public static void onLivingDamage(LivingDamageEvent event) {
+    public static void onLivingDamage(LivingIncomingDamageEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
@@ -219,30 +221,25 @@ public class PvPEventHandler {
         if (battle == null) {
             return;
         }
-        
+
         // Check for friendly fire in team battles
         if (TaxConfig.PVP_DISABLE_FRIENDLY_FIRE.get()) {
-            // Get the battle ID and check if it's a team battle in the PvPManager
             String battleId = battle.getBattleId();
             TeamBattle teamBattle = pvpManager.pendingTeamBattles.get(battleId);
-            
+
             if (teamBattle != null && event.getSource().getEntity() instanceof ServerPlayer attacker) {
-                // Check if both players are in the battle and on the same team
                 if (teamBattle.arePlayersOnSameTeam(player.getUUID(), attacker.getUUID())) {
-                    // Cancel friendly fire damage
                     event.setCanceled(true);
-                    
-                    // Notify the attacker once every 2 seconds to prevent spam
+
                     long currentTime = System.currentTimeMillis();
                     UUID attackerUUID = attacker.getUUID();
                     Long lastNotifyTime = pvpManager.lastFriendlyFireNotifications.getOrDefault(attackerUUID, 0L);
-                    
-                    if (currentTime - lastNotifyTime > 2000) { // 2 seconds cooldown
+
+                    if (currentTime - lastNotifyTime > 2000) {
                         attacker.sendSystemMessage(Component.literal("Cannot damage teammates when friendly fire is disabled!")
                                 .withStyle(ChatFormatting.RED));
                         pvpManager.lastFriendlyFireNotifications.put(attackerUUID, currentTime);
                     }
-                    
                     return;
                 }
             }

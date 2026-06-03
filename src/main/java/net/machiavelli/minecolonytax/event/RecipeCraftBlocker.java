@@ -10,6 +10,7 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.common.EventBusSubscriber;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -18,7 +19,7 @@ import java.util.Set;
  * Hard block crafting of MineColonies hut blocks when DisableHutRecipes = true.
  * This guarantees players cannot obtain the items via crafting even if a recipe slips through.
  */
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
 public final class RecipeCraftBlocker {
 
     private static final Set<Item> HUT_BLOCK_ITEMS = new HashSet<>();

@@ -104,7 +104,7 @@ public class PlayerWarDataManager {
             Scoreboard sb = player.getServer().getScoreboard();
             var obj = sb.getObjective(objective);
             if (obj != null) {
-                sb.getOrCreatePlayerScore(player.getName().getString(), obj).setScore(value);
+                sb.getOrCreatePlayerScore(player, obj).set(value);
             }
         }
     }

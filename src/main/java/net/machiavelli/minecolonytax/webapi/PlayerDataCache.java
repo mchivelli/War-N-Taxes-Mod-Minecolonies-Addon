@@ -134,7 +134,7 @@ public class PlayerDataCache {
     private CachedPlayerData loadPlayerData(String uuid, File playerFile) {
         try {
             // Read the player's NBT data
-            CompoundTag playerNBT = NbtIo.readCompressed(playerFile);
+            CompoundTag playerNBT = NbtIo.readCompressed(playerFile.toPath(), net.minecraft.nbt.NbtAccounter.unlimitedHeap());
             
             // Get player name from NBT (stored in "bukkit" section for some servers, or custom data)
             String playerName = uuid.substring(0, 8); // Fallback to UUID prefix

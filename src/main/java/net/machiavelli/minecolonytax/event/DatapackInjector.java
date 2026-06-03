@@ -6,6 +6,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import net.minecraft.commands.CommandSourceStack;
@@ -23,7 +24,7 @@ import java.util.List;
  * by copying the pre-bundled empty recipe jsons from the development folder `recipes/`
  * into the world's datapacks directory when the config option is enabled.
  */
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
 public final class DatapackInjector {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatapackInjector.class);

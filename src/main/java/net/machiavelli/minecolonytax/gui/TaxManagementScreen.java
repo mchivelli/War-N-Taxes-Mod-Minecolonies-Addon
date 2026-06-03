@@ -3,14 +3,14 @@ package net.machiavelli.minecolonytax.gui;
 import net.machiavelli.minecolonytax.gui.data.ColonyTaxData;
 import net.machiavelli.minecolonytax.gui.data.VassalIncomeData;
 import net.machiavelli.minecolonytax.gui.data.OfficerData;
-import net.machiavelli.minecolonytax.network.NetworkHandler;
-import net.machiavelli.minecolonytax.network.packets.ClaimTaxPacket;
-import net.machiavelli.minecolonytax.network.packets.RequestColonyDataPacket;
-import net.machiavelli.minecolonytax.network.packets.PayTaxDebtPacket;
-import net.machiavelli.minecolonytax.network.packets.EndVassalizationPacket;
-import net.machiavelli.minecolonytax.network.packets.UpdateTaxPermissionPacket;
-import net.machiavelli.minecolonytax.network.packets.UpdatePlayerTaxPermissionPacket;
-import net.machiavelli.minecolonytax.network.packets.RequestOfficerDataPacket;
+import net.machiavelli.minecolonytax.network.ClientPacketHelper;
+
+
+
+
+
+
+
 import net.machiavelli.minecolonytax.permissions.TaxPermissionManager;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 public class TaxManagementScreen extends Screen {
-    private static final ResourceLocation BACKGROUND_TEXTURE = ResourceLocation.parse("minecolonytax", "textures/gui/backgroundmenu.png");
+    private static final ResourceLocation BACKGROUND_TEXTURE = ResourceLocation.fromNamespaceAndPath("minecolonytax", "textures/gui/backgroundmenu.png");
     private static final int GUI_WIDTH = 360;
     private static final int GUI_HEIGHT = 280;
     
@@ -129,7 +129,7 @@ public class TaxManagementScreen extends Screen {
             Component.literal("Claim"),
             button -> {
                 if (selectedColony != null && selectedColony.canClaimTax()) {
-                    NetworkHandler.sendToServer(new ClaimTaxPacket(selectedColony.getColonyId(), -1));
+                    ClientPacketHelper.sendClaimTaxPacket(selectedColony.getColonyId(), -1);
                     selectedColony = null;
                     updateButtonVisibility();
                 }
@@ -144,7 +144,7 @@ public class TaxManagementScreen extends Screen {
             Component.literal("Pay Debt"),
             button -> {
                 if (selectedColony != null && selectedColony.getDebtAmount() > 0) {
-                    NetworkHandler.sendToServer(new PayTaxDebtPacket(selectedColony.getColonyId()));
+                    ClientPacketHelper.sendPayTaxDebtPacket(selectedColony.getColonyId());
                     selectedColony = null;
                     updateButtonVisibility();
                 }
@@ -159,7 +159,7 @@ public class TaxManagementScreen extends Screen {
             Component.literal("End Vassal"),
             button -> {
                 if (selectedColony != null && selectedColony.isVassal()) {
-                    NetworkHandler.sendToServer(new EndVassalizationPacket(selectedColony.getColonyId()));
+                    ClientPacketHelper.sendEndVassalizationPacket(selectedColony.getColonyId());
                     selectedColony = null;
                     updateButtonVisibility();
                 }
@@ -183,7 +183,7 @@ public class TaxManagementScreen extends Screen {
     }
     
     private void requestColonyData() {
-        NetworkHandler.sendToServer(new RequestColonyDataPacket());
+        ClientPacketHelper.sendRequestColonyDataPacket(0);
         // Also clear officer data when refreshing to ensure fresh data
         officerData.clear();
     }
@@ -207,14 +207,14 @@ public class TaxManagementScreen extends Screen {
         
         // Request officer data for currently selected colony
         if (selectedColony != null) {
-            NetworkHandler.sendToServer(new RequestOfficerDataPacket(selectedColony.getColonyId()));
+            ClientPacketHelper.sendRequestOfficerDataPacket(selectedColony.getColonyId());
         }
     }
     
     private void claimAllTaxes() {
         for (ColonyTaxData colony : colonies) {
             if (colony.getTaxBalance() > 0 && colony.canClaimTax()) {
-                NetworkHandler.CHANNEL.sendToServer(new ClaimTaxPacket(colony.getColonyId(), -1)); // -1 = claim all
+                ClientPacketHelper.sendClaimTaxPacket(colony.getColonyId(), -1);
             }
         }
         // Refresh data after claiming
@@ -615,7 +615,8 @@ public class TaxManagementScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        double delta = scrollY;
         // Handle scrolling in Officers Tab
         if (showingPermissions && !officerData.isEmpty()) {
             int maxOfficersVisible = 8;
@@ -644,7 +645,7 @@ public class TaxManagementScreen extends Screen {
             }
         }
         
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     @Override
@@ -683,7 +684,7 @@ public class TaxManagementScreen extends Screen {
                         boolean isSelected = selectedColony != null && selectedColony.getColonyId() == vassalColony.getColonyId();
                         if (isSelected && vassalColony.isClaimButtonClicked(mouseX, mouseY)) {
                             // End vassalage
-                            NetworkHandler.sendToServer(new EndVassalizationPacket(vassalColony.getColonyId()));
+                            ClientPacketHelper.sendEndVassalizationPacket(vassalColony.getColonyId());
                             selectedColony = null;
                             updateButtonVisibility();
                             requestColonyData(); // Refresh data
@@ -709,7 +710,7 @@ public class TaxManagementScreen extends Screen {
                         mouseY >= permissionToggleButton.y && mouseY < permissionToggleButton.y + permissionToggleButton.height) {
                         // Toggle colony-wide permission and send to server
                         boolean newPermission = TaxPermissionManager.toggleOfficerClaimPermission(selectedColony.getColonyId());
-                        NetworkHandler.sendToServer(new UpdateTaxPermissionPacket(selectedColony.getColonyId(), newPermission));
+                        ClientPacketHelper.sendUpdateTaxPermissionPacket(selectedColony.getColonyId(), newPermission);
                         return true;
                     }
                     
@@ -732,11 +733,11 @@ public class TaxManagementScreen extends Screen {
                                         true // is officer
                                     );
                                     // Send individual player permission update to server
-                                    NetworkHandler.sendToServer(new UpdatePlayerTaxPermissionPacket(
-                                        selectedColony.getColonyId(), 
-                                        officer.getPlayerId(), 
+                                    ClientPacketHelper.sendUpdatePlayerTaxPermissionPacket(
+                                        selectedColony.getColonyId(),
+                                        officer.getPlayerId(),
                                         newPermission
-                                    ));
+                                    );
                                     return true;
                                 }
                             }
@@ -758,7 +759,7 @@ public class TaxManagementScreen extends Screen {
                             // Pay debt button clicked - TODO: implement when packet available
                         } else if (colony.getTaxBalance() > 0 && colony.canClaimTax()) {
                             // Claim tax button clicked
-                            NetworkHandler.CHANNEL.sendToServer(new ClaimTaxPacket(colony.getColonyId(), -1));
+                            ClientPacketHelper.sendClaimTaxPacket(colony.getColonyId(), -1);
                         }
                         requestColonyData(); // Refresh after action
                         return true;
@@ -780,7 +781,7 @@ public class TaxManagementScreen extends Screen {
                             selectedColony = colony;
                             // Request officer data if Officers tab is currently shown
                             if (showingPermissions) {
-                                NetworkHandler.sendToServer(new RequestOfficerDataPacket(selectedColony.getColonyId()));
+                                ClientPacketHelper.sendRequestOfficerDataPacket(selectedColony.getColonyId());
                             }
                         }
                         updateButtonVisibility();
@@ -1046,5 +1047,27 @@ public class TaxManagementScreen extends Screen {
         if (scrollOffset < totalItems - visibleItems) {
             guiGraphics.drawString(font, "↓", scrollBarX, startY + listHeight + 2, COLOR_WHITE);
         }
+    }
+
+    // ── Packet-driven data update methods (spy / war chest) ───────────────────
+
+    public void updateWarChestData(int colonyId, int balance, int maxCapacity,
+                                    int drainPerMinute, int taxBalance,
+                                    boolean autoSurrender, double minPercentForWar) {
+        // War chest data received from server — stored for rendering if needed.
+    }
+
+    private static List<net.machiavelli.minecolonytax.gui.data.SpyMissionData> latestMissions = new ArrayList<>();
+
+    public static void updateLatestMissions(List<net.machiavelli.minecolonytax.gui.data.SpyMissionData> missions) {
+        latestMissions = missions != null ? missions : new ArrayList<>();
+    }
+
+    public static List<net.machiavelli.minecolonytax.gui.data.SpyMissionData> getLatestSpyMissions() {
+        return latestMissions;
+    }
+
+    public void updateSpyData(List<net.machiavelli.minecolonytax.gui.data.SpyMissionData> missions) {
+        updateLatestMissions(missions);
     }
 }

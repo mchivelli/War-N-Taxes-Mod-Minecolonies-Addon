@@ -535,6 +535,17 @@ public class ColonyAbandonmentManager {
         abandonedColonies.remove(colonyId);
         warnedColonies.remove(colonyId);
         formerColonyMembers.remove(colonyId); // Clear former members tracking
+        
+        // Also reset the abandonment cooldown for this colony
+        try {
+            IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
+            IColony colony = colonyManager.getColonyByDimension(colonyId, null);
+            if (colony != null) {
+                resetAbandonmentCooldown(colony);
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Could not reset cooldown when marking colony {} as claimed: {}", colonyId, e.getMessage());
+        }
     }
     
     /**
@@ -850,11 +861,66 @@ public class ColonyAbandonmentManager {
             // Remove abandoned status
             markColonyAsClaimed(colony.getID());
             
+            // CRITICAL: Reset the abandonment cooldown timer to prevent immediate re-abandonment
+            resetAbandonmentCooldown(colony);
+            
             // Clean up system owner and set real owner
             cleanupSystemOwnerAndSetRealOwner(colony);
             
             // Restore normal permissions for the colony
             restoreNormalPermissions(colony);
+        }
+    }
+    
+    /**
+     * Reset the abandonment cooldown timer for a colony.
+     * This is critical when a colony is reclaimed to prevent it from being immediately abandoned again.
+     */
+    private static void resetAbandonmentCooldown(IColony colony) {
+        try {
+            // Access the colony's package manager to reset the lastContactInHours counter
+            // This uses reflection to access MineColonies' internal API
+            java.lang.reflect.Method getPackageManagerMethod = colony.getClass().getMethod("getPackageManager");
+            Object packageManager = getPackageManagerMethod.invoke(colony);
+            
+            if (packageManager != null) {
+                // Get the setLastContactInHours method
+                java.lang.reflect.Method setLastContactMethod = packageManager.getClass()
+                        .getMethod("setLastContactInHours", int.class);
+                
+                // Reset to 0 (colony is now active)
+                setLastContactMethod.invoke(packageManager, 0);
+                
+                LOGGER.info("✅ COOLDOWN RESET: Colony {} abandonment timer reset to 0 hours", colony.getName());
+                
+                // Mark colony as dirty to save the change
+                colony.markDirty();
+            } else {
+                LOGGER.error("❌ COOLDOWN RESET FAILED: Could not access package manager for colony {}", colony.getName());
+            }
+            
+        } catch (Exception e) {
+            LOGGER.error("❌ COOLDOWN RESET FAILED: Error resetting abandonment cooldown for colony {}: {}", 
+                    colony.getName(), e.getMessage());
+            
+            // Try alternative approach using direct field access
+            try {
+                java.lang.reflect.Field packageManagerField = colony.getClass().getDeclaredField("packageManager");
+                packageManagerField.setAccessible(true);
+                Object packageManager = packageManagerField.get(colony);
+                
+                if (packageManager != null) {
+                    java.lang.reflect.Method setLastContactMethod = packageManager.getClass()
+                            .getMethod("setLastContactInHours", int.class);
+                    setLastContactMethod.invoke(packageManager, 0);
+                    
+                    LOGGER.info("✅ COOLDOWN RESET (alt): Colony {} abandonment timer reset to 0 hours", colony.getName());
+                    colony.markDirty();
+                }
+            } catch (Exception e2) {
+                LOGGER.error("❌ COOLDOWN RESET FAILED (alt): Could not reset abandonment cooldown for colony {}: {}", 
+                        colony.getName(), e2.getMessage());
+            }
         }
     }
     

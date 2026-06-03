@@ -1,5 +1,7 @@
 package net.machiavelli.minecolonytax.event;
 
+import net.minecraft.core.registries.BuiltInRegistries;
+
 import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
@@ -18,6 +20,7 @@ import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.common.EventBusSubscriber;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +31,7 @@ import net.minecraft.world.entity.Entity;
 /**
  * Tracks kills of guards and militia during raids for proper tax calculation.
  */
-@Mod.EventBusSubscriber
+@EventBusSubscriber
 public class RaidKillTracker {
     
     private static final Logger LOGGER = LoggerFactory.getLogger(RaidKillTracker.class);
@@ -434,7 +437,7 @@ public class RaidKillTracker {
                         }
                     } else {
                         // Give items to killer's inventory
-                        net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEMS.getValue(
+                        net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(
                             net.minecraft.resources.ResourceLocation.parse(net.machiavelli.minecolonytax.TaxConfig.getCurrencyItemName()));
                         if (item != null) {
                             net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, taxAwarded);

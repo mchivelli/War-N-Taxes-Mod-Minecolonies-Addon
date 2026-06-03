@@ -20,6 +20,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.common.EventBusSubscriber;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -34,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Handles vassal relationships and tribute payments.
  */
-@Mod.EventBusSubscriber(modid = "minecolonytax", bus = Mod.EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = "minecolonytax", bus = EventBusSubscriber.Bus.GAME)
 public class VassalManager {
 
     private static final Logger LOGGER = LogManager.getLogger(VassalManager.class);
@@ -381,7 +382,7 @@ public class VassalManager {
 
     /* ---------------- data persistence ------------- */
     private static void loadData(MinecraftServer server) {
-        File f = new File(server.getServerDirectory(), STORAGE_FILE);
+        File f = server.getServerDirectory().resolve(STORAGE_FILE).toFile();
         if (!f.exists()) return;
         try (FileReader r = new FileReader(f)) {
             Type type = new TypeToken<List<VassalRelation>>() {}.getType();
@@ -398,7 +399,7 @@ public class VassalManager {
 
     private static void saveData() {
         if (SERVER == null) return;
-        File f = new File(SERVER.getServerDirectory(), STORAGE_FILE);
+        File f = SERVER.getServerDirectory().resolve(STORAGE_FILE).toFile();
         try (FileWriter w = new FileWriter(f)) {
             List<VassalRelation> list = new ArrayList<>(ACTIVE_VASSALS.values());
             GSON.toJson(list, w);

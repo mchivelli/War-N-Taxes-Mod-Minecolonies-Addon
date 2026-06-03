@@ -7,6 +7,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.common.EventBusSubscriber;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -14,7 +15,7 @@ import org.apache.logging.log4j.Logger;
  * Ensures eligible players see the active entity raid bossbar when they
  * log in, respawn, or change dimensions.
  */
-@Mod.EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = Mod.EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = MineColonyTax.MOD_ID, bus = EventBusSubscriber.Bus.GAME)
 public class EntityRaidBossbarAttachHandler {
     private static final Logger LOGGER = LogManager.getLogger(EntityRaidBossbarAttachHandler.class);
 

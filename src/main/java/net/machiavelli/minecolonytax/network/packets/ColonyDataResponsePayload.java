@@ -1,0 +1,73 @@
+package net.machiavelli.minecolonytax.network.packets;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+import net.machiavelli.minecolonytax.MineColonyTax;
+import net.machiavelli.minecolonytax.gui.TaxManagementScreen;
+import net.machiavelli.minecolonytax.gui.data.ColonyTaxData;
+import net.machiavelli.minecolonytax.gui.data.VassalIncomeData;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Server-to-client payload carrying colony tax data for the GUI.
+ * Uses JSON serialization for the complex colony and vassal data.
+ */
+public record ColonyDataResponsePayload(String colonyJson, String vassalJson) implements CustomPacketPayload {
+
+    private static final Gson GSON = new GsonBuilder().create();
+
+    public static final Type<ColonyDataResponsePayload> TYPE =
+        new Type<>(ResourceLocation.fromNamespaceAndPath(MineColonyTax.MOD_ID, "colony_data_response"));
+
+    public static final StreamCodec<RegistryFriendlyByteBuf, ColonyDataResponsePayload> STREAM_CODEC =
+        StreamCodec.composite(
+            ByteBufCodecs.STRING_UTF8, ColonyDataResponsePayload::colonyJson,
+            ByteBufCodecs.STRING_UTF8, ColonyDataResponsePayload::vassalJson,
+            ColonyDataResponsePayload::new
+        );
+
+    @Override
+    public Type<ColonyDataResponsePayload> type() {
+        return TYPE;
+    }
+
+    /** Construct from live data on the server side. */
+    public ColonyDataResponsePayload(List<ColonyTaxData> colonyData, List<VassalIncomeData> vassalData) {
+        this(GSON.toJson(colonyData), GSON.toJson(vassalData));
+    }
+
+    public List<ColonyTaxData> getColonyData() {
+        java.lang.reflect.Type listType = new TypeToken<List<ColonyTaxData>>() {}.getType();
+        List<ColonyTaxData> result = GSON.fromJson(colonyJson, listType);
+        return result != null ? result : new ArrayList<>();
+    }
+
+    public List<VassalIncomeData> getVassalData() {
+        java.lang.reflect.Type listType = new TypeToken<List<VassalIncomeData>>() {}.getType();
+        List<VassalIncomeData> result = GSON.fromJson(vassalJson, listType);
+        return result != null ? result : new ArrayList<>();
+    }
+
+    public static void handle(ColonyDataResponsePayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            List<ColonyTaxData> colonyData = payload.getColonyData();
+            List<VassalIncomeData> vassalData = payload.getVassalData();
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof TaxManagementScreen screen) {
+                screen.updateColonyData(colonyData);
+                screen.updateVassalData(vassalData);
+            }
+        });
+    }
+}

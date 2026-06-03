@@ -6,6 +6,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.common.EventBusSubscriber;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import org.slf4j.Logger;
@@ -18,7 +19,7 @@ import java.util.Set;
  * Event handler for disabling Minecolonies building hut recipes when configured.
  * This ensures that buildings with taxes/maintenance costs must be obtained through shops.
  */
-@Mod.EventBusSubscriber
+@EventBusSubscriber
 public class RecipeDisableEventHandler {
     
     private static final Logger LOGGER = LoggerFactory.getLogger(RecipeDisableEventHandler.class);
@@ -83,7 +84,7 @@ public class RecipeDisableEventHandler {
      */
     private static void addHutBlock(Object block) {
         if (block != null) {
-            ResourceLocation blockId = BuiltInRegistries.BLOCKS.getKey((net.minecraft.world.level.block.Block) block);
+            ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey((net.minecraft.world.level.block.Block) block);
             if (blockId != null) {
                 DISABLED_HUT_RECIPES.add(blockId);
             }

@@ -13,6 +13,7 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.common.EventBusSubscriber;
 import net.minecraft.core.registries.BuiltInRegistries;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -21,7 +22,7 @@ import org.apache.logging.log4j.Logger;
  * Handles PvP kill economy rewards - transfers a percentage of victim's balance to killer
  * Compatible with SDMShop and SDMEconomy systems
  */
-@Mod.EventBusSubscriber
+@EventBusSubscriber
 public class PvPKillEconomyHandler {
     
     private static final Logger LOGGER = LogManager.getLogger(PvPKillEconomyHandler.class);
@@ -151,7 +152,7 @@ public class PvPKillEconomyHandler {
     private static void handleItemTransfer(ServerPlayer victim, ServerPlayer killer, double percentage, boolean isRaidRelated) {
         try {
             String currencyItemName = TaxConfig.getCurrencyItemName();
-            Item currencyItem = BuiltInRegistries.ITEMS.getValue(ResourceLocation.parse(currencyItemName));
+            Item currencyItem = BuiltInRegistries.ITEM.get(ResourceLocation.parse(currencyItemName));
             
             if (currencyItem == null) {
                 LOGGER.warn("Currency item '{}' not found for PvP kill reward", currencyItemName);

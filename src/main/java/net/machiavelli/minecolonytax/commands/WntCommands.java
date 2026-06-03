@@ -1,5 +1,7 @@
 package net.machiavelli.minecolonytax.commands;
 
+import net.minecraft.core.registries.BuiltInRegistries;
+
 import com.minecolonies.api.IMinecoloniesAPI;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
@@ -29,6 +31,7 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.common.EventBusSubscriber;
 import net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager;
 import net.machiavelli.minecolonytax.abandon.ColonyClaimingRaidManager;
 import com.minecolonies.api.colony.permissions.IPermissions;
@@ -43,7 +46,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import net.machiavelli.minecolonytax.raid.ActiveRaidData;
 
-@Mod.EventBusSubscriber(modid = "minecolonytax", bus = Mod.EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = "minecolonytax", bus = EventBusSubscriber.Bus.GAME)
 public class WntCommands {
 
     private static final Logger LOGGER = LogManager.getLogger(WntCommands.class);
@@ -477,6 +480,14 @@ public class WntCommands {
                 .then(Commands.literal("cleanupabandonedentries")
                         .requires(source -> source.hasPermission(2)) // Admin only
                         .executes(WntCommands::handleCleanupAbandonedEntries)
+                )
+                
+                .then(Commands.literal("resetabandonmentcooldown")
+                        .requires(source -> source.hasPermission(2)) // Admin only
+                        .then(Commands.argument("colony", StringArgumentType.string())
+                                .suggests(COLONY_SUGGESTIONS)
+                                .executes(WntCommands::handleResetAbandonmentCooldown)
+                        )
                 )
                 
                 .then(Commands.literal("debugbossbar")
@@ -1244,7 +1255,7 @@ public class WntCommands {
                         net.machiavelli.minecolonytax.integration.SDMShopCompat.setMoney(player, currentBalance + claimedAmount);
                     } else {
                         // Use direct inventory manipulation instead of give command for modded items
-                        net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEMS.getValue(net.minecraft.resources.ResourceLocation.parse(TaxConfig.getCurrencyItemName()));
+                        net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(TaxConfig.getCurrencyItemName()));
                         if (item != null) {
                             net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, claimedAmount);
                             boolean added = player.getInventory().add(itemStack);
@@ -1407,7 +1418,7 @@ public class WntCommands {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             var stack = player.getInventory().getItem(i);
             if (!stack.isEmpty()) {
-                var registryName = net.minecraft.core.registries.BuiltInRegistries.ITEMS.getKey(stack.getItem());
+                var registryName = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem());
                 if (registryName != null && registryName.toString().equals(TaxConfig.getCurrencyItemName())) {
                     int available = stack.getCount();
                     if (available >= remaining) {
@@ -2446,6 +2457,68 @@ public class WntCommands {
         }
         
         return 1;
+    }
+    
+    /**
+     * Handle reset abandonment cooldown command.
+     * This resets the lastContactInHours counter to 0 for a colony.
+     */
+    private static int handleResetAbandonmentCooldown(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        String colonyName = extractColonyName(StringArgumentType.getString(context, "colony"));
+        
+        // Find the target colony
+        Level level = source.getLevel();
+        IColony targetColony = WarSystem.findColonyByName(colonyName, level);
+        
+        if (targetColony == null) {
+            source.sendFailure(Component.literal("Colony '" + colonyName + "' not found!")
+                    .withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        
+        try {
+            // Get current abandonment status
+            int currentHours = targetColony.getLastContactInHours();
+            boolean wasAbandoned = ColonyAbandonmentManager.isColonyAbandoned(targetColony);
+            
+            source.sendSuccess(() -> Component.literal("Resetting abandonment cooldown for colony '" + colonyName + "'...")
+                    .withStyle(ChatFormatting.YELLOW)
+                    .append(Component.literal("\nCurrent inactivity: " + currentHours + " hours")
+                            .withStyle(ChatFormatting.GRAY))
+                    .append(Component.literal("\nAbandoned status: " + (wasAbandoned ? "YES" : "NO"))
+                            .withStyle(wasAbandoned ? ChatFormatting.RED : ChatFormatting.GREEN)), false);
+            
+            // Reset the cooldown using reflection
+            java.lang.reflect.Method getPackageManagerMethod = targetColony.getClass().getMethod("getPackageManager");
+            Object packageManager = getPackageManagerMethod.invoke(targetColony);
+            
+            if (packageManager != null) {
+                java.lang.reflect.Method setLastContactMethod = packageManager.getClass()
+                        .getMethod("setLastContactInHours", int.class);
+                setLastContactMethod.invoke(packageManager, 0);
+                targetColony.markDirty();
+                
+                source.sendSuccess(() -> Component.literal("✅ Successfully reset abandonment cooldown for colony '" + colonyName + "'!")
+                        .withStyle(ChatFormatting.GREEN)
+                        .append(Component.literal("\nInactivity timer reset to 0 hours")
+                                .withStyle(ChatFormatting.GRAY))
+                        .append(Component.literal("\nThe colony will not be abandoned unless inactive again for " + 
+                                TaxConfig.getColonyAutoAbandonDays() + " days")
+                                .withStyle(ChatFormatting.YELLOW)), false);
+                
+                return 1;
+            } else {
+                source.sendFailure(Component.literal("Failed to access package manager for colony '" + colonyName + "'")
+                        .withStyle(ChatFormatting.RED));
+                return 0;
+            }
+            
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("Failed to reset abandonment cooldown: " + e.getMessage())
+                    .withStyle(ChatFormatting.RED));
+            return 0;
+        }
     }
     
     /**

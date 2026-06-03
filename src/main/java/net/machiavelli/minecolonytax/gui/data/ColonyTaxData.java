@@ -119,6 +119,11 @@ public class ColonyTaxData {
     public int getDebtAmount() { return debtAmount; }
     public int getApproximateRevenuePerInterval() { return approximateRevenuePerInterval; }
     public boolean isOwner() { return isOwner; }
+
+    // taxPolicy is optional; defaults to "NORMAL" if not set (e.g. from older serialized data)
+    private String taxPolicy = "NORMAL";
+    public String getTaxPolicy() { return taxPolicy != null ? taxPolicy : "NORMAL"; }
+    public void setTaxPolicy(String taxPolicy) { this.taxPolicy = taxPolicy; }
     
     /**
      * Checks if colony has debt (negative tax balance)

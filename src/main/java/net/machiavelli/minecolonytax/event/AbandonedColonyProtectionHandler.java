@@ -14,6 +14,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.common.EventBusSubscriber;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -21,7 +22,7 @@ import org.apache.logging.log4j.Logger;
  * Handles block protection for abandoned colonies.
  * Prevents players from breaking or placing blocks in abandoned colonies.
  */
-@Mod.EventBusSubscriber
+@EventBusSubscriber
 public class AbandonedColonyProtectionHandler {
     
     private static final Logger LOGGER = LogManager.getLogger(AbandonedColonyProtectionHandler.class);

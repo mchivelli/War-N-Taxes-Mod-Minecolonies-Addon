@@ -145,7 +145,7 @@ public class WarEconomyHandler {
             }
             if (winnerPlayer != null && totalTransferred > 0) {
                 // Try to add coins to the winner's inventory directly.
-                ItemStack coinStack = new ItemStack(BuiltInRegistries.ITEMS.getValue(ResourceLocation.parse(TaxConfig.getCurrencyItemName())), (int) totalTransferred);
+                ItemStack coinStack = new ItemStack(BuiltInRegistries.ITEM.get(ResourceLocation.parse(TaxConfig.getCurrencyItemName())), (int) totalTransferred);
                 boolean added = winnerPlayer.getInventory().add(coinStack);
                 if (!added) {
                     // If inventory is full, drop items near winner
@@ -170,7 +170,7 @@ public class WarEconomyHandler {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
             if (!stack.isEmpty()) {
-                ResourceLocation registryName = BuiltInRegistries.ITEMS.getKey(stack.getItem());
+                ResourceLocation registryName = BuiltInRegistries.ITEM.getKey(stack.getItem());
                 if (registryName != null && registryName.toString().equals(TaxConfig.getCurrencyItemName())) {
                     total += stack.getCount();
                 }
@@ -188,7 +188,7 @@ public class WarEconomyHandler {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
             if (!stack.isEmpty()) {
-                ResourceLocation registryName = BuiltInRegistries.ITEMS.getKey(stack.getItem());
+                ResourceLocation registryName = BuiltInRegistries.ITEM.getKey(stack.getItem());
                 if (registryName != null && registryName.toString().equals(TaxConfig.getCurrencyItemName())) {
                     int available = stack.getCount();
                     if (available >= remaining) {
@@ -318,7 +318,7 @@ public class WarEconomyHandler {
                         .getPlayerList().getPlayer(winnerUUID);
                 if (winner != null) {
                     ItemStack stack = new ItemStack(
-                            BuiltInRegistries.ITEMS.getValue(ResourceLocation.parse(TaxConfig.getCurrencyItemName())),
+                            BuiltInRegistries.ITEM.get(ResourceLocation.parse(TaxConfig.getCurrencyItemName())),
                             (int) totalTaken
                     );
                     if (!winner.getInventory().add(stack)) {
@@ -387,7 +387,7 @@ public class WarEconomyHandler {
                     if (actuallyDeducted > 0) {
                         // Add to winner's inventory
                         ItemStack coinStack = new ItemStack(
-                                BuiltInRegistries.ITEMS.getValue(ResourceLocation.parse(TaxConfig.getCurrencyItemName())), 
+                                BuiltInRegistries.ITEM.get(ResourceLocation.parse(TaxConfig.getCurrencyItemName())), 
                                 (int) actuallyDeducted);
                                 
                         boolean added = winnerPlayer.getInventory().add(coinStack);

@@ -127,7 +127,7 @@ public class TaxDebtCommand {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
             if (!stack.isEmpty()) {
-                ResourceLocation registryName = BuiltInRegistries.ITEMS.getKey(stack.getItem());
+                ResourceLocation registryName = BuiltInRegistries.ITEM.getKey(stack.getItem());
                 if (registryName != null && registryName.toString().equals(TaxConfig.getCurrencyItemName())) {
                     int available = stack.getCount();
                     if (available >= remaining) {

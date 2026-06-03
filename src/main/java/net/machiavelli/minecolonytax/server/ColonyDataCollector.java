@@ -9,6 +9,7 @@ import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.WarSystem;
 import net.machiavelli.minecolonytax.gui.data.ColonyTaxData;
 import net.machiavelli.minecolonytax.gui.data.VassalIncomeData;
+import net.machiavelli.minecolonytax.compat.ColonyBuildingUtil;
 import net.machiavelli.minecolonytax.raid.RaidManager;
 import net.machiavelli.minecolonytax.data.WarData;
 import net.minecraft.server.level.ServerPlayer;
@@ -118,7 +119,7 @@ public class ColonyDataCollector {
             int guardCount = 0;
             int guardTowerCount = 0;
             
-            for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+            for (IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
                 if (building.getBuildingLevel() > 0 && building.isBuilt()) {
                     buildingCount++;
                     

@@ -4,8 +4,8 @@ import com.minecolonies.api.colony.IColony;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.raid.EntityRaidDebugLogger;
-import net.machiavelli.minecolonytax.network.NetworkHandler;
-import net.machiavelli.minecolonytax.network.EntityGlowPacket;
+import net.machiavelli.minecolonytax.network.packets.EntityGlowPayload;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -277,7 +277,7 @@ public class EntityRaidManager {
         
         // Only log successful matches to avoid spam - failed matches are too numerous and not useful
         if (TaxConfig.isEntityRaidDebugEnabled() && match) {
-            ResourceLocation rl = BuiltInRegistries.ENTITY_TYPES.getKey(entityType);
+            ResourceLocation rl = BuiltInRegistries.ENTITY_TYPE.getKey(entityType);
             String registryId = rl != null ? rl.toString() : "";
             LOGGER.info("[EntityRaid] ✅ WHITELIST MATCH: {} matches pattern in whitelist. registryId={}", 
                 entityType.getDescriptionId(), registryId);
@@ -297,7 +297,7 @@ public class EntityRaidManager {
         //  - exact registry id (e.g., "minecraft:pillager", "recruits:recruit")
         //  - exact description id (e.g., "entity.minecraft.pillager")
         List<? extends String> whitelist = TaxConfig.getEntityRaidWhitelist();
-        ResourceLocation rl = BuiltInRegistries.ENTITY_TYPES.getKey(entityType);
+        ResourceLocation rl = BuiltInRegistries.ENTITY_TYPE.getKey(entityType);
         String registryId = rl != null ? rl.toString() : "";
         String namespace = rl != null ? rl.getNamespace() : "";
         String descId = entityType.getDescriptionId();
@@ -546,9 +546,7 @@ public class EntityRaidManager {
         
         // Send glow packets to colony owner
         for (Entity entity : nearbyEntities) {
-            EntityGlowPacket packet = new EntityGlowPacket(entity.getId(), true, 6000); // 5 minutes in ticks
-            NetworkHandler.CHANNEL.sendTo(packet, colonyOwner.connection.connection, 
-                net.neoforged.neoforge.network.NetworkDirection.PLAY_TO_CLIENT);
+            PacketDistributor.sendToPlayer(colonyOwner, new EntityGlowPayload(entity.getId(), true, 6000));
         }
         
         // Log glow effect application - using generic logger since no specific method exists
@@ -592,9 +590,7 @@ public class EntityRaidManager {
         
         // Send remove glow packets to colony owner
         for (Entity entity : nearbyEntities) {
-            EntityGlowPacket packet = new EntityGlowPacket(entity.getId(), false, 0);
-            NetworkHandler.CHANNEL.sendTo(packet, colonyOwner.connection.connection, 
-                net.neoforged.neoforge.network.NetworkDirection.PLAY_TO_CLIENT);
+            PacketDistributor.sendToPlayer(colonyOwner, new EntityGlowPayload(entity.getId(), false, 0));
         }
         
         // Log glow effect removal - using generic logger since no specific method exists
