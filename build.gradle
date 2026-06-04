@@ -27,7 +27,13 @@ repositories {
 }
 
 base {
-    archivesName = mod_id
+    archivesName = "WarNTaxes-NeoForge"
+}
+
+// Produce the distributable jar as WarNTaxes-NeoForge-5.0.jar.
+// (File label kept at "5.0"; the internal mod_version stays semver 5.0.0.)
+tasks.named('jar', Jar).configure {
+    archiveVersion = '5.0'
 }
 
 // Mojang ships Java 21 to end users in 1.21.1, so mods should target Java 21.
