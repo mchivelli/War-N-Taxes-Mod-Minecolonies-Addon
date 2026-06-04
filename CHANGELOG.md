@@ -5,6 +5,33 @@ All notable changes to the War N Tax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-06-05
+
+Major release: full port from **Minecraft 1.20.1 / Forge** to **Minecraft 1.21.1 / NeoForge 21.1**.
+Verified: dedicated server boots cleanly, MineColonies + its dependency stack load with no version
+conflicts, and the redesigned book GUI renders correctly on a live client.
+
+### Platform / Port
+- Migrated the entire mod from Forge to **NeoForge 21.1.213** on **Minecraft 1.21.1** (Java 21, Gradle 8.14 / NeoGradle 7.1.1).
+- Networking: Forge `SimpleChannel` → NeoForge **CustomPacketPayload** system (22 payloads).
+- Player war data: Forge Capabilities → NeoForge **Data Attachments**.
+- Registries/events/config migrated to `BuiltInRegistries`, `ServerTickEvent`, `ModConfigSpec`; `neoforge.mods.toml` metadata.
+- Dependencies declared for 1.21.1 (MineColonies, Structurize, BlockUI, Domum Ornamentum, Multi-Piston, Architectury, FTB Library, FTB Teams).
+
+### Added
+- **War persistence** ported to NeoForge — active wars save on shutdown (`config/warntax/active_wars.json`) and resume on start, including downtime-expiry resolution.
+- **SDMShop / SDM-Economy integration** rewired to the real `CurrencyHelper` economy API (reflection-based, fully optional).
+
+### Changed
+- **Redesigned Tax Management GUI** to the book-style layout: two-page book background, icon tabs (Colonies / Vassals / Officers / War Chest / Espionage / Economy), per-page content.
+- **Concurrency:** all war/raid/tax/battle countdown timers moved from `java.util.Timer`/raw threads to the main-thread `TickScheduler` (prevents off-thread state mutation).
+- Logging: stray `System.out`/`printStackTrace` routed through the mod loggers.
+
+### Fixed
+- GUI no longer shows a dark overlay or the menu blur over the book (custom `renderBackground` no-op).
+- Added the missing GUI textures (`book_background.png`, tab icons), the spy entity texture, and the codex item texture.
+- Dedicated-server load-time defects that prevented the mod from loading at all: missing `[[mods]]` header in `neoforge.mods.toml`, missing transitive dependencies, invalid empty `@EventBusSubscriber` classes, and client-class references that crashed registration on a dedicated server (dist isolation).
+
 ## [Unreleased]
 
 ### 🐛 Critical Raid System Bug Fixes
