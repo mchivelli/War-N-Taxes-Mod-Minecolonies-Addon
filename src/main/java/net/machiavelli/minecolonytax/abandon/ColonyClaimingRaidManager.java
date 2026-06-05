@@ -782,26 +782,20 @@ public class ColonyClaimingRaidManager {
             }
             
             // CRITICAL: Set the claiming player as the actual owner to prevent GUI crashes
+            // [1.21-PORT] MineColonies API is setOwner(Player), not setOwner(UUID). The old
+            // UUID reflection threw IllegalArgumentException at runtime, leaving the claimed colony
+            // ownerless (GUI crash). claimingPlayer is an online ServerPlayer -> direct, complete fix.
+            // See PORTING_NOTES.md §1.
             try {
-                java.lang.reflect.Method setOwnerMethod = permissions.getClass().getMethod("setOwner", UUID.class);
-                setOwnerMethod.invoke(permissions, claimingPlayer.getUUID());
-                LOGGER.info("🏛️ CLAIMING OWNER SET: {} is now the actual owner of claimed colony {}", 
-                    claimingPlayer.getName().getString(), colony.getName());
-            } catch (Exception e) {
-                LOGGER.warn("Could not set claiming player as actual owner directly, trying alternative: {}", e.getMessage());
-                try {
-                    for (java.lang.reflect.Method method : permissions.getClass().getDeclaredMethods()) {
-                        if (method.getName().equals("setOwner") && method.getParameterCount() == 1) {
-                            method.setAccessible(true);
-                            method.invoke(permissions, claimingPlayer.getUUID());
-                            LOGGER.info("🏛️ CLAIMING OWNER SET (alt): {} is now the actual owner of claimed colony {}", 
-                                claimingPlayer.getName().getString(), colony.getName());
-                            break;
-                        }
-                    }
-                } catch (Exception e2) {
-                    LOGGER.error("Failed to set claiming player as actual owner: {}", e2.getMessage());
+                if (permissions.setOwner(claimingPlayer)) {
+                    LOGGER.info("🏛️ CLAIMING OWNER SET: {} is now the actual owner of claimed colony {}",
+                        claimingPlayer.getName().getString(), colony.getName());
+                } else {
+                    LOGGER.warn("setOwner(Player) returned false for {} on colony {}",
+                        claimingPlayer.getName().getString(), colony.getName());
                 }
+            } catch (Exception e) {
+                LOGGER.error("Failed to set claiming player as actual owner: {}", e.toString());
             }
             
             // STEP 2: Restore normal permissions for neutral players (they were restricted during abandonment)

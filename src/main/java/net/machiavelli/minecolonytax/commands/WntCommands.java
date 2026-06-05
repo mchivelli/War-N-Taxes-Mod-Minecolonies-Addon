@@ -2585,27 +2585,17 @@ public class WntCommands {
                             UUID systemOwner = ColonyAbandonmentManager.createSystemOwner();
                             permissions.addPlayer(systemOwner, "[SYSTEM_ABANDONED]", permissions.getRankOwner());
                             
-                            // CRITICAL FIX: Set actual owner to prevent GUI crashes
+                            // [1.21-PORT] setOwner now needs an ONLINE Player; the synthetic system
+                            // owner UUID can never be online, so setOwner(Player) is impossible. Best-effort
+                            // OWNER rank (addPlayer above already set it; this is explicit). The cached
+                            // ownerUUID cannot be set for a synthetic owner on the new API. See PORTING_NOTES.md §1.
                             try {
-                                java.lang.reflect.Method setOwnerMethod = permissions.getClass().getMethod("setOwner", UUID.class);
-                                setOwnerMethod.invoke(permissions, systemOwner);
-                                source.sendSuccess(() -> Component.literal("    Set system owner as actual owner to prevent GUI crashes")
+                                permissions.setPlayerRank(systemOwner, permissions.getRankOwner(), colony.getWorld());
+                                source.sendSuccess(() -> Component.literal("    Set system owner OWNER rank (offline best-effort)")
                                         .withStyle(ChatFormatting.GREEN), false);
                             } catch (Exception e) {
-                                try {
-                                    for (java.lang.reflect.Method method : permissions.getClass().getDeclaredMethods()) {
-                                        if (method.getName().equals("setOwner") && method.getParameterCount() == 1) {
-                                            method.setAccessible(true);
-                                            method.invoke(permissions, systemOwner);
-                                            source.sendSuccess(() -> Component.literal("    Set system owner (alt method) to prevent GUI crashes")
-                                                    .withStyle(ChatFormatting.GREEN), false);
-                                            break;
-                                        }
-                                    }
-                                } catch (Exception e2) {
-                                    source.sendFailure(Component.literal("    WARNING: Could not set actual owner - GUI may crash!")
-                                            .withStyle(ChatFormatting.RED));
-                                }
+                                source.sendFailure(Component.literal("    WARNING: Could not set owner rank - GUI may crash!")
+                                        .withStyle(ChatFormatting.RED));
                             }
                             
                             // Set all real players to neutral with no permissions

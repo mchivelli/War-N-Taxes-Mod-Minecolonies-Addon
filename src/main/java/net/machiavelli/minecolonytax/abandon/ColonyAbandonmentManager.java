@@ -941,27 +941,21 @@ public class ColonyAbandonmentManager {
             // Find first real officer and make them the actual owner
             for (ColonyPlayer player : permissions.getPlayers().values()) {
                 if (!isSystemOwner(player.getID()) && player.getRank().isColonyManager()) {
+                    // [1.21-PORT] setOwner takes a Player now, not a UUID. Resolve the online player
+                    // and use setOwner(Player); for an offline player there is no public API to set
+                    // the cached ownerUUID, so fall back to best-effort OWNER rank. See PORTING_NOTES.md §1.
                     try {
-                        // Try to set this real player as the actual owner
-                        java.lang.reflect.Method setOwnerMethod = permissions.getClass().getMethod("setOwner", UUID.class);
-                        setOwnerMethod.invoke(permissions, player.getID());
-                        LOGGER.info("🏛️ NEW OWNER SET: {} is now the owner of reactivated colony {}", player.getName(), colony.getName());
-                        break;
-                    } catch (Exception e) {
-                        LOGGER.warn("Could not set {} as owner directly, trying alternative: {}", player.getName(), e.getMessage());
-                        // Alternative approach if direct method fails
-                        try {
-                            for (java.lang.reflect.Method method : permissions.getClass().getDeclaredMethods()) {
-                                if (method.getName().equals("setOwner") && method.getParameterCount() == 1) {
-                                    method.setAccessible(true);
-                                    method.invoke(permissions, player.getID());
-                                    LOGGER.info("🏛️ NEW OWNER SET (alt): {} is now the owner of reactivated colony {}", player.getName(), colony.getName());
-                                    break;
-                                }
-                            }
-                        } catch (Exception e2) {
-                            LOGGER.error("Failed to set {} as owner of colony {}: {}", player.getName(), colony.getName(), e2.getMessage());
+                        ServerPlayer online = (colony.getWorld() != null && colony.getWorld().getServer() != null)
+                                ? colony.getWorld().getServer().getPlayerList().getPlayer(player.getID())
+                                : null;
+                        if (online != null && permissions.setOwner(online)) {
+                            LOGGER.info("🏛️ NEW OWNER SET: {} is now the owner of reactivated colony {}", player.getName(), colony.getName());
+                        } else {
+                            permissions.setPlayerRank(player.getID(), permissions.getRankOwner(), colony.getWorld());
+                            LOGGER.info("NEW OWNER (rank-only, player offline): {} on reactivated colony {}", player.getName(), colony.getName());
                         }
+                    } catch (Exception e) {
+                        LOGGER.error("Failed to set {} as owner of colony {}: {}", player.getName(), colony.getName(), e.toString());
                     }
                     break;
                 }

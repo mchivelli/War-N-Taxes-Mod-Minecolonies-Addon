@@ -28,6 +28,7 @@ conflicts, and the redesigned book GUI renders correctly on a live client.
 - Logging: stray `System.out`/`printStackTrace` routed through the mod loggers.
 
 ### Fixed
+- **Colony ownership transfer (CRITICAL):** claiming an abandoned colony and reactivation no longer leave the colony ownerless. MineColonies changed `IPermissions.setOwner(UUID)` → `setOwner(Player)`; the old reflection threw at runtime (GUI crash, broken claim/abandonment). Now uses `setOwner(online player)`, with an OWNER-rank best-effort fallback for offline/synthetic owners.
 - GUI no longer shows a dark overlay or the menu blur over the book (custom `renderBackground` no-op).
 - Added the missing GUI textures (`book_background.png`, tab icons), the spy entity texture, and the codex item texture.
 - Dedicated-server load-time defects that prevented the mod from loading at all: missing `[[mods]]` header in `neoforge.mods.toml`, missing transitive dependencies, invalid empty `@EventBusSubscriber` classes, and client-class references that crashed registration on a dedicated server (dist isolation).
