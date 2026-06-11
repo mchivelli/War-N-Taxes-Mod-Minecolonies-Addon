@@ -1,0 +1,309 @@
+warning: in the working copy of 'src/main/java/net/machiavelli/minecolonytax/util/AsyncSaveExecutor.java', LF will be replaced by CRLF the next time Git touches it
+diff --git a/src/main/java/net/machiavelli/minecolonytax/TaxManager.java b/src/main/java/net/machiavelli/minecolonytax/TaxManager.java
+index 5f3b154..ca25a7e 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/TaxManager.java
++++ b/src/main/java/net/machiavelli/minecolonytax/TaxManager.java
+@@ -108,8 +108,12 @@ public class TaxManager {
+                 cleanupTickCount++;
+                 nullOwnerCheckCount++;
+ 
+-                // Check for null owners every 5 seconds
+-                if (nullOwnerCheckCount >= 100) { // 100 ticks = 5 seconds
++                // Null-owner safety net. The real null-owner repair runs at startup
++                // (MineColonyTax.onServerStarting + deferred passes); this is only a
++                // periodic catch for owners that go null at runtime (rare). Throttled
++                // to every 5 minutes — a per-5s all-colony permission scan is a needless
++                // steady-state cost at hundreds of colonies (optimization audit C2).
++                if (nullOwnerCheckCount >= 6000) { // 6000 ticks = 5 minutes
+                     nullOwnerCheckCount = 0;
+                     try {
+                         net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.emergencyFixAllNullOwners();
+@@ -619,19 +623,13 @@ public class TaxManager {
+                     }
+ 
+                     // --- Guard Tower Tax Boost Processing ---
++                    // Use the cached WarSystem.isGuardTower (identical matching logic) instead of
++                    // re-doing building.toString().toLowerCase() per building — that allocation
++                    // ran for every building of every colony each tax cycle (audit H8).
+                     for (IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
+-                        if (building.getBuildingLevel() > 0 && building.isBuilt()) {
+-                            // Count guard towers using the same logic as WarSystem
+-                            String displayName = building.getBuildingDisplayName();
+-                            String className = building.getClass().getName().toLowerCase();
+-                            String toString = building.toString().toLowerCase();
+-
+-                            if ((displayName != null && "Guard Tower".equalsIgnoreCase(displayName)) ||
+-                                    className.contains("guardtower") ||
+-                                    toString.contains("guardtower") ||
+-                                    toString.contains("guard_tower")) {
+-                                guardTowerCount++;
+-                            }
++                        if (building.getBuildingLevel() > 0 && building.isBuilt()
++                                && WarSystem.isGuardTower(building)) {
++                            guardTowerCount++;
+                         }
+                     }
+ 
+@@ -997,14 +995,26 @@ public class TaxManager {
+                     // Apply debt consequences (happiness penalty, events, abandonment, blocking)
+                     processDebtConsequences(colony, finalTaxBalance, recipients);
+ 
+-                    // Trigger random events after tax cycle
++                    // Trigger random events after tax cycle. Catch per-colony so one bad
++                    // colony can't abort the whole forEach — that would skip the post-loop
++                    // saveTaxData() and RandomEventManager.persist() and lose the cycle's
++                    // saves (codex C1 follow-up).
+                     if (TaxConfig.isRandomEventsEnabled()) {
+-                        RandomEventManager.onTaxCycle(colony);
++                        try {
++                            RandomEventManager.onTaxCycle(colony);
++                        } catch (Exception ex) {
++                            LOGGER.error("Random event tick failed for colony {}", colony.getID(), ex);
++                        }
+                     }
+                 });
+             });
+             // Only log save operation once per full tax cycle
+             saveTaxData();
++            // Persist random-event state ONCE for the whole cycle (not per colony —
++            // see optimization audit C1 / RandomEventManager.persist()).
++            if (TaxConfig.isRandomEventsEnabled()) {
++                RandomEventManager.persist();
++            }
+             if (TaxConfig.isNormalLogging()) {
+                 LOGGER.info("Tax generation cycle completed for all colonies");
+             }
+@@ -1139,16 +1149,37 @@ public class TaxManager {
+     }
+ 
+     private static void saveTaxData(boolean logSave) {
+-        File file = new File(TAX_DATA_FILE);
+-        file.getParentFile().mkdirs(); // Ensure the directory exists
+-        try (FileWriter writer = new FileWriter(file)) {
+-            GSON.toJson(colonyTaxMap, writer);
+-            if (logSave && TaxConfig.showTaxGenerationLogs()) {
+-                LOGGER.info("Saved tax data to file.");
++        // Snapshot on the calling (main) thread, then write off-thread + coalesced so
++        // per-cycle and per-claim/debt-payment saves no longer block ticks (audit H4).
++        // Atomic temp+move added so a crash mid-write can't truncate colonyTaxData.json.
++        final Map<Integer, Integer> snapshot = new HashMap<>(colonyTaxMap);
++        final boolean log = logSave;
++        net.machiavelli.minecolonytax.util.AsyncSaveExecutor.submit("tax_data", () -> {
++            File file = new File(TAX_DATA_FILE);
++            file.getParentFile().mkdirs();
++            File tmp = new File(file.getParentFile(), file.getName() + ".tmp");
++            try {
++                try (FileWriter writer = new FileWriter(tmp)) {
++                    GSON.toJson(snapshot, writer);
++                }
++                try {
++                    java.nio.file.Files.move(tmp.toPath(), file.toPath(),
++                            java.nio.file.StandardCopyOption.ATOMIC_MOVE,
++                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
++                } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
++                    java.nio.file.Files.move(tmp.toPath(), file.toPath(),
++                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
++                }
++                if (log && TaxConfig.showTaxGenerationLogs()) {
++                    LOGGER.info("Saved tax data to file.");
++                }
++            } catch (Exception e) {
++                LOGGER.error("Error saving tax data", e);
++                if (tmp.exists()) {
++                    try { tmp.delete(); } catch (Exception ignored) { /* nothing else to do */ }
++                }
+             }
+-        } catch (IOException e) {
+-            LOGGER.error("Error saving tax data", e);
+-        }
++        });
+     }
+ 
+     private static void loadTaxData(MinecraftServer server) {
+diff --git a/src/main/java/net/machiavelli/minecolonytax/WarSystem.java b/src/main/java/net/machiavelli/minecolonytax/WarSystem.java
+index 5e7ab58..fa46400 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/WarSystem.java
++++ b/src/main/java/net/machiavelli/minecolonytax/WarSystem.java
+@@ -330,9 +330,10 @@ public class WarSystem {
+                     ? net.machiavelli.minecolonytax.economy.TreasuryManager.drainTreasury(attackerColonyId)
+                     : Integer.MAX_VALUE;
+ 
+-            // Periodic save every 5 drain ticks (5 minutes)
++            // Periodic save every 5 drain ticks (5 minutes) — async + coalesced now,
++            // so concurrent wars no longer each fire a synchronous treasury write (audit H2).
+             if (tickCount[0] % 5 == 0) {
+-                net.machiavelli.minecolonytax.economy.TreasuryManager.shutdown(); // calls saveData()
++                net.machiavelli.minecolonytax.economy.TreasuryManager.save();
+             }
+ 
+             // Auto-surrender if either side is depleted
+@@ -1386,6 +1387,14 @@ public class WarSystem {
+                 TickScheduler.cancel(warData.warChestDrainTaskId);
+                 warData.warChestDrainTaskId = -1;
+             }
++            if (warData.joinCountdownTaskId >= 0) {
++                TickScheduler.cancel(warData.joinCountdownTaskId);
++                warData.joinCountdownTaskId = -1;
++            }
++            if (warData.joinStartTaskId >= 0) {
++                TickScheduler.cancel(warData.joinStartTaskId);
++                warData.joinStartTaskId = -1;
++            }
+             if (warData.bossEvent != null) {
+                 warData.bossEvent.removeAllPlayers();
+                 warData.bossEvent.setVisible(false);
+@@ -2392,10 +2401,16 @@ public class WarSystem {
+         // join phase is at least 6 seconds long
+         if (joinDurationMillis >= 6000) {
+             final int[] secondsLeft = { 6 };
+-            TickScheduler.scheduleRepeating(() -> {
++            war.joinCountdownTaskId = TickScheduler.scheduleRepeating(() -> {
+                 try {
+                     if (war == null || war.getColony() == null || !war.isJoinPhaseActive() || secondsLeft[0] < 0) {
+-                        return; // Task will be cleaned up when war starts or ends
++                        // Self-cancel: without this the repeating task re-arms forever,
++                        // leaking the task + retaining the whole WarData (audit C4).
++                        if (war != null && war.joinCountdownTaskId >= 0) {
++                            TickScheduler.cancel(war.joinCountdownTaskId);
++                            war.joinCountdownTaskId = -1;
++                        }
++                        return;
+                     }
+ 
+                     // Play countdown sound to all war participants
+@@ -2433,10 +2448,18 @@ public class WarSystem {
+         }
+ 
+         // Main timer to start the war when join phase ends
+-        TickScheduler.scheduleDelayed(() -> {
++        war.joinStartTaskId = TickScheduler.scheduleDelayed(() -> {
+             if (war == null || war.getColony() == null) {
+                 return;
+             }
++            // Guard: the war may have ended during the JOINING phase (operator /warstop,
++            // finalize abort, etc.). endWar() removes it from ACTIVE_WARS, so if this
++            // delayed task is no longer the active war for its colony, do NOT start it —
++            // otherwise it would resurrect an ended war and re-enable war permissions
++            // (codex HIGH).
++            if (ACTIVE_WARS.get(war.getColony().getID()) != war) {
++                return;
++            }
+             war.setStatus(WarData.WarStatus.INWAR);
+             war.warStartTime = System.currentTimeMillis();
+             finalizeWarStart(war);
+@@ -3833,32 +3856,38 @@ public class WarSystem {
+         if (building == null)
+             return false;
+ 
++        // Display name can be a PER-INSTANCE custom name (a player can rename a building),
++        // so it must be evaluated per building — never cached by class. It's a cheap getter.
++        String displayName = building.getBuildingDisplayName();
++        if (displayName != null && "Guard Tower".equalsIgnoreCase(displayName)) {
++            return true;
++        }
++
++        // Class name and the schematic/structure name (from toString) are CLASS-stable —
++        // cache that determination by class so the expensive building.toString() runs at
++        // most once per building TYPE, not once per building each tax cycle (audit H8 +
++        // codex correctness follow-up: the previous code cached the per-instance displayName
++        // result by class, which could mis-count custom-named buildings).
+         Boolean cached = GUARD_TOWER_CLASS_CACHE.get(building.getClass());
+         if (cached != null) {
+             return cached;
+         }
+-        boolean result = computeIsGuardTower(building);
++        boolean result = computeClassIsGuardTower(building);
+         GUARD_TOWER_CLASS_CACHE.put(building.getClass(), result);
+         return result;
+     }
+ 
+-    private static boolean computeIsGuardTower(IBuilding building) {
+-        // Method 1: Check display name (current approach)
+-        String displayName = building.getBuildingDisplayName();
+-        if (displayName != null && "Guard Tower".equalsIgnoreCase(displayName)) {
+-            return true;
+-        }
+-
++    private static boolean computeClassIsGuardTower(IBuilding building) {
+         // Method 2: Check if class name contains "guardtower"
+         String className = building.getClass().getName().toLowerCase();
+         if (className.contains("guardtower")) {
+             return true;
+         }
+ 
+-        // Method 3: Check if the building has guard-related functionality
+-        // This is a fallback in case the building class structure changes
++        // Method 3: Fallback on the schematic name in case the class structure changes.
++        // The "guardtower" substring comes from the structure type (class-level), so the
++        // match is class-stable even though toString may also contain instance data.
+         try {
+-            // Try to get the schematic name if available
+             String toString = building.toString().toLowerCase();
+             if (toString.contains("guardtower") || toString.contains("guard_tower")) {
+                 return true;
+diff --git a/src/main/java/net/machiavelli/minecolonytax/data/WarData.java b/src/main/java/net/machiavelli/minecolonytax/data/WarData.java
+index dd7404d..a2687f3 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/data/WarData.java
++++ b/src/main/java/net/machiavelli/minecolonytax/data/WarData.java
+@@ -41,6 +41,12 @@ public class WarData {
+ 
+     public long countdownTaskId = -1;
+     public long warChestDrainTaskId = -1;
++    /** Join-phase countdown-sound timer. Captured so it can be cancelled when the
++     *  join phase ends — otherwise the repeating task leaks forever (audit C4). */
++    public long joinCountdownTaskId = -1;
++    /** Main delayed JOINING->INWAR start timer. Captured so endWar() can cancel it and
++     *  so it can't resurrect a war that ended during the join phase (audit C4 follow-up). */
++    public long joinStartTaskId = -1;
+     public ServerBossEvent bossEvent;
+     public ServerBossEvent alliesBossEvent;
+     private String penaltyReport = "";
+diff --git a/src/main/java/net/machiavelli/minecolonytax/util/AsyncSaveExecutor.java b/src/main/java/net/machiavelli/minecolonytax/util/AsyncSaveExecutor.java
+index 03da58b..5703115 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/util/AsyncSaveExecutor.java
++++ b/src/main/java/net/machiavelli/minecolonytax/util/AsyncSaveExecutor.java
+@@ -88,6 +88,29 @@ public final class AsyncSaveExecutor {
+     public static void shutdownAndFlush() {
+         running = false;
+ 
++        // Barrier FIRST: stop accepting new scheduled tasks and WAIT for the worker to
++        // finish any in-flight write before this thread touches any file. Otherwise the
++        // inline flush below could write the same file the worker is still writing,
++        // racing/corrupting it (codex review). Already-queued drains run during the
++        // orderly shutdown and drain PENDING as they go.
++        EXEC.shutdown();
++        boolean terminated = false;
++        try {
++            terminated = EXEC.awaitTermination(10, TimeUnit.SECONDS);
++        } catch (InterruptedException ie) {
++            Thread.currentThread().interrupt();
++        }
++
++        if (!terminated) {
++            // Worker is still alive after the timeout — do NOT inline-flush, or this thread
++            // could write the same file the worker is still writing (codex review). Better to
++            // leave a pending write unflushed than to corrupt a file; a stuck worker is itself
++            // an error worth surfacing.
++            LOGGER.warn("AsyncSaveExecutor did not terminate within 10s; skipping inline flush to avoid racing the worker");
++            return;
++        }
++
++        // Worker is confirmed stopped; drain anything still pending inline (single-threaded).
+         Map<String, Runnable> remaining;
+         synchronized (LOCK) {
+             remaining = new HashMap<>(PENDING);
+@@ -100,14 +123,5 @@ public final class AsyncSaveExecutor {
+                 LOGGER.error("Flush save failed for {}: {}", e.getKey(), t.toString());
+             }
+         }
+-
+-        EXEC.shutdown();
+-        try {
+-            if (!EXEC.awaitTermination(10, TimeUnit.SECONDS)) {
+-                LOGGER.warn("AsyncSaveExecutor did not terminate within 10s");
+-            }
+-        } catch (InterruptedException ie) {
+-            Thread.currentThread().interrupt();
+-        }
+     }
+ }

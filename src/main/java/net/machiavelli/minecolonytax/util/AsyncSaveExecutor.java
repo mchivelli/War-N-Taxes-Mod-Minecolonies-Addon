@@ -88,6 +88,29 @@ public final class AsyncSaveExecutor {
     public static void shutdownAndFlush() {
         running = false;
 
+        // Barrier FIRST: stop accepting new scheduled tasks and WAIT for the worker to
+        // finish any in-flight write before this thread touches any file. Otherwise the
+        // inline flush below could write the same file the worker is still writing,
+        // racing/corrupting it (codex review). Already-queued drains run during the
+        // orderly shutdown and drain PENDING as they go.
+        EXEC.shutdown();
+        boolean terminated = false;
+        try {
+            terminated = EXEC.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
+
+        if (!terminated) {
+            // Worker is still alive after the timeout — do NOT inline-flush, or this thread
+            // could write the same file the worker is still writing (codex review). Better to
+            // leave a pending write unflushed than to corrupt a file; a stuck worker is itself
+            // an error worth surfacing.
+            LOGGER.warn("AsyncSaveExecutor did not terminate within 10s; skipping inline flush to avoid racing the worker");
+            return;
+        }
+
+        // Worker is confirmed stopped; drain anything still pending inline (single-threaded).
         Map<String, Runnable> remaining;
         synchronized (LOCK) {
             remaining = new HashMap<>(PENDING);
@@ -99,15 +122,6 @@ public final class AsyncSaveExecutor {
             } catch (Throwable t) {
                 LOGGER.error("Flush save failed for {}: {}", e.getKey(), t.toString());
             }
-        }
-
-        EXEC.shutdown();
-        try {
-            if (!EXEC.awaitTermination(10, TimeUnit.SECONDS)) {
-                LOGGER.warn("AsyncSaveExecutor did not terminate within 10s");
-            }
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
         }
     }
 }

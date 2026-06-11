@@ -1,11 +1,93 @@
 # Changelog
 
-All notable changes to the War N Tax mod will be documented in this file.
+All notable changes to WarNTaxes (the War 'N Taxes MineColonies addon) will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added - Siege & Vassalization Controls
+
+- **Configurable besiege chest access** — attackers no longer hard-blocked from containers during a siege. New `BesiegeAllowChestAccess` (default `false`, combat-only) lets servers permit looting mid-siege.
+- **Owner keeps access while vassalized** — when a colony is vassalized via besiege occupation, its original owner now **retains** colony access (chests, buildings) by default; only tax tribute is siphoned. The old full lockout is now opt-in via `VassalLockOutFormerOwner` (default `false`).
+- **Online requirement for sieges** — `BesiegeRequireOnline` (default `true`): a besieger who logs off longer than `BesiegeOfflineGraceMinutes` (default 5) has their participation cancelled. With multiple attackers, one logging off does not collapse the siege for the others.
+- **Multiplayer sieges share the spoils** — when several players besiege the same colony (each runs `/wnt besiege` on it), victory now splits the treasury spoils across **all** participating besiegers' primary colonies (`BesiegeShareSpoils`, default `true`) instead of only the first to resolve. The lead besieger still receives the ongoing tax-tribute stream.
+- **"Not solo" minimum-attacker gate** — `BesiegeMinAttackers` (default 1): if fewer than this many distinct besiegers take part, the defenders can be wiped but the colony is **not** captured. Set to 2+ to force players to band together.
+- **Vassalize-only "huge money" war grab** — when a war victory vassalizes a colony instead of transferring it (deed-transfer disabled), the victor now takes a one-time cut of the loser's colony treasury (`WarVassalizationTreasuryGrabPercent`, default 50%) and the losing player's wallet (`WarVassalizationPlayerBalanceGrabPercent`, default 25%). Either can be set to 0 to disable.
+
+## [5.0.0] - 2026-06-05
+
+This is the **WarNTaxes 5.0** release: the mod is rebranded to **WarNTaxes** and gains a
+full **Siege SMP** ruleset, persistent siege damage, a dependency-stack update to the latest
+MineColonies, and a server-stability/performance pass — on top of the Occupation, War
+Persistence, and Espionage systems consolidated from earlier 5.0 development below.
+
+### Added - Siege SMP: Colony Tiers & Conquest
+
+- Colonies now have tiers. Your **first** colony is a **Primary** (capital); the rest are **Secondary** (outposts). A Primary can be besieged and have its taxes occupied, but its ownership cannot be permanently claimed unless the server enables `EnablePrimaryColonyTransfer` (default off) — the owner reclaims a tax-occupied capital by winning a counter-besiege. Secondary colonies can be permanently claimed after a long-enough besiege.
+- **Multi-besieger sieges**: a colony can be besieged by several attackers at once; the first to break through wins the spoils ("resolved first", no double awards). Besiegers fight **solo** (their colony-mates cannot damage the defenders), but defenders may rally **allies**, who receive a clickable call-to-arms notification.
+- The besiege winner takes a configurable share of the loser's treasury (`BesiegeSpoilPercentOfLoserTreasury`, cap-aware so no coins are lost).
+- During a besiege the colony's **chests and villagers cannot be used** by attackers.
+- Besieged and occupied colonies now appear in the **Vassals tab** with colour-coded status badges (vassal / tax-occupied / provisional).
+- During an active war, blocks can no longer be broken by hand — only **explosive damage** destroys them; chests, doors and combat still work.
+
+### Added - Siege Victory Objectives (experimental)
+
+Gated behind `EnableExperimentalSiegeObjectives` (default off):
+
+- **Plant the Banner** — attackers are given a Siege Banner; planting it inside the town-hall borders starts a war-scoped capture timer shown as a boss bar to participants only. Hold it for `BannerCaptureMinutes` to win; defenders can break the banner to stop the capture.
+- **Demolish the Town Hall** — destroy the town-hall *building* with explosives (ideally siege weaponry). Each valid hit (within `MaxSiegeRadius`) makes the attacker **glow** and broadcasts their coordinates to the defenders; after `TownHallExplosiveHitsRequired` hits the colony falls. A per-attacker cooldown (`TownHallHitCooldownMinutes`) sits between counted hits.
+
+### Added - Militia Investment & Persistent Siege Damage
+
+- New **Militia** investment spawns extra defenders scaled to a colony's guard count (applies to wars, besieges, and raids). Militia extend a fight but **never count as victory objectives** — only guards and player lives do — and despawn when the conflict ends.
+- Explosion damage during a war is now recorded and **fully restored when the war ends**, blocks and block-entity contents (chests, signs) intact, so siege warfare no longer permanently scars the map. The damage ledger **persists across server restarts** (saved on stop, reloaded and pruned on start).
+- **Explosion't integration**: when the Explosion't mod is installed, a war-aware mixin pauses its regeneration during any active war/raid/besiege and resumes only after the conflict ends (`DeferRestorationToExplosiont`).
+
+### Added - New Configuration (War Settings)
+
+- `EnablePrimaryColonyTransfer`, `PrimaryColonyTaxOccupationDays`, `BesiegeSpoilPercentOfLoserTreasury`, `EnableExperimentalSiegeObjectives`, `TownHallExplosiveHitsRequired`, `TownHallHitCooldownMinutes`, `MaxSiegeRadius`, `AttackerGlowSeconds`, `BannerCaptureMinutes`, `DeferRestorationToExplosiont`.
+
+### Changed - Dependencies (latest MineColonies stack)
+
+- Updated to **MineColonies 1.20.1-1.1.1237** and the matching coherent dependency stack: Structurize 1.0.816, BlockUI 1.0.194, Domum Ornamentum 1.0.301, Multi-Piston 0.0.47, JEI 15.20.0.130, FTB Teams 2001.3.2, Recruits 1.15.0, SDM Shop 7.2.2, SDM Engine Core 2001.4.0. Verified the mod compiles against the new API and the whole stack loads coherently (MineColonies mandates minimum Structurize/BlockUI/Domum versions). See `DEPENDENCY_COMPATIBILITY.md`.
+
+### Performance - Server Stability at Scale
+
+A server-stability pass for high player counts and hundreds of colonies (see `OPTIMIZATION_AUDIT.md`):
+
+- Removed an O(N²) per-tax-cycle disk write in the random-events system (now one coalesced save per cycle).
+- Moved treasury, war-exhaustion, and tax-data saves onto the off-thread async writer — no synchronous disk I/O on the server tick or on player actions.
+- Throttled a perpetual all-colony permission scan from every 5 seconds to every 5 minutes.
+- Added cheap early-outs to the highest-frequency event handlers (citizen-death, block break/place/interact, abandoned-colony protection) and an allocation-free besiege-active check on the block-interaction filter.
+- Fixed a repeating-task leak on every war declaration and hardened the join-phase start so an ended war can no longer be resurrected.
+
+### Fixed - MineColonies 1.1.1237 Compatibility
+
+- MineColonies changed `IPermissions.setOwner` from taking a player UUID to taking an online player entity, and `getOwner()` now returns a cached owner id updated only by `setOwner`. Colony-ownership assignment in the abandonment, claiming-raid, and admin-fix paths was rewritten accordingly (the old reflection failed with "argument type mismatch", leaving colonies ownerless). See `PORTING_NOTES.md`.
+
+### Fixed - World corruption when claiming/using a town hall (CRITICAL)
+
+- Root cause: the automatic colony owner-repair ran **immediately at `ServerStartingEvent`**, before MineColonies finished loading colonies. A colony that momentarily reported a null owner mid-load had a synthetic `[AUTO_OWNER]` placeholder UUID written into its permissions and was flagged abandoned, corrupting its saved data and bricking the world on the next load. This ran unconditionally in every version (matching reports that downgrading did not help).
+- Added master switch `EnableColonyAbandonmentSystem` (default **false**). Out of the box the mod now performs **no automatic writes** to MineColonies owner/permission state. The inactivity auto-abandon, debt-bankruptcy abandonment, null-owner repair, and abandoned-entry cleanup all require this switch to be enabled.
+- Removed the immediate `ServerStartingEvent` owner-fix pass; any owner-repair now runs only on a deferred pass after colonies have finished loading, and only when the system is enabled.
+- `emergencyFixAllNullOwners()` / `fixNullOwnerColony()` no longer inject synthetic placeholder owners or flag colonies abandoned — they only promote a real online colony-manager to owner via `setOwner`, otherwise they leave the colony untouched.
+- `isColonyAbandoned()` is now a pure read with no side effects (it previously mutated colony state during a status check).
+- `cleanupAbandonedEntries()` now matches only the exact synthetic markers the mod itself wrote; the old broad heuristics (any name containing "abandoned", `~`/`#` prefixes, a bogus UUID-length check) could delete a real player and leave a colony ownerless.
+- Added an always-on, **removal-only** migration that heals worlds already corrupted by older versions: it strips legacy synthetic placeholder entries, promoting a real manager to owner first so a colony is never left ownerless.
+- Added null-world guards to all permission rank writes so a null Level is never passed into MineColonies.
+
+### Fixed - Claimed tax coins never appearing in shop balance
+
+- All three tax-claim paths (claim GUI packet, `/claimtax`, `/wnt claimtax`) deducted the tax from the colony ledger **before** delivery and never refunded on failure — so if the shop economy was unavailable or the deposit failed, the tax was lost. Delivery now refunds the colony ledger (`TaxManager.adjustTax`) on any failure; taxes are never silently lost.
+- When `EnableSDMShopConversion=true` but the economy is unavailable, the claim is refunded with a clear message instead of silently dropping surprise currency items.
+- Added `SDMCurrencyName` config (default `sdm_coin`) so servers whose SDM-Economy currency id differs from the default can point taxes at the correct currency (previously hardcoded, causing deposits into an invisible currency).
+- Added a one-time WARN when conversion is enabled but unavailable, and the `/wnt debug sdm status` command to diagnose integration state, currency id, and wallet balance (covers the single-player `CurrencyPlayerData.SERVER`-not-ready timing case).
+
+### Changed - Debug commands consolidated under `/wnt debug`
+
+- Moved `emergencyfix`, `fixnullowners`, `cleanupabandonedentries`, `forcecleanupcolony`, `debugbossbar` (now `bossbar`), and `claimraidstatus` under the `/wnt debug` prefix, alongside the new `/wnt debug sdm status`.
 
 ### Fixed - Colony Ownership Tracking
 
@@ -43,8 +125,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Besieged and occupied colony status is now displayed in the colony list GUI ("Besieged" in red, "Occupied" in orange)
 - Players now receive login notifications for active wars, besieges, and occupations on their colonies, including when events occurred while they were offline
-
-## [5.0.0] - 2026-03-13
 
 ### Added - Colony Occupation System
 

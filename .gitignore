@@ -65,3 +65,6 @@ build_log.txt
 hs_err_pid*.log
 crash-*.txt
 .gitnexus
+
+# Marketing assets (large binaries — kept out of git)
+marketing/

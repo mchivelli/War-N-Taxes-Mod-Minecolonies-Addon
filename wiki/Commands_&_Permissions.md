@@ -76,15 +76,16 @@ These commands require OP Permission Level 2 or higher and are meant for server 
 | `/wnt protectcolony <colony>` | Protect an abandoned colony from being claimed by other players. |
 | `/wnt unprotectcolony <colony>` | Remove claiming protection from an abandoned colony. |
 | `/wnt listprotected` | List all abandoned colonies that are protected from claiming. |
-| `/wnt claimraidstatus <colony>` | Check the status of a claiming raid on a colony. |
 | `/wnt taxgen disable <colonyId>` | Completely halt tax generation for a specific colony. |
 | `/wnt taxgen enable <colonyId>` | Resume tax generation for a specific colony. |
-| `/wnt cleanupabandonedentries` | Remove stale abandonment tracking records from memory. |
-| `/wnt debugbossbar <colony>` | Debug the boss bar state for the war involving a colony. |
-| `/wnt forcecleanupcolony <colony>` | Force a full cleanup of a colony's war/raid state. |
-| `/wnt emergencyfix` | Emergency fix for broken war state on the server. |
-| `/wnt fixnullowners` | Scan and fix colonies with null owner records. |
 | **Debug Commands (Admin)** | |
+| `/wnt debug sdm status` | Show SDMShop/SDM-Economy integration state and your wallet balance (diagnose "tax coins not appearing"). |
+| `/wnt debug claimraidstatus <colony>` | Check the status of a claiming raid on a colony. |
+| `/wnt debug cleanupabandonedentries` | Remove stale/synthetic abandonment tracking entries from colony permissions. |
+| `/wnt debug bossbar <colony>` | Debug the boss bar state for the war involving a colony. |
+| `/wnt debug forcecleanupcolony <colony>` | Force a full cleanup of a colony's war/raid state. |
+| `/wnt debug emergencyfix` | Emergency repair pass for null-owner colonies (abandonment system must be enabled). |
+| `/wnt debug fixnullowners` | Scan and repair colonies with null owner records (abandonment system must be enabled). |
 | `/wnt debug war` | Show deeply technical debug information for all active wars. |
 | `/wnt debug guards [colony]` | Debug the guard and guard tower counting mechanisms for a given colony. |
 | `/wnt debug tax [colony]` | Show a per-building tax and maintenance breakdown for a colony. |

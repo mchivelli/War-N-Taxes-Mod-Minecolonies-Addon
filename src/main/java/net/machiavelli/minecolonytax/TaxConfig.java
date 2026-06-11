@@ -16,6 +16,7 @@ public class TaxConfig {
         public static ForgeConfigSpec CONFIG;
 
         public static final ForgeConfigSpec.BooleanValue ENABLE_SDM_SHOP_CONVERSION;
+        public static final ForgeConfigSpec.ConfigValue<String> SDM_CURRENCY_NAME;
         public static final ForgeConfigSpec.ConfigValue<String> CURRENCY_ITEM_NAME;
         public static final ForgeConfigSpec.ConfigValue<String> CURRENCY_DENOMINATIONS;
         public static final ForgeConfigSpec.IntValue DEBT_LIMIT;
@@ -71,6 +72,9 @@ public class TaxConfig {
         public static final ForgeConfigSpec.BooleanValue ENABLE_WAR_VASSALIZATION;
         public static final ForgeConfigSpec.IntValue WAR_VASSALIZATION_DURATION_HOURS;
         public static final ForgeConfigSpec.IntValue WAR_VASSALIZATION_TRIBUTE_PERCENTAGE;
+        // One-time "huge money" grab applied when a war win vassalizes instead of transferring a colony.
+        public static final ForgeConfigSpec.IntValue WAR_VASSALIZATION_TREASURY_GRAB_PERCENT;
+        public static final ForgeConfigSpec.IntValue WAR_VASSALIZATION_PLAYER_BALANCE_GRAB_PERCENT;
 
         // Colony Tier Protection (Siege SMP ruleset)
         public static final ForgeConfigSpec.BooleanValue ENABLE_PRIMARY_COLONY_TRANSFER;
@@ -186,6 +190,7 @@ public class TaxConfig {
         public static final ForgeConfigSpec.BooleanValue APPLY_RESISTANCE_TO_CITIZENS;
 
         // Colony Auto-Abandon Configuration
+        public static final ForgeConfigSpec.BooleanValue ENABLE_COLONY_ABANDONMENT_SYSTEM;
         public static final ForgeConfigSpec.BooleanValue ENABLE_COLONY_AUTO_ABANDON;
         public static final ForgeConfigSpec.IntValue COLONY_AUTO_ABANDON_DAYS;
         public static final ForgeConfigSpec.BooleanValue NOTIFY_OWNERS_BEFORE_ABANDON;
@@ -421,6 +426,14 @@ public class TaxConfig {
         public static final ForgeConfigSpec.DoubleValue BESIEGE_EXTRA_MERCENARIES_PER_BUILDING;
         public static final ForgeConfigSpec.IntValue BESIEGE_MAX_MERCENARIES;
         public static final ForgeConfigSpec.IntValue BESIEGE_PLAYER_STAY_RADIUS;
+        // Siege SMP follow-up — access controls: chest access + vassalized-owner lockout
+        public static final ForgeConfigSpec.BooleanValue BESIEGE_ALLOW_CHEST_ACCESS;
+        public static final ForgeConfigSpec.BooleanValue VASSAL_LOCK_OUT_FORMER_OWNER;
+        // Siege SMP follow-up — multiplayer & online rules: min attackers, shared spoils, online requirement
+        public static final ForgeConfigSpec.IntValue BESIEGE_MIN_ATTACKERS;
+        public static final ForgeConfigSpec.BooleanValue BESIEGE_SHARE_SPOILS;
+        public static final ForgeConfigSpec.BooleanValue BESIEGE_REQUIRE_ONLINE;
+        public static final ForgeConfigSpec.IntValue BESIEGE_OFFLINE_GRACE_MINUTES;
 
         // ==================== RANDOM EVENTS SYSTEM ====================
         public static final ForgeConfigSpec.BooleanValue ENABLE_RANDOM_EVENTS;
@@ -463,6 +476,13 @@ public class TaxConfig {
                 ENABLE_SDM_SHOP_CONVERSION = BUILDER
                                 .comment("Enable SDMShop conversion (true = enable, false = disable).")
                                 .define("EnableSDMShopConversion", true);
+
+                SDM_CURRENCY_NAME = BUILDER
+                                .comment("The SDM-Economy currency id that claimed taxes are deposited into.",
+                                                "Must match the currency id configured in SDM-Economy (NOT the display name).",
+                                                "Default 'sdm_coin'. If your server uses a different currency id, set it here,",
+                                                "otherwise claimed taxes are deposited into a currency you never see.")
+                                .define("SDMCurrencyName", "sdm_coin");
 
                 CURRENCY_ITEM_NAME = BUILDER
                                 .comment("The item name for the custom currency (e.g., 'minecraft:emerald').")
@@ -618,6 +638,30 @@ public class TaxConfig {
                                                 +
                                                 "Set VassalizationReplacesReparations=true to make tribute the only penalty.")
                                 .defineInRange("WarVassalizationTributePercentage", 15, 1, 100); // Default 15%
+
+                // One-time "huge money" grab for the vassalize-only war outcome (deed transfer disabled).
+                // The matching access toggle, VassalLockOutFormerOwner, lives in the [Besiege System] section.
+                WAR_VASSALIZATION_TREASURY_GRAB_PERCENT = BUILDER.comment(
+                                "[Spoils] One-time grab applied to the LOSING colony's treasury when a war win results in\n"
+                                                +
+                                                "vassalization (the vassalize-only path, used when EnableColonyTransfer is disabled).\n"
+                                                +
+                                                "This percentage moves from the loser's colony treasury to the victor's primary colony\n"
+                                                +
+                                                "treasury immediately on victory. Colony-side half of the 'take the huge money' rule.\n"
+                                                +
+                                                "Set 0 to disable.")
+                                .defineInRange("WarVassalizationTreasuryGrabPercent", 50, 0, 100);
+
+                WAR_VASSALIZATION_PLAYER_BALANCE_GRAB_PERCENT = BUILDER.comment(
+                                "[Spoils] One-time grab applied to the LOSING player's personal wallet when a war win results\n"
+                                                +
+                                                "in vassalization. Percentage of their wallet taken and paid to the victor. Player-side half\n"
+                                                +
+                                                "of the 'take the huge money from the player' rule.\n"
+                                                +
+                                                "Requires an economy mod (SDMShop/SDMEconomy). Set 0 to disable.")
+                                .defineInRange("WarVassalizationPlayerBalanceGrabPercent", 25, 0, 100);
 
                 ENABLE_PRIMARY_COLONY_TRANSFER = BUILDER.comment(
                                 "If false (default), a player's first colony (Primary) is protected from ownership transfer.\n"
@@ -970,6 +1014,17 @@ public class TaxConfig {
 
                 // ========== Colony Auto-Abandon Settings ==========
                 BUILDER.push("Colony Auto-Abandon");
+
+                ENABLE_COLONY_ABANDONMENT_SYSTEM = BUILDER.comment(
+                                "MASTER SWITCH for the entire automatic colony abandonment / owner-repair system.",
+                                "When FALSE (default): the mod NEVER automatically rewrites MineColonies colony owner",
+                                "or permission data. This is the safe default and prevents the rare colony-data",
+                                "corruption that can occur when owner-repair runs while colonies are still loading.",
+                                "When TRUE: the inactivity auto-abandon, null-owner repair, and abandoned-entry cleanup",
+                                "passes run (each still has its own sub-toggle below).",
+                                "NOTE: a one-time, removal-only repair of legacy '[AUTO_OWNER]' placeholder entries",
+                                "always runs regardless of this switch, to heal worlds affected by older versions.")
+                                .define("EnableColonyAbandonmentSystem", false);
 
                 ENABLE_COLONY_AUTO_ABANDON = BUILDER.comment(
                                 "Enable automatic colony abandonment when owners/officers haven't visited for the configured time. "
@@ -2538,6 +2593,45 @@ public class TaxConfig {
                                 .comment("Maximum distance (blocks) the besieging player may stray from the colony center. Exceeding this cancels the raid.")
                                 .defineInRange("BesiegePlayerStayRadius", 100, 20, 500);
 
+                // ----- Siege access controls: who may interact with a besieged/vassalized colony -----
+                BESIEGE_ALLOW_CHEST_ACCESS = BUILDER
+                                .comment("[Access] Allow besiegers to open chests/containers in the colony during an ACTIVE siege.",
+                                                "false (default): combat-only, no looting. true: attackers may open containers.")
+                                .define("BesiegeAllowChestAccess", false);
+
+                VASSAL_LOCK_OUT_FORMER_OWNER = BUILDER
+                                .comment("[Access] After a siege ends and the colony is vassalized (besiege occupation), should the",
+                                                "ORIGINAL OWNER be locked out of their own colony until they reclaim it?",
+                                                "false (default): the owner keeps access and only pays tax tribute.",
+                                                "true: the owner is locked out (chests/buildings) until a successful reclaim raid.")
+                                .define("VassalLockOutFormerOwner", false);
+
+                // ----- Multiplayer & online rules: how many attackers, and staying logged in -----
+                BESIEGE_MIN_ATTACKERS = BUILDER
+                                .comment("[Multiplayer] Minimum number of distinct besiegers that must take part for a siege to",
+                                                "CAPTURE the colony (the 'not solo' rule). 1 = solo sieges allowed (default).",
+                                                "Higher values force players to band together: if fewer than this are present when",
+                                                "all defenders fall, the defenders are wiped but the colony is NOT captured.")
+                                .defineInRange("BesiegeMinAttackers", 1, 1, 20);
+
+                BESIEGE_SHARE_SPOILS = BUILDER
+                                .comment("[Multiplayer] When several players besiege the SAME colony (each runs /wnt besiege on it),",
+                                                "split the treasury spoils (BesiegeSpoilPercentOfLoserTreasury) among all participating",
+                                                "besiegers' primary colonies on victory, instead of only the first to resolve.",
+                                                "The lead besieger still receives the ongoing tax-tribute stream.")
+                                .define("BesiegeShareSpoils", true);
+
+                BESIEGE_REQUIRE_ONLINE = BUILDER
+                                .comment("[Online] Require besieging player(s) to stay online during a siege. If true, a besieger who",
+                                                "logs off for longer than BesiegeOfflineGraceMinutes has their participation cancelled",
+                                                "(a siege cannot be run from the lobby).")
+                                .define("BesiegeRequireOnline", true);
+
+                BESIEGE_OFFLINE_GRACE_MINUTES = BUILDER
+                                .comment("[Online] Minutes a besieger may stay offline before their siege participation is cancelled",
+                                                "(only applies when BesiegeRequireOnline is true).")
+                                .defineInRange("BesiegeOfflineGraceMinutes", 5, 0, 120);
+
                 BUILDER.pop(); // End Besiege System
 
                 CONFIG = BUILDER.build();
@@ -2545,6 +2639,10 @@ public class TaxConfig {
 
         public static boolean isSDMShopConversionEnabled() {
                 return ENABLE_SDM_SHOP_CONVERSION.get();
+        }
+
+        public static String getSDMCurrencyName() {
+                return SDM_CURRENCY_NAME.get();
         }
 
         public static String getCurrencyItemName() {
@@ -2710,6 +2808,38 @@ public class TaxConfig {
 
         public static int getBesiegeSpoilPercentOfLoserTreasury() {
                 return BESIEGE_SPOIL_PERCENT_OF_LOSER_TREASURY.get();
+        }
+
+        public static boolean isBesiegeChestAccessAllowed() {
+                return BESIEGE_ALLOW_CHEST_ACCESS.get();
+        }
+
+        public static int getBesiegeMinAttackers() {
+                return BESIEGE_MIN_ATTACKERS.get();
+        }
+
+        public static boolean isBesiegeRequireOnline() {
+                return BESIEGE_REQUIRE_ONLINE.get();
+        }
+
+        public static int getBesiegeOfflineGraceMinutes() {
+                return BESIEGE_OFFLINE_GRACE_MINUTES.get();
+        }
+
+        public static boolean isBesiegeShareSpoilsEnabled() {
+                return BESIEGE_SHARE_SPOILS.get();
+        }
+
+        public static int getWarVassalizationTreasuryGrabPercent() {
+                return WAR_VASSALIZATION_TREASURY_GRAB_PERCENT.get();
+        }
+
+        public static int getWarVassalizationPlayerBalanceGrabPercent() {
+                return WAR_VASSALIZATION_PLAYER_BALANCE_GRAB_PERCENT.get();
+        }
+
+        public static boolean isVassalLockOutFormerOwnerEnabled() {
+                return VASSAL_LOCK_OUT_FORMER_OWNER.get();
         }
 
         public static boolean isExperimentalSiegeObjectivesEnabled() {
@@ -2970,8 +3100,18 @@ public class TaxConfig {
                 return minMultiplier + (normalizedHappiness * (maxMultiplier - minMultiplier));
         }
 
+        /**
+         * Master switch for the automatic abandonment / owner-repair machinery.
+         * When false the mod performs NO automatic writes to MineColonies owner/permission
+         * state. The inactivity auto-abandon toggle ({@link #isColonyAutoAbandonEnabled()})
+         * is a sub-feature and only takes effect when this master switch is also enabled.
+         */
+        public static boolean isColonyAbandonmentSystemEnabled() {
+                return ENABLE_COLONY_ABANDONMENT_SYSTEM.get();
+        }
+
         public static boolean isColonyAutoAbandonEnabled() {
-                return ENABLE_COLONY_AUTO_ABANDON.get();
+                return ENABLE_COLONY_ABANDONMENT_SYSTEM.get() && ENABLE_COLONY_AUTO_ABANDON.get();
         }
 
         public static int getColonyAutoAbandonDays() {

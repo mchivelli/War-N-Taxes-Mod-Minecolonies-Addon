@@ -1,0 +1,295 @@
+warning: in the working copy of 'src/main/java/net/machiavelli/minecolonytax/economy/TreasuryManager.java', LF will be replaced by CRLF the next time Git touches it
+diff --git a/src/main/java/net/machiavelli/minecolonytax/TaxManager.java b/src/main/java/net/machiavelli/minecolonytax/TaxManager.java
+index 5f3b154..78f0127 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/TaxManager.java
++++ b/src/main/java/net/machiavelli/minecolonytax/TaxManager.java
+@@ -108,8 +108,12 @@ public class TaxManager {
+                 cleanupTickCount++;
+                 nullOwnerCheckCount++;
+ 
+-                // Check for null owners every 5 seconds
+-                if (nullOwnerCheckCount >= 100) { // 100 ticks = 5 seconds
++                // Null-owner safety net. The real null-owner repair runs at startup
++                // (MineColonyTax.onServerStarting + deferred passes); this is only a
++                // periodic catch for owners that go null at runtime (rare). Throttled
++                // to every 5 minutes — a per-5s all-colony permission scan is a needless
++                // steady-state cost at hundreds of colonies (optimization audit C2).
++                if (nullOwnerCheckCount >= 6000) { // 6000 ticks = 5 minutes
+                     nullOwnerCheckCount = 0;
+                     try {
+                         net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.emergencyFixAllNullOwners();
+@@ -1005,6 +1009,11 @@ public class TaxManager {
+             });
+             // Only log save operation once per full tax cycle
+             saveTaxData();
++            // Persist random-event state ONCE for the whole cycle (not per colony —
++            // see optimization audit C1 / RandomEventManager.persist()).
++            if (TaxConfig.isRandomEventsEnabled()) {
++                RandomEventManager.persist();
++            }
+             if (TaxConfig.isNormalLogging()) {
+                 LOGGER.info("Tax generation cycle completed for all colonies");
+             }
+@@ -1139,16 +1148,37 @@ public class TaxManager {
+     }
+ 
+     private static void saveTaxData(boolean logSave) {
+-        File file = new File(TAX_DATA_FILE);
+-        file.getParentFile().mkdirs(); // Ensure the directory exists
+-        try (FileWriter writer = new FileWriter(file)) {
+-            GSON.toJson(colonyTaxMap, writer);
+-            if (logSave && TaxConfig.showTaxGenerationLogs()) {
+-                LOGGER.info("Saved tax data to file.");
++        // Snapshot on the calling (main) thread, then write off-thread + coalesced so
++        // per-cycle and per-claim/debt-payment saves no longer block ticks (audit H4).
++        // Atomic temp+move added so a crash mid-write can't truncate colonyTaxData.json.
++        final Map<Integer, Integer> snapshot = new HashMap<>(colonyTaxMap);
++        final boolean log = logSave;
++        net.machiavelli.minecolonytax.util.AsyncSaveExecutor.submit("tax_data", () -> {
++            File file = new File(TAX_DATA_FILE);
++            file.getParentFile().mkdirs();
++            File tmp = new File(file.getParentFile(), file.getName() + ".tmp");
++            try {
++                try (FileWriter writer = new FileWriter(tmp)) {
++                    GSON.toJson(snapshot, writer);
++                }
++                try {
++                    java.nio.file.Files.move(tmp.toPath(), file.toPath(),
++                            java.nio.file.StandardCopyOption.ATOMIC_MOVE,
++                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
++                } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
++                    java.nio.file.Files.move(tmp.toPath(), file.toPath(),
++                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
++                }
++                if (log && TaxConfig.showTaxGenerationLogs()) {
++                    LOGGER.info("Saved tax data to file.");
++                }
++            } catch (Exception e) {
++                LOGGER.error("Error saving tax data", e);
++                if (tmp.exists()) {
++                    try { tmp.delete(); } catch (Exception ignored) { /* nothing else to do */ }
++                }
+             }
+-        } catch (IOException e) {
+-            LOGGER.error("Error saving tax data", e);
+-        }
++        });
+     }
+ 
+     private static void loadTaxData(MinecraftServer server) {
+diff --git a/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyAbandonmentManager.java b/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyAbandonmentManager.java
+index 07c95c1..bd984dd 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyAbandonmentManager.java
++++ b/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyAbandonmentManager.java
+@@ -461,6 +461,11 @@ public class ColonyAbandonmentManager {
+         }
+     }
+     
++    /** O(1) "are there any abandoned colonies at all?" — for hot-path early-outs (audit H7). */
++    public static boolean hasAbandonedColonies() {
++        return !abandonedColonies.isEmpty();
++    }
++
+     public static boolean isColonyAbandoned(IColony colony) {
+         if (colony == null || colony.getPermissions() == null) {
+             return false;
+diff --git a/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyClaimingRaidManager.java b/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyClaimingRaidManager.java
+index 97df1c2..128a21d 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyClaimingRaidManager.java
++++ b/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyClaimingRaidManager.java
+@@ -1048,6 +1048,11 @@ public class ColonyClaimingRaidManager {
+     public static boolean isColonyUnderClaimingRaid(int colonyId) {
+         return activeClaimingRaids.containsKey(colonyId);
+     }
++
++    /** O(1) "is any claiming raid active?" — for hot-path early-outs (audit H5). */
++    public static boolean hasActiveClaimingRaids() {
++        return !activeClaimingRaids.isEmpty();
++    }
+     
+     /**
+      * Get the claiming raid data for a colony.
+diff --git a/src/main/java/net/machiavelli/minecolonytax/besiege/BesiegeManager.java b/src/main/java/net/machiavelli/minecolonytax/besiege/BesiegeManager.java
+index 8874afe..21ddecd 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/besiege/BesiegeManager.java
++++ b/src/main/java/net/machiavelli/minecolonytax/besiege/BesiegeManager.java
+@@ -1068,6 +1068,15 @@ public class BesiegeManager {
+         return Collections.unmodifiableMap(view);
+     }
+ 
++    /**
++     * O(1), allocation-free "is any besiege active?" check. Use this on hot guard
++     * paths (e.g. the block-interaction filter) instead of {@code getActiveRaids().isEmpty()},
++     * which builds and discards a HashMap on every call (audit H6).
++     */
++    public static boolean hasActiveRaids() {
++        return !ACTIVE_RAIDS.isEmpty();
++    }
++
+     /** Direct lookup by besieger UUID. Null when this player has no active raid. */
+     public static BesiegeRaidData getRaidForBesieger(UUID besiegerUUID) {
+         return ACTIVE_RAIDS.get(besiegerUUID);
+@@ -1361,6 +1370,16 @@ public class BesiegeManager {
+          */
+         public boolean isSecondaryRaider = false;
+ 
++        /**
++         * Short-TTL cache of "is this player a colony-mate of the besieger?" keyed
++         * by the damage source's UUID. Value = {@code long[]{result(0/1), expiryMs}}.
++         * LivingHurtEvent fires constantly, so without this the damage shield scanned
++         * ALL colonies on every hit; the TTL collapses per-hit bursts to one scan per
++         * few seconds per attacker while still catching mid-besiege rank changes
++         * (audit C3 + codex follow-up).
++         */
++        public final Map<UUID, long[]> colonyMateCache = new ConcurrentHashMap<>();
++
+         public BesiegeRaidData(int colonyId, UUID besiegingPlayerUUID, BlockPos colonyCenter, boolean isReclaim) {
+             this.colonyId = colonyId;
+             this.besiegingPlayerUUID = besiegingPlayerUUID;
+diff --git a/src/main/java/net/machiavelli/minecolonytax/economy/TreasuryManager.java b/src/main/java/net/machiavelli/minecolonytax/economy/TreasuryManager.java
+index f66c40f..ff23f87 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/economy/TreasuryManager.java
++++ b/src/main/java/net/machiavelli/minecolonytax/economy/TreasuryManager.java
+@@ -65,6 +65,13 @@ public class TreasuryManager {
+     }
+ 
+     public static void shutdown() {
++        // Synchronous final write on shutdown so the latest balances always reach disk
++        // regardless of the async executor's state/ordering.
++        writeData(new java.util.HashMap<>(TREASURIES));
++    }
++
++    /** Public runtime save trigger — async + coalesced (audit H1/H2). */
++    public static void save() {
+         saveData();
+     }
+ 
+@@ -532,6 +539,13 @@ public class TreasuryManager {
+     }
+ 
+     private static void saveData() {
++        // Snapshot on the calling (main) thread, write off-thread + coalesced so a
++        // deposit/withdraw/purchase storm no longer blocks ticks on disk I/O (audit H1).
++        final Map<Integer, Integer> snapshot = new java.util.HashMap<>(TREASURIES);
++        net.machiavelli.minecolonytax.util.AsyncSaveExecutor.submit("treasury", () -> writeData(snapshot));
++    }
++
++    private static void writeData(Map<Integer, Integer> data) {
+         File file = new File(STORAGE_FILE);
+         file.getParentFile().mkdirs();
+ 
+@@ -542,7 +556,7 @@ public class TreasuryManager {
+         File tmpFile = new File(file.getParentFile(), file.getName() + ".tmp");
+         try {
+             try (FileWriter writer = new FileWriter(tmpFile)) {
+-                GSON.toJson(TREASURIES, writer);
++                GSON.toJson(data, writer);
+             }
+             Path tmpPath = tmpFile.toPath();
+             Path finalPath = file.toPath();
+diff --git a/src/main/java/net/machiavelli/minecolonytax/economy/WarExhaustionManager.java b/src/main/java/net/machiavelli/minecolonytax/economy/WarExhaustionManager.java
+index e0cd2b0..333189a 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/economy/WarExhaustionManager.java
++++ b/src/main/java/net/machiavelli/minecolonytax/economy/WarExhaustionManager.java
+@@ -430,23 +430,32 @@ public class WarExhaustionManager {
+     }
+ 
+     private static void saveData() {
+-        try {
+-            Path path = Paths.get(STORAGE_FILE);
+-            Files.createDirectories(path.getParent());
+-
+-            ExhaustionSaveData data = new ExhaustionSaveData();
+-            data.coloniesAtWar = new ConcurrentHashMap<>(COLONIES_AT_WAR);
+-            data.recoveryStatus = new ConcurrentHashMap<>(RECOVERY_STATUS);
+-            data.warLosses = new ConcurrentHashMap<>(WAR_LOSSES);
+-            data.reparations = new ConcurrentHashMap<>(REPARATIONS);
+-            data.warImmunity = new ConcurrentHashMap<>(WAR_IMMUNITY);
+-
+-            try (Writer writer = new FileWriter(path.toFile())) {
+-                GSON.toJson(data, writer);
+-            }
+-        } catch (Exception e) {
+-            LOGGER.error("Failed to save war exhaustion data", e);
++        // Snapshot on the calling (main) thread, write off-thread + coalesced so the
++        // many war-state transitions no longer each block a tick on disk I/O (audit H3).
++        final ExhaustionSaveData data = new ExhaustionSaveData();
++        data.coloniesAtWar = new java.util.HashMap<>(COLONIES_AT_WAR);
++        data.recoveryStatus = new java.util.HashMap<>(RECOVERY_STATUS);
++        // warLosses values are mutable Lists — deep-copy so the async writer never
++        // serializes a list while the main thread mutates it.
++        Map<Integer, List<Long>> lossesCopy = new java.util.HashMap<>();
++        for (Map.Entry<Integer, List<Long>> e : WAR_LOSSES.entrySet()) {
++            lossesCopy.put(e.getKey(), new java.util.ArrayList<>(e.getValue()));
+         }
++        data.warLosses = lossesCopy;
++        data.reparations = new java.util.HashMap<>(REPARATIONS);
++        data.warImmunity = new java.util.HashMap<>(WAR_IMMUNITY);
++
++        net.machiavelli.minecolonytax.util.AsyncSaveExecutor.submit("war_exhaustion", () -> {
++            try {
++                Path path = Paths.get(STORAGE_FILE);
++                Files.createDirectories(path.getParent());
++                try (Writer writer = new FileWriter(path.toFile())) {
++                    GSON.toJson(data, writer);
++                }
++            } catch (Exception e) {
++                LOGGER.error("Failed to save war exhaustion data", e);
++            }
++        });
+     }
+ 
+     /**
+diff --git a/src/main/java/net/machiavelli/minecolonytax/event/AbandonedColonyProtectionHandler.java b/src/main/java/net/machiavelli/minecolonytax/event/AbandonedColonyProtectionHandler.java
+index 79e0f4b..3647209 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/event/AbandonedColonyProtectionHandler.java
++++ b/src/main/java/net/machiavelli/minecolonytax/event/AbandonedColonyProtectionHandler.java
+@@ -74,6 +74,12 @@ public class AbandonedColonyProtectionHandler {
+     }
+     
+     private static boolean isBlockInAbandonedColony(BlockPos pos, Level level, ServerPlayer player) {
++        // Fast path: if NO colony is abandoned, skip the per-block-event colony-by-position
++        // lookup entirely. This guard covers all three handlers (break/place/right-click)
++        // since each calls this first (audit H7).
++        if (!ColonyAbandonmentManager.hasAbandonedColonies()) {
++            return false;
++        }
+         try {
+             IColony colony = IColonyManager.getInstance().getColonyByPosFromWorld(level, pos);
+             if (colony == null) {
+diff --git a/src/main/java/net/machiavelli/minecolonytax/event/BlockInteractionFilterHandler.java b/src/main/java/net/machiavelli/minecolonytax/event/BlockInteractionFilterHandler.java
+index e0c4ca5..dffe00b 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/event/BlockInteractionFilterHandler.java
++++ b/src/main/java/net/machiavelli/minecolonytax/event/BlockInteractionFilterHandler.java
+@@ -101,8 +101,8 @@ public class BlockInteractionFilterHandler {
+                 && !net.machiavelli.minecolonytax.occupation.OccupationManager
+                         .getActiveOccupations().isEmpty()) return true;
+         if (TaxConfig.isBesiegeSystemEnabled()
+-                && !net.machiavelli.minecolonytax.besiege.BesiegeManager
+-                        .getActiveRaids().isEmpty()) return true;
++                && net.machiavelli.minecolonytax.besiege.BesiegeManager
++                        .hasActiveRaids()) return true;
+         if (TaxConfig.isBlockFilterRaidsEnabled()
+                 && !RaidManager.getActiveRaids().isEmpty()) return true;
+         if (TaxConfig.isBlockFilterWarsEnabled()
+diff --git a/src/main/java/net/machiavelli/minecolonytax/event/RaidKillTracker.java b/src/main/java/net/machiavelli/minecolonytax/event/RaidKillTracker.java
+index 6990321..79f14b7 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/event/RaidKillTracker.java
++++ b/src/main/java/net/machiavelli/minecolonytax/event/RaidKillTracker.java
+@@ -55,6 +55,16 @@ public class RaidKillTracker {
+     }
+ 
+     private static void handleEntityDeath(AbstractEntityCitizen citizen, DamageSource damageSource) {
++        // Fast path: citizen deaths are extremely frequent across hundreds of colonies.
++        // This handler only acts on regular raids, claiming raids, or wars — if none are
++        // active anywhere, bail before the colony lookup (audit H5). Behavior-preserving:
++        // with no conflict, the flags below stay false and the method returns anyway.
++        if (RaidManager.getActiveRaids().isEmpty()
++                && net.machiavelli.minecolonytax.WarSystem.ACTIVE_WARS.isEmpty()
++                && !ColonyClaimingRaidManager.hasActiveClaimingRaids()) {
++            return;
++        }
++
+         ServerPlayer killer = damageSource.getEntity() instanceof ServerPlayer player ? player : null;
+         IColony colony = IColonyManager.getInstance().getColonyByWorld(citizen.getCitizenColonyHandler().getColonyId(),
+                 citizen.level());

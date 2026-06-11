@@ -84,7 +84,14 @@ public abstract class WorldTickHandlerMixin {
         }
 
         if (anyBesiege) {
+            net.minecraft.resources.ResourceKey<Level> dimKey = eventLevel.dimension();
             for (BesiegeManager.BesiegeRaidData raid : BesiegeManager.getAllActiveRaidsByBesieger().values()) {
+                // Fast path: compare cached dimension in O(1) (audit H12).
+                if (raid.dimension != null) {
+                    if (raid.dimension.equals(dimKey)) { ci.cancel(); return; }
+                    continue;
+                }
+                // Fallback for a raid with no cached dimension (e.g. restored): resolve by id.
                 IColony c = com.minecolonies.api.IMinecoloniesAPI.getInstance().getColonyManager()
                         .getAllColonies().stream()
                         .filter(col -> col.getID() == raid.colonyId)

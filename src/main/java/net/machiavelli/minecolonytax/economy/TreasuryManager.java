@@ -65,6 +65,16 @@ public class TreasuryManager {
     }
 
     public static void shutdown() {
+        // Route the final save through the async executor too, so warchests.json is only
+        // ever written by the single async thread — never concurrently from the main
+        // thread (which could race an in-flight async write of the same .tmp). The
+        // ServerStopping hook calls AsyncSaveExecutor.shutdownAndFlush() afterwards,
+        // which barriers on the worker then flushes this pending write to disk.
+        save();
+    }
+
+    /** Public runtime save trigger — async + coalesced (audit H1/H2). */
+    public static void save() {
         saveData();
     }
 
@@ -532,6 +542,13 @@ public class TreasuryManager {
     }
 
     private static void saveData() {
+        // Snapshot on the calling (main) thread, write off-thread + coalesced so a
+        // deposit/withdraw/purchase storm no longer blocks ticks on disk I/O (audit H1).
+        final Map<Integer, Integer> snapshot = new java.util.HashMap<>(TREASURIES);
+        net.machiavelli.minecolonytax.util.AsyncSaveExecutor.submit("treasury", () -> writeData(snapshot));
+    }
+
+    private static void writeData(Map<Integer, Integer> data) {
         File file = new File(STORAGE_FILE);
         file.getParentFile().mkdirs();
 
@@ -542,7 +559,7 @@ public class TreasuryManager {
         File tmpFile = new File(file.getParentFile(), file.getName() + ".tmp");
         try {
             try (FileWriter writer = new FileWriter(tmpFile)) {
-                GSON.toJson(TREASURIES, writer);
+                GSON.toJson(data, writer);
             }
             Path tmpPath = tmpFile.toPath();
             Path finalPath = file.toPath();

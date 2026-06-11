@@ -55,6 +55,16 @@ public class RaidKillTracker {
     }
 
     private static void handleEntityDeath(AbstractEntityCitizen citizen, DamageSource damageSource) {
+        // Fast path: citizen deaths are extremely frequent across hundreds of colonies.
+        // This handler only acts on regular raids, claiming raids, or wars — if none are
+        // active anywhere, bail before the colony lookup (audit H5). Behavior-preserving:
+        // with no conflict, the flags below stay false and the method returns anyway.
+        if (RaidManager.getActiveRaids().isEmpty()
+                && net.machiavelli.minecolonytax.WarSystem.ACTIVE_WARS.isEmpty()
+                && !ColonyClaimingRaidManager.hasActiveClaimingRaids()) {
+            return;
+        }
+
         ServerPlayer killer = damageSource.getEntity() instanceof ServerPlayer player ? player : null;
         IColony colony = IColonyManager.getInstance().getColonyByWorld(citizen.getCitizenColonyHandler().getColonyId(),
                 citizen.level());

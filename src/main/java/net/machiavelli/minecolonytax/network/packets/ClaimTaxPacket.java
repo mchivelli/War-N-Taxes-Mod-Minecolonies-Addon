@@ -128,50 +128,19 @@ public class ClaimTaxPacket {
             }
             
             if (claimedAmount > 0) {
-                // Give the player the claimed tax
-                boolean paymentSuccessful = false;
-                
-                if (TaxConfig.isSDMShopConversionEnabled()) {
-                    // Use SDMShop integration
-                    if (SDMShopIntegration.isAvailable()) {
-                        long currentBalance = SDMShopIntegration.getMoney(player);
-                        
-                        paymentSuccessful = SDMShopIntegration.addMoney(player, claimedAmount);
-                        
-                        if (paymentSuccessful) {
-                            long newBalance = SDMShopIntegration.getMoney(player);
-                            player.sendSystemMessage(Component.literal("§a✓ Successfully added " + claimedAmount + " to your balance!"));
-                            player.sendSystemMessage(Component.literal("§a  Balance: " + currentBalance + " → " + newBalance));
-                        } else {
-                            player.sendSystemMessage(Component.literal("§c✗ Failed to add money to SDMShop balance!"));
-                        }
-                    } else {
-                        player.sendSystemMessage(Component.literal("§c✗ SDMShop integration is not available!"));
-                        player.sendSystemMessage(Component.literal("§eCheck that SDMShop mod is installed and working"));
+                // Deliver the claimed tax, refunding the colony ledger if delivery fails so
+                // taxes are never silently lost (4.x "coins never appear" fix). The helper
+                // emits its own failure/refund message; we only confirm on success.
+                long before = TaxConfig.isSDMShopConversionEnabled() && SDMShopIntegration.isAvailable()
+                        ? SDMShopIntegration.getMoney(player) : -1L;
+                if (net.machiavelli.minecolonytax.integration.CurrencyService
+                        .deliverClaimedTaxOrRefund(player, colony, claimedAmount)) {
+                    if (before >= 0L) {
+                        long after = SDMShopIntegration.getMoney(player);
+                        player.sendSystemMessage(Component.literal("§aAdded " + claimedAmount
+                                + " to your balance (" + before + " -> " + after + ")"));
                     }
-                } else {
-                    // Use item-based currency
-                    Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName()));
-                    if (item != null) {
-                        ItemStack itemStack = new ItemStack(item, claimedAmount);
-                        boolean added = player.getInventory().add(itemStack);
-                        if (!added) {
-                            // If inventory is full, drop items near player
-                            player.drop(itemStack, false);
-                            player.sendSystemMessage(Component.translatable("taxmanager.inventory_full", claimedAmount, TaxConfig.getCurrencyItemName()));
-                        } else {
-                            player.sendSystemMessage(Component.translatable("taxmanager.currency_received", claimedAmount, TaxConfig.getCurrencyItemName()));
-                        }
-                        paymentSuccessful = true;
-                    } else {
-                        player.sendSystemMessage(Component.literal("§c✗ Currency item not found: " + TaxConfig.getCurrencyItemName()));
-                    }
-                }
-                
-                if (paymentSuccessful) {
                     player.sendSystemMessage(Component.translatable("command.claimtax.success", claimedAmount, colony.getName()));
-                } else {
-                    player.sendSystemMessage(Component.literal("§c✗ Failed to claim tax - payment system error!"));
                 }
             } else {
                 player.sendSystemMessage(Component.translatable("command.claimtax.no_tax", colony.getName()));

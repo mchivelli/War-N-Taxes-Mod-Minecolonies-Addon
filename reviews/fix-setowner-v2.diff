@@ -1,0 +1,170 @@
+warning: in the working copy of 'src/main/java/net/machiavelli/minecolonytax/commands/WntCommands.java', LF will be replaced by CRLF the next time Git touches it
+diff --git a/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyAbandonmentManager.java b/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyAbandonmentManager.java
+index 07c95c1..b727618 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyAbandonmentManager.java
++++ b/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyAbandonmentManager.java
+@@ -461,6 +461,15 @@ public class ColonyAbandonmentManager {
+         }
+     }
+     
++    /** "Are there any abandoned colonies at all?" — for hot-path early-outs (audit H7).
++     *  Calls the lazy one-shot loadData() (guarded by a LOADED flag, so cheap after the
++     *  first call) so a fresh server start sees persisted abandonment state before the
++     *  first block event — matching isColonyAbandoned(). */
++    public static boolean hasAbandonedColonies() {
++        loadData();
++        return !abandonedColonies.isEmpty();
++    }
++
+     public static boolean isColonyAbandoned(IColony colony) {
+         if (colony == null || colony.getPermissions() == null) {
+             return false;
+@@ -898,24 +907,25 @@ public class ColonyAbandonmentManager {
+             for (ColonyPlayer player : permissions.getPlayers().values()) {
+                 if (!isSystemOwner(player.getID()) && player.getRank().isColonyManager()) {
+                     try {
+-                        java.lang.reflect.Method setOwnerMethod = permissions.getClass().getMethod("setOwner", UUID.class);
+-                        setOwnerMethod.invoke(permissions, player.getID());
++                        // MineColonies changed IPermissions.setOwner(UUID) -> setOwner(Player) in
++                        // 1.1.1237, which broke the old reflection ("argument type mismatch") and
++                        // left colonies ownerless. setOwner(Player) updates the cached ownerUUID
++                        // that getOwner() returns; setPlayerRank does NOT. Prefer setOwner when the
++                        // target manager is online; fall back to a best-effort rank assignment when
++                        // offline (the new API cannot set an offline player as the cached owner).
++                        // [1.21-PORT] same limitation on NeoForge/1.21 — see PORTING_NOTES.md.
++                        net.minecraft.server.level.ServerPlayer online =
++                                (colony.getWorld() != null && colony.getWorld().getServer() != null)
++                                        ? colony.getWorld().getServer().getPlayerList().getPlayer(player.getID())
++                                        : null;
++                        if (online != null) {
++                            permissions.setOwner(online);
++                        } else {
++                            permissions.setPlayerRank(player.getID(), permissions.getRankOwner(), colony.getWorld());
++                        }
+                         if (TaxConfig.isNormalLogging()) LOGGER.info("Set {} as owner of reactivated colony {}", player.getName(), colony.getName());
+-                        break;
+                     } catch (Exception e) {
+-                        LOGGER.warn("Could not set {} as owner directly, trying via reflection: {}", player.getName(), e.getMessage());
+-                        try {
+-                            for (java.lang.reflect.Method method : permissions.getClass().getDeclaredMethods()) {
+-                                if (method.getName().equals("setOwner") && method.getParameterCount() == 1) {
+-                                    method.setAccessible(true);
+-                                    method.invoke(permissions, player.getID());
+-                                    if (TaxConfig.isNormalLogging()) LOGGER.info("Set {} as owner of reactivated colony {} (via reflection)", player.getName(), colony.getName());
+-                                    break;
+-                                }
+-                            }
+-                        } catch (Exception e2) {
+-                            LOGGER.error("Failed to set {} as owner of colony {}: {}", player.getName(), colony.getName(), e2.getMessage());
+-                        }
++                        LOGGER.error("Failed to set {} as owner of colony {}: {}", player.getName(), colony.getName(), e.getMessage());
+                     }
+                     break;
+                 }
+diff --git a/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyClaimingRaidManager.java b/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyClaimingRaidManager.java
+index 97df1c2..c462a8c 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyClaimingRaidManager.java
++++ b/src/main/java/net/machiavelli/minecolonytax/abandon/ColonyClaimingRaidManager.java
+@@ -804,27 +804,18 @@ public class ColonyClaimingRaidManager {
+                     claimingPlayer.getName().getString(), colony.getName());
+             }
+             
+-            // CRITICAL: Set the claiming player as the actual owner to prevent GUI crashes
++            // CRITICAL: Set the claiming player as the actual owner to prevent GUI crashes.
++            // MineColonies changed IPermissions.setOwner(UUID) -> setOwner(Player) in 1.1.1237,
++            // which broke the old reflection ("argument type mismatch") and left the colony
++            // ownerless. setOwner(Player) updates the cached ownerUUID that getOwner() returns
++            // (setPlayerRank does NOT). claimingPlayer is an online ServerPlayer, so this is the
++            // correct, complete fix. [1.21-PORT] re-verify the owner API — see PORTING_NOTES.md.
+             try {
+-                java.lang.reflect.Method setOwnerMethod = permissions.getClass().getMethod("setOwner", UUID.class);
+-                setOwnerMethod.invoke(permissions, claimingPlayer.getUUID());
++                permissions.setOwner(claimingPlayer);
+                 if (TaxConfig.isNormalLogging()) LOGGER.info("Claiming owner set: {} is now the actual owner of claimed colony {}",
+                     claimingPlayer.getName().getString(), colony.getName());
+             } catch (Exception e) {
+-                LOGGER.warn("Could not set claiming player as actual owner directly, trying alternative: {}", e.getMessage());
+-                try {
+-                    for (java.lang.reflect.Method method : permissions.getClass().getDeclaredMethods()) {
+-                        if (method.getName().equals("setOwner") && method.getParameterCount() == 1) {
+-                            method.setAccessible(true);
+-                            method.invoke(permissions, claimingPlayer.getUUID());
+-                            if (TaxConfig.isNormalLogging()) LOGGER.info("Claiming owner set (alt): {} is now the actual owner of claimed colony {}",
+-                                claimingPlayer.getName().getString(), colony.getName());
+-                            break;
+-                        }
+-                    }
+-                } catch (Exception e2) {
+-                    LOGGER.error("Failed to set claiming player as actual owner: {}", e2.getMessage());
+-                }
++                LOGGER.error("Failed to set claiming player as actual owner: {}", e.getMessage());
+             }
+             
+             // STEP 2: Restore normal permissions for neutral players (they were restricted during abandonment)
+@@ -1048,6 +1039,11 @@ public class ColonyClaimingRaidManager {
+     public static boolean isColonyUnderClaimingRaid(int colonyId) {
+         return activeClaimingRaids.containsKey(colonyId);
+     }
++
++    /** O(1) "is any claiming raid active?" — for hot-path early-outs (audit H5). */
++    public static boolean hasActiveClaimingRaids() {
++        return !activeClaimingRaids.isEmpty();
++    }
+     
+     /**
+      * Get the claiming raid data for a colony.
+diff --git a/src/main/java/net/machiavelli/minecolonytax/commands/WntCommands.java b/src/main/java/net/machiavelli/minecolonytax/commands/WntCommands.java
+index 704e534..a19c3d9 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/commands/WntCommands.java
++++ b/src/main/java/net/machiavelli/minecolonytax/commands/WntCommands.java
+@@ -3412,39 +3412,23 @@ public class WntCommands {
+                                                         permissions.addPlayer(systemOwner, "[SYSTEM_ABANDONED]",
+                                                                         permissions.getRankOwner());
+ 
+-                                                        // CRITICAL FIX: Set actual owner to prevent GUI crashes
++                                                        // CRITICAL FIX: ensure the system owner holds the OWNER rank so
++                                                        // getOwner() resolves (prevents GUI crashes). Version-stable
++                                                        // setPlayerRank, not reflected setOwner — MineColonies changed
++                                                        // setOwner(UUID) -> setOwner(Player) in 1.1.1237, breaking the
++                                                        // old reflection. [1.21-PORT] re-verify — see PORTING_NOTES.md.
+                                                         try {
+-                                                                java.lang.reflect.Method setOwnerMethod = permissions
+-                                                                                .getClass().getMethod("setOwner",
+-                                                                                                UUID.class);
+-                                                                setOwnerMethod.invoke(permissions, systemOwner);
++                                                                permissions.setPlayerRank(systemOwner,
++                                                                                permissions.getRankOwner(),
++                                                                                colony.getWorld());
+                                                                 source.sendSuccess(() -> Component
+                                                                                 .literal("    Set system owner as actual owner to prevent GUI crashes")
+                                                                                 .withStyle(ChatFormatting.GREEN),
+                                                                                 false);
+                                                         } catch (Exception e) {
+-                                                                try {
+-                                                                        for (java.lang.reflect.Method method : permissions
+-                                                                                        .getClass()
+-                                                                                        .getDeclaredMethods()) {
+-                                                                                if (method.getName().equals("setOwner")
+-                                                                                                && method.getParameterCount() == 1) {
+-                                                                                        method.setAccessible(true);
+-                                                                                        method.invoke(permissions,
+-                                                                                                        systemOwner);
+-                                                                                        source.sendSuccess(
+-                                                                                                        () -> Component
+-                                                                                                                        .literal("    Set system owner (alt method) to prevent GUI crashes")
+-                                                                                                                        .withStyle(ChatFormatting.GREEN),
+-                                                                                                        false);
+-                                                                                        break;
+-                                                                                }
+-                                                                        }
+-                                                                } catch (Exception e2) {
+-                                                                        source.sendFailure(Component
+-                                                                                        .literal("    WARNING: Could not set actual owner - GUI may crash!")
+-                                                                                        .withStyle(ChatFormatting.RED));
+-                                                                }
++                                                                source.sendFailure(Component
++                                                                                .literal("    WARNING: Could not set actual owner - GUI may crash!")
++                                                                                .withStyle(ChatFormatting.RED));
+                                                         }
+ 
+                                                         // Set all real players to neutral with no permissions

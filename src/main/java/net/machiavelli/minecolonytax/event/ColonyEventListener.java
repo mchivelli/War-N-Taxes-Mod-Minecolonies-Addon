@@ -59,7 +59,13 @@ public class ColonyEventListener {
         }
         tickCounter = 0;
 
-        boolean logUpgrades = TaxConfig.showColonyInitializationLogs();
+        // This building-delta scan exists ONLY to log new/upgraded buildings. When that
+        // logging is off (production default) the whole O(colonies x buildings) per-second
+        // scan is pure waste — skip it entirely (audit H11). This also keeps
+        // colonyBuildingLevels empty in production, so it can't leak there.
+        if (!TaxConfig.showColonyInitializationLogs()) {
+            return;
+        }
         List<IColony> colonies = IColonyManager.getInstance().getAllColonies();
 
         for (IColony colony : colonies) {
@@ -84,7 +90,7 @@ public class ColonyEventListener {
                     }
                 }
 
-                if (newOrUpgradedBuildingsCount > 0 && logUpgrades) {
+                if (newOrUpgradedBuildingsCount > 0) {
                     LOGGER.info("Colony '{}': Detected {} new/upgraded buildings (Guards: {})",
                                colony.getName(), newOrUpgradedBuildingsCount, guardTowerCount);
                 }

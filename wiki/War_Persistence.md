@@ -224,3 +224,43 @@ These runtime-only objects are **recreated** on load, not serialized:
 - **Active `TickScheduler` timers** — Rescheduled based on remaining time calculations
 - **Glow effects** — Reapplied to online participants
 - **Guard resistance buffs** — Reapplied via `GuardResistanceHandler`
+
+---
+
+## Explosion Damage Restoration (WarBlockLedger)
+
+**Added after the v2 update.**
+
+War state is not the only thing that must survive a restart. During a war, explosions damage blocks; those blocks are restored when the war ends. If wars persist across a restart but the *damage ledger* does not, blocks broken before the restart would never be restored when the war later ends. `WarBlockLedger` closes that gap.
+
+### What it does
+
+- On `ExplosionEvent.Detonate` (HIGHEST priority) during an active war, it snapshots every affected block — its `BlockState`, position, and full block-entity NBT (chest contents, sign text, etc.) — into a per-war ledger keyed by the war's UUID. First snapshot per position wins, so repeat blasts on the same spot still restore the original pre-war state.
+- Scope is limited to a padding radius around the defender colony, and a hard 50,000-entry-per-war cap guards against a runaway explosion loop.
+- On `endWar()`, the ledgered blocks are restored to the world at ~50 blocks per tick to avoid chunk flicker. Block entities round-trip via `saveWithFullMetadata()` (capture) and `BlockEntity.loadStatic()` (restore).
+
+### Persistence
+
+The ledger is saved to **`config/warntax/war_block_ledger.nbt`** and follows the same lifecycle as `active_wars.json`:
+
+| When | Action |
+|---|---|
+| Server stop (`ServerStoppingEvent`) | `flushPendingRestores()` synchronously finishes any in-progress restoration, then `saveToDisk()` writes the remaining active-war ledgers. Both run **before** `TickScheduler.shutdown()`. |
+| Server start (`ServerStartingEvent`) | `loadFromDisk()` runs **before** war resume (so a war that ends on resume can still restore), then `pruneOrphans()` drops any ledger whose war did not come back. |
+
+NBT (not Gson/JSON) is used here specifically because `BlockState` and block-entity snapshots are NBT-native and round-trip cleanly — unlike the war-state files, which stay JSON for human-readability.
+
+### Edge cases handled
+
+| Scenario | Behavior |
+|---|---|
+| Restart mid-war, war ends later | Blocks broken before the restart are restored correctly from the reloaded ledger. |
+| Server stops *during* a restoration | Remaining blocks are flushed synchronously and saved with the world — none are stranded. |
+| War failed to resume (orphan ledger) | Pruned at startup; cannot resurrect blocks at an unrelated war's end. |
+| Partial war-restore (`active_wars.json.failed-<ts>`) | The ledger file is **not** deleted, so a manual recovery still has the damage data. |
+| Corrupt `war_block_ledger.nbt` | Preserved as `war_block_ledger.nbt.failed-<ts>`; server still boots. |
+| Double-restore after a crash | Not possible — `restoreWarDamage` removes the ledger first, prune drops non-active wars, and `active_wars.json` is deleted on load + co-written at shutdown, so a "war active and already restored" state cannot occur. |
+
+### Explosion't integration
+
+If the **Explosion't** mod is installed and `DeferRestorationToExplosiont = true`, the built-in ledger steps aside and a war-aware mixin (`WorldTickHandlerMixin`) pauses Explosion't's heal countdown while any war, raid, or besiege is active in that level — so destruction only regenerates **after** the conflict. When Explosion't is absent the mixin no-ops silently and the WarBlockLedger is the standalone fallback. `ExplosiontCompat.shouldDeferToExplosiont()` selects the active path.

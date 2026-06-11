@@ -10,7 +10,9 @@ version = mod_version
 group = mod_group_id
 
 base {
-    archivesName = mod_id
+    // Release artifact name (filename only). The in-jar MOD_ID stays "minecolonytax"
+    // (gradle.properties mod_id) so existing worlds/saves are unaffected by the rebrand.
+    archivesName = "WarNTaxes"
 }
 
 // Mojang ships Java 17 to end users in 1.18+, so your mod should target Java 17.
@@ -127,6 +129,7 @@ minecraft {
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
+    mavenCentral()
     maven {
         url "https://cursemaven.com"
     }
@@ -145,20 +148,20 @@ dependencies {
         jarJar.ranged(it, '[8.0.0,9.0.0)')
     }
 
-    implementation fg.deobf("curse.maven:minecolonies-245506:7629580")
-    runtimeOnly fg.deobf("curse.maven:blockui-522992:7541343")
-    runtimeOnly fg.deobf("curse.maven:multi-piston-303278:5204918")
-    runtimeOnly fg.deobf("curse.maven:domum-ornamentum-527361:7585567")
-    runtimeOnly fg.deobf("curse.maven:structurize-298744:7532330")
-    runtimeOnly fg.deobf("curse.maven:jei-238222:5739402")
-    implementation fg.deobf("curse.maven:sdm-shop-948942:7395729")
+    implementation fg.deobf("curse.maven:minecolonies-245506:8186502")
+    runtimeOnly fg.deobf("curse.maven:blockui-522992:7606230")
+    runtimeOnly fg.deobf("curse.maven:multi-piston-303278:7097889")
+    runtimeOnly fg.deobf("curse.maven:domum-ornamentum-527361:8179147")
+    runtimeOnly fg.deobf("curse.maven:structurize-298744:8138301")
+    runtimeOnly fg.deobf("curse.maven:jei-238222:7920915")
+    implementation fg.deobf("curse.maven:sdm-shop-948942:7935087")
     runtimeOnly fg.deobf("curse.maven:ftb-library-forge-404465:7296748")
     runtimeOnly fg.deobf("curse.maven:sdm-economy-1102542:6689080")
-    runtimeOnly fg.deobf("curse.maven:sdm-engine-core-964997:5761090")
+    runtimeOnly fg.deobf("curse.maven:sdm-engine-core-964997:7090174")
     runtimeOnly fg.deobf("curse.maven:sdm-ui-lib-1095061:6086204")
     runtimeOnly fg.deobf("curse.maven:architectury-api-419699:5137938")
-    implementation fg.deobf("curse.maven:ftb-teams-forge-404468:5267190")
-    implementation fg.deobf("curse.maven:recruits-523860:6500292")
+    implementation fg.deobf("curse.maven:ftb-teams-forge-404468:7499810")
+    implementation fg.deobf("curse.maven:recruits-523860:7906232")
     implementation fg.deobf("vazkii.patchouli:Patchouli:1.20.1-84-FORGE")
     // easy-factions removed: ServerConfig.onLoad bug crashes dev env (no code depends on it)
     // runtimeOnly fg.deobf("curse.maven:easy-factions-1419148:7678446")
@@ -176,9 +179,79 @@ dependencies {
 
     minecraft "net.minecraftforge:forge:1.20.1-47.3.10"
 
-
-
+    // Unit tests (plain JUnit, no Minecraft bootstrap needed)
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat 'full'
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MineColonies API compatibility guard.
+//
+// MineColonies renamed IColony#getBuildingManager() to getServerBuildingManager(),
+// which crashed users running a different MineColonies version than the one we
+// compile against (NoSuchMethodError during server tick). ALL building access must
+// go through the reflection shim ColonyBuildingUtil.getBuildings(colony), which
+// supports both API shapes at runtime.
+//
+// This task fails the build if any source file outside the shim calls either
+// method directly (or references the version-specific manager interface).
+// Runs automatically as part of `gradlew build` / `gradlew check`.
+// ---------------------------------------------------------------------------
+def buildingApiGuard = tasks.register('checkBuildingApiUsage') {
+    group = 'verification'
+    description = 'Fails the build on direct MineColonies building-manager API usage outside ColonyBuildingUtil'
+    def srcDir = file('src/main/java')
+    def reportFile = layout.buildDirectory.file('reports/buildingApiGuard.txt')
+    inputs.dir(srcDir)
+    outputs.file(reportFile)
+    doLast {
+        def offenders = []
+        def pattern = ~/\.\s*(getServerBuildingManager|getBuildingManager)\s*\(|\bIRegisteredStructureManager\b/
+        srcDir.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+            if (!f.name.endsWith('.java') || f.name == 'ColonyBuildingUtil.java') return
+            boolean inBlockComment = false
+            f.readLines('UTF-8').eachWithIndex { line, idx ->
+                def code = line
+                if (inBlockComment) {
+                    def end = code.indexOf('*/')
+                    if (end < 0) return
+                    code = code.substring(end + 2)
+                    inBlockComment = false
+                }
+                code = code.replaceAll('//.*$', '')
+                while (true) {
+                    def start = code.indexOf('/*')
+                    if (start < 0) break
+                    def end = code.indexOf('*/', start + 2)
+                    if (end < 0) { code = code.substring(0, start); inBlockComment = true; break }
+                    code = code.substring(0, start) + code.substring(end + 2)
+                }
+                if (code =~ pattern) {
+                    offenders << "${f.absolutePath}:${idx + 1}: ${line.trim()}"
+                }
+            }
+        }
+        def report = reportFile.get().asFile
+        report.parentFile.mkdirs()
+        report.text = offenders.isEmpty() ? 'OK - no direct building-manager API usage.\n' : offenders.join('\n') + '\n'
+        if (!offenders.isEmpty()) {
+            throw new GradleException(
+                "Direct MineColonies building-manager API usage detected.\n" +
+                "Use ColonyBuildingUtil.getBuildings(colony) instead - direct calls crash with NoSuchMethodError " +
+                "on MineColonies versions that have the other API shape:\n  " + offenders.join('\n  '))
+        }
+    }
+}
+tasks.named('check') { dependsOn buildingApiGuard }
 
 // This block of code expands all declared replace properties in the specified resource targets.
 // A missing property will result in an error. Properties are expanded using ${} Groovy notation.

@@ -123,6 +123,29 @@ public class BesiegeManager {
 
                 ServerPlayer besieger = SERVER.getPlayerList().getPlayer(raid.besiegingPlayerUUID);
 
+                // --- Online requirement: a siege cannot be conducted from the lobby ---
+                // When BesiegeRequireOnline is set, a besieger who logs off for longer than
+                // BesiegeOfflineGraceMinutes has their participation cancelled. With the
+                // multi-besieger shared pool, cancelling one besieger does not despawn the
+                // defenders while other besiegers remain (cleanupRaid gates on the index).
+                if (TaxConfig.isBesiegeRequireOnline()) {
+                    if (besieger == null) {
+                        if (raid.offlineSinceMs == 0) raid.offlineSinceMs = System.currentTimeMillis();
+                        long graceMs = TaxConfig.getBesiegeOfflineGraceMinutes() * 60_000L;
+                        if (System.currentTimeMillis() - raid.offlineSinceMs >= graceMs) {
+                            if (TaxConfig.isNormalLogging())
+                                LOGGER.info("Besieger {} offline past grace — cancelling their besiege of colony {}",
+                                        raid.besiegingPlayerUUID, raid.colonyId);
+                            cleanupRaid(raid, false);
+                            applyCooldown(raid.besiegingPlayerUUID);
+                            it.remove();
+                            continue;
+                        }
+                    } else if (raid.offlineSinceMs != 0) {
+                        raid.offlineSinceMs = 0; // back online — reset the grace timer
+                    }
+                }
+
                 // --- Timer expired: defenders win ---
                 if (System.currentTimeMillis() >= raid.endTime) {
                     if (TaxConfig.isNormalLogging())
@@ -136,7 +159,8 @@ public class BesiegeManager {
                     // Route through completeBesiege so siege spoils + cooldown + cleanup all fire
                     // via a single path. Previously the timeout cleaned up directly, skipping
                     // defender-victory siege spoils entirely.
-                    completeBesiege(raid, false, colony);
+                    completeBesiege(raid, false, colony,
+                            java.util.Collections.singletonList(raid.besiegingPlayerUUID));
                     it.remove();
                     continue;
                 }
@@ -163,53 +187,74 @@ public class BesiegeManager {
                 // --- Victory: all defenders dead ---
                 if (allDefendersDead(raid, colony)) {
                     if (TaxConfig.isNormalLogging())
-                        LOGGER.info("Besiege raid on colony {} resolved-first this tick — besieger wins", colony.getName());
+                        LOGGER.info("Besiege raid on colony {} resolved this tick — defenders are down", colony.getName());
 
-                    // Step 3 Phase 2 — first-resolved wins, others lose the race.
-                    // Codex wave-15 finding: snapshot the loser set and remove ALL
-                    // colony raids from the index BEFORE running any cleanup, so the
-                    // last cleanup is the one that deterministically despawns the
-                    // shared defender pool. Otherwise the ordering of cleanup calls
-                    // controls which one sees siblings.size() == 1 and that's fragile.
-                    java.util.List<BesiegeRaidData> raceLosers = new java.util.ArrayList<>();
+                    // Gather EVERY besieger currently participating on this colony. The one
+                    // this tick happened to resolve first is the "lead" (receives the
+                    // vassalization tribute); the others are co-victors who share the
+                    // treasury spoils (BesiegeShareSpoils). participants drives both the
+                    // 'not solo' minimum-attacker gate and the spoils split.
+                    java.util.List<BesiegeRaidData> coBesiegers = new java.util.ArrayList<>();
+                    java.util.List<UUID> participants = new java.util.ArrayList<>();
+                    participants.add(raid.besiegingPlayerUUID);
                     for (UUID otherUUID : new java.util.HashSet<>(
                             COLONY_RAID_INDEX.getOrDefault(raid.colonyId, java.util.Collections.emptySet()))) {
                         if (otherUUID.equals(raid.besiegingPlayerUUID)) continue;
                         BesiegeRaidData other = ACTIVE_RAIDS.get(otherUUID);
-                        if (other != null) raceLosers.add(other);
+                        if (other != null) { coBesiegers.add(other); participants.add(otherUUID); }
                     }
 
-                    // Drop ALL concurrent raids on this colony from the index first.
-                    // This way the winner's completeBesiege → cleanupRaid sees
-                    // siblings.size() == 0 and correctly despawns the shared pool
-                    // exactly once. Each loser is then cleaned without re-despawning.
+                    // Drop ALL concurrent raids on this colony from the index first, so the
+                    // winner's cleanup path is deterministic (defenders are already dead, so
+                    // there is nothing live left to despawn either way).
                     Set<UUID> indexEntry = COLONY_RAID_INDEX.remove(raid.colonyId);
                     if (indexEntry != null) indexEntry.clear();
 
-                    completeBesiege(raid, true, colony);
+                    // 'Not solo' rule: the attacking force must meet BesiegeMinAttackers to
+                    // actually claim the colony. If too few took part, the defenders fell but
+                    // the colony is NOT captured — raids end with cooldowns and no spoils.
+                    int minAttackers = TaxConfig.getBesiegeMinAttackers();
+                    if (participants.size() < minAttackers) {
+                        sendToPlayer(raid.besiegingPlayerUUID, Component.literal(
+                                "The defenders of " + colony.getName() + " fell, but your force was too small to hold it (needs "
+                                        + minAttackers + " besiegers). Rally allies and try again.")
+                                .withStyle(ChatFormatting.YELLOW));
+                        cleanupRaid(raid, true);
+                        applyCooldown(raid.besiegingPlayerUUID);
+                        it.remove();
+                        for (BesiegeRaidData co : coBesiegers) {
+                            try {
+                                sendToPlayer(co.besiegingPlayerUUID, Component.literal(
+                                        "The besiege of " + colony.getName() + " collapsed — too few attackers to claim it.")
+                                        .withStyle(ChatFormatting.YELLOW));
+                                cleanupRaid(co, true);
+                                applyCooldown(co.besiegingPlayerUUID);
+                            } catch (Exception ex) {
+                                LOGGER.warn("Failed to end co-besieger raid for {}: {}",
+                                        co.besiegingPlayerUUID, ex.getMessage());
+                            }
+                        }
+                        continue;
+                    }
+
+                    // Enough attackers — capture. Lead besieger gets vassalization; spoils are
+                    // split across all participants' primary colonies inside completeBesiege.
+                    completeBesiege(raid, true, colony, participants);
                     it.remove();
 
-                    for (BesiegeRaidData loser : raceLosers) {
+                    for (BesiegeRaidData co : coBesiegers) {
                         try {
-                            // Worded honestly — codex wave-15 finding #3: not a true
-                            // "killing blow" claim, since the resolver picked whichever
-                            // raid the tick happened to process first.
-                            sendToPlayer(loser.besiegingPlayerUUID, Component.literal(
-                                    "You lost the race — " + getPlayerName(raid.besiegingPlayerUUID)
-                                            + "'s besiege of " + colony.getName() + " resolved first.")
-                                    .withStyle(ChatFormatting.RED));
-                            // ACTIVE_RAIDS still has loser entry; remove via cleanup with removeFromMap=true.
-                            // Shared defender pool is already despawned via winner's cleanup above,
-                            // so the loser's cleanup will short-circuit (isLastRaidOnColony is true
-                            // by then, but the sets are already empty/discarded).
-                            cleanupRaid(loser, true);
-                            applyCooldown(loser.besiegingPlayerUUID);
+                            sendToPlayer(co.besiegingPlayerUUID, Component.literal(
+                                    "Victory! You shared in the successful siege of " + colony.getName() + ".")
+                                    .withStyle(ChatFormatting.GREEN));
+                            cleanupRaid(co, true);
+                            applyCooldown(co.besiegingPlayerUUID);
                             if (TaxConfig.isNormalLogging())
-                                LOGGER.info("Race-loser besieger {} ended (no spoils, cooldown applied)",
-                                        loser.besiegingPlayerUUID);
+                                LOGGER.info("Co-besieger {} shared in victory on colony {}",
+                                        co.besiegingPlayerUUID, colony.getName());
                         } catch (Exception ex) {
-                            LOGGER.warn("Failed to end race-loser raid for {}: {}",
-                                    loser.besiegingPlayerUUID, ex.getMessage());
+                            LOGGER.warn("Failed to finalize co-besieger raid for {}: {}",
+                                    co.besiegingPlayerUUID, ex.getMessage());
                         }
                     }
                     continue;
@@ -366,6 +411,7 @@ public class BesiegeManager {
 
         try {
             BesiegeRaidData raid = new BesiegeRaidData(colonyId, besiegerUUID, colony.getCenter(), isReclaim);
+            try { raid.dimension = colony.getDimension(); } catch (Exception ignored) { /* fallback handled in mixin */ }
 
             // Step 3 Phase 2 — multi-besieger shared defender pool.
             // Find any already-active raid on this colony BEFORE inserting our own.
@@ -669,19 +715,20 @@ public class BesiegeManager {
                 TaxConfig.getBesiegeDurationMinutes());
     }
 
-    private static void completeBesiege(BesiegeRaidData raid, boolean attackerWon, IColony colony) {
+    private static void completeBesiege(BesiegeRaidData raid, boolean attackerWon, IColony colony,
+            java.util.List<UUID> participantBesiegers) {
         cleanupRaid(raid, true);
         applyCooldown(raid.besiegingPlayerUUID);
 
         if (attackerWon) {
-            applySiegeSpoils(raid, colony, true);
+            applySiegeSpoils(raid, colony, true, participantBesiegers);
             if (raid.isReclaim) {
                 completeReclaim(raid, colony);
             } else {
                 completeBesiegeVictory(raid, colony);
             }
         } else {
-            applySiegeSpoils(raid, colony, false);
+            applySiegeSpoils(raid, colony, false, participantBesiegers);
             sendToPlayer(raid.besiegingPlayerUUID,
                     Component.literal("The besiege of " + colony.getName() + " failed.")
                             .withStyle(ChatFormatting.RED));
@@ -696,49 +743,103 @@ public class BesiegeManager {
      * of (computed spoil) and (winner's remaining headroom). The deduction matches
      * that credited amount, so coins are never lost to the cap.
      */
-    private static void applySiegeSpoils(BesiegeRaidData raid, IColony defenderColony, boolean attackerWon) {
+    private static void applySiegeSpoils(BesiegeRaidData raid, IColony defenderColony, boolean attackerWon,
+            java.util.List<UUID> participantBesiegers) {
         int percent = TaxConfig.getBesiegeSpoilPercentOfLoserTreasury();
         if (percent <= 0) return;
 
-        IColony besiegerColony = getPrimaryColonyOfPlayer(raid.besiegingPlayerUUID);
-        if (besiegerColony == null) return;
+        if (attackerWon) {
+            applySharedAttackerSpoils(defenderColony, raid, participantBesiegers, percent);
+        } else {
+            // Defender win — the single besieger's primary colony pays the defender colony.
+            IColony besiegerColony = getPrimaryColonyOfPlayer(raid.besiegingPlayerUUID);
+            if (besiegerColony == null) return;
+            int loserBalance = net.machiavelli.minecolonytax.economy.TreasuryManager.getTreasuryBalance(besiegerColony.getID());
+            if (loserBalance <= 0) return;
+            int requestedSpoil = (int) Math.floor(loserBalance * (percent / 100.0));
+            if (requestedSpoil <= 0) return;
+            int winnerBalance = net.machiavelli.minecolonytax.economy.TreasuryManager.getTreasuryBalance(defenderColony.getID());
+            int winnerCap = net.machiavelli.minecolonytax.economy.TreasuryManager.getEffectiveMaxCapacity(defenderColony.getID());
+            int headroom = Math.max(0, winnerCap - winnerBalance);
+            int actualSpoil = Math.min(requestedSpoil, headroom);
+            if (actualSpoil <= 0) return;
+            net.machiavelli.minecolonytax.economy.TreasuryManager.deductFromTreasury(besiegerColony.getID(), actualSpoil);
+            net.machiavelli.minecolonytax.economy.TreasuryManager.addToTreasury(defenderColony.getID(), actualSpoil);
+            if (TaxConfig.isNormalLogging()) {
+                LOGGER.info("Siege spoils ({}%, defender win): {} → {} = {}",
+                        percent, besiegerColony.getName(), defenderColony.getName(), actualSpoil);
+            }
+            UUID winnerOwner = defenderColony.getPermissions().getOwner();
+            UUID loserOwner = besiegerColony.getPermissions().getOwner();
+            if (winnerOwner != null) sendToPlayer(winnerOwner, Component.literal("Siege spoils: " + actualSpoil
+                    + " coins seized from the repelled besieger.").withStyle(ChatFormatting.GOLD));
+            if (loserOwner != null && !loserOwner.equals(winnerOwner)) sendToPlayer(loserOwner, Component.literal(
+                    "Siege fine: " + actualSpoil + " coins paid to " + defenderColony.getName() + ".")
+                    .withStyle(ChatFormatting.RED));
+        }
+    }
 
-        IColony loser = attackerWon ? defenderColony : besiegerColony;
-        IColony winner = attackerWon ? besiegerColony : defenderColony;
-        if (loser == null || winner == null) return;
+    /**
+     * Splits the besiege treasury spoils across every participating besieger's primary
+     * colony. When BesiegeShareSpoils is disabled, only the lead (resolving) besieger's
+     * colony is paid. The loser colony is debited exactly the sum actually credited
+     * (after each winner's cap headroom), so coins are never created or lost.
+     */
+    private static void applySharedAttackerSpoils(IColony defenderColony, BesiegeRaidData leadRaid,
+            java.util.List<UUID> participantBesiegers, int percent) {
+        // Distinct winner colonies, insertion-ordered (lead first).
+        java.util.LinkedHashMap<Integer, IColony> winnerColonies = new java.util.LinkedHashMap<>();
+        boolean share = TaxConfig.isBesiegeShareSpoilsEnabled() && participantBesiegers != null
+                && !participantBesiegers.isEmpty();
+        if (share) {
+            for (UUID uuid : participantBesiegers) {
+                IColony c = getPrimaryColonyOfPlayer(uuid);
+                if (c != null) winnerColonies.putIfAbsent(c.getID(), c);
+            }
+        } else {
+            IColony c = getPrimaryColonyOfPlayer(leadRaid.besiegingPlayerUUID);
+            if (c != null) winnerColonies.put(c.getID(), c);
+        }
+        if (winnerColonies.isEmpty()) return;
 
-        int loserBalance = net.machiavelli.minecolonytax.economy.TreasuryManager.getTreasuryBalance(loser.getID());
+        int loserBalance = net.machiavelli.minecolonytax.economy.TreasuryManager.getTreasuryBalance(defenderColony.getID());
         if (loserBalance <= 0) return;
-        int requestedSpoil = (int) Math.floor(loserBalance * (percent / 100.0));
-        if (requestedSpoil <= 0) return;
+        int totalSpoil = (int) Math.floor(loserBalance * (percent / 100.0));
+        if (totalSpoil <= 0) return;
 
-        // Compute the winner's available headroom so we don't deduct coins that
-        // would be silently capped away on the credit side.
-        int winnerBalance = net.machiavelli.minecolonytax.economy.TreasuryManager.getTreasuryBalance(winner.getID());
-        int winnerCap = net.machiavelli.minecolonytax.economy.TreasuryManager.getEffectiveMaxCapacity(winner.getID());
-        int headroom = Math.max(0, winnerCap - winnerBalance);
-        int actualSpoil = Math.min(requestedSpoil, headroom);
-        if (actualSpoil <= 0) return;
-
-        net.machiavelli.minecolonytax.economy.TreasuryManager.deductFromTreasury(loser.getID(), actualSpoil);
-        net.machiavelli.minecolonytax.economy.TreasuryManager.addToTreasury(winner.getID(), actualSpoil);
-
-        if (TaxConfig.isNormalLogging()) {
-            LOGGER.info("Siege spoils ({}%): {} → {} = {} (requested {}, headroom {})",
-                    percent, loser.getName(), winner.getName(), actualSpoil, requestedSpoil, headroom);
+        int n = winnerColonies.size();
+        int base = totalSpoil / n;
+        int remainder = totalSpoil % n;
+        int totalCredited = 0;
+        int idx = 0;
+        for (IColony winner : winnerColonies.values()) {
+            int portion = base + (idx < remainder ? 1 : 0);
+            idx++;
+            if (portion <= 0) continue;
+            int winnerBalance = net.machiavelli.minecolonytax.economy.TreasuryManager.getTreasuryBalance(winner.getID());
+            int winnerCap = net.machiavelli.minecolonytax.economy.TreasuryManager.getEffectiveMaxCapacity(winner.getID());
+            int headroom = Math.max(0, winnerCap - winnerBalance);
+            int actual = Math.min(portion, headroom);
+            if (actual <= 0) continue;
+            net.machiavelli.minecolonytax.economy.TreasuryManager.addToTreasury(winner.getID(), actual);
+            totalCredited += actual;
+            UUID winnerOwner = winner.getPermissions().getOwner();
+            if (winnerOwner != null) sendToPlayer(winnerOwner, Component.literal("Siege spoils: " + actual
+                    + " coins from " + defenderColony.getName() + (n > 1 ? " (shared)" : "") + ".")
+                    .withStyle(ChatFormatting.GOLD));
         }
 
-        // Notify both sides with the actual transferred amount.
-        UUID winnerOwner = winner.getPermissions().getOwner();
-        UUID loserOwner = loser.getPermissions().getOwner();
-        Component winMsg = Component.literal("Siege spoils: " + actualSpoil + " coins transferred from "
-                + loser.getName() + " to " + winner.getName() + ".")
-                .withStyle(ChatFormatting.GOLD);
-        Component loseMsg = Component.literal("Siege fine: " + actualSpoil + " coins paid from "
-                + loser.getName() + " to " + winner.getName() + ".")
-                .withStyle(ChatFormatting.RED);
-        if (winnerOwner != null) sendToPlayer(winnerOwner, winMsg);
-        if (loserOwner != null && !loserOwner.equals(winnerOwner)) sendToPlayer(loserOwner, loseMsg);
+        if (totalCredited > 0) {
+            net.machiavelli.minecolonytax.economy.TreasuryManager.deductFromTreasury(defenderColony.getID(), totalCredited);
+            UUID loserOwner = defenderColony.getPermissions().getOwner();
+            if (loserOwner != null && !winnerColonies.containsKey(defenderColony.getID()))
+                sendToPlayer(loserOwner, Component.literal("Siege fine: " + totalCredited
+                        + " coins lost from " + defenderColony.getName() + "'s treasury to the besiegers.")
+                        .withStyle(ChatFormatting.RED));
+            if (TaxConfig.isNormalLogging())
+                LOGGER.info("Siege spoils ({}%): {} → {} winner colony(ies), total {}",
+                        percent, defenderColony.getName(), n, totalCredited);
+        }
     }
 
     private static void completeBesiegeVictory(BesiegeRaidData raid, IColony colony) {
@@ -1068,6 +1169,15 @@ public class BesiegeManager {
         return Collections.unmodifiableMap(view);
     }
 
+    /**
+     * O(1), allocation-free "is any besiege active?" check. Use this on hot guard
+     * paths (e.g. the block-interaction filter) instead of {@code getActiveRaids().isEmpty()},
+     * which builds and discards a HashMap on every call (audit H6).
+     */
+    public static boolean hasActiveRaids() {
+        return !ACTIVE_RAIDS.isEmpty();
+    }
+
     /** Direct lookup by besieger UUID. Null when this player has no active raid. */
     public static BesiegeRaidData getRaidForBesieger(UUID besiegerUUID) {
         return ACTIVE_RAIDS.get(besiegerUUID);
@@ -1360,6 +1470,31 @@ public class BesiegeManager {
          * so secondary cleanup doesn't despawn shared entities.
          */
         public boolean isSecondaryRaider = false;
+
+        /**
+         * Wall-clock millis when the besieging player was first seen offline, or 0 when
+         * they are online. Used by the BesiegeRequireOnline rule: a besieger offline
+         * longer than BesiegeOfflineGraceMinutes has their participation cancelled.
+         * Reset to 0 the moment they come back online.
+         */
+        public long offlineSinceMs = 0;
+
+        /**
+         * Short-TTL cache of "is this player a colony-mate of the besieger?" keyed
+         * by the damage source's UUID. Value = {@code long[]{result(0/1), expiryMs}}.
+         * LivingHurtEvent fires constantly, so without this the damage shield scanned
+         * ALL colonies on every hit; the TTL collapses per-hit bursts to one scan per
+         * few seconds per attacker while still catching mid-besiege rank changes
+         * (audit C3 + codex follow-up).
+         */
+        public final Map<UUID, long[]> colonyMateCache = new ConcurrentHashMap<>();
+
+        /**
+         * Dimension the besieged colony lives in, cached at launch so the Explosion't
+         * war-aware mixin can match the ticking level in O(1) instead of scanning all
+         * colonies every level tick (audit H12). May be null (e.g. a restored raid).
+         */
+        public net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension;
 
         public BesiegeRaidData(int colonyId, UUID besiegingPlayerUUID, BlockPos colonyCenter, boolean isReclaim) {
             this.colonyId = colonyId;

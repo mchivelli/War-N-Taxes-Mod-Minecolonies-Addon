@@ -137,24 +137,23 @@ public class ClaimTaxCommand {
                 int totalClaimed = TaxManager.claimTax(colony, amount);
 
                 if (totalClaimed > 0) {
-                    try {
-                        net.minecraft.advancements.Advancement adv = player.getServer().getAdvancements()
-                                .getAdvancement(
-                                        new net.minecraft.resources.ResourceLocation("minecolonytax:codex/claim_tax"));
-                        if (adv != null) {
-                            player.getAdvancements().award(adv, "check");
+                    // Deliver the claimed tax, refunding the colony ledger if delivery fails so
+                    // taxes are never silently lost (4.x "coins never appear" fix). The helper
+                    // emits its own failure/refund message; only confirm + award on success.
+                    if (net.machiavelli.minecolonytax.integration.CurrencyService
+                            .deliverClaimedTaxOrRefund(player, colony, totalClaimed)) {
+                        try {
+                            net.minecraft.advancements.Advancement adv = player.getServer().getAdvancements()
+                                    .getAdvancement(
+                                            new net.minecraft.resources.ResourceLocation("minecolonytax:codex/claim_tax"));
+                            if (adv != null) {
+                                player.getAdvancements().award(adv, "check");
+                            }
+                        } catch (Exception e) {
                         }
-                    } catch (Exception e) {
-                    }
 
-                    player.sendSystemMessage(Component.translatable("command.claimtax.success",
-                            colony.getName(), totalClaimed));
-
-                    if (TaxConfig.isSDMShopConversionEnabled() && SDMShopIntegration.isAvailable()) {
-                        long currentBalance = SDMShopIntegration.getMoney(player);
-                        SDMShopIntegration.setMoney(player, currentBalance + totalClaimed);
-                    } else {
-                        net.machiavelli.minecolonytax.util.ItemUtils.giveCurrencyToPlayer(player, totalClaimed);
+                        player.sendSystemMessage(Component.translatable("command.claimtax.success",
+                                colony.getName(), totalClaimed));
                     }
                 } else {
                     player.sendSystemMessage(Component.translatable("command.claimtax.no_tax", colony.getName()));

@@ -41,6 +41,12 @@ public class WarData {
 
     public long countdownTaskId = -1;
     public long warChestDrainTaskId = -1;
+    /** Join-phase countdown-sound timer. Captured so it can be cancelled when the
+     *  join phase ends — otherwise the repeating task leaks forever (audit C4). */
+    public long joinCountdownTaskId = -1;
+    /** Main delayed JOINING->INWAR start timer. Captured so endWar() can cancel it and
+     *  so it can't resurrect a war that ended during the join phase (audit C4 follow-up). */
+    public long joinStartTaskId = -1;
     public ServerBossEvent bossEvent;
     public ServerBossEvent alliesBossEvent;
     private String penaltyReport = "";

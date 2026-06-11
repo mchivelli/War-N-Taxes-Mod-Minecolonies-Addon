@@ -38,6 +38,10 @@ public class BesiegeDamageShieldHandler {
     private static final Map<UUID, Long> LAST_BLOCK_MESSAGE = new HashMap<>();
     private static final long BLOCK_MESSAGE_COOLDOWN_MS = 3000;
 
+    // How long a cached colony-mate determination stays valid. Short enough to pick
+    // up mid-besiege rank changes, long enough to collapse a combat hit-burst.
+    private static final long COLONY_MATE_CACHE_TTL_MS = 5000;
+
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onLivingHurt(LivingHurtEvent event) {
         if (!TaxConfig.isBesiegeSystemEnabled()) return;
@@ -58,7 +62,7 @@ public class BesiegeDamageShieldHandler {
             // Skip the source's own raid — they're allowed to deal damage in their own besiege.
             if (raid.besiegingPlayerUUID.equals(sourceUUID)) continue;
 
-            if (!areColonyMates(source, raid.besiegingPlayerUUID)) continue;
+            if (!areColonyMates(source, raid)) continue;
 
             // Confirm the target belongs to the besieged side: defender citizen,
             // defender-side player, or a mercenary spawned for this raid.
@@ -76,7 +80,28 @@ public class BesiegeDamageShieldHandler {
      * shared colony. Uses {@link Rank#isHostile()} so custom hostile ranks are
      * caught (not just the default Hostile rank instance).
      */
-    private static boolean areColonyMates(ServerPlayer source, UUID besiegerUUID) {
+    private static boolean areColonyMates(ServerPlayer source, BesiegeManager.BesiegeRaidData raid) {
+        UUID besiegerUUID = raid.besiegingPlayerUUID;
+        if (besiegerUUID == null) return false;
+        // Short-TTL cache per source — LivingHurtEvent is extremely high-frequency and
+        // the colony scan below is O(allColonies). The TTL collapses a combat hit-burst
+        // to one scan per few seconds per attacker while still re-checking often enough
+        // to catch a mid-besiege rank change (audit C3 + codex follow-up).
+        long now = System.currentTimeMillis();
+        long[] entry = raid.colonyMateCache.get(source.getUUID());
+        if (entry != null && now < entry[1]) return entry[0] != 0;
+        boolean result = computeColonyMates(source, besiegerUUID);
+        raid.colonyMateCache.put(source.getUUID(), new long[]{ result ? 1 : 0, now + COLONY_MATE_CACHE_TTL_MS });
+        return result;
+    }
+
+    /**
+     * True when both players hold a non-neutral, non-hostile rank in any single
+     * shared colony. Uses {@link Rank#isHostile()} so custom hostile ranks are
+     * caught (not just the default Hostile rank instance). O(allColonies) — only
+     * called once per (raid, source) thanks to {@link #areColonyMates} caching.
+     */
+    private static boolean computeColonyMates(ServerPlayer source, UUID besiegerUUID) {
         if (source.level().getServer() == null) return false;
         try {
             for (IColony colony : com.minecolonies.api.colony.IColonyManager.getInstance().getAllColonies()) {

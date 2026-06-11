@@ -1,0 +1,164 @@
+warning: in the working copy of 'src/main/java/net/machiavelli/minecolonytax/besiege/BesiegeDamageShieldHandler.java', LF will be replaced by CRLF the next time Git touches it
+diff --git a/src/main/java/net/machiavelli/minecolonytax/TaxManager.java b/src/main/java/net/machiavelli/minecolonytax/TaxManager.java
+index 5f3b154..b15c629 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/TaxManager.java
++++ b/src/main/java/net/machiavelli/minecolonytax/TaxManager.java
+@@ -108,8 +108,12 @@ public class TaxManager {
+                 cleanupTickCount++;
+                 nullOwnerCheckCount++;
+ 
+-                // Check for null owners every 5 seconds
+-                if (nullOwnerCheckCount >= 100) { // 100 ticks = 5 seconds
++                // Null-owner safety net. The real null-owner repair runs at startup
++                // (MineColonyTax.onServerStarting + deferred passes); this is only a
++                // periodic catch for owners that go null at runtime (rare). Throttled
++                // to every 5 minutes — a per-5s all-colony permission scan is a needless
++                // steady-state cost at hundreds of colonies (optimization audit C2).
++                if (nullOwnerCheckCount >= 6000) { // 6000 ticks = 5 minutes
+                     nullOwnerCheckCount = 0;
+                     try {
+                         net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.emergencyFixAllNullOwners();
+@@ -1005,6 +1009,11 @@ public class TaxManager {
+             });
+             // Only log save operation once per full tax cycle
+             saveTaxData();
++            // Persist random-event state ONCE for the whole cycle (not per colony —
++            // see optimization audit C1 / RandomEventManager.persist()).
++            if (TaxConfig.isRandomEventsEnabled()) {
++                RandomEventManager.persist();
++            }
+             if (TaxConfig.isNormalLogging()) {
+                 LOGGER.info("Tax generation cycle completed for all colonies");
+             }
+diff --git a/src/main/java/net/machiavelli/minecolonytax/WarSystem.java b/src/main/java/net/machiavelli/minecolonytax/WarSystem.java
+index 5e7ab58..185ef81 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/WarSystem.java
++++ b/src/main/java/net/machiavelli/minecolonytax/WarSystem.java
+@@ -1386,6 +1386,10 @@ public class WarSystem {
+                 TickScheduler.cancel(warData.warChestDrainTaskId);
+                 warData.warChestDrainTaskId = -1;
+             }
++            if (warData.joinCountdownTaskId >= 0) {
++                TickScheduler.cancel(warData.joinCountdownTaskId);
++                warData.joinCountdownTaskId = -1;
++            }
+             if (warData.bossEvent != null) {
+                 warData.bossEvent.removeAllPlayers();
+                 warData.bossEvent.setVisible(false);
+@@ -2392,10 +2396,16 @@ public class WarSystem {
+         // join phase is at least 6 seconds long
+         if (joinDurationMillis >= 6000) {
+             final int[] secondsLeft = { 6 };
+-            TickScheduler.scheduleRepeating(() -> {
++            war.joinCountdownTaskId = TickScheduler.scheduleRepeating(() -> {
+                 try {
+                     if (war == null || war.getColony() == null || !war.isJoinPhaseActive() || secondsLeft[0] < 0) {
+-                        return; // Task will be cleaned up when war starts or ends
++                        // Self-cancel: without this the repeating task re-arms forever,
++                        // leaking the task + retaining the whole WarData (audit C4).
++                        if (war != null && war.joinCountdownTaskId >= 0) {
++                            TickScheduler.cancel(war.joinCountdownTaskId);
++                            war.joinCountdownTaskId = -1;
++                        }
++                        return;
+                     }
+ 
+                     // Play countdown sound to all war participants
+diff --git a/src/main/java/net/machiavelli/minecolonytax/besiege/BesiegeDamageShieldHandler.java b/src/main/java/net/machiavelli/minecolonytax/besiege/BesiegeDamageShieldHandler.java
+index c397ca0..8e9920f 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/besiege/BesiegeDamageShieldHandler.java
++++ b/src/main/java/net/machiavelli/minecolonytax/besiege/BesiegeDamageShieldHandler.java
+@@ -58,7 +58,7 @@ public class BesiegeDamageShieldHandler {
+             // Skip the source's own raid — they're allowed to deal damage in their own besiege.
+             if (raid.besiegingPlayerUUID.equals(sourceUUID)) continue;
+ 
+-            if (!areColonyMates(source, raid.besiegingPlayerUUID)) continue;
++            if (!areColonyMates(source, raid)) continue;
+ 
+             // Confirm the target belongs to the besieged side: defender citizen,
+             // defender-side player, or a mercenary spawned for this raid.
+@@ -76,7 +76,26 @@ public class BesiegeDamageShieldHandler {
+      * shared colony. Uses {@link Rank#isHostile()} so custom hostile ranks are
+      * caught (not just the default Hostile rank instance).
+      */
+-    private static boolean areColonyMates(ServerPlayer source, UUID besiegerUUID) {
++    private static boolean areColonyMates(ServerPlayer source, BesiegeManager.BesiegeRaidData raid) {
++        UUID besiegerUUID = raid.besiegingPlayerUUID;
++        if (besiegerUUID == null) return false;
++        // Cache the result per source for this raid — LivingHurtEvent is extremely
++        // high-frequency, and the colony scan below is O(allColonies). Membership
++        // doesn't change during a short besiege (audit C3).
++        Boolean cached = raid.colonyMateCache.get(source.getUUID());
++        if (cached != null) return cached;
++        boolean result = computeColonyMates(source, besiegerUUID);
++        raid.colonyMateCache.put(source.getUUID(), result);
++        return result;
++    }
++
++    /**
++     * True when both players hold a non-neutral, non-hostile rank in any single
++     * shared colony. Uses {@link Rank#isHostile()} so custom hostile ranks are
++     * caught (not just the default Hostile rank instance). O(allColonies) — only
++     * called once per (raid, source) thanks to {@link #areColonyMates} caching.
++     */
++    private static boolean computeColonyMates(ServerPlayer source, UUID besiegerUUID) {
+         if (source.level().getServer() == null) return false;
+         try {
+             for (IColony colony : com.minecolonies.api.colony.IColonyManager.getInstance().getAllColonies()) {
+diff --git a/src/main/java/net/machiavelli/minecolonytax/besiege/BesiegeManager.java b/src/main/java/net/machiavelli/minecolonytax/besiege/BesiegeManager.java
+index 8874afe..f47cfa7 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/besiege/BesiegeManager.java
++++ b/src/main/java/net/machiavelli/minecolonytax/besiege/BesiegeManager.java
+@@ -1361,6 +1361,15 @@ public class BesiegeManager {
+          */
+         public boolean isSecondaryRaider = false;
+ 
++        /**
++         * Cache of "is this player a colony-mate of the besieger?" keyed by the
++         * damage source's UUID, for this raid's lifetime. LivingHurtEvent fires
++         * constantly, so without this the damage shield scanned ALL colonies on
++         * every hit; now the scan runs once per distinct attacker (audit C3).
++         * Colony membership effectively doesn't change during a short besiege.
++         */
++        public final Map<UUID, Boolean> colonyMateCache = new ConcurrentHashMap<>();
++
+         public BesiegeRaidData(int colonyId, UUID besiegingPlayerUUID, BlockPos colonyCenter, boolean isReclaim) {
+             this.colonyId = colonyId;
+             this.besiegingPlayerUUID = besiegingPlayerUUID;
+diff --git a/src/main/java/net/machiavelli/minecolonytax/data/WarData.java b/src/main/java/net/machiavelli/minecolonytax/data/WarData.java
+index dd7404d..4efd675 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/data/WarData.java
++++ b/src/main/java/net/machiavelli/minecolonytax/data/WarData.java
+@@ -41,6 +41,9 @@ public class WarData {
+ 
+     public long countdownTaskId = -1;
+     public long warChestDrainTaskId = -1;
++    /** Join-phase countdown-sound timer. Captured so it can be cancelled when the
++     *  join phase ends — otherwise the repeating task leaks forever (audit C4). */
++    public long joinCountdownTaskId = -1;
+     public ServerBossEvent bossEvent;
+     public ServerBossEvent alliesBossEvent;
+     private String penaltyReport = "";
+diff --git a/src/main/java/net/machiavelli/minecolonytax/events/random/RandomEventManager.java b/src/main/java/net/machiavelli/minecolonytax/events/random/RandomEventManager.java
+index 10b5b0d..a16c6ac 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/events/random/RandomEventManager.java
++++ b/src/main/java/net/machiavelli/minecolonytax/events/random/RandomEventManager.java
+@@ -122,7 +122,17 @@ public class RandomEventManager {
+         // 2. Try to trigger new events (probability-based)
+         checkForNewEvents(colony);
+ 
+-        // 3. Save data after changes
++        // NOTE: do NOT saveData() here. This runs once per colony per tax cycle, so a
++        // per-colony save serialized the full mod-wide state N times each cycle = O(N^2)
++        // synchronous disk writes at scale (optimization audit C1). TaxManager now calls
++        // persist() ONCE after the whole tax loop completes.
++    }
++
++    /**
++     * Persist random-event state. Call this ONCE after the tax cycle finishes
++     * (TaxManager.generateTaxesForAllColonies) rather than per colony.
++     */
++    public static void persist() {
+         saveData();
+     }
+ 

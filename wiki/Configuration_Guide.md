@@ -9,6 +9,11 @@ Below is a list of all server configurations for War 'N Taxes. All settings live
 ### EnableSDMShopConversion
 - **Description**: Enable SDMShop economy integration. When true, tax claims and war payouts use SDMShop balances. When false, physical currency items are used instead.
 - **Default Value**: true
+- **Note**: If the shop economy is unavailable when you claim tax, the tax is now refunded to the colony (kept claimable) instead of being lost. Use `/wnt debug sdm status` to check why the economy is unavailable.
+
+### SDMCurrencyName
+- **Description**: The SDM-Economy currency id that claimed taxes are deposited into. This must match the currency id configured in SDM-Economy (not its display name). If your server uses a currency id other than the default, set it here, otherwise claimed taxes go into a currency you never see.
+- **Default Value**: sdm_coin
 
 ### CurrencyItemName
 - **Description**: The item used as physical currency when SDMShop conversion is disabled (e.g., 'minecraft:emerald').
@@ -125,6 +130,14 @@ Below is a list of all server configurations for War 'N Taxes. All settings live
 ### WarVassalizationDurationHours
 - **Description**: Duration in hours that a war vassalization lasts. After this time the vassalization ends automatically. Set to 0 for permanent vassalization until manually revoked.
 - **Default Value**: 168
+
+### WarVassalizationTreasuryGrabPercent
+- **Description**: One-time "spoils of war" grab applied to the losing colony's Treasury when a war win vassalizes the colony (the vassalize-only path, used when colony deed transfer is disabled). This percentage is moved from the loser's treasury to the victor's primary colony treasury immediately on victory. This is the colony-side half of the "take the huge money" rule. Set 0 to disable.
+- **Default Value**: 50
+
+### WarVassalizationPlayerBalanceGrabPercent
+- **Description**: One-time grab applied to the losing player's personal wallet balance when a war win vassalizes their colony. Requires an economy mod (SDMShop/SDMEconomy). This is the player-side half of the "take the huge money from the player" rule. Set 0 to disable. The matching access toggle, `VassalLockOutFormerOwner`, lives in the Besiege System section.
+- **Default Value**: 25
 
 ### MinGuardsToRaid
 - **Description**: Minimum number of guards required to initiate a raid. Only used when EnableRaidBuildingRequirements is disabled. If building requirements are enabled, they take priority.
@@ -282,8 +295,13 @@ Below is a list of all server configurations for War 'N Taxes. All settings live
 - **Description**: If true, the resistance effect during raids and wars is also applied to all citizens, not only guards.
 - **Default Value**: false
 
+### EnableColonyAbandonmentSystem
+- **Description**: Master switch for the entire automatic colony abandonment and owner-repair system. When false (the default), the mod never automatically rewrites a colony's owner or permissions. This is the safe default and prevents the colony-data corruption that could occur when owner-repair ran while colonies were still loading. When true, the inactivity auto-abandon, debt-bankruptcy abandonment, null-owner repair, and abandoned-entry cleanup all become active (each still has its own sub-toggle).
+- **Default Value**: false
+- **Note**: A one-time, removal-only cleanup of legacy `[AUTO_OWNER]` placeholder entries written by older versions always runs on startup regardless of this switch, so existing worlds are healed automatically. EnableColonyAutoAbandon below has no effect unless this master switch is also true.
+
 ### EnableColonyAutoAbandon
-- **Description**: When enabled, colonies whose owners and officers have not physically visited for the configured number of days are automatically abandoned.
+- **Description**: When enabled, colonies whose owners and officers have not physically visited for the configured number of days are automatically abandoned. Requires EnableColonyAbandonmentSystem to also be true.
 - **Default Value**: true
 
 ### ColonyAutoAbandonDays
@@ -1312,3 +1330,79 @@ See [WarDefenderDrainReduction](#wardefenderdrainreduction) in the Treasury sect
 ### BesiegePlayerStayRadius
 - **Description**: Maximum distance (blocks) from the colony centre the besieger may stray. Exceeding this cancels the raid.
 - **Default Value**: 100
+
+---
+
+## Siege SMP — Colony Tiers, Spoils & Victory Objectives
+
+These settings live under the `[War Settings]` section of `minecolonytax.toml` and control the Siege SMP rules added after the v2 update.
+
+### EnablePrimaryColonyTransfer
+- **Description**: If true, a player's first (Primary) colony can have its ownership permanently transferred when it loses a war. If false (default), a Primary colony can be tax-occupied and besieged but never claimed — the owner can always reclaim it. Secondary colonies are always claimable regardless of this setting.
+- **Default Value**: false
+
+### PrimaryColonyTaxOccupationDays
+- **Description**: How many in-game days a defeated Primary colony stays tax-occupied (its taxes diverted to the victor) before the occupation expires and the original owner regains their taxes. The owner can also end it early by winning a counter-besiege.
+- **Default Value**: 7
+
+### BesiegeSpoilPercentOfLoserTreasury
+- **Description**: Percentage of the loser colony's Treasury paid to the winner when a besiege resolves. The transfer is cap-aware — only the winner's available headroom is deposited, so no coins are lost. When multiple players besieged the colony and BesiegeShareSpoils is on, this total is split among all participating besiegers' colonies.
+- **Default Value**: 25
+
+_The following keys are grouped in the config under access controls and multiplayer/online rules._
+
+#### Siege access controls
+
+### BesiegeAllowChestAccess
+- **Description**: Whether besiegers may open chests and other containers in the colony during an active siege. When false (default), sieges are combat-only and looting is blocked. Set true to let attackers raid containers mid-siege.
+- **Default Value**: false
+
+### VassalLockOutFormerOwner
+- **Description**: After a siege ends and the colony is vassalized (besiege occupation), whether its original owner is locked out of colony interactions (chests, buildings) until they reclaim it. When false (default), the owner keeps access to their own colony while vassalized — only tax tribute is siphoned. When true, the owner is locked out until a successful reclaim raid.
+- **Default Value**: false
+
+#### Multiplayer & online rules
+
+### BesiegeMinAttackers
+- **Description**: The "not solo" rule. Minimum number of distinct besiegers that must be participating in a siege of a colony for it to actually be captured. With the default of 1, solo sieges work as before. Set to 2 or more to force players to band together — if fewer than this take part, the defenders can be wiped but the colony is not captured.
+- **Default Value**: 1
+
+### BesiegeShareSpoils
+- **Description**: When several players besiege the same colony at once (each runs `/wnt besiege` on it), split the treasury spoils (BesiegeSpoilPercentOfLoserTreasury) among all participating besiegers' primary colonies on victory, instead of awarding it only to the first to resolve. The lead besieger still receives the ongoing tax-tribute stream.
+- **Default Value**: true
+
+### BesiegeRequireOnline
+- **Description**: Require besieging players to stay online during a siege. When true, a besieger who logs off for longer than BesiegeOfflineGraceMinutes has their participation cancelled (a siege cannot be run from the lobby). With multiple attackers, one logging off does not end the siege for the others.
+- **Default Value**: true
+
+### BesiegeOfflineGraceMinutes
+- **Description**: How long (minutes) a besieger may stay offline before their siege participation is cancelled, when BesiegeRequireOnline is true.
+- **Default Value**: 5
+
+### EnableExperimentalSiegeObjectives
+- **Description**: Master switch for the experimental victory objectives (Plant the Banner and Town Hall Demolition). When false (default), wars are won only by the classic life/guard conditions. **Must be true to test or use the banner and demolition objectives below.**
+- **Default Value**: false
+
+### TownHallExplosiveHitsRequired
+- **Description**: Number of valid explosive hits on the defender's Town Hall *building* required for the attacker to win via demolition. Only counts when EnableExperimentalSiegeObjectives is true.
+- **Default Value**: 5
+
+### TownHallHitCooldownMinutes
+- **Description**: Cooldown (minutes) between counted explosive hits on the Town Hall, per attacker. Hits landed during the cooldown do not advance the demolition objective.
+- **Default Value**: 5
+
+### MaxSiegeRadius
+- **Description**: Maximum distance (blocks) from the Town Hall an attacker may be for an explosive hit to count toward the demolition objective.
+- **Default Value**: 500
+
+### AttackerGlowSeconds
+- **Description**: How long (seconds) an attacker is made to glow after landing a Town Hall hit. Their coordinates are also broadcast to the defenders. Set to 0 to disable the glow.
+- **Default Value**: 30
+
+### BannerCaptureMinutes
+- **Description**: How long (minutes) the Siege Banner must remain planted inside the Town Hall borders for the attacker to win via the Plant the Banner objective. A war-scoped boss bar (visible only to war participants) counts down this timer.
+- **Default Value**: 10
+
+### DeferRestorationToExplosiont
+- **Description**: If true and the Explosion't mod is installed, explosion-damage restoration is handed off to Explosion't (whose heal is paused during conflict by a war-aware mixin and resumes after). If false (default), the built-in WarBlockLedger captures and restores war-damaged blocks itself. See [War Persistence](War_Persistence.md#explosion-damage-restoration-warblockledger).
+- **Default Value**: false

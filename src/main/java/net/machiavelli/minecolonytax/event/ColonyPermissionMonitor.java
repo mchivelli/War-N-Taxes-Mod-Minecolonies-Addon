@@ -31,6 +31,14 @@ public class ColonyPermissionMonitor {
             return;
         }
 
+        // Gated by the master abandonment switch (4.x world-brick fix): this monitor exists
+        // solely to auto-reactivate abandoned colonies (a permission-mutating action). When the
+        // abandonment system is off it must not run, and skipping it also avoids a periodic
+        // all-colony scan.
+        if (!net.machiavelli.minecolonytax.TaxConfig.isColonyAbandonmentSystemEnabled()) {
+            return;
+        }
+
         tickCounter++;
         if (tickCounter < CHECK_INTERVAL) {
             return;

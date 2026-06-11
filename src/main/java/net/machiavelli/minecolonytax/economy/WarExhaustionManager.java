@@ -430,23 +430,32 @@ public class WarExhaustionManager {
     }
 
     private static void saveData() {
-        try {
-            Path path = Paths.get(STORAGE_FILE);
-            Files.createDirectories(path.getParent());
-
-            ExhaustionSaveData data = new ExhaustionSaveData();
-            data.coloniesAtWar = new ConcurrentHashMap<>(COLONIES_AT_WAR);
-            data.recoveryStatus = new ConcurrentHashMap<>(RECOVERY_STATUS);
-            data.warLosses = new ConcurrentHashMap<>(WAR_LOSSES);
-            data.reparations = new ConcurrentHashMap<>(REPARATIONS);
-            data.warImmunity = new ConcurrentHashMap<>(WAR_IMMUNITY);
-
-            try (Writer writer = new FileWriter(path.toFile())) {
-                GSON.toJson(data, writer);
-            }
-        } catch (Exception e) {
-            LOGGER.error("Failed to save war exhaustion data", e);
+        // Snapshot on the calling (main) thread, write off-thread + coalesced so the
+        // many war-state transitions no longer each block a tick on disk I/O (audit H3).
+        final ExhaustionSaveData data = new ExhaustionSaveData();
+        data.coloniesAtWar = new java.util.HashMap<>(COLONIES_AT_WAR);
+        data.recoveryStatus = new java.util.HashMap<>(RECOVERY_STATUS);
+        // warLosses values are mutable Lists — deep-copy so the async writer never
+        // serializes a list while the main thread mutates it.
+        Map<Integer, List<Long>> lossesCopy = new java.util.HashMap<>();
+        for (Map.Entry<Integer, List<Long>> e : WAR_LOSSES.entrySet()) {
+            lossesCopy.put(e.getKey(), new java.util.ArrayList<>(e.getValue()));
         }
+        data.warLosses = lossesCopy;
+        data.reparations = new java.util.HashMap<>(REPARATIONS);
+        data.warImmunity = new java.util.HashMap<>(WAR_IMMUNITY);
+
+        net.machiavelli.minecolonytax.util.AsyncSaveExecutor.submit("war_exhaustion", () -> {
+            try {
+                Path path = Paths.get(STORAGE_FILE);
+                Files.createDirectories(path.getParent());
+                try (Writer writer = new FileWriter(path.toFile())) {
+                    GSON.toJson(data, writer);
+                }
+            } catch (Exception e) {
+                LOGGER.error("Failed to save war exhaustion data", e);
+            }
+        });
     }
 
     /**

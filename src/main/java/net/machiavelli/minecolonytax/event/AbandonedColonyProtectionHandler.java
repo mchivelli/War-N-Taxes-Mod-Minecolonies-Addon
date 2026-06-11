@@ -74,6 +74,12 @@ public class AbandonedColonyProtectionHandler {
     }
     
     private static boolean isBlockInAbandonedColony(BlockPos pos, Level level, ServerPlayer player) {
+        // Fast path: if NO colony is abandoned, skip the per-block-event colony-by-position
+        // lookup entirely. This guard covers all three handlers (break/place/right-click)
+        // since each calls this first (audit H7).
+        if (!ColonyAbandonmentManager.hasAbandonedColonies()) {
+            return false;
+        }
         try {
             IColony colony = IColonyManager.getInstance().getColonyByPosFromWorld(level, pos);
             if (colony == null) {

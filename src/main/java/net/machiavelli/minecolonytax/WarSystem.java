@@ -330,9 +330,10 @@ public class WarSystem {
                     ? net.machiavelli.minecolonytax.economy.TreasuryManager.drainTreasury(attackerColonyId)
                     : Integer.MAX_VALUE;
 
-            // Periodic save every 5 drain ticks (5 minutes)
+            // Periodic save every 5 drain ticks (5 minutes) — async + coalesced now,
+            // so concurrent wars no longer each fire a synchronous treasury write (audit H2).
             if (tickCount[0] % 5 == 0) {
-                net.machiavelli.minecolonytax.economy.TreasuryManager.shutdown(); // calls saveData()
+                net.machiavelli.minecolonytax.economy.TreasuryManager.save();
             }
 
             // Auto-surrender if either side is depleted
@@ -828,6 +829,9 @@ public class WarSystem {
                         tributePercent,
                         durationHours);
                 if (vassalized) {
+                    // "Vassalize only + take the huge money": one-time war-spoils grab from the
+                    // losing colony's treasury and the losing player's wallet, paid to the victor.
+                    applyWarVassalizationMoneyGrab(war);
                     WARSYSTEM_LOGGER.info("Colony {} has been vassalized by {} for {} hours at {}% tribute",
                             war.getColony().getName(), war.getAttacker(), durationHours, tributePercent);
                 }
@@ -837,8 +841,86 @@ public class WarSystem {
     }
 
     /**
+     * One-time "huge money" grab applied when a war victory results in vassalization
+     * (the vassalize-only path, used when colony deed transfer is disabled). Moves a
+     * configurable percentage of the losing colony's treasury and the losing player's
+     * wallet to the victor. Both percentages are independently configurable and either
+     * can be disabled by setting it to 0.
+     */
+    private static void applyWarVassalizationMoneyGrab(WarData war) {
+        try {
+            IColony loserColony = war.getColony();
+            IColony winnerColony = war.getAttackerColony();
+            if (loserColony == null || loserColony.getWorld() == null) return;
+            MinecraftServer server = loserColony.getWorld().getServer();
+            if (server == null) return;
+
+            // --- Colony treasury grab ---
+            int treasuryPct = TaxConfig.getWarVassalizationTreasuryGrabPercent();
+            if (treasuryPct > 0 && winnerColony != null) {
+                int loserBal = net.machiavelli.minecolonytax.economy.TreasuryManager
+                        .getTreasuryBalance(loserColony.getID());
+                if (loserBal > 0) {
+                    int requested = (int) Math.floor(loserBal * (treasuryPct / 100.0));
+                    int winnerBal = net.machiavelli.minecolonytax.economy.TreasuryManager
+                            .getTreasuryBalance(winnerColony.getID());
+                    int cap = net.machiavelli.minecolonytax.economy.TreasuryManager
+                            .getEffectiveMaxCapacity(winnerColony.getID());
+                    int headroom = Math.max(0, cap - winnerBal);
+                    int actual = Math.min(requested, headroom);
+                    if (actual > 0) {
+                        net.machiavelli.minecolonytax.economy.TreasuryManager
+                                .deductFromTreasury(loserColony.getID(), actual);
+                        net.machiavelli.minecolonytax.economy.TreasuryManager
+                                .addToTreasury(winnerColony.getID(), actual);
+                        WARSYSTEM_LOGGER.info("War vassalization treasury grab ({}%): {} coins {} -> {}",
+                                treasuryPct, actual, loserColony.getName(), winnerColony.getName());
+                    }
+                }
+            }
+
+            // --- Losing player's wallet grab ---
+            int walletPct = TaxConfig.getWarVassalizationPlayerBalanceGrabPercent();
+            if (walletPct > 0) {
+                UUID loserOwner = loserColony.getPermissions().getOwner();
+                ServerPlayer loserPlayer = loserOwner != null ? server.getPlayerList().getPlayer(loserOwner) : null;
+                if (loserPlayer != null) {
+                    long bal = net.machiavelli.minecolonytax.integration.CurrencyService.getAvailableBalance(
+                            loserPlayer, loserColony,
+                            net.machiavelli.minecolonytax.integration.CurrencyService.Source.WALLET);
+                    if (bal > 0) {
+                        int requested = (int) Math.floor(bal * (walletPct / 100.0));
+                        if (requested > 0) {
+                            int taken = net.machiavelli.minecolonytax.integration.CurrencyService.takeFromPlayer(
+                                    loserPlayer, loserColony, requested,
+                                    net.machiavelli.minecolonytax.integration.CurrencyService.Source.WALLET);
+                            if (taken > 0) {
+                                UUID winnerUUID = war.getAttacker();
+                                ServerPlayer winnerPlayer = winnerUUID != null
+                                        ? server.getPlayerList().getPlayer(winnerUUID) : null;
+                                if (winnerPlayer != null) {
+                                    net.machiavelli.minecolonytax.integration.CurrencyService.giveToPlayer(
+                                            winnerPlayer, winnerColony, taken,
+                                            net.machiavelli.minecolonytax.integration.CurrencyService.Source.WALLET);
+                                }
+                                loserPlayer.sendSystemMessage(Component.literal("War tribute: " + taken
+                                        + " coins seized from your wallet as the price of defeat.")
+                                        .withStyle(ChatFormatting.RED));
+                                WARSYSTEM_LOGGER.info("War vassalization wallet grab ({}%): {} coins from {}",
+                                        walletPct, taken, loserOwner);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            WARSYSTEM_LOGGER.error("Failed to apply war vassalization money grab", e);
+        }
+    }
+
+    /**
      * Applies economic penalties to both sides during a stalemate.
-     * 
+     *
      * @param war The war data containing information about the conflict
      */
     private static void applyStalematePenalties(WarData war) {
@@ -1385,6 +1467,14 @@ public class WarSystem {
             if (warData.warChestDrainTaskId >= 0) {
                 TickScheduler.cancel(warData.warChestDrainTaskId);
                 warData.warChestDrainTaskId = -1;
+            }
+            if (warData.joinCountdownTaskId >= 0) {
+                TickScheduler.cancel(warData.joinCountdownTaskId);
+                warData.joinCountdownTaskId = -1;
+            }
+            if (warData.joinStartTaskId >= 0) {
+                TickScheduler.cancel(warData.joinStartTaskId);
+                warData.joinStartTaskId = -1;
             }
             if (warData.bossEvent != null) {
                 warData.bossEvent.removeAllPlayers();
@@ -2392,10 +2482,16 @@ public class WarSystem {
         // join phase is at least 6 seconds long
         if (joinDurationMillis >= 6000) {
             final int[] secondsLeft = { 6 };
-            TickScheduler.scheduleRepeating(() -> {
+            war.joinCountdownTaskId = TickScheduler.scheduleRepeating(() -> {
                 try {
                     if (war == null || war.getColony() == null || !war.isJoinPhaseActive() || secondsLeft[0] < 0) {
-                        return; // Task will be cleaned up when war starts or ends
+                        // Self-cancel: without this the repeating task re-arms forever,
+                        // leaking the task + retaining the whole WarData (audit C4).
+                        if (war != null && war.joinCountdownTaskId >= 0) {
+                            TickScheduler.cancel(war.joinCountdownTaskId);
+                            war.joinCountdownTaskId = -1;
+                        }
+                        return;
                     }
 
                     // Play countdown sound to all war participants
@@ -2433,13 +2529,27 @@ public class WarSystem {
         }
 
         // Main timer to start the war when join phase ends
-        TickScheduler.scheduleDelayed(() -> {
+        war.joinStartTaskId = TickScheduler.scheduleDelayed(() -> {
             if (war == null || war.getColony() == null) {
+                return;
+            }
+            // Guard: the war may have ended during the JOINING phase (operator /warstop,
+            // finalize abort, etc.). endWar() removes it from ACTIVE_WARS, so if this
+            // delayed task is no longer the active war for its colony, do NOT start it —
+            // otherwise it would resurrect an ended war and re-enable war permissions
+            // (codex HIGH).
+            if (ACTIVE_WARS.get(war.getColony().getID()) != war) {
                 return;
             }
             war.setStatus(WarData.WarStatus.INWAR);
             war.warStartTime = System.currentTimeMillis();
             finalizeWarStart(war);
+            // finalizeWarStart() itself ends the war (calls endWar) when there are no valid
+            // participants / a bad ratio. If it did, the war is gone from ACTIVE_WARS — do
+            // NOT enable war permissions or start the countdown on an ended war (codex HIGH).
+            if (ACTIVE_WARS.get(war.getColony().getID()) != war) {
+                return;
+            }
             // Enable war actions for both sides
             setWarInteractionPermissions(war.getColony(), true);
             if (war.getAttackerColony() != null) {
@@ -3833,32 +3943,38 @@ public class WarSystem {
         if (building == null)
             return false;
 
-        Boolean cached = GUARD_TOWER_CLASS_CACHE.get(building.getClass());
-        if (cached != null) {
-            return cached;
-        }
-        boolean result = computeIsGuardTower(building);
-        GUARD_TOWER_CLASS_CACHE.put(building.getClass(), result);
-        return result;
-    }
-
-    private static boolean computeIsGuardTower(IBuilding building) {
-        // Method 1: Check display name (current approach)
+        // Display name can be a PER-INSTANCE custom name (a player can rename a building),
+        // so it must be evaluated per building — never cached by class. It's a cheap getter.
         String displayName = building.getBuildingDisplayName();
         if (displayName != null && "Guard Tower".equalsIgnoreCase(displayName)) {
             return true;
         }
 
+        // Class name and the schematic/structure name (from toString) are CLASS-stable —
+        // cache that determination by class so the expensive building.toString() runs at
+        // most once per building TYPE, not once per building each tax cycle (audit H8 +
+        // codex correctness follow-up: the previous code cached the per-instance displayName
+        // result by class, which could mis-count custom-named buildings).
+        Boolean cached = GUARD_TOWER_CLASS_CACHE.get(building.getClass());
+        if (cached != null) {
+            return cached;
+        }
+        boolean result = computeClassIsGuardTower(building);
+        GUARD_TOWER_CLASS_CACHE.put(building.getClass(), result);
+        return result;
+    }
+
+    private static boolean computeClassIsGuardTower(IBuilding building) {
         // Method 2: Check if class name contains "guardtower"
         String className = building.getClass().getName().toLowerCase();
         if (className.contains("guardtower")) {
             return true;
         }
 
-        // Method 3: Check if the building has guard-related functionality
-        // This is a fallback in case the building class structure changes
+        // Method 3: Fallback on the schematic name in case the class structure changes.
+        // The "guardtower" substring comes from the structure type (class-level), so the
+        // match is class-stable even though toString may also contain instance data.
         try {
-            // Try to get the schematic name if available
             String toString = building.toString().toLowerCase();
             if (toString.contains("guardtower") || toString.contains("guard_tower")) {
                 return true;
@@ -4461,6 +4577,12 @@ public class WarSystem {
                     w.setStatus(WarData.WarStatus.INWAR);
                     w.warStartTime = System.currentTimeMillis();
                     finalizeWarStart(w);
+                    // finalizeWarStart() can end the war (no valid participants / bad ratio),
+                    // removing it from ACTIVE_WARS. Don't enable permissions/countdown on an
+                    // ended war (codex HIGH — same guard as the live join-start path).
+                    if (ACTIVE_WARS.get(colonyId) != w) {
+                        return;
+                    }
                     setWarInteractionPermissions(w.getColony(), true);
                     if (w.getAttackerColony() != null) {
                         setWarInteractionPermissions(w.getAttackerColony(), true);

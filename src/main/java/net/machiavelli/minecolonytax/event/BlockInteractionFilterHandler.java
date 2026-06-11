@@ -101,8 +101,8 @@ public class BlockInteractionFilterHandler {
                 && !net.machiavelli.minecolonytax.occupation.OccupationManager
                         .getActiveOccupations().isEmpty()) return true;
         if (TaxConfig.isBesiegeSystemEnabled()
-                && !net.machiavelli.minecolonytax.besiege.BesiegeManager
-                        .getActiveRaids().isEmpty()) return true;
+                && net.machiavelli.minecolonytax.besiege.BesiegeManager
+                        .hasActiveRaids()) return true;
         if (TaxConfig.isBlockFilterRaidsEnabled()
                 && !RaidManager.getActiveRaids().isEmpty()) return true;
         if (TaxConfig.isBlockFilterWarsEnabled()
@@ -141,7 +141,11 @@ public class BlockInteractionFilterHandler {
                 block.builtInRegistryHolder().key().location().toString());
         }
 
-        if (TaxConfig.isBesiegeSystemEnabled()
+        // Besiege-occupation (vassal phase) lockout of the FORMER OWNER is opt-in.
+        // By default the original owner keeps access to their own colony while vassalized
+        // (only tax tribute is siphoned); set VassalLockOutFormerOwner=true to lock them out.
+        if (TaxConfig.isVassalLockOutFormerOwnerEnabled()
+                && TaxConfig.isBesiegeSystemEnabled()
                 && net.machiavelli.minecolonytax.besiege.BesiegeManager.shouldBlockInteraction(
                         player.getUUID(), colony.getID())) {
             LOGGER.debug("BESIEGE LOCKOUT DENIED: Former owner {} attempted {} in besieged colony {} at {}",
@@ -169,7 +173,8 @@ public class BlockInteractionFilterHandler {
         // (chests, barrels, shulkers, furnaces, etc., plus any modded BlockEntity Container).
         // Combat-only — no looting. Doors/levers/buttons still pass through via the
         // existing whitelist/blacklist below.
-        if (type == InteractionType.USE && isBesiegeActiveForPlayer(player, colony.getID())) {
+        if (type == InteractionType.USE && !TaxConfig.isBesiegeChestAccessAllowed()
+                && isBesiegeActiveForPlayer(player, colony.getID())) {
             if (isContainerBlock(block, level, pos)) {
                 LOGGER.debug("BESIEGE DENIED (CONTAINER): Player {} cannot open containers during besiege at {}",
                     player.getName().getString(), pos);

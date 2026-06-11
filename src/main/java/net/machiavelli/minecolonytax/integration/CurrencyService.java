@@ -4,6 +4,8 @@ import com.minecolonies.api.colony.IColony;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.util.ItemUtils;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -83,6 +85,53 @@ public class CurrencyService {
             default:
                 return 0;
         }
+    }
+
+    /**
+     * Deliver tax that was ALREADY claimed (deducted from the colony ledger by
+     * {@link TaxManager#claimTax}) to the player, honoring the SDMShop-conversion config, and
+     * REFUND the colony tax ledger if delivery fails so taxes can never be silently lost.
+     *
+     * <p>This fixes the 4.x "claimed coins never appear" bug: the claim paths used to deduct
+     * the tax first and then attempt SDM delivery with no refund, so any unavailable-economy
+     * or failed-deposit left the player with nothing and the tax gone.</p>
+     *
+     * <p>Behavior when {@code EnableSDMShopConversion=true} but the shop economy is unavailable:
+     * the tax is refunded (kept claimable) and the player is told to check {@code /wnt sdm status},
+     * rather than silently dropping surprise currency items.</p>
+     *
+     * @param claimedAmount amount already removed from the colony ledger; must be &gt; 0
+     * @return true if the player actually received the funds; false if delivery failed (and the
+     *         ledger was refunded)
+     */
+    public static boolean deliverClaimedTaxOrRefund(ServerPlayer player, IColony colony, int claimedAmount) {
+        if (claimedAmount <= 0) {
+            return false;
+        }
+
+        boolean useWallet = TaxConfig.isSDMShopConversionEnabled();
+
+        if (useWallet && !SDMShopIntegration.isAvailable()) {
+            SDMShopIntegration.warnUnavailableOnce();
+            TaxManager.adjustTax(colony, claimedAmount); // refund — never lose taxes
+            player.sendSystemMessage(Component.literal(
+                    "Shop economy (SDMShop/SDM-Economy) is not available right now - your "
+                  + claimedAmount + " in taxes was NOT lost and is still claimable. Run /wnt debug sdm status for details.")
+                    .withStyle(ChatFormatting.RED));
+            return false;
+        }
+
+        Source destination = useWallet ? Source.WALLET : Source.INVENTORY;
+        int given = giveToPlayer(player, colony, claimedAmount, destination);
+        if (given <= 0) {
+            TaxManager.adjustTax(colony, claimedAmount); // refund — never lose taxes
+            player.sendSystemMessage(Component.literal(
+                    "Failed to deliver " + claimedAmount + " (" + label(destination)
+                  + ") - your taxes were refunded and remain claimable.")
+                    .withStyle(ChatFormatting.RED));
+            return false;
+        }
+        return true;
     }
 
     /**

@@ -122,7 +122,17 @@ public class RandomEventManager {
         // 2. Try to trigger new events (probability-based)
         checkForNewEvents(colony);
 
-        // 3. Save data after changes
+        // NOTE: do NOT saveData() here. This runs once per colony per tax cycle, so a
+        // per-colony save serialized the full mod-wide state N times each cycle = O(N^2)
+        // synchronous disk writes at scale (optimization audit C1). TaxManager now calls
+        // persist() ONCE after the whole tax loop completes.
+    }
+
+    /**
+     * Persist random-event state. Call this ONCE after the tax cycle finishes
+     * (TaxManager.generateTaxesForAllColonies) rather than per colony.
+     */
+    public static void persist() {
         saveData();
     }
 

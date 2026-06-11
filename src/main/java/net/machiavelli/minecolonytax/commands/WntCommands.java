@@ -420,6 +420,33 @@ public class WntCommands {
                                                                                 }))))
 
                                 .then(Commands.literal("debug")
+                                                .then(Commands.literal("sdm")
+                                                                .then(Commands.literal("status")
+                                                                                .executes(WntCommands::showSdmStatus)))
+                                                .then(Commands.literal("emergencyfix")
+                                                                .requires(source -> source.hasPermission(2))
+                                                                .executes(WntCommands::handleEmergencyFix))
+                                                .then(Commands.literal("fixnullowners")
+                                                                .requires(source -> source.hasPermission(2))
+                                                                .executes(WntCommands::handleFixNullOwners))
+                                                .then(Commands.literal("cleanupabandonedentries")
+                                                                .requires(source -> source.hasPermission(2))
+                                                                .executes(WntCommands::handleCleanupAbandonedEntries))
+                                                .then(Commands.literal("forcecleanupcolony")
+                                                                .requires(source -> source.hasPermission(2))
+                                                                .then(Commands.argument("colony", StringArgumentType.string())
+                                                                                .suggests(COLONY_SUGGESTIONS)
+                                                                                .executes(WntCommands::handleForceCleanupColony)))
+                                                .then(Commands.literal("bossbar")
+                                                                .requires(source -> source.hasPermission(2))
+                                                                .then(Commands.argument("colony", StringArgumentType.string())
+                                                                                .suggests(COLONY_SUGGESTIONS)
+                                                                                .executes(WntCommands::handleDebugBossBar)))
+                                                .then(Commands.literal("claimraidstatus")
+                                                                .requires(source -> source.hasPermission(2))
+                                                                .then(Commands.argument("colony", StringArgumentType.string())
+                                                                                .suggests(ABANDONED_COLONY_SUGGESTIONS)
+                                                                                .executes(WntCommands::checkClaimingRaidStatus)))
                                                 .then(Commands.literal("war")
                                                                 .requires(src -> src.hasPermission(2))
                                                                 .executes(WntCommands::debugWarCommand))
@@ -523,11 +550,6 @@ public class WntCommands {
                                                 .executes(WntCommands::listAbandonedColonies))
                                 .then(Commands.literal("claimstatus")
                                                 .executes(WntCommands::checkClaimingStatus))
-                                .then(Commands.literal("claimraidstatus")
-                                                .requires(source -> source.hasPermission(2))
-                                                .then(Commands.argument("colony", StringArgumentType.string())
-                                                                .suggests(ABANDONED_COLONY_SUGGESTIONS)
-                                                                .executes(WntCommands::checkClaimingRaidStatus)))
                                 .then(Commands.literal("protectcolony")
                                                 .requires(source -> source.hasPermission(2))
                                                 .then(Commands.argument("colony", StringArgumentType.string())
@@ -539,29 +561,6 @@ public class WntCommands {
                                                                 .suggests(COLONY_SUGGESTIONS)
                                                                 .executes(WntCommands::unprotectColonyFromClaiming)))
 
-                                .then(Commands.literal("cleanupabandonedentries")
-                                                .requires(source -> source.hasPermission(2))
-                                                .executes(WntCommands::handleCleanupAbandonedEntries))
-
-                                .then(Commands.literal("debugbossbar")
-                                                .requires(source -> source.hasPermission(2))
-                                                .then(Commands.argument("colony", StringArgumentType.string())
-                                                                .suggests(COLONY_SUGGESTIONS)
-                                                                .executes(WntCommands::handleDebugBossBar)))
-
-                                .then(Commands.literal("forcecleanupcolony")
-                                                .requires(source -> source.hasPermission(2))
-                                                .then(Commands.argument("colony", StringArgumentType.string())
-                                                                .suggests(COLONY_SUGGESTIONS)
-                                                                .executes(WntCommands::handleForceCleanupColony)))
-
-                                .then(Commands.literal("emergencyfix")
-                                                .requires(source -> source.hasPermission(2))
-                                                .executes(WntCommands::handleEmergencyFix))
-
-                                .then(Commands.literal("fixnullowners")
-                                                .requires(source -> source.hasPermission(2))
-                                                .executes(WntCommands::handleFixNullOwners))
                                 .then(Commands.literal("listprotected")
                                                 .requires(source -> source.hasPermission(2))
                                                 .executes(WntCommands::listProtectedColonies))
@@ -1840,54 +1839,14 @@ public class WntCommands {
 
                                 int claimedAmount = net.machiavelli.minecolonytax.TaxManager.claimTax(colony, amount);
                                 if (claimedAmount > 0) {
-                                        player.sendSystemMessage(
-                                                        Component.translatable("command.claimtax.success",
-                                                                        claimedAmount, colony.getName()));
-
-                                        // Update player's funds using SDMShop API if enabled
-                                        if (TaxConfig.isSDMShopConversionEnabled()
-                                                        && net.machiavelli.minecolonytax.integration.SDMShopIntegration
-                                                                        .isAvailable()) {
-                                                long currentBalance = net.machiavelli.minecolonytax.integration.SDMShopIntegration
-                                                                .getMoney(player);
-                                                net.machiavelli.minecolonytax.integration.SDMShopIntegration
-                                                                .setMoney(player, currentBalance + claimedAmount);
-                                        } else {
-                                                // Use direct inventory manipulation instead of give command for modded
-                                                // items
-                                                net.minecraft.world.item.Item item = net.minecraftforge.registries.ForgeRegistries.ITEMS
-                                                                .getValue(
-                                                                                new net.minecraft.resources.ResourceLocation(
-                                                                                                TaxConfig.getCurrencyItemName()));
-                                                if (item != null) {
-                                                        net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(
-                                                                        item,
-                                                                        claimedAmount);
-                                                        boolean added = player.getInventory().add(itemStack);
-                                                        if (!added) {
-                                                                // If inventory is full, drop items near player
-                                                                player.drop(itemStack, false);
-                                                                player.sendSystemMessage(Component.translatable(
-                                                                                "taxmanager.inventory_full",
-                                                                                claimedAmount,
-                                                                                TaxConfig.getCurrencyItemName()));
-                                                        } else {
-                                                                player.sendSystemMessage(Component.translatable(
-                                                                                "taxmanager.currency_received",
-                                                                                claimedAmount,
-                                                                                TaxConfig.getCurrencyItemName()));
-                                                        }
-                                                } else {
-                                                        // Fallback to give command if item not found in registry
-                                                        String itemName = TaxConfig.getCurrencyItemName();
-                                                        String giveCommand = String.format("give %s %s %d",
-                                                                        player.getName().getString(), itemName,
-                                                                        claimedAmount);
-                                                        source.getServer().getCommands()
-                                                                        .performPrefixedCommand(source.getServer()
-                                                                                        .createCommandSourceStack(),
-                                                                                        giveCommand);
-                                                }
+                                        // Deliver the claimed tax, refunding the colony ledger if delivery fails so
+                                        // taxes are never silently lost (4.x "coins never appear" fix). The helper
+                                        // emits its own failure/refund message; only confirm on success.
+                                        if (net.machiavelli.minecolonytax.integration.CurrencyService
+                                                        .deliverClaimedTaxOrRefund(player, colony, claimedAmount)) {
+                                                player.sendSystemMessage(
+                                                                Component.translatable("command.claimtax.success",
+                                                                                claimedAmount, colony.getName()));
                                         }
                                 } else {
                                         player.sendSystemMessage(Component.translatable("command.claimtax.no_tax",
@@ -2264,6 +2223,54 @@ public class WntCommands {
                                         .filter(c -> c.getPermissions().getRank(player.getUUID()).isColonyManager())
                                         .findFirst().orElse(null);
                 }
+        }
+
+        /** Diagnostic for the "claimed tax coins never appear" issue — shows the live state of
+         *  the SDMShop/SDM-Economy integration and the caller's wallet balance. */
+        private static int showSdmStatus(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+                ServerPlayer player = context.getSource().getPlayerOrException();
+
+                boolean conversionEnabled = TaxConfig.isSDMShopConversionEnabled();
+                boolean modPresent = net.machiavelli.minecolonytax.integration.SDMShopIntegration.isModPresent();
+                String mode = net.machiavelli.minecolonytax.integration.SDMShopIntegration.getIntegrationMode();
+                boolean serverReady = net.machiavelli.minecolonytax.integration.SDMShopIntegration.isServerInstanceReady();
+                boolean available = net.machiavelli.minecolonytax.integration.SDMShopIntegration.isAvailable();
+                String currency = net.machiavelli.minecolonytax.integration.SDMShopIntegration.getCurrencyName();
+                long balance = available
+                                ? net.machiavelli.minecolonytax.integration.SDMShopIntegration.getMoney(player)
+                                : -1L;
+
+                net.minecraft.network.chat.MutableComponent msg = Component
+                                .literal("SDMShop / SDM-Economy Integration Status")
+                                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+                msg.append(sdmStatusLine("Conversion enabled (EnableSDMShopConversion)", conversionEnabled));
+                msg.append(sdmStatusLine("SDMShop/SDM-Economy mod loaded", modPresent));
+                msg.append(Component.literal("\n- Integration mode: ").withStyle(ChatFormatting.YELLOW)
+                                .append(Component.literal(mode).withStyle(ChatFormatting.WHITE)));
+                msg.append(sdmStatusLine("Economy server instance ready", serverReady));
+                msg.append(sdmStatusLine("Available for payouts", available));
+                msg.append(Component.literal("\n- Currency id (SDMCurrencyName): ").withStyle(ChatFormatting.YELLOW)
+                                .append(Component.literal(currency).withStyle(ChatFormatting.WHITE)));
+                msg.append(Component.literal("\n- Your balance: ").withStyle(ChatFormatting.YELLOW)
+                                .append(Component.literal(balance >= 0 ? String.valueOf(balance) : "n/a")
+                                                .withStyle(ChatFormatting.WHITE)));
+
+                if (conversionEnabled && !available) {
+                        msg.append(Component.literal(
+                                        "\nConversion is ON but the economy is unavailable — claimed taxes are refunded (not lost). "
+                                      + "Check that SDMShop/SDM-Economy is installed, that the currency id above matches your "
+                                      + "SDM-Economy config, and (single-player) that you have fully loaded into the world.")
+                                        .withStyle(ChatFormatting.RED));
+                }
+
+                player.sendSystemMessage(msg);
+                return 1;
+        }
+
+        private static net.minecraft.network.chat.MutableComponent sdmStatusLine(String label, boolean ok) {
+                return Component.literal("\n- " + label + ": ").withStyle(ChatFormatting.YELLOW)
+                                .append(Component.literal(ok ? "YES" : "NO")
+                                                .withStyle(ok ? ChatFormatting.GREEN : ChatFormatting.RED));
         }
 
         private static int showWarStats(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -3412,45 +3419,38 @@ public class WntCommands {
                                                         permissions.addPlayer(systemOwner, "[SYSTEM_ABANDONED]",
                                                                         permissions.getRankOwner());
 
-                                                        // CRITICAL FIX: Set actual owner to prevent GUI crashes
+                                                        // CRITICAL FIX: ensure the system owner holds the OWNER rank so
+                                                        // getOwner() resolves (prevents GUI crashes). Version-stable
+                                                        // setPlayerRank, not reflected setOwner — MineColonies changed
+                                                        // setOwner(UUID) -> setOwner(Player) in 1.1.1237, breaking the
+                                                        // old reflection. [1.21-PORT] re-verify — see PORTING_NOTES.md.
                                                         try {
-                                                                java.lang.reflect.Method setOwnerMethod = permissions
-                                                                                .getClass().getMethod("setOwner",
-                                                                                                UUID.class);
-                                                                setOwnerMethod.invoke(permissions, systemOwner);
-                                                                source.sendSuccess(() -> Component
-                                                                                .literal("    Set system owner as actual owner to prevent GUI crashes")
-                                                                                .withStyle(ChatFormatting.GREEN),
-                                                                                false);
-                                                        } catch (Exception e) {
-                                                                try {
-                                                                        for (java.lang.reflect.Method method : permissions
-                                                                                        .getClass()
-                                                                                        .getDeclaredMethods()) {
-                                                                                if (method.getName().equals("setOwner")
-                                                                                                && method.getParameterCount() == 1) {
-                                                                                        method.setAccessible(true);
-                                                                                        method.invoke(permissions,
-                                                                                                        systemOwner);
-                                                                                        source.sendSuccess(
-                                                                                                        () -> Component
-                                                                                                                        .literal("    Set system owner (alt method) to prevent GUI crashes")
-                                                                                                                        .withStyle(ChatFormatting.GREEN),
-                                                                                                        false);
-                                                                                        break;
-                                                                                }
-                                                                        }
-                                                                } catch (Exception e2) {
+                                                                // Null-world guard (world-brick hardening): never pass a null
+                                                                // Level into MineColonies' permission system.
+                                                                if (colony.getWorld() != null) {
+                                                                        permissions.setPlayerRank(systemOwner,
+                                                                                        permissions.getRankOwner(),
+                                                                                        colony.getWorld());
+                                                                        source.sendSuccess(() -> Component
+                                                                                        .literal("    Set system owner as actual owner to prevent GUI crashes")
+                                                                                        .withStyle(ChatFormatting.GREEN),
+                                                                                        false);
+                                                                } else {
                                                                         source.sendFailure(Component
-                                                                                        .literal("    WARNING: Could not set actual owner - GUI may crash!")
-                                                                                        .withStyle(ChatFormatting.RED));
+                                                                                        .literal("    Skipped owner assignment - colony world not loaded")
+                                                                                        .withStyle(ChatFormatting.YELLOW));
                                                                 }
+                                                        } catch (Exception e) {
+                                                                source.sendFailure(Component
+                                                                                .literal("    WARNING: Could not set actual owner - GUI may crash!")
+                                                                                .withStyle(ChatFormatting.RED));
                                                         }
 
                                                         // Set all real players to neutral with no permissions
                                                         Rank neutralRank = permissions.getRankNeutral();
                                                         for (UUID playerId : permissions.getPlayers().keySet()) {
-                                                                if (!ColonyAbandonmentManager.isSystemOwner(playerId)) {
+                                                                if (!ColonyAbandonmentManager.isSystemOwner(playerId)
+                                                                                && colony.getWorld() != null) {
                                                                         permissions.setPlayerRank(playerId, neutralRank,
                                                                                         colony.getWorld());
                                                                 }

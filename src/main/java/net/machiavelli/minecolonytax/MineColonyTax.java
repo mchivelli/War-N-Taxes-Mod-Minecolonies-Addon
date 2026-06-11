@@ -152,27 +152,33 @@ public class MineColonyTax {
 
         WarSystem.restoreAllColonyPermissionsToDefaults();
 
-        try {
-            net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.emergencyFixAllNullOwners();
-        } catch (Exception e) {
-            LOGGER.error("Immediate null owner fix failed", e);
+        // SAFETY (4.x world-brick fix): the legacy code called emergencyFixAllNullOwners()
+        // IMMEDIATELY here, at ServerStartingEvent — BEFORE MineColonies finishes loading
+        // colonies. A colony that was only transiently owner-null mid-load would then get a
+        // synthetic '[AUTO_OWNER]' placeholder written into its permissions and be flagged
+        // abandoned, corrupting its saved data and bricking the world on the next load.
+        // That immediate pass is removed. Automatic owner-repair / abandoned-entry cleanup
+        // now runs ONLY when the abandonment system is explicitly enabled, and ONLY on a
+        // deferred pass that lets colonies finish loading first.
+        if (TaxConfig.isColonyAbandonmentSystemEnabled()) {
+            net.machiavelli.minecolonytax.util.TickScheduler.scheduleDelayed(() -> {
+                try {
+                    net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.emergencyFixAllNullOwners();
+                    net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.cleanupAllColoniesAbandonedEntries();
+                } catch (Exception e) {
+                    LOGGER.error("Deferred null-owner repair failed", e);
+                }
+            }, 3000);
         }
 
-        // Deferred safety passes let MineColonies finish loading colonies before the fix runs
+        // Always-on, removal-ONLY migration: heal worlds that older versions corrupted with
+        // synthetic '[AUTO_OWNER]'/system-owner placeholder entries. This never injects owners
+        // and never flags colonies abandoned. Deferred so colonies are fully loaded first.
         net.machiavelli.minecolonytax.util.TickScheduler.scheduleDelayed(() -> {
             try {
-                net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.emergencyFixAllNullOwners();
-                net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.cleanupAllColoniesAbandonedEntries();
+                net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.repairLegacySyntheticOwners();
             } catch (Exception e) {
-                LOGGER.error("Delayed null owner fix failed", e);
-            }
-        }, 1000);
-
-        net.machiavelli.minecolonytax.util.TickScheduler.scheduleDelayed(() -> {
-            try {
-                net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.emergencyFixAllNullOwners();
-            } catch (Exception e) {
-                LOGGER.error("Final null owner fix failed", e);
+                LOGGER.error("Legacy synthetic-owner repair failed", e);
             }
         }, 3000);
 

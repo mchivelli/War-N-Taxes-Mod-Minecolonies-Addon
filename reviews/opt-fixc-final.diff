@@ -1,0 +1,130 @@
+diff --git a/src/main/java/net/machiavelli/minecolonytax/WarSystem.java b/src/main/java/net/machiavelli/minecolonytax/WarSystem.java
+index 5e7ab58..4c85abd 100644
+--- a/src/main/java/net/machiavelli/minecolonytax/WarSystem.java
++++ b/src/main/java/net/machiavelli/minecolonytax/WarSystem.java
+@@ -330,9 +330,10 @@ public class WarSystem {
+                     ? net.machiavelli.minecolonytax.economy.TreasuryManager.drainTreasury(attackerColonyId)
+                     : Integer.MAX_VALUE;
+ 
+-            // Periodic save every 5 drain ticks (5 minutes)
++            // Periodic save every 5 drain ticks (5 minutes) — async + coalesced now,
++            // so concurrent wars no longer each fire a synchronous treasury write (audit H2).
+             if (tickCount[0] % 5 == 0) {
+-                net.machiavelli.minecolonytax.economy.TreasuryManager.shutdown(); // calls saveData()
++                net.machiavelli.minecolonytax.economy.TreasuryManager.save();
+             }
+ 
+             // Auto-surrender if either side is depleted
+@@ -1386,6 +1387,14 @@ public class WarSystem {
+                 TickScheduler.cancel(warData.warChestDrainTaskId);
+                 warData.warChestDrainTaskId = -1;
+             }
++            if (warData.joinCountdownTaskId >= 0) {
++                TickScheduler.cancel(warData.joinCountdownTaskId);
++                warData.joinCountdownTaskId = -1;
++            }
++            if (warData.joinStartTaskId >= 0) {
++                TickScheduler.cancel(warData.joinStartTaskId);
++                warData.joinStartTaskId = -1;
++            }
+             if (warData.bossEvent != null) {
+                 warData.bossEvent.removeAllPlayers();
+                 warData.bossEvent.setVisible(false);
+@@ -2392,10 +2401,16 @@ public class WarSystem {
+         // join phase is at least 6 seconds long
+         if (joinDurationMillis >= 6000) {
+             final int[] secondsLeft = { 6 };
+-            TickScheduler.scheduleRepeating(() -> {
++            war.joinCountdownTaskId = TickScheduler.scheduleRepeating(() -> {
+                 try {
+                     if (war == null || war.getColony() == null || !war.isJoinPhaseActive() || secondsLeft[0] < 0) {
+-                        return; // Task will be cleaned up when war starts or ends
++                        // Self-cancel: without this the repeating task re-arms forever,
++                        // leaking the task + retaining the whole WarData (audit C4).
++                        if (war != null && war.joinCountdownTaskId >= 0) {
++                            TickScheduler.cancel(war.joinCountdownTaskId);
++                            war.joinCountdownTaskId = -1;
++                        }
++                        return;
+                     }
+ 
+                     // Play countdown sound to all war participants
+@@ -2433,13 +2448,27 @@ public class WarSystem {
+         }
+ 
+         // Main timer to start the war when join phase ends
+-        TickScheduler.scheduleDelayed(() -> {
++        war.joinStartTaskId = TickScheduler.scheduleDelayed(() -> {
+             if (war == null || war.getColony() == null) {
+                 return;
+             }
++            // Guard: the war may have ended during the JOINING phase (operator /warstop,
++            // finalize abort, etc.). endWar() removes it from ACTIVE_WARS, so if this
++            // delayed task is no longer the active war for its colony, do NOT start it —
++            // otherwise it would resurrect an ended war and re-enable war permissions
++            // (codex HIGH).
++            if (ACTIVE_WARS.get(war.getColony().getID()) != war) {
++                return;
++            }
+             war.setStatus(WarData.WarStatus.INWAR);
+             war.warStartTime = System.currentTimeMillis();
+             finalizeWarStart(war);
++            // finalizeWarStart() itself ends the war (calls endWar) when there are no valid
++            // participants / a bad ratio. If it did, the war is gone from ACTIVE_WARS — do
++            // NOT enable war permissions or start the countdown on an ended war (codex HIGH).
++            if (ACTIVE_WARS.get(war.getColony().getID()) != war) {
++                return;
++            }
+             // Enable war actions for both sides
+             setWarInteractionPermissions(war.getColony(), true);
+             if (war.getAttackerColony() != null) {
+@@ -3833,32 +3862,38 @@ public class WarSystem {
+         if (building == null)
+             return false;
+ 
++        // Display name can be a PER-INSTANCE custom name (a player can rename a building),
++        // so it must be evaluated per building — never cached by class. It's a cheap getter.
++        String displayName = building.getBuildingDisplayName();
++        if (displayName != null && "Guard Tower".equalsIgnoreCase(displayName)) {
++            return true;
++        }
++
++        // Class name and the schematic/structure name (from toString) are CLASS-stable —
++        // cache that determination by class so the expensive building.toString() runs at
++        // most once per building TYPE, not once per building each tax cycle (audit H8 +
++        // codex correctness follow-up: the previous code cached the per-instance displayName
++        // result by class, which could mis-count custom-named buildings).
+         Boolean cached = GUARD_TOWER_CLASS_CACHE.get(building.getClass());
+         if (cached != null) {
+             return cached;
+         }
+-        boolean result = computeIsGuardTower(building);
++        boolean result = computeClassIsGuardTower(building);
+         GUARD_TOWER_CLASS_CACHE.put(building.getClass(), result);
+         return result;
+     }
+ 
+-    private static boolean computeIsGuardTower(IBuilding building) {
+-        // Method 1: Check display name (current approach)
+-        String displayName = building.getBuildingDisplayName();
+-        if (displayName != null && "Guard Tower".equalsIgnoreCase(displayName)) {
+-            return true;
+-        }
+-
++    private static boolean computeClassIsGuardTower(IBuilding building) {
+         // Method 2: Check if class name contains "guardtower"
+         String className = building.getClass().getName().toLowerCase();
+         if (className.contains("guardtower")) {
+             return true;
+         }
+ 
+-        // Method 3: Check if the building has guard-related functionality
+-        // This is a fallback in case the building class structure changes
++        // Method 3: Fallback on the schematic name in case the class structure changes.
++        // The "guardtower" substring comes from the structure type (class-level), so the
++        // match is class-stable even though toString may also contain instance data.
+         try {
+-            // Try to get the schematic name if available
+             String toString = building.toString().toLowerCase();
+             if (toString.contains("guardtower") || toString.contains("guard_tower")) {
+                 return true;

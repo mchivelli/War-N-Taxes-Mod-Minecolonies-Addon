@@ -1,5 +1,6 @@
 package net.machiavelli.minecolonytax.integration;
 
+import net.machiavelli.minecolonytax.TaxConfig;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.fml.ModList;
@@ -8,6 +9,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Integration wrapper for SDMShop/SDM-Economy to avoid compilation errors when
@@ -24,8 +26,26 @@ import java.lang.reflect.Method;
 public class SDMShopIntegration {
     private static final Logger LOGGER = LogManager.getLogger(SDMShopIntegration.class);
 
-    // Default currency name for SDM-Economy multi-currency system
+    // Fallback currency id used only if the configured value is blank. The authoritative value
+    // is TaxConfig.getSDMCurrencyName() (config key 'SDMCurrencyName') so servers whose
+    // SDM-Economy currency id is not literally "sdm_coin" can point taxes at the right currency.
     private static final String DEFAULT_CURRENCY_NAME = "sdm_coin";
+
+    /** One-time WARN latch so we don't spam logs when conversion is enabled but unavailable. */
+    private static final AtomicBoolean WARNED_UNAVAILABLE = new AtomicBoolean(false);
+
+    /** The SDM-Economy currency id taxes are deposited into (config 'SDMCurrencyName'). */
+    private static String currencyName() {
+        try {
+            String configured = TaxConfig.getSDMCurrencyName();
+            if (configured != null && !configured.trim().isEmpty()) {
+                return configured.trim();
+            }
+        } catch (Throwable ignored) {
+            // config not ready (very early classload) — fall back to default
+        }
+        return DEFAULT_CURRENCY_NAME;
+    }
 
     // Integration mode enum
     private enum IntegrationMode {
@@ -95,19 +115,19 @@ public class SDMShopIntegration {
         // Try integration methods in priority order
         if (tryShopUtilsApi()) {
             mode = IntegrationMode.SHOP_UTILS;
-            LOGGER.info("✓ SDMShop integration initialized using ShopUtils API (newest)");
+            LOGGER.info("SDMShop integration initialized using ShopUtils API (newest)");
             return;
         }
 
         if (tryCurrencyDataApi()) {
             mode = IntegrationMode.CURRENCY_DATA;
-            LOGGER.info("✓ SDM-Economy integration initialized using CurrencyPlayerData API");
+            LOGGER.info("SDM-Economy integration initialized using CurrencyPlayerData API");
             return;
         }
 
         if (tryLegacyApi()) {
             mode = IntegrationMode.LEGACY;
-            LOGGER.info("✓ SDMShop integration initialized using legacy API (backwards compatibility)");
+            LOGGER.info("SDMShop integration initialized using legacy API (backwards compatibility)");
             return;
         }
 
@@ -124,17 +144,17 @@ public class SDMShopIntegration {
 
             // getMoney(Player) returns double
             shopUtilsGetMoney = shopUtilsClass.getMethod("getMoney", Player.class);
-            LOGGER.debug("✓ Found ShopUtils.getMoney(Player)");
+            LOGGER.debug("Found ShopUtils.getMoney(Player)");
 
             // setMoney(Player, double) returns boolean
             shopUtilsSetMoney = shopUtilsClass.getMethod("setMoney", Player.class, double.class);
-            LOGGER.debug("✓ Found ShopUtils.setMoney(Player, double)");
+            LOGGER.debug("Found ShopUtils.setMoney(Player, double)");
 
             // addMoney(Player, double) returns boolean
             shopUtilsAddMoney = shopUtilsClass.getMethod("addMoney", Player.class, double.class);
-            LOGGER.debug("✓ Found ShopUtils.addMoney(Player, double)");
+            LOGGER.debug("Found ShopUtils.addMoney(Player, double)");
 
-            LOGGER.info("✓ Successfully initialized ShopUtils API");
+            LOGGER.info("Successfully initialized ShopUtils API");
             return true;
         } catch (ClassNotFoundException e) {
             LOGGER.debug("ShopUtils class not found: {}", e.getMessage());
@@ -168,26 +188,26 @@ public class SDMShopIntegration {
 
             // getBalance(Player, String) returns ErrorCodeStruct<Double>
             currencyDataGetBalance = serverClass.getMethod("getBalance", Player.class, String.class);
-            LOGGER.debug("✓ Found CurrencyPlayerData.Server.getBalance(Player, String)");
+            LOGGER.debug("Found CurrencyPlayerData.Server.getBalance(Player, String)");
 
             // setCurrencyValue(Player, String, double) returns ErrorCodes
             currencyDataSetValue = serverClass.getMethod("setCurrencyValue", Player.class, String.class, double.class);
-            LOGGER.debug("✓ Found CurrencyPlayerData.Server.setCurrencyValue(Player, String, double)");
+            LOGGER.debug("Found CurrencyPlayerData.Server.setCurrencyValue(Player, String, double)");
 
             // addCurrencyValue(Player, String, double) returns ErrorCodes
             currencyDataAddValue = serverClass.getMethod("addCurrencyValue", Player.class, String.class, double.class);
-            LOGGER.debug("✓ Found CurrencyPlayerData.Server.addCurrencyValue(Player, String, double)");
+            LOGGER.debug("Found CurrencyPlayerData.Server.addCurrencyValue(Player, String, double)");
 
             // Try to get EconomyAPI.syncPlayer for client sync
             try {
                 economyApiClass = Class.forName("net.sixik.sdmeconomy.api.EconomyAPI");
                 syncPlayerMethod = economyApiClass.getMethod("syncPlayer", ServerPlayer.class);
-                LOGGER.debug("✓ Found EconomyAPI.syncPlayer(ServerPlayer)");
+                LOGGER.debug("Found EconomyAPI.syncPlayer(ServerPlayer)");
             } catch (Exception e) {
                 LOGGER.debug("Could not find EconomyAPI.syncPlayer - client sync disabled");
             }
 
-            LOGGER.info("✓ Successfully initialized CurrencyPlayerData API");
+            LOGGER.info("Successfully initialized CurrencyPlayerData API");
             return true;
         } catch (ClassNotFoundException e) {
             LOGGER.debug("CurrencyPlayerData class not found: {}", e.getMessage());
@@ -230,7 +250,7 @@ public class SDMShopIntegration {
                     for (Class<?> paramType : paramTypes) {
                         try {
                             legacyGetMoney = legacyClass.getMethod(methodName, paramType);
-                            LOGGER.debug("✓ Found legacy getMoney: {}({})", methodName, paramType.getSimpleName());
+                            LOGGER.debug("Found legacy getMoney: {}({})", methodName, paramType.getSimpleName());
                             break;
                         } catch (NoSuchMethodException ignored) {
                         }
@@ -253,7 +273,7 @@ public class SDMShopIntegration {
                     for (Class<?>[] params : setParamTypes) {
                         try {
                             legacySetMoney = legacyClass.getMethod(methodName, params);
-                            LOGGER.debug("✓ Found legacy setMoney: {}({}, {})", methodName,
+                            LOGGER.debug("Found legacy setMoney: {}({}, {})", methodName,
                                     params[0].getSimpleName(), params[1].getSimpleName());
                             break;
                         } catch (NoSuchMethodException ignored) {
@@ -264,7 +284,7 @@ public class SDMShopIntegration {
                 }
 
                 if (legacyGetMoney != null && legacySetMoney != null) {
-                    LOGGER.info("✓ Successfully initialized legacy API from {}", className);
+                    LOGGER.info("Successfully initialized legacy API from {}", className);
                     return true;
                 }
             } catch (ClassNotFoundException ignored) {
@@ -340,7 +360,7 @@ public class SDMShopIntegration {
         }
 
         // Returns ErrorCodeStruct<Double>
-        Object result = currencyDataGetBalance.invoke(currencyPlayerDataServer, player, DEFAULT_CURRENCY_NAME);
+        Object result = currencyDataGetBalance.invoke(currencyPlayerDataServer, player, currencyName());
 
         // Get the 'value' field from ErrorCodeStruct
         Field valueField = result.getClass().getField("value");
@@ -427,7 +447,7 @@ public class SDMShopIntegration {
         }
 
         // Returns ErrorCodes enum
-        Object result = currencyDataSetValue.invoke(currencyPlayerDataServer, player, DEFAULT_CURRENCY_NAME,
+        Object result = currencyDataSetValue.invoke(currencyPlayerDataServer, player, currencyName(),
                 (double) amount);
 
         // Check if result is SUCCESS
@@ -494,7 +514,7 @@ public class SDMShopIntegration {
 
             if (mode == IntegrationMode.CURRENCY_DATA && currencyPlayerDataServer != null
                     && currencyDataAddValue != null) {
-                Object result = currencyDataAddValue.invoke(currencyPlayerDataServer, player, DEFAULT_CURRENCY_NAME,
+                Object result = currencyDataAddValue.invoke(currencyPlayerDataServer, player, currencyName(),
                         (double) amount);
                 boolean success = result.toString().equals("SUCCESS");
 
@@ -565,5 +585,39 @@ public class SDMShopIntegration {
      */
     public static String getIntegrationMode() {
         return mode.toString();
+    }
+
+    /** True if the SDMShop/SDM-Economy mod was detected as loaded at init. */
+    public static boolean isModPresent() {
+        return modPresent;
+    }
+
+    /** The currency id taxes are deposited into (config 'SDMCurrencyName'). */
+    public static String getCurrencyName() {
+        return currencyName();
+    }
+
+    /**
+     * True when, for the active integration mode, the backing economy server instance is ready.
+     * For CURRENCY_DATA mode this is what's commonly null in single-player until SDM-Economy
+     * finishes its own SERVER_STARTED init — the usual cause of "coins never appeared".
+     */
+    public static boolean isServerInstanceReady() {
+        if (!modPresent) return false;
+        refreshServerInstance();
+        return mode != IntegrationMode.NONE
+                && (mode != IntegrationMode.CURRENCY_DATA || currencyPlayerDataServer != null);
+    }
+
+    /**
+     * Logs a single WARN the first time tax conversion is requested while the integration is
+     * unavailable, so server admins can see the cause without enabling debug logging.
+     */
+    public static void warnUnavailableOnce() {
+        if (WARNED_UNAVAILABLE.compareAndSet(false, true)) {
+            LOGGER.warn("EnableSDMShopConversion=true but the SDMShop/SDM-Economy integration is not available "
+                    + "(modPresent={}, mode={}, serverReady={}). Claimed taxes are being refunded instead of "
+                    + "converted. Use /wnt sdm status to diagnose.", modPresent, mode, isServerInstanceReady());
+        }
     }
 }

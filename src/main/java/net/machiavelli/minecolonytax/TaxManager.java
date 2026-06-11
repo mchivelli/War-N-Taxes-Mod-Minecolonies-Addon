@@ -108,13 +108,22 @@ public class TaxManager {
                 cleanupTickCount++;
                 nullOwnerCheckCount++;
 
-                // Check for null owners every 5 seconds
-                if (nullOwnerCheckCount >= 100) { // 100 ticks = 5 seconds
+                // Null-owner safety net. The real null-owner repair runs at startup
+                // (MineColonyTax.onServerStarting + deferred passes); this is only a
+                // periodic catch for owners that go null at runtime (rare). Throttled
+                // to every 5 minutes — a per-5s all-colony permission scan is a needless
+                // steady-state cost at hundreds of colonies (optimization audit C2).
+                if (nullOwnerCheckCount >= 6000) { // 6000 ticks = 5 minutes
                     nullOwnerCheckCount = 0;
-                    try {
-                        net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.emergencyFixAllNullOwners();
-                    } catch (Exception e) {
-                        LOGGER.error("Failed automatic null owner fix", e);
+                    // Gated by the master abandonment switch (4.x world-brick fix): when the
+                    // abandonment system is off the mod performs NO automatic writes to
+                    // MineColonies owner/permission state.
+                    if (TaxConfig.isColonyAbandonmentSystemEnabled()) {
+                        try {
+                            net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.emergencyFixAllNullOwners();
+                        } catch (Exception e) {
+                            LOGGER.error("Failed automatic null owner fix", e);
+                        }
                     }
                 }
 
@@ -141,7 +150,9 @@ public class TaxManager {
                 // Run proactive [abandoned] cleanup every 30 minutes (36000 ticks = 30 minutes)
                 if (cleanupTickCount >= 36000) {
                     cleanupTickCount = 0;
-                    runPeriodicAbandonedCleanup();
+                    if (TaxConfig.isColonyAbandonmentSystemEnabled()) {
+                        runPeriodicAbandonedCleanup();
+                    }
                 }
 
                 // Update claiming raids every second
@@ -151,7 +162,7 @@ public class TaxManager {
 
                 // Check for officer changes in abandoned colonies every 5 minutes (6000 ticks)
                 // This detects admin commands that add officers/owners to abandoned colonies
-                if (abandonmentTickCount % 6000 == 0) {
+                if (abandonmentTickCount % 6000 == 0 && TaxConfig.isColonyAbandonmentSystemEnabled()) {
                     checkForOfficerChangesInAbandonedColonies();
                 }
             }
@@ -619,19 +630,13 @@ public class TaxManager {
                     }
 
                     // --- Guard Tower Tax Boost Processing ---
+                    // Use the cached WarSystem.isGuardTower (identical matching logic) instead of
+                    // re-doing building.toString().toLowerCase() per building — that allocation
+                    // ran for every building of every colony each tax cycle (audit H8).
                     for (IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
-                        if (building.getBuildingLevel() > 0 && building.isBuilt()) {
-                            // Count guard towers using the same logic as WarSystem
-                            String displayName = building.getBuildingDisplayName();
-                            String className = building.getClass().getName().toLowerCase();
-                            String toString = building.toString().toLowerCase();
-
-                            if ((displayName != null && "Guard Tower".equalsIgnoreCase(displayName)) ||
-                                    className.contains("guardtower") ||
-                                    toString.contains("guardtower") ||
-                                    toString.contains("guard_tower")) {
-                                guardTowerCount++;
-                            }
+                        if (building.getBuildingLevel() > 0 && building.isBuilt()
+                                && WarSystem.isGuardTower(building)) {
+                            guardTowerCount++;
                         }
                     }
 
@@ -997,14 +1002,26 @@ public class TaxManager {
                     // Apply debt consequences (happiness penalty, events, abandonment, blocking)
                     processDebtConsequences(colony, finalTaxBalance, recipients);
 
-                    // Trigger random events after tax cycle
+                    // Trigger random events after tax cycle. Catch per-colony so one bad
+                    // colony can't abort the whole forEach — that would skip the post-loop
+                    // saveTaxData() and RandomEventManager.persist() and lose the cycle's
+                    // saves (codex C1 follow-up).
                     if (TaxConfig.isRandomEventsEnabled()) {
-                        RandomEventManager.onTaxCycle(colony);
+                        try {
+                            RandomEventManager.onTaxCycle(colony);
+                        } catch (Exception ex) {
+                            LOGGER.error("Random event tick failed for colony {}", colony.getID(), ex);
+                        }
                     }
                 });
             });
             // Only log save operation once per full tax cycle
             saveTaxData();
+            // Persist random-event state ONCE for the whole cycle (not per colony —
+            // see optimization audit C1 / RandomEventManager.persist()).
+            if (TaxConfig.isRandomEventsEnabled()) {
+                RandomEventManager.persist();
+            }
             if (TaxConfig.isNormalLogging()) {
                 LOGGER.info("Tax generation cycle completed for all colonies");
             }
@@ -1056,9 +1073,13 @@ public class TaxManager {
                 }
             }
 
-            // 3. Abandonment — after N consecutive max-debt cycles
+            // 3. Abandonment — after N consecutive max-debt cycles.
+            // Gated by the abandonment master switch (4.x world-brick fix): debt bankruptcy
+            // rewrites colony owner/permission state, so when the abandonment system is off the
+            // mod must not perform it automatically either.
             int abandonCycles = TaxConfig.getDebtAbandonmentCycles();
-            if (abandonCycles > 0 && debtLimit > 0 && finalTaxBalance <= -debtLimit && cycles >= abandonCycles
+            if (TaxConfig.isColonyAbandonmentSystemEnabled()
+                    && abandonCycles > 0 && debtLimit > 0 && finalTaxBalance <= -debtLimit && cycles >= abandonCycles
                     && serverInstance != null) {
                 LOGGER.warn("Colony {} has been in max debt for {} consecutive cycles — triggering debt abandonment",
                     colony.getName(), cycles);
@@ -1139,16 +1160,37 @@ public class TaxManager {
     }
 
     private static void saveTaxData(boolean logSave) {
-        File file = new File(TAX_DATA_FILE);
-        file.getParentFile().mkdirs(); // Ensure the directory exists
-        try (FileWriter writer = new FileWriter(file)) {
-            GSON.toJson(colonyTaxMap, writer);
-            if (logSave && TaxConfig.showTaxGenerationLogs()) {
-                LOGGER.info("Saved tax data to file.");
+        // Snapshot on the calling (main) thread, then write off-thread + coalesced so
+        // per-cycle and per-claim/debt-payment saves no longer block ticks (audit H4).
+        // Atomic temp+move added so a crash mid-write can't truncate colonyTaxData.json.
+        final Map<Integer, Integer> snapshot = new HashMap<>(colonyTaxMap);
+        final boolean log = logSave;
+        net.machiavelli.minecolonytax.util.AsyncSaveExecutor.submit("tax_data", () -> {
+            File file = new File(TAX_DATA_FILE);
+            file.getParentFile().mkdirs();
+            File tmp = new File(file.getParentFile(), file.getName() + ".tmp");
+            try {
+                try (FileWriter writer = new FileWriter(tmp)) {
+                    GSON.toJson(snapshot, writer);
+                }
+                try {
+                    java.nio.file.Files.move(tmp.toPath(), file.toPath(),
+                            java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
+                    java.nio.file.Files.move(tmp.toPath(), file.toPath(),
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+                if (log && TaxConfig.showTaxGenerationLogs()) {
+                    LOGGER.info("Saved tax data to file.");
+                }
+            } catch (Exception e) {
+                LOGGER.error("Error saving tax data", e);
+                if (tmp.exists()) {
+                    try { tmp.delete(); } catch (Exception ignored) { /* nothing else to do */ }
+                }
             }
-        } catch (IOException e) {
-            LOGGER.error("Error saving tax data", e);
-        }
+        });
     }
 
     private static void loadTaxData(MinecraftServer server) {

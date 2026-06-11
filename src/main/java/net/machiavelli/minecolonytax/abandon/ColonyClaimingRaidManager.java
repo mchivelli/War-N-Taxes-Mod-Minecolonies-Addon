@@ -793,8 +793,13 @@ public class ColonyClaimingRaidManager {
             // STEP 1: Set claimer as OWNER (they've earned it by completing the raid!)
             boolean wasAlreadyInColony = permissions.getPlayers().containsKey(claimingPlayer.getUUID());
             if (wasAlreadyInColony) {
-                // Player was already in colony - promote to Owner
-                permissions.setPlayerRank(claimingPlayer.getUUID(), permissions.getRankOwner(), colony.getWorld());
+                // Player was already in colony - promote to Owner.
+                // Null-world guard (4.x world-brick hardening): never pass a null Level into
+                // MineColonies' permission system. setOwner(claimingPlayer) below is the
+                // authoritative owner update regardless.
+                if (colony.getWorld() != null) {
+                    permissions.setPlayerRank(claimingPlayer.getUUID(), permissions.getRankOwner(), colony.getWorld());
+                }
                 if (TaxConfig.isNormalLogging()) LOGGER.info("CLAIMING SUCCESS: Promoted existing player {} to OWNER of colony {}",
                     claimingPlayer.getName().getString(), colony.getName());
             } else {
@@ -804,27 +809,18 @@ public class ColonyClaimingRaidManager {
                     claimingPlayer.getName().getString(), colony.getName());
             }
             
-            // CRITICAL: Set the claiming player as the actual owner to prevent GUI crashes
+            // CRITICAL: Set the claiming player as the actual owner to prevent GUI crashes.
+            // MineColonies changed IPermissions.setOwner(UUID) -> setOwner(Player) in 1.1.1237,
+            // which broke the old reflection ("argument type mismatch") and left the colony
+            // ownerless. setOwner(Player) updates the cached ownerUUID that getOwner() returns
+            // (setPlayerRank does NOT). claimingPlayer is an online ServerPlayer, so this is the
+            // correct, complete fix. [1.21-PORT] re-verify the owner API — see PORTING_NOTES.md.
             try {
-                java.lang.reflect.Method setOwnerMethod = permissions.getClass().getMethod("setOwner", UUID.class);
-                setOwnerMethod.invoke(permissions, claimingPlayer.getUUID());
+                permissions.setOwner(claimingPlayer);
                 if (TaxConfig.isNormalLogging()) LOGGER.info("Claiming owner set: {} is now the actual owner of claimed colony {}",
                     claimingPlayer.getName().getString(), colony.getName());
             } catch (Exception e) {
-                LOGGER.warn("Could not set claiming player as actual owner directly, trying alternative: {}", e.getMessage());
-                try {
-                    for (java.lang.reflect.Method method : permissions.getClass().getDeclaredMethods()) {
-                        if (method.getName().equals("setOwner") && method.getParameterCount() == 1) {
-                            method.setAccessible(true);
-                            method.invoke(permissions, claimingPlayer.getUUID());
-                            if (TaxConfig.isNormalLogging()) LOGGER.info("Claiming owner set (alt): {} is now the actual owner of claimed colony {}",
-                                claimingPlayer.getName().getString(), colony.getName());
-                            break;
-                        }
-                    }
-                } catch (Exception e2) {
-                    LOGGER.error("Failed to set claiming player as actual owner: {}", e2.getMessage());
-                }
+                LOGGER.error("Failed to set claiming player as actual owner: {}", e.getMessage());
             }
             
             // STEP 2: Restore normal permissions for neutral players (they were restricted during abandonment)
@@ -1047,6 +1043,11 @@ public class ColonyClaimingRaidManager {
      */
     public static boolean isColonyUnderClaimingRaid(int colonyId) {
         return activeClaimingRaids.containsKey(colonyId);
+    }
+
+    /** O(1) "is any claiming raid active?" — for hot-path early-outs (audit H5). */
+    public static boolean hasActiveClaimingRaids() {
+        return !activeClaimingRaids.isEmpty();
     }
     
     /**
