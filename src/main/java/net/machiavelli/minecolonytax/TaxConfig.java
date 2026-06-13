@@ -68,6 +68,8 @@ public class TaxConfig {
         // One-time "huge money" grab applied when a war win vassalizes instead of transferring a colony.
         public static final ModConfigSpec.IntValue WAR_VASSALIZATION_TREASURY_GRAB_PERCENT;
         public static final ModConfigSpec.IntValue WAR_VASSALIZATION_PLAYER_BALANCE_GRAB_PERCENT;
+        // Colony tier protection (Siege SMP): protect a player's first colony from permanent transfer.
+        public static final ModConfigSpec.BooleanValue ENABLE_PRIMARY_COLONY_TRANSFER;
         public static final ModConfigSpec.IntValue JOIN_PHASE_DURATION_MINUTES;
         public static final ModConfigSpec.BooleanValue WAR_ACCEPTANCE_REQUIRED;
         public static final ModConfigSpec.BooleanValue KEEP_INVENTORY_ON_LAST_LIFE;
@@ -544,6 +546,16 @@ public class TaxConfig {
                                                 +
                                                 "Requires an economy mod (SDM-Economy). Set 0 to disable.")
                                 .defineInRange("WarVassalizationPlayerBalanceGrabPercent", 25, 0, 100);
+
+                ENABLE_PRIMARY_COLONY_TRANSFER = BUILDER.comment(
+                                "If false (default), a player's first colony (Primary) is protected from permanent ownership\n"
+                                                +
+                                                "transfer. Primary colonies can still be tax-occupied or vassalized (the loser pays tribute),\n"
+                                                +
+                                                "but the deed never moves. Secondary colonies are always transferable when\n"
+                                                +
+                                                "EnableColonyTransfer is on. Set true for a no-mercy SMP where even home bases can be lost.")
+                                .define("EnablePrimaryColonyTransfer", false);
 
                 // ========== Colony Occupation Settings ==========
                 BUILDER.push("Colony Occupation");
@@ -2432,6 +2444,10 @@ public class TaxConfig {
 
         public static int getWarVassalizationPlayerBalanceGrabPercent() {
                 return WAR_VASSALIZATION_PLAYER_BALANCE_GRAB_PERCENT.get();
+        }
+
+        public static boolean isPrimaryColonyTransferEnabled() {
+                return ENABLE_PRIMARY_COLONY_TRANSFER.get();
         }
 
         public static Set<com.minecolonies.api.colony.permissions.Action> getWarActions() {

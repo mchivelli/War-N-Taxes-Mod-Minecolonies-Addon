@@ -148,6 +148,21 @@ public class FirstColonyTracker {
     }
 
     /**
+     * Reverse lookup: the player whose FIRST (primary) colony is the given colony id,
+     * or null if no tracked player's first colony matches. Used by ColonyTierGuard to
+     * protect primary colonies regardless of permissions-owner state.
+     */
+    public static UUID getFirstColonyOwner(int colonyId) {
+        for (Map.Entry<UUID, List<Integer>> entry : playerColoniesMap.entrySet()) {
+            List<Integer> cols = entry.getValue();
+            if (cols != null && !cols.isEmpty() && cols.get(0).equals(colonyId)) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    /**
      * Gets all colonies for a player in creation order.
      *
      * @param playerUUID The player's UUID
