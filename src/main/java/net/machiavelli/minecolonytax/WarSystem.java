@@ -11,6 +11,7 @@ import dev.ftb.mods.ftbteams.FTBTeamsAPIImpl;
 import dev.ftb.mods.ftbteams.api.Team;
 import dev.ftb.mods.ftbteams.api.TeamManager;
 import dev.ftb.mods.ftbteams.data.PartyTeam;
+import net.machiavelli.minecolonytax.compat.ColonyBuildingUtil;
 import net.machiavelli.minecolonytax.data.HistoryManager;
 import net.machiavelli.minecolonytax.data.PlayerWarDataManager;
 import net.machiavelli.minecolonytax.data.WarData;
@@ -565,9 +566,89 @@ public class WarSystem {
             applyWarEconomyTransfers(war, true);
             if (TaxConfig.ENABLE_COLONY_TRANSFER.get()) {
                 transferOwnership(war.getColony(), war.getAttacker());
+            } else if (TaxConfig.isWarVassalizationEnabled()) {
+                // Vassalize-only outcome: deed never moves; the loser pays tribute and a one-time
+                // "huge money" grab (war chest % + player wallet %) goes to the victor.
+                int tributePercent = TaxConfig.getWarVassalizationTributePercentage();
+                int durationHours = TaxConfig.getWarVassalizationDurationHours();
+                boolean vassalized = net.machiavelli.minecolonytax.vassalization.VassalManager.forceVassalize(
+                        war.getColony(), war.getAttacker(), tributePercent, durationHours);
+                if (vassalized) {
+                    applyWarVassalizationMoneyGrab(war);
+                    WARSYSTEM_LOGGER.info("Colony {} has been vassalized by {} at {}% tribute",
+                            war.getColony().getName(), war.getAttacker(), tributePercent);
+                }
             }
         }
         endWar(war.getColony());
+    }
+
+    /**
+     * One-time "huge money" grab applied when a war victory results in vassalization (the
+     * vassalize-only path, used when colony deed transfer is disabled). Moves a configurable
+     * percentage of the losing colony's war chest and the losing player's wallet to the victor.
+     * Both percentages are independently configurable; either can be disabled by setting it to 0.
+     */
+    private static void applyWarVassalizationMoneyGrab(WarData war) {
+        try {
+            IColony loserColony = war.getColony();
+            IColony winnerColony = war.getAttackerColony();
+            if (loserColony == null || loserColony.getWorld() == null) return;
+            var server = loserColony.getWorld().getServer();
+            if (server == null) return;
+
+            // --- Colony war chest grab (cap-safe: credit first, then deduct exactly what landed) ---
+            int treasuryPct = TaxConfig.getWarVassalizationTreasuryGrabPercent();
+            if (treasuryPct > 0 && winnerColony != null) {
+                int loserBal = net.machiavelli.minecolonytax.economy.WarChestManager
+                        .getWarChestBalance(loserColony.getID());
+                if (loserBal > 0) {
+                    int requested = (int) Math.floor(loserBal * (treasuryPct / 100.0));
+                    if (requested > 0) {
+                        int winnerBefore = net.machiavelli.minecolonytax.economy.WarChestManager
+                                .getWarChestBalance(winnerColony.getID());
+                        int winnerAfter = net.machiavelli.minecolonytax.economy.WarChestManager
+                                .addToWarChest(winnerColony.getID(), requested); // caps to WarChestMaxCapacity
+                        int credited = winnerAfter - winnerBefore;
+                        if (credited > 0) {
+                            net.machiavelli.minecolonytax.economy.WarChestManager
+                                    .deductFromWarChest(loserColony.getID(), credited);
+                            WARSYSTEM_LOGGER.info("War vassalization war-chest grab ({}%): {} coins {} -> {}",
+                                    treasuryPct, credited, loserColony.getName(), winnerColony.getName());
+                        }
+                    }
+                }
+            }
+
+            // --- Losing player's wallet grab ---
+            int walletPct = TaxConfig.getWarVassalizationPlayerBalanceGrabPercent();
+            if (walletPct > 0 && net.machiavelli.minecolonytax.integration.SDMShopCompat.isAvailable()) {
+                UUID loserOwner = loserColony.getPermissions().getOwner();
+                ServerPlayer loserPlayer = loserOwner != null ? server.getPlayerList().getPlayer(loserOwner) : null;
+                if (loserPlayer != null) {
+                    long bal = net.machiavelli.minecolonytax.integration.SDMShopCompat.getMoney(loserPlayer);
+                    if (bal > 0) {
+                        long taken = (long) Math.floor(bal * (walletPct / 100.0));
+                        if (taken > 0
+                                && net.machiavelli.minecolonytax.integration.SDMShopCompat.removeMoney(loserPlayer, taken)) {
+                            UUID winnerUUID = war.getAttacker();
+                            ServerPlayer winnerPlayer = winnerUUID != null
+                                    ? server.getPlayerList().getPlayer(winnerUUID) : null;
+                            if (winnerPlayer != null) {
+                                net.machiavelli.minecolonytax.integration.SDMShopCompat.addMoney(winnerPlayer, taken);
+                            }
+                            loserPlayer.sendSystemMessage(Component.literal("War tribute: " + taken
+                                    + " coins seized from your wallet as the price of defeat.")
+                                    .withStyle(ChatFormatting.RED));
+                            WARSYSTEM_LOGGER.info("War vassalization wallet grab ({}%): {} coins from {}",
+                                    walletPct, taken, loserOwner);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            WARSYSTEM_LOGGER.error("Failed to apply war vassalization money grab", e);
+        }
     }
 
 
@@ -762,7 +843,7 @@ public class WarSystem {
                     int expectedTaxRevenue = 0;
                     
                     // Calculate an expected tax based on the attacker's colony revenue potential
-                    for (IBuilding building : winnerColony.getBuildingManager().getBuildings().values()) {
+                    for (IBuilding building : ColonyBuildingUtil.getBuildings(winnerColony)) {
                         String buildingType = building.getBuildingDisplayName();
                         double baseTax = TaxConfig.getBaseTaxForBuilding(buildingType);
                         double upgradeTax = TaxConfig.getUpgradeTaxForBuilding(buildingType) * building.getBuildingLevel();
@@ -773,7 +854,7 @@ public class WarSystem {
                     reparationsAmount = (int)(expectedTaxRevenue * transferPercentage);
                     
                     // Ensure minimum reparations amount if any buildings exist
-                    if (reparationsAmount <= 0 && !winnerColony.getBuildingManager().getBuildings().isEmpty()) {
+                    if (reparationsAmount <= 0 && !ColonyBuildingUtil.getBuildings(winnerColony).isEmpty()) {
                         reparationsAmount = TaxConfig.getDebtLimit() / 10; // A minimum reparation amount
                     }
                 }
@@ -2660,8 +2741,8 @@ public class WarSystem {
      * @return The number of guard towers in the colony, or 0 if the colony is invalid
      */
     public static int countGuardTowers(IColony colony) {
-        if (colony == null || colony.getBuildingManager() == null) return 0;
-        return (int) colony.getBuildingManager().getBuildings().values().stream()
+        if (colony == null) return 0;
+        return (int) ColonyBuildingUtil.getBuildings(colony).stream()
                 .filter(WarSystem::isGuardTower)
                 .count();
     }

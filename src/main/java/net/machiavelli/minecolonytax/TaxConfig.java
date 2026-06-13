@@ -65,6 +65,9 @@ public class TaxConfig {
         public static final ModConfigSpec.BooleanValue ENABLE_WAR_VASSALIZATION;
         public static final ModConfigSpec.IntValue WAR_VASSALIZATION_DURATION_HOURS;
         public static final ModConfigSpec.IntValue WAR_VASSALIZATION_TRIBUTE_PERCENTAGE;
+        // One-time "huge money" grab applied when a war win vassalizes instead of transferring a colony.
+        public static final ModConfigSpec.IntValue WAR_VASSALIZATION_TREASURY_GRAB_PERCENT;
+        public static final ModConfigSpec.IntValue WAR_VASSALIZATION_PLAYER_BALANCE_GRAB_PERCENT;
         public static final ModConfigSpec.IntValue JOIN_PHASE_DURATION_MINUTES;
         public static final ModConfigSpec.BooleanValue WAR_ACCEPTANCE_REQUIRED;
         public static final ModConfigSpec.BooleanValue KEEP_INVENTORY_ON_LAST_LIFE;
@@ -521,6 +524,26 @@ public class TaxConfig {
                                                 +
                                                 "Set VassalizationReplacesReparations=true to make tribute the only penalty.")
                                 .defineInRange("WarVassalizationTributePercentage", 15, 1, 100); // Default 15%
+
+                WAR_VASSALIZATION_TREASURY_GRAB_PERCENT = BUILDER.comment(
+                                "[Spoils] One-time grab applied to the LOSING colony's war chest when a war win results in\n"
+                                                +
+                                                "vassalization (the vassalize-only path, used when EnableColonyTransfer is disabled).\n"
+                                                +
+                                                "Moved from the loser's war chest to the victor's primary colony war chest on victory.\n"
+                                                +
+                                                "Colony-side half of the 'take the huge money' rule. Set 0 to disable.")
+                                .defineInRange("WarVassalizationTreasuryGrabPercent", 50, 0, 100);
+
+                WAR_VASSALIZATION_PLAYER_BALANCE_GRAB_PERCENT = BUILDER.comment(
+                                "[Spoils] One-time grab applied to the LOSING player's personal wallet when a war win results\n"
+                                                +
+                                                "in vassalization. Percentage of their wallet taken and paid to the victor. Player-side half\n"
+                                                +
+                                                "of the 'take the huge money from the player' rule.\n"
+                                                +
+                                                "Requires an economy mod (SDM-Economy). Set 0 to disable.")
+                                .defineInRange("WarVassalizationPlayerBalanceGrabPercent", 25, 0, 100);
 
                 // ========== Colony Occupation Settings ==========
                 BUILDER.push("Colony Occupation");
@@ -2401,6 +2424,14 @@ public class TaxConfig {
 
         public static int getWarVassalizationTributePercentage() {
                 return WAR_VASSALIZATION_TRIBUTE_PERCENTAGE.get();
+        }
+
+        public static int getWarVassalizationTreasuryGrabPercent() {
+                return WAR_VASSALIZATION_TREASURY_GRAB_PERCENT.get();
+        }
+
+        public static int getWarVassalizationPlayerBalanceGrabPercent() {
+                return WAR_VASSALIZATION_PLAYER_BALANCE_GRAB_PERCENT.get();
         }
 
         public static Set<com.minecolonies.api.colony.permissions.Action> getWarActions() {

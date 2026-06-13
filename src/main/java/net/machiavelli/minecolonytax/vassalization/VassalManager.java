@@ -276,6 +276,45 @@ public class VassalManager {
         return rel.lastTribute;
     }
 
+    /**
+     * Forces a colony to become a vassal as a result of war victory, bypassing the normal
+     * proposal/acceptance flow. Used by the WarSystem vassalize-only outcome.
+     *
+     * NOTE: the NeoForge VassalRelation has no expiry field yet, so forced vassalization is
+     * permanent-until-revoked. WarVassalizationDurationHours expiry is a parity follow-up
+     * (see PARITY_PORT_ROADMAP.md, Stage 1b).
+     *
+     * @return true if vassalization was established, false if the colony was already a vassal.
+     */
+    public static boolean forceVassalize(IColony vassalColony, UUID overlordUUID, int tributePercent,
+            int durationHours) {
+        if (vassalColony == null || overlordUUID == null) {
+            LOGGER.warn("forceVassalize called with null colony or overlord");
+            return false;
+        }
+        int colonyId = vassalColony.getID();
+        VassalRelation rel = new VassalRelation(colonyId, overlordUUID, tributePercent, System.currentTimeMillis());
+        // Atomic check-then-insert: a non-null return means an active vassalization already existed.
+        if (ACTIVE_VASSALS.putIfAbsent(colonyId, rel) != null) {
+            return false;
+        }
+        saveData();
+
+        String overlordName = getPlayerName(overlordUUID);
+        sendToColonyManagers(vassalColony, Component.literal(
+                "§c⚔ WAR DEFEAT: Your colony has been vassalized by " + overlordName
+                        + "! You will pay " + tributePercent + "% of your tax income as tribute.")
+                .withStyle(ChatFormatting.RED));
+        sendOrQueue(overlordUUID, Component.literal(
+                "§a⚔ WAR VICTORY: Colony '" + vassalColony.getName()
+                        + "' is now your vassal! They pay you " + tributePercent + "% tribute.")
+                .withStyle(ChatFormatting.GREEN));
+
+        LOGGER.info("War vassalization created: colony {} is now vassal to {} at {}% tribute",
+                vassalColony.getName(), overlordName, tributePercent);
+        return true;
+    }
+
     /* ---------------- helpers ------------- */
     private static boolean isPlayerManagerOfColony(ServerPlayer player, IColony colony) {
         var rank = colony.getPermissions().getRank(player.getUUID());
