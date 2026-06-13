@@ -95,6 +95,34 @@ public class TaxConfig {
         public static final ModConfigSpec.DoubleValue UPGRADE_FORTIFICATION_DAMAGE_REDUCTION_PER_LEVEL;
         public static final ModConfigSpec.DoubleValue UPGRADE_COUNTER_INTEL_DETECT_CHANCE_PER_LEVEL;
         public static final ModConfigSpec.DoubleValue UPGRADE_RAID_FORCE_MULTIPLIER_PER_LEVEL;
+
+        // Besiege System Configuration (Siege SMP)
+        public static final ModConfigSpec.BooleanValue ENABLE_BESIEGE_SYSTEM;
+        public static final ModConfigSpec.IntValue BESIEGE_DURATION_MINUTES;
+        public static final ModConfigSpec.IntValue BESIEGE_COOLDOWN_HOURS;
+        public static final ModConfigSpec.DoubleValue BESIEGE_MILITIA_PERCENT;
+        public static final ModConfigSpec.IntValue BESIEGE_TRIBUTE_PERCENT;
+        public static final ModConfigSpec.IntValue BESIEGE_TRIBUTE_DURATION_HOURS;
+        public static final ModConfigSpec.IntValue BESIEGE_MIN_COLONY_SIZE;
+        public static final ModConfigSpec.BooleanValue BESIEGE_ALLIES_ENABLED;
+        public static final ModConfigSpec.DoubleValue BESIEGE_EXTRA_MERCENARIES_PER_BUILDING;
+        public static final ModConfigSpec.IntValue BESIEGE_MAX_MERCENARIES;
+        public static final ModConfigSpec.IntValue BESIEGE_PLAYER_STAY_RADIUS;
+        public static final ModConfigSpec.IntValue BESIEGE_SPOIL_PERCENT_OF_LOSER_TREASURY;
+        public static final ModConfigSpec.BooleanValue BESIEGE_ALLOW_CHEST_ACCESS;
+        public static final ModConfigSpec.BooleanValue VASSAL_LOCK_OUT_FORMER_OWNER;
+        public static final ModConfigSpec.IntValue BESIEGE_MIN_ATTACKERS;
+        public static final ModConfigSpec.BooleanValue BESIEGE_SHARE_SPOILS;
+        public static final ModConfigSpec.BooleanValue BESIEGE_REQUIRE_ONLINE;
+        public static final ModConfigSpec.IntValue BESIEGE_OFFLINE_GRACE_MINUTES;
+
+        // Experimental Siege Victory Objectives (Siege SMP)
+        public static final ModConfigSpec.BooleanValue ENABLE_EXPERIMENTAL_SIEGE_OBJECTIVES;
+        public static final ModConfigSpec.IntValue TOWN_HALL_EXPLOSIVE_HITS_REQUIRED;
+        public static final ModConfigSpec.IntValue TOWN_HALL_HIT_COOLDOWN_MINUTES;
+        public static final ModConfigSpec.IntValue MAX_SIEGE_RADIUS;
+        public static final ModConfigSpec.IntValue ATTACKER_GLOW_SECONDS;
+        public static final ModConfigSpec.IntValue BANNER_CAPTURE_MINUTES;
         public static final ModConfigSpec.IntValue JOIN_PHASE_DURATION_MINUTES;
         public static final ModConfigSpec.BooleanValue WAR_ACCEPTANCE_REQUIRED;
         public static final ModConfigSpec.BooleanValue KEEP_INVENTORY_ON_LAST_LIFE;
@@ -2355,6 +2383,51 @@ public class TaxConfig {
                                 .defineInRange("UpgradeRaidForceMultiplierPerLevel", 0.10, 0.0, 1.0);
                 BUILDER.pop();
 
+                BUILDER.push("Besiege System");
+                ENABLE_BESIEGE_SYSTEM = BUILDER.comment("Enable the besiege system. Allows players to raid active non-primary colonies for tax vassalage.").define("EnableBesiegeSystem", true);
+                BESIEGE_DURATION_MINUTES = BUILDER.comment("Duration of a besiege raid in minutes. Defenders must survive this long to repel the attack.").defineInRange("BesiegeDurationMinutes", 20, 1, 120);
+                BESIEGE_COOLDOWN_HOURS = BUILDER.comment("Hours a player must wait after a besiege attempt (win or loss) before besieging again.").defineInRange("BesiegeCooldownHours", 24, 0, 168);
+                BESIEGE_MILITIA_PERCENT = BUILDER.comment("Fraction of eligible citizens (non-guard, non-deliveryman) converted to militia defenders during a besiege.").defineInRange("BesiegeMilitiaPercent", 0.6, 0.0, 1.0);
+                BESIEGE_TRIBUTE_PERCENT = BUILDER.comment("Percentage of tax income siphoned from the besieged colony to the victor.").defineInRange("BesiegeTributePercent", 30, 1, 100);
+                BESIEGE_TRIBUTE_DURATION_HOURS = BUILDER.comment("How long (hours) the besiege vassalage lasts. Set to 0 for permanent until reclaimed.").defineInRange("BesiegeTributeDurationHours", 72, 0, 8760);
+                BESIEGE_MIN_COLONY_SIZE = BUILDER.comment("Minimum citizen count required in the target colony before it can be besieged.").defineInRange("BesiegeMinColonySize", 5, 1, 100);
+                BESIEGE_ALLIES_ENABLED = BUILDER.comment("Allow other players to assist the besieger by attacking defenders. They are tracked as allies.").define("BesiegeAlliesEnabled", true);
+                BESIEGE_EXTRA_MERCENARIES_PER_BUILDING = BUILDER.comment("Mercenaries spawned per colony building. E.g. 0.33 = 1 mercenary per 3 buildings.").defineInRange("BesiegeExtraMercenariesPerBuilding", 0.33, 0.0, 5.0);
+                BESIEGE_MAX_MERCENARIES = BUILDER.comment("Maximum number of mercenaries that can be spawned during a single besiege raid.").defineInRange("BesiegeMaxMercenaries", 10, 0, 50);
+                BESIEGE_PLAYER_STAY_RADIUS = BUILDER.comment("Maximum distance (blocks) the besieging player may stray from the colony center. Exceeding this cancels the raid.").defineInRange("BesiegePlayerStayRadius", 100, 20, 500);
+                BESIEGE_SPOIL_PERCENT_OF_LOSER_TREASURY = BUILDER.comment("One-shot percentage of the loser's war chest transferred to the winner on besiege resolution. 0 disables siege spoils entirely.").defineInRange("BesiegeSpoilPercentOfLoserTreasury", 25, 0, 100);
+                BESIEGE_ALLOW_CHEST_ACCESS = BUILDER.comment("[Access] Allow besiegers to open chests/containers in the colony during an ACTIVE siege. false (default): combat-only, no looting.").define("BesiegeAllowChestAccess", false);
+                VASSAL_LOCK_OUT_FORMER_OWNER = BUILDER.comment("[Access] After a siege ends and the colony is vassalized, lock the ORIGINAL OWNER out until they reclaim it? false (default): owner keeps access and only pays tribute.").define("VassalLockOutFormerOwner", false);
+                BESIEGE_MIN_ATTACKERS = BUILDER.comment("[Multiplayer] Minimum distinct besiegers required to CAPTURE the colony. 1 = solo allowed (default).").defineInRange("BesiegeMinAttackers", 1, 1, 20);
+                BESIEGE_SHARE_SPOILS = BUILDER.comment("[Multiplayer] Split treasury spoils among all participating besiegers on victory. Lead besieger still receives ongoing tribute.").define("BesiegeShareSpoils", true);
+                BESIEGE_REQUIRE_ONLINE = BUILDER.comment("[Online] Require besieging player(s) to stay online during a siege. Offline beyond grace = participation cancelled.").define("BesiegeRequireOnline", true);
+                BESIEGE_OFFLINE_GRACE_MINUTES = BUILDER.comment("[Online] Minutes a besieger may stay offline before cancellation (only when BesiegeRequireOnline is true).").defineInRange("BesiegeOfflineGraceMinutes", 5, 0, 120);
+                BUILDER.pop();
+
+                BUILDER.push("Experimental Siege Objectives");
+                ENABLE_EXPERIMENTAL_SIEGE_OBJECTIVES = BUILDER.comment(
+                        "EXPERIMENTAL — when enabled, full wars get additional win conditions:\n"
+                      + "the attacker can win by landing N explosive hits on the defender's Town Hall,\n"
+                      + "or by planting and holding a Siege Banner inside the Town Hall.\n"
+                      + "Runs IN PARALLEL with the legacy lives+guards system — first trigger wins.")
+                    .define("EnableExperimentalSiegeObjectives", false);
+                TOWN_HALL_EXPLOSIVE_HITS_REQUIRED = BUILDER.comment(
+                        "Number of counted explosive hits on the Town Hall building required for attacker victory.")
+                    .defineInRange("TownHallExplosiveHitsRequired", 5, 1, 50);
+                TOWN_HALL_HIT_COOLDOWN_MINUTES = BUILDER.comment(
+                        "Per-attacker cooldown (minutes) between counted Town Hall hits.")
+                    .defineInRange("TownHallHitCooldownMinutes", 5, 1, 60);
+                MAX_SIEGE_RADIUS = BUILDER.comment(
+                        "Maximum distance (blocks) from the Town Hall centre the attacker may be for an explosion to count.")
+                    .defineInRange("MaxSiegeRadius", 500, 50, 2000);
+                ATTACKER_GLOW_SECONDS = BUILDER.comment(
+                        "Seconds the GLOWING effect is applied to an attacker after they land a counted hit.")
+                    .defineInRange("AttackerGlowSeconds", 30, 0, 600);
+                BANNER_CAPTURE_MINUTES = BUILDER.comment(
+                        "Minutes the attacker must hold a planted Siege Banner inside the Town Hall building for capture.")
+                    .defineInRange("BannerCaptureMinutes", 10, 1, 120);
+                BUILDER.pop();
+
                 CONFIG = BUILDER.build();
         }
 
@@ -2534,6 +2607,34 @@ public class TaxConfig {
         public static double getUpgradeFortificationDamageReductionPerLevel() { return UPGRADE_FORTIFICATION_DAMAGE_REDUCTION_PER_LEVEL.get(); }
         public static double getUpgradeCounterIntelDetectChancePerLevel() { return UPGRADE_COUNTER_INTEL_DETECT_CHANCE_PER_LEVEL.get(); }
         public static double getUpgradeRaidForceMultiplierPerLevel() { return UPGRADE_RAID_FORCE_MULTIPLIER_PER_LEVEL.get(); }
+
+        // Besiege System accessors
+        public static boolean isBesiegeSystemEnabled() { return ENABLE_BESIEGE_SYSTEM.get(); }
+        public static int getBesiegeDurationMinutes() { return BESIEGE_DURATION_MINUTES.get(); }
+        public static int getBesiegeCooldownHours() { return BESIEGE_COOLDOWN_HOURS.get(); }
+        public static double getBesiegeMilitiaPercent() { return BESIEGE_MILITIA_PERCENT.get(); }
+        public static int getBesiegeTributePercent() { return BESIEGE_TRIBUTE_PERCENT.get(); }
+        public static int getBesiegeTributeDurationHours() { return BESIEGE_TRIBUTE_DURATION_HOURS.get(); }
+        public static int getBesiegeMinColonySize() { return BESIEGE_MIN_COLONY_SIZE.get(); }
+        public static boolean isBesiegeAlliesEnabled() { return BESIEGE_ALLIES_ENABLED.get(); }
+        public static double getBesiegeExtraMercenariesPerBuilding() { return BESIEGE_EXTRA_MERCENARIES_PER_BUILDING.get(); }
+        public static int getBesiegeMaxMercenaries() { return BESIEGE_MAX_MERCENARIES.get(); }
+        public static int getBesiegePlayerStayRadius() { return BESIEGE_PLAYER_STAY_RADIUS.get(); }
+        public static int getBesiegeSpoilPercentOfLoserTreasury() { return BESIEGE_SPOIL_PERCENT_OF_LOSER_TREASURY.get(); }
+        public static boolean isBesiegeChestAccessAllowed() { return BESIEGE_ALLOW_CHEST_ACCESS.get(); }
+        public static boolean isVassalLockOutFormerOwnerEnabled() { return VASSAL_LOCK_OUT_FORMER_OWNER.get(); }
+        public static int getBesiegeMinAttackers() { return BESIEGE_MIN_ATTACKERS.get(); }
+        public static boolean isBesiegeShareSpoilsEnabled() { return BESIEGE_SHARE_SPOILS.get(); }
+        public static boolean isBesiegeRequireOnline() { return BESIEGE_REQUIRE_ONLINE.get(); }
+        public static int getBesiegeOfflineGraceMinutes() { return BESIEGE_OFFLINE_GRACE_MINUTES.get(); }
+
+        // Experimental Siege Objectives accessors
+        public static boolean isExperimentalSiegeObjectivesEnabled() { return ENABLE_EXPERIMENTAL_SIEGE_OBJECTIVES.get(); }
+        public static int getTownHallExplosiveHitsRequired() { return TOWN_HALL_EXPLOSIVE_HITS_REQUIRED.get(); }
+        public static int getTownHallHitCooldownMinutes() { return TOWN_HALL_HIT_COOLDOWN_MINUTES.get(); }
+        public static int getMaxSiegeRadius() { return MAX_SIEGE_RADIUS.get(); }
+        public static int getAttackerGlowSeconds() { return ATTACKER_GLOW_SECONDS.get(); }
+        public static int getBannerCaptureMinutesOrDefault() { return BANNER_CAPTURE_MINUTES.get(); }
 
         public static Set<com.minecolonies.api.colony.permissions.Action> getWarActions() {
                 List<? extends String> actionsStr = CONFIGURABLE_WAR_ACTIONS.get();
