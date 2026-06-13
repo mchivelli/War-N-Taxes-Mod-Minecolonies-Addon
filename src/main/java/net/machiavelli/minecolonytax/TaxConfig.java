@@ -70,6 +70,31 @@ public class TaxConfig {
         public static final ModConfigSpec.IntValue WAR_VASSALIZATION_PLAYER_BALANCE_GRAB_PERCENT;
         // Colony tier protection (Siege SMP): protect a player's first colony from permanent transfer.
         public static final ModConfigSpec.BooleanValue ENABLE_PRIMARY_COLONY_TRANSFER;
+
+        // Colony Upgrades Configuration (invest war-chest funds into permanent colony improvements)
+        public static final ModConfigSpec.BooleanValue ENABLE_COLONY_UPGRADES;
+        public static final ModConfigSpec.IntValue UPGRADE_MAX_LEVEL;
+        public static final ModConfigSpec.IntValue UPGRADE_MILITIA_COST_BASE;
+        public static final ModConfigSpec.IntValue UPGRADE_SPY_CAPACITY_COST_BASE;
+        public static final ModConfigSpec.IntValue UPGRADE_SPY_SPEED_COST_BASE;
+        public static final ModConfigSpec.IntValue UPGRADE_SPY_EVASION_COST_BASE;
+        public static final ModConfigSpec.IntValue UPGRADE_RAID_FORCE_COST_BASE;
+        public static final ModConfigSpec.IntValue UPGRADE_DEFENSE_COST_BASE;
+        public static final ModConfigSpec.DoubleValue UPGRADE_COST_SCALING_FACTOR;
+        public static final ModConfigSpec.DoubleValue UPGRADE_MILITIA_MULTIPLIER_PER_LEVEL;
+        public static final ModConfigSpec.IntValue UPGRADE_SPY_CAPACITY_PER_LEVEL;
+        public static final ModConfigSpec.DoubleValue UPGRADE_SPY_SPEED_MULTIPLIER_PER_LEVEL;
+        public static final ModConfigSpec.DoubleValue UPGRADE_DETECTION_REDUCTION_PER_LEVEL;
+        public static final ModConfigSpec.IntValue UPGRADE_DEFENSE_BONUS_PER_LEVEL;
+        public static final ModConfigSpec.IntValue UPGRADE_TREASURY_CAP_COST_BASE;
+        public static final ModConfigSpec.IntValue UPGRADE_TAX_EFFICIENCY_COST_BASE;
+        public static final ModConfigSpec.IntValue UPGRADE_FORTIFICATION_COST_BASE;
+        public static final ModConfigSpec.IntValue UPGRADE_COUNTER_INTEL_COST_BASE;
+        public static final ModConfigSpec.IntValue UPGRADE_TREASURY_CAP_FLAT_PER_LEVEL;
+        public static final ModConfigSpec.DoubleValue UPGRADE_TAX_EFFICIENCY_PERCENT_PER_LEVEL;
+        public static final ModConfigSpec.DoubleValue UPGRADE_FORTIFICATION_DAMAGE_REDUCTION_PER_LEVEL;
+        public static final ModConfigSpec.DoubleValue UPGRADE_COUNTER_INTEL_DETECT_CHANCE_PER_LEVEL;
+        public static final ModConfigSpec.DoubleValue UPGRADE_RAID_FORCE_MULTIPLIER_PER_LEVEL;
         public static final ModConfigSpec.IntValue JOIN_PHASE_DURATION_MINUTES;
         public static final ModConfigSpec.BooleanValue WAR_ACCEPTANCE_REQUIRED;
         public static final ModConfigSpec.BooleanValue KEEP_INVENTORY_ON_LAST_LIFE;
@@ -2294,6 +2319,42 @@ public class TaxConfig {
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingKitchen", "kitchen");
                 CLASS_NAME_TO_SHORT_NAME.put(prefix + "BuildingGateHouse", "gatehouse");
 
+                // ============================================================
+                BUILDER.comment("Colony Upgrades — invest war-chest funds to permanently improve colony capabilities").push("ColonyUpgrades");
+                ENABLE_COLONY_UPGRADES = BUILDER.comment("Enable the colony upgrade investment system").define("EnableColonyUpgrades", true);
+                UPGRADE_MAX_LEVEL = BUILDER.comment("Maximum level for each upgrade type").defineInRange("UpgradeMaxLevel", 5, 1, 20);
+                UPGRADE_MILITIA_COST_BASE = BUILDER.comment("Base war-chest cost for first militia upgrade level").defineInRange("UpgradeMilitiaCostBase", 500, 1, 100000);
+                UPGRADE_SPY_CAPACITY_COST_BASE = BUILDER.comment("Base war-chest cost for first spy capacity upgrade level").defineInRange("UpgradeSpyCapacityCostBase", 300, 1, 100000);
+                UPGRADE_SPY_SPEED_COST_BASE = BUILDER.comment("Base war-chest cost for first spy speed upgrade level").defineInRange("UpgradeSpySpeedCostBase", 200, 1, 100000);
+                UPGRADE_SPY_EVASION_COST_BASE = BUILDER.comment("Base war-chest cost for first spy evasion upgrade level").defineInRange("UpgradeSpyEvasionCostBase", 400, 1, 100000);
+                UPGRADE_RAID_FORCE_COST_BASE = BUILDER.comment("Base war-chest cost for first raid force upgrade level").defineInRange("UpgradeRaidForceCostBase", 600, 1, 100000);
+                UPGRADE_DEFENSE_COST_BASE = BUILDER.comment("Base war-chest cost for first defense upgrade level").defineInRange("UpgradeDefenseCostBase", 350, 1, 100000);
+                UPGRADE_COST_SCALING_FACTOR = BUILDER.comment("Cost multiplier per upgrade level (e.g. 2.0 means each level costs double the previous)").defineInRange("UpgradeCostScalingFactor", 2.0, 1.0, 10.0);
+                UPGRADE_MILITIA_MULTIPLIER_PER_LEVEL = BUILDER.comment("Militia size multiplier added per upgrade level (0.1 = +10% per level)").defineInRange("UpgradeMilitiaMultiplierPerLevel", 0.10, 0.01, 1.0);
+                UPGRADE_SPY_CAPACITY_PER_LEVEL = BUILDER.comment("Additional concurrent spies per upgrade level").defineInRange("UpgradeSpyCapacityPerLevel", 1, 1, 10);
+                UPGRADE_SPY_SPEED_MULTIPLIER_PER_LEVEL = BUILDER.comment("Spy travel speed multiplier per upgrade level (0.2 = +20% faster per level)").defineInRange("UpgradeSpySpeedMultiplierPerLevel", 0.20, 0.01, 1.0);
+                UPGRADE_DETECTION_REDUCTION_PER_LEVEL = BUILDER.comment("Detection chance reduction per evasion upgrade level (0.05 = -5% per level)").defineInRange("UpgradeDetectionReductionPerLevel", 0.05, 0.01, 0.5);
+                UPGRADE_DEFENSE_BONUS_PER_LEVEL = BUILDER.comment("Additional guard resistance level per defense upgrade level").defineInRange("UpgradeDefenseBonusPerLevel", 1, 1, 5);
+                UPGRADE_TREASURY_CAP_COST_BASE = BUILDER.comment("Base war-chest cost to purchase one level of Treasury Cap investment.")
+                                .defineInRange("UpgradeTreasuryCapCostBase", 3000, 1, Integer.MAX_VALUE);
+                UPGRADE_TAX_EFFICIENCY_COST_BASE = BUILDER.comment("Base war-chest cost to purchase one level of Tax Efficiency investment.")
+                                .defineInRange("UpgradeTaxEfficiencyCostBase", 4000, 1, Integer.MAX_VALUE);
+                UPGRADE_FORTIFICATION_COST_BASE = BUILDER.comment("Base war-chest cost to purchase one level of Fortification investment.")
+                                .defineInRange("UpgradeFortificationCostBase", 3500, 1, Integer.MAX_VALUE);
+                UPGRADE_COUNTER_INTEL_COST_BASE = BUILDER.comment("Base war-chest cost to purchase one level of Counter Intelligence investment.")
+                                .defineInRange("UpgradeCounterIntelCostBase", 5000, 1, Integer.MAX_VALUE);
+                UPGRADE_TREASURY_CAP_FLAT_PER_LEVEL = BUILDER.comment("Flat treasury capacity increase per Treasury Cap level.")
+                                .defineInRange("UpgradeTreasuryCapFlatPerLevel", 2000, 1, Integer.MAX_VALUE);
+                UPGRADE_TAX_EFFICIENCY_PERCENT_PER_LEVEL = BUILDER.comment("Tax generation bonus per Tax Efficiency level (fraction, e.g. 0.05 = +5%).")
+                                .defineInRange("UpgradeTaxEfficiencyPercentPerLevel", 0.05, 0.0, 1.0);
+                UPGRADE_FORTIFICATION_DAMAGE_REDUCTION_PER_LEVEL = BUILDER.comment("Fraction of incoming siege/raid damage reduced per Fortification level (e.g. 0.05 = 5%). Capped at 75%.")
+                                .defineInRange("UpgradeFortificationDamageReductionPerLevel", 0.05, 0.0, 0.5);
+                UPGRADE_COUNTER_INTEL_DETECT_CHANCE_PER_LEVEL = BUILDER.comment("Chance per Counter Intelligence level to auto-detect an incoming spy on arrival (e.g. 0.10 = 10%). Capped at 90%.")
+                                .defineInRange("UpgradeCounterIntelDetectChancePerLevel", 0.10, 0.0, 1.0);
+                UPGRADE_RAID_FORCE_MULTIPLIER_PER_LEVEL = BUILDER.comment("Multiplier bonus per Raid Force level applied to attacker effectiveness (e.g. 0.10 = +10% per level).")
+                                .defineInRange("UpgradeRaidForceMultiplierPerLevel", 0.10, 0.0, 1.0);
+                BUILDER.pop();
+
                 CONFIG = BUILDER.build();
         }
 
@@ -2449,6 +2510,30 @@ public class TaxConfig {
         public static boolean isPrimaryColonyTransferEnabled() {
                 return ENABLE_PRIMARY_COLONY_TRANSFER.get();
         }
+
+        public static boolean isUpgradesEnabled() { return ENABLE_COLONY_UPGRADES.get(); }
+        public static int getUpgradeMaxLevel() { return UPGRADE_MAX_LEVEL.get(); }
+        public static int getUpgradeMilitiaCostBase() { return UPGRADE_MILITIA_COST_BASE.get(); }
+        public static int getUpgradeSpyCapacityCostBase() { return UPGRADE_SPY_CAPACITY_COST_BASE.get(); }
+        public static int getUpgradeSpySpeedCostBase() { return UPGRADE_SPY_SPEED_COST_BASE.get(); }
+        public static int getUpgradeSpyEvasionCostBase() { return UPGRADE_SPY_EVASION_COST_BASE.get(); }
+        public static int getUpgradeRaidForceCostBase() { return UPGRADE_RAID_FORCE_COST_BASE.get(); }
+        public static int getUpgradeDefenseCostBase() { return UPGRADE_DEFENSE_COST_BASE.get(); }
+        public static double getUpgradeCostScalingFactor() { return UPGRADE_COST_SCALING_FACTOR.get(); }
+        public static double getUpgradeMilitiaMultiplierPerLevel() { return UPGRADE_MILITIA_MULTIPLIER_PER_LEVEL.get(); }
+        public static int getUpgradeSpyCapacityPerLevel() { return UPGRADE_SPY_CAPACITY_PER_LEVEL.get(); }
+        public static double getUpgradeSpySpeedMultiplierPerLevel() { return UPGRADE_SPY_SPEED_MULTIPLIER_PER_LEVEL.get(); }
+        public static double getUpgradeDetectionReductionPerLevel() { return UPGRADE_DETECTION_REDUCTION_PER_LEVEL.get(); }
+        public static int getUpgradeDefenseBonusPerLevel() { return UPGRADE_DEFENSE_BONUS_PER_LEVEL.get(); }
+        public static int getUpgradeTreasuryCapCostBase() { return UPGRADE_TREASURY_CAP_COST_BASE.get(); }
+        public static int getUpgradeTaxEfficiencyCostBase() { return UPGRADE_TAX_EFFICIENCY_COST_BASE.get(); }
+        public static int getUpgradeFortificationCostBase() { return UPGRADE_FORTIFICATION_COST_BASE.get(); }
+        public static int getUpgradeCounterIntelCostBase() { return UPGRADE_COUNTER_INTEL_COST_BASE.get(); }
+        public static int getUpgradeTreasuryCapFlatPerLevel() { return UPGRADE_TREASURY_CAP_FLAT_PER_LEVEL.get(); }
+        public static double getUpgradeTaxEfficiencyPercentPerLevel() { return UPGRADE_TAX_EFFICIENCY_PERCENT_PER_LEVEL.get(); }
+        public static double getUpgradeFortificationDamageReductionPerLevel() { return UPGRADE_FORTIFICATION_DAMAGE_REDUCTION_PER_LEVEL.get(); }
+        public static double getUpgradeCounterIntelDetectChancePerLevel() { return UPGRADE_COUNTER_INTEL_DETECT_CHANCE_PER_LEVEL.get(); }
+        public static double getUpgradeRaidForceMultiplierPerLevel() { return UPGRADE_RAID_FORCE_MULTIPLIER_PER_LEVEL.get(); }
 
         public static Set<com.minecolonies.api.colony.permissions.Action> getWarActions() {
                 List<? extends String> actionsStr = CONFIGURABLE_WAR_ACTIONS.get();
