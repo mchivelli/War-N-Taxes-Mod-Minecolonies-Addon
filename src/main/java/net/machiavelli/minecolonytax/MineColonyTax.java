@@ -48,6 +48,7 @@ public class MineColonyTax {
         PlayerWarDataAttachment.ATTACHMENT_TYPES.register(modEventBus);
         ModRecipeSerializers.RECIPE_SERIALIZERS.register(modEventBus);
         ModEntities.ENTITIES.register(modEventBus);
+        net.machiavelli.minecolonytax.siege.ModSiegeBlocks.register(modEventBus);
 
         // Mod lifecycle
         modEventBus.addListener(this::setup);
@@ -122,6 +123,34 @@ public class MineColonyTax {
             }
         }, 300_000, 300_000);
 
+        // Besiege system — init + drive tick() ~every second via TickScheduler (Neo has no tick mixin)
+        if (TaxConfig.isBesiegeSystemEnabled()) {
+            try {
+                net.machiavelli.minecolonytax.besiege.BesiegeManager.initialize(event.getServer());
+                net.machiavelli.minecolonytax.util.TickScheduler.scheduleRepeating(() -> {
+                    try {
+                        net.machiavelli.minecolonytax.besiege.BesiegeManager.tick();
+                    } catch (Throwable t) {
+                        LOGGER.error("Error in BesiegeManager tick: {}", t.toString());
+                    }
+                }, 1000, 1000);
+            } catch (Throwable t) {
+                LOGGER.error("Failed to initialize BesiegeManager: {}", t.toString());
+            }
+        }
+
+        // War block ledger (persistent siege damage) — load + prune orphans for ended wars
+        try {
+            net.machiavelli.minecolonytax.siege.WarBlockLedger.loadFromDisk();
+            java.util.Set<java.util.UUID> activeWarIds = new java.util.HashSet<>();
+            for (net.machiavelli.minecolonytax.data.WarData w : WarSystem.ACTIVE_WARS.values()) {
+                try { activeWarIds.add(w.getWarID()); } catch (Throwable ignored) {}
+            }
+            net.machiavelli.minecolonytax.siege.WarBlockLedger.pruneOrphans(activeWarIds);
+        } catch (Throwable t) {
+            LOGGER.error("WarBlockLedger load failed: {}", t.toString());
+        }
+
         // Null owner protection
         try {
             net.machiavelli.minecolonytax.abandon.ColonyAbandonmentManager.emergencyFixAllNullOwners();
@@ -170,6 +199,11 @@ public class MineColonyTax {
         try { RandomEventManager.shutdown(); }      catch (Throwable t) { LOGGER.warn("RandomEventManager shutdown error: {}", t.toString()); }
         try { SpyManager.shutdown(); }              catch (Throwable t) { LOGGER.warn("SpyManager shutdown error: {}", t.toString()); }
         try { OccupationManager.shutdown(); }       catch (Throwable t) { LOGGER.warn("OccupationManager shutdown error: {}", t.toString()); }
+        try { net.machiavelli.minecolonytax.besiege.BesiegeManager.shutdown(); } catch (Throwable t) { LOGGER.warn("BesiegeManager shutdown error: {}", t.toString()); }
+        try { net.machiavelli.minecolonytax.siege.WarBlockLedger.flushPendingRestores(); } catch (Throwable t) { LOGGER.warn("WarBlockLedger flush error: {}", t.toString()); }
+        try { net.machiavelli.minecolonytax.siege.WarBlockLedger.saveToDisk(); } catch (Throwable t) { LOGGER.warn("WarBlockLedger save error: {}", t.toString()); }
+        // Flush async file writes (besiege uses AsyncSaveExecutor) before the scheduler stops.
+        try { net.machiavelli.minecolonytax.util.AsyncSaveExecutor.shutdownAndFlush(); } catch (Throwable t) { LOGGER.warn("AsyncSaveExecutor flush error: {}", t.toString()); }
 
         // TickScheduler last — other shutdowns may still enqueue tasks
         try { net.machiavelli.minecolonytax.util.TickScheduler.shutdown(); } catch (Throwable t) { LOGGER.warn("TickScheduler shutdown error: {}", t.toString()); }

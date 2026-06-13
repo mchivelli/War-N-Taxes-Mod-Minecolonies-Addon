@@ -1036,6 +1036,18 @@ public class WarSystem {
             
             // Clean up militia system for both colonies
             cleanupWarMilitiaSystem(warData);
+
+            // Siege objectives + persistent war damage cleanup (experimental siege system)
+            try {
+                if (warData.getColony() != null && warData.getColony().getWorld() != null) {
+                    net.machiavelli.minecolonytax.siege.WarBlockLedger.restoreWarDamage(
+                            warData.getWarID(), warData.getColony().getWorld());
+                }
+            } catch (Throwable t) {
+                WARSYSTEM_LOGGER.warn("WarBlockLedger restore on endWar failed: {}", t.toString());
+            }
+            net.machiavelli.minecolonytax.siege.PlantTheBannerObjective.onWarEnded(warData.getWarID());
+            net.machiavelli.minecolonytax.siege.TownHallDemolitionObjective.onWarEnded(warData.getWarID());
         }
         
         // Disable war actions for both sides

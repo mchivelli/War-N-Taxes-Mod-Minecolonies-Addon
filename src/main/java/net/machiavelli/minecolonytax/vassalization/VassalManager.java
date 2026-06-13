@@ -276,6 +276,12 @@ public class VassalManager {
         return rel.lastTribute;
     }
 
+    /** The overlord UUID a colony currently pays tribute to, or null if it is not a vassal. */
+    public static UUID getVassalOverlordUUID(int colonyId) {
+        VassalRelation rel = ACTIVE_VASSALS.get(colonyId);
+        return rel != null ? rel.overlordUUID : null;
+    }
+
     /**
      * Forces a colony to become a vassal as a result of war victory, bypassing the normal
      * proposal/acceptance flow. Used by the WarSystem vassalize-only outcome.

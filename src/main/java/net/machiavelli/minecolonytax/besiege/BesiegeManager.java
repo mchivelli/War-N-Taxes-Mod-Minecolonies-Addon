@@ -359,19 +359,10 @@ public class BesiegeManager {
         return launchRaid(colony, besieger, false);
     }
 
-    /**
-     * Best-effort "is this colony vassalized to THIS player?" check.
-     * Neo's VassalManager has no overlord-by-colony accessor, so we cannot
-     * disambiguate which overlord owns the vassal relation. We conservatively
-     * return false (allow the besiege) rather than over-block legitimate sieges.
-     * Replace with VassalManager.getVassalOverlordUUID(colonyId) once added.
-     */
+    /** True when the colony is already a vassal of this specific player (don't re-besiege your own vassal). */
     private static boolean isColonyVassalOfPlayer(int colonyId, UUID playerUUID) {
-        // No public accessor in Neo VassalManager to resolve the overlord for a
-        // specific colony. Returning false keeps behavior safe (never blocks a
-        // valid besiege); the duplicate-vassal edge is handled by forceVassalize
-        // returning false later in completeBesiegeVictory.
-        return false;
+        UUID overlord = VassalManager.getVassalOverlordUUID(colonyId);
+        return overlord != null && overlord.equals(playerUUID);
     }
 
     /**

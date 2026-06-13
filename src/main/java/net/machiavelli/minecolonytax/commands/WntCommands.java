@@ -4,6 +4,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 
 import com.minecolonies.api.IMinecoloniesAPI;
 import com.minecolonies.api.colony.IColony;
+import net.machiavelli.minecolonytax.besiege.BesiegeManager;
 import com.minecolonies.api.colony.IColonyManager;
 import com.minecolonies.api.colony.ICitizenData;
 import java.util.Map;
@@ -17,6 +18,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.TaxManager;
+import net.machiavelli.minecolonytax.compat.ColonyBuildingUtil;
 import net.machiavelli.minecolonytax.WarSystem;
 import net.machiavelli.minecolonytax.data.WarData;
 import net.machiavelli.minecolonytax.integration.SDMShopIntegration;
@@ -144,7 +146,14 @@ public class WntCommands {
                                 .executes(WntCommands::handleRaidCommand)
                         )
                 )
-                
+
+                .then(Commands.literal("besiege")
+                        .then(Commands.argument("colony", StringArgumentType.string())
+                                .suggests(COLONY_SUGGESTIONS)
+                                .executes(WntCommands::handleBesiegeCommand)
+                        )
+                )
+
                 .then(Commands.literal("joinwar")
                         .executes(WntCommands::joinWarCommand)
                 )
@@ -996,6 +1005,53 @@ public class WntCommands {
     private static int handleRaidCommand(CommandContext<CommandSourceStack> context) {
         return getRaidManager().handleRaid(context);
     }
+
+    private static int handleBesiegeCommand(CommandContext<CommandSourceStack> ctx) {
+        try {
+            ServerPlayer player = ctx.getSource().getPlayerOrException();
+            String colonyArg = StringArgumentType.getString(ctx, "colony");
+
+            if (!TaxConfig.isBesiegeSystemEnabled()) {
+                player.sendSystemMessage(Component.literal("The besiege system is disabled on this server.")
+                        .withStyle(ChatFormatting.RED));
+                return 0;
+            }
+
+            IColony target = IMinecoloniesAPI.getInstance().getColonyManager().getAllColonies().stream()
+                    .filter(c -> c.getName().equalsIgnoreCase(colonyArg))
+                    .findFirst()
+                    .orElse(null);
+
+            if (target == null) {
+                player.sendSystemMessage(Component.literal("Colony not found: " + colonyArg)
+                        .withStyle(ChatFormatting.RED));
+                return 0;
+            }
+
+            // If the colony is already besieged AND the player is the former owner -> reclaim
+            if (BesiegeManager.isColonyBesieged(target.getID())) {
+                BesiegeManager.BesiegeOccupationData occ = BesiegeManager.getOccupation(target.getID());
+                if (occ != null && player.getUUID().equals(occ.formerOwnerUUID)) {
+                    boolean started = BesiegeManager.startReclaim(target, player);
+                    return started ? 1 : 0;
+                }
+                player.sendSystemMessage(Component.literal(
+                        "This colony is already under besiege occupation. Only the former owner can reclaim it.")
+                        .withStyle(ChatFormatting.RED));
+                return 0;
+            }
+
+            boolean started = BesiegeManager.startBesiege(target, player);
+            return started ? 1 : 0;
+
+        } catch (CommandSyntaxException e) {
+            ctx.getSource().sendFailure(Component.literal("You must be a player to use this command."));
+            return 0;
+        } catch (Exception e) {
+            LOGGER.error("Error handling besiege command", e);
+            return 0;
+        }
+    }
     
     private static int joinWarCommand(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
@@ -1702,7 +1758,7 @@ public class WntCommands {
         java.util.concurrent.atomic.AtomicInteger totalBuildings = new java.util.concurrent.atomic.AtomicInteger(0);
         java.util.concurrent.atomic.AtomicInteger guardTowersDetected = new java.util.concurrent.atomic.AtomicInteger(0);
         
-        for (com.minecolonies.api.colony.buildings.IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+        for (com.minecolonies.api.colony.buildings.IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
             totalBuildings.incrementAndGet();
             String displayName = building.getBuildingDisplayName();
             String className = building.getClass().getName();
@@ -2729,7 +2785,7 @@ public class WntCommands {
             
             // Count guard towers
             int guardTowerCount = 0;
-            for (com.minecolonies.api.colony.buildings.IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+            for (com.minecolonies.api.colony.buildings.IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
                 if (building.getBuildingLevel() > 0 && building.isBuilt()) {
                     String displayName = building.getBuildingDisplayName();
                     String className = building.getClass().getName().toLowerCase();
@@ -2766,7 +2822,7 @@ public class WntCommands {
             int totalMaintenance = 0;
             int buildingCount = 0;
             
-            for (com.minecolonies.api.colony.buildings.IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+            for (com.minecolonies.api.colony.buildings.IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
                 if (building.getBuildingLevel() > 0 && building.isBuilt()) {
                     buildingCount++;
                     String buildingType = building.getBuildingDisplayName();

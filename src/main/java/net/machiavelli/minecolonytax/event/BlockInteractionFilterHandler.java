@@ -139,7 +139,28 @@ public class BlockInteractionFilterHandler {
         if (colony == null) {
             return FilterResult.PASS_THROUGH; // No colony, no filtering
         }
-        
+
+        // Step 2b: Besiege-occupation (vassal phase) lockout of the FORMER OWNER — opt-in.
+        // By default the original owner keeps access while vassalized (only tax tribute is
+        // siphoned); set VassalLockOutFormerOwner=true to lock them out until they reclaim.
+        if (TaxConfig.isVassalLockOutFormerOwnerEnabled()
+                && TaxConfig.isBesiegeSystemEnabled()
+                && net.machiavelli.minecolonytax.besiege.BesiegeManager.shouldBlockInteraction(
+                        player.getUUID(), colony.getID())) {
+            return FilterResult.deny(
+                "This colony is under besiege occupation. Use /wnt besiege " + colony.getName() + " to reclaim it.",
+                BuiltInRegistries.BLOCK.getKey(block).toString());
+        }
+
+        // Step 2c: Siege SMP — during an ACTIVE besiege, deny opening containers (combat-only,
+        // no looting) unless BesiegeAllowChestAccess is enabled.
+        if (type == InteractionType.USE && !TaxConfig.isBesiegeChestAccessAllowed()
+                && isBesiegeActiveForPlayer(player, colony.getID())
+                && isContainerBlock(block, level, pos)) {
+            return FilterResult.deny("You cannot loot containers during a besiege!",
+                BuiltInRegistries.BLOCK.getKey(block).toString());
+        }
+
         // Step 3: Check if raid or war is active for this situation
         boolean isActiveRaidOrWar = isPlayerInActiveRaidOrWar(player, colony);
         if (!isActiveRaidOrWar) {
@@ -245,9 +266,42 @@ public class BlockInteractionFilterHandler {
         return false;
     }
     
+    /** True when this player is a combatant in an active besiege at this colony (attacker or defender side). */
+    private static boolean isBesiegeActiveForPlayer(ServerPlayer player, int colonyId) {
+        if (!TaxConfig.isBesiegeSystemEnabled()) return false;
+        UUID playerUUID = player.getUUID();
+        net.machiavelli.minecolonytax.besiege.BesiegeManager.BesiegeRaidData own =
+                net.machiavelli.minecolonytax.besiege.BesiegeManager.getRaidForBesieger(playerUUID);
+        if (own != null && own.colonyId == colonyId) return true;
+        for (net.machiavelli.minecolonytax.besiege.BesiegeManager.BesiegeRaidData raid
+                : net.machiavelli.minecolonytax.besiege.BesiegeManager.getAllActiveRaidsByBesieger().values()) {
+            if (raid.colonyId == colonyId) return true;
+        }
+        return false;
+    }
+
+    /** True when the block is a container (vanilla fast paths + any modded Container BlockEntity). */
+    private static boolean isContainerBlock(Block block, Level level, BlockPos pos) {
+        if (block instanceof net.minecraft.world.level.block.ChestBlock) return true;
+        if (block instanceof net.minecraft.world.level.block.BarrelBlock) return true;
+        if (block instanceof net.minecraft.world.level.block.ShulkerBoxBlock) return true;
+        if (block instanceof net.minecraft.world.level.block.EnderChestBlock) return true;
+        if (block instanceof net.minecraft.world.level.block.HopperBlock) return true;
+        if (block instanceof net.minecraft.world.level.block.DispenserBlock) return true;
+        if (block instanceof net.minecraft.world.level.block.ChiseledBookShelfBlock) return true;
+        if (block instanceof net.minecraft.world.level.block.AbstractFurnaceBlock) return true;
+        if (block instanceof net.minecraft.world.level.block.BrewingStandBlock) return true;
+        if (block instanceof net.minecraft.world.level.block.LecternBlock) return true;
+        try {
+            net.minecraft.world.level.block.entity.BlockEntity be = level.getBlockEntity(pos);
+            if (be instanceof net.minecraft.world.Container) return true;
+        } catch (Exception ignored) {}
+        return false;
+    }
+
     /**
      * Apply the filter result to the event.
-     * 
+     *
      * @param result The filter result
      * @param event The event to modify
      * @param player The player for messaging
@@ -255,11 +309,11 @@ public class BlockInteractionFilterHandler {
     private static void applyFilterResult(FilterResult result, Event event, ServerPlayer player) {
         switch (result.action) {
             case DENY:
-                // For PlayerInteractEvent.RightClickBlock, set to DENY
-                if (event instanceof net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.RightClickBlock) {
-                    ((net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.RightClickBlock) event).setCanceled(true);
+                // Cancel whichever interaction event this is (right-click, break, or place).
+                if (event instanceof net.neoforged.bus.api.ICancellableEvent cancellable) {
+                    cancellable.setCanceled(true);
                 }
-                
+
                 // Send feedback to player
                 player.sendSystemMessage(
                     Component.literal("🚫 " + result.message)
