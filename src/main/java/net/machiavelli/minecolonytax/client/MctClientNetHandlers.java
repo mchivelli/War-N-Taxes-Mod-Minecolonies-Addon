@@ -11,6 +11,7 @@ import net.machiavelli.minecolonytax.network.packets.ColonyDataResponsePayload;
 import net.machiavelli.minecolonytax.network.packets.OfficerDataResponsePayload;
 import net.machiavelli.minecolonytax.network.packets.SpyDataResponsePayload;
 import net.machiavelli.minecolonytax.network.packets.WarChestDataResponsePayload;
+import net.machiavelli.minecolonytax.network.packets.InvestmentDataResponsePayload;
 import net.minecraft.client.Minecraft;
 
 import java.util.List;
@@ -57,6 +58,13 @@ public final class MctClientNetHandlers {
         if (Minecraft.getInstance().screen instanceof TaxManagementScreen screen) {
             screen.updateWarChestData(p.colonyId(), p.balance(), p.maxCapacity(),
                     p.drainPerMinute(), p.taxBalance(), p.autoSurrender(), p.minPercentForWar());
+        }
+    }
+
+    public static void investmentData(InvestmentDataResponsePayload p) {
+        if (Minecraft.getInstance().screen instanceof TaxManagementScreen screen) {
+            screen.updateInvestmentData(p.colonyId(), p.upgradeLevels(), p.upgradeCosts(),
+                    p.treasuryBalance(), p.maxCapacity(), p.maxLevel());
         }
     }
 

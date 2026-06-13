@@ -60,6 +60,7 @@ public class TaxManagementScreen extends Screen {
     private final Map<BookTab, BookPage> pages = new EnumMap<>(BookTab.class);
     private BookTab activeTab = BookTab.COLONIES;
     private WarChestPage warChestPage;
+    private InvestmentsPage investmentsPage;
 
     // --- Bottom bar widgets ---
     private Button refreshButton;
@@ -124,6 +125,14 @@ public class TaxManagementScreen extends Screen {
         }
     }
 
+    public void updateInvestmentData(int colonyId, java.util.Map<String, Integer> levels,
+                                     java.util.Map<String, Integer> costs,
+                                     int treasuryBalance, int maxCapacity, int maxLevel) {
+        if (investmentsPage != null) {
+            investmentsPage.updateData(colonyId, levels, costs, treasuryBalance, maxCapacity, maxLevel);
+        }
+    }
+
     // ========== Lifecycle ==========
 
     @Override
@@ -147,6 +156,9 @@ public class TaxManagementScreen extends Screen {
                 eb -> this.addRenderableWidget(eb),
                 btn -> this.addRenderableWidget(btn));
         pages.put(BookTab.WAR_CHEST, warChestPage);
+
+        investmentsPage = new InvestmentsPage(this, this.font, () -> selectedColony);
+        pages.put(BookTab.INVESTMENTS, investmentsPage);
 
         pages.put(BookTab.ESPIONAGE, new EspionagePage(this, this.font,
                 () -> spyMissions, () -> colonies,

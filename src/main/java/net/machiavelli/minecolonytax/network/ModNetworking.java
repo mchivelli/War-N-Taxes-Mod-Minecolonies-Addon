@@ -96,6 +96,18 @@ public class ModNetworking {
         );
 
         registrar.playToServer(
+            RequestInvestmentDataPayload.TYPE,
+            RequestInvestmentDataPayload.STREAM_CODEC,
+            RequestInvestmentDataPayload::handle
+        );
+
+        registrar.playToServer(
+            BuyInvestmentPayload.TYPE,
+            BuyInvestmentPayload.STREAM_CODEC,
+            BuyInvestmentPayload::handle
+        );
+
+        registrar.playToServer(
             RequestSpyDataPayload.TYPE,
             RequestSpyDataPayload.STREAM_CODEC,
             RequestSpyDataPayload::handle
@@ -143,6 +155,12 @@ public class ModNetworking {
             WarChestDataResponsePayload.TYPE,
             WarChestDataResponsePayload.STREAM_CODEC,
             WarChestDataResponsePayload::handle
+        );
+
+        registrar.playToClient(
+            InvestmentDataResponsePayload.TYPE,
+            InvestmentDataResponsePayload.STREAM_CODEC,
+            InvestmentDataResponsePayload::handle
         );
 
         registrar.playToClient(

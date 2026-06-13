@@ -84,23 +84,19 @@ public final class EasyFactionsPermissionSync {
     private static final boolean DEFAULT_PROMOTE_OFFICERS = true;
 
     private static boolean isIntegrationEnabled() {
-        // TODO(neo-port): return TaxConfig.isEasyFactionsIntegrationEnabled();
-        return DEFAULT_INTEGRATION_ENABLED;
+        return net.machiavelli.minecolonytax.TaxConfig.isEasyFactionsIntegrationEnabled();
     }
 
     private static int getSyncIntervalTicks() {
-        // TODO(neo-port): return TaxConfig.getEasyFactionsSyncIntervalTicks();
-        return DEFAULT_SYNC_INTERVAL_TICKS;
+        return net.machiavelli.minecolonytax.TaxConfig.getEasyFactionsSyncIntervalTicks();
     }
 
     private static String getMemberRank() {
-        // TODO(neo-port): return TaxConfig.getEasyFactionsMemberRank();
-        return DEFAULT_MEMBER_RANK;
+        return net.machiavelli.minecolonytax.TaxConfig.getEasyFactionsMemberRank();
     }
 
     private static boolean shouldPromoteOfficers() {
-        // TODO(neo-port): return TaxConfig.shouldPromoteEasyFactionsOfficers();
-        return DEFAULT_PROMOTE_OFFICERS;
+        return net.machiavelli.minecolonytax.TaxConfig.shouldPromoteEasyFactionsOfficers();
     }
 
     /**

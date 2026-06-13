@@ -62,10 +62,8 @@ public final class ExplosiontCompat {
      */
     public static boolean shouldDeferToExplosiont() {
         if (!isPresent()) return false;
-        // TODO(neo-port): once TaxConfig.isDeferRestorationToExplosiont() exists,
-        // OR it in here to restore the explicit operator OFF switch:
-        //   return TaxConfig.isDeferRestorationToExplosiont() || isMixinIntegrationActive();
-        return isMixinIntegrationActive();
+        return net.machiavelli.minecolonytax.TaxConfig.isDeferRestorationToExplosiont()
+                || isMixinIntegrationActive();
     }
 
     /**

@@ -123,6 +123,13 @@ public class TaxConfig {
         public static final ModConfigSpec.IntValue MAX_SIEGE_RADIUS;
         public static final ModConfigSpec.IntValue ATTACKER_GLOW_SECONDS;
         public static final ModConfigSpec.IntValue BANNER_CAPTURE_MINUTES;
+
+        // Mod-compat integration keys
+        public static final ModConfigSpec.BooleanValue ENABLE_EASY_FACTIONS_INTEGRATION;
+        public static final ModConfigSpec.IntValue EASY_FACTIONS_SYNC_INTERVAL_TICKS;
+        public static final ModConfigSpec.ConfigValue<String> EASY_FACTIONS_MEMBER_RANK;
+        public static final ModConfigSpec.BooleanValue PROMOTE_EASY_FACTIONS_OFFICERS;
+        public static final ModConfigSpec.BooleanValue DEFER_RESTORATION_TO_EXPLOSIONT;
         public static final ModConfigSpec.IntValue JOIN_PHASE_DURATION_MINUTES;
         public static final ModConfigSpec.BooleanValue WAR_ACCEPTANCE_REQUIRED;
         public static final ModConfigSpec.BooleanValue KEEP_INVENTORY_ON_LAST_LIFE;
@@ -2428,6 +2435,26 @@ public class TaxConfig {
                     .defineInRange("BannerCaptureMinutes", 10, 1, 120);
                 BUILDER.pop();
 
+                BUILDER.push("Mod Compatibility");
+                ENABLE_EASY_FACTIONS_INTEGRATION = BUILDER.comment(
+                        "Master switch for the Easy Factions integration. When enabled, faction members are\n"
+                      + "granted colony ranks automatically. OFF by default (dormant unless Easy Factions is installed).")
+                    .define("EnableEasyFactionsIntegration", false);
+                EASY_FACTIONS_SYNC_INTERVAL_TICKS = BUILDER.comment(
+                        "How often (ticks) to reconcile faction membership into colony ranks. 1200 = 60s.")
+                    .defineInRange("EasyFactionsSyncIntervalTicks", 1200, 20, 72000);
+                EASY_FACTIONS_MEMBER_RANK = BUILDER.comment(
+                        "Colony rank granted to faction members ('friend' or 'officer').")
+                    .define("EasyFactionsMemberRank", "friend");
+                PROMOTE_EASY_FACTIONS_OFFICERS = BUILDER.comment(
+                        "Grant the colony Officer rank to faction officers.")
+                    .define("PromoteEasyFactionsOfficers", true);
+                DEFER_RESTORATION_TO_EXPLOSIONT = BUILDER.comment(
+                        "When true, defer war-damage block restoration to the Explosion't mod (if installed)\n"
+                      + "instead of the built-in WarBlockLedger. OFF by default.")
+                    .define("DeferRestorationToExplosiont", false);
+                BUILDER.pop();
+
                 CONFIG = BUILDER.build();
         }
 
@@ -2635,6 +2662,13 @@ public class TaxConfig {
         public static int getMaxSiegeRadius() { return MAX_SIEGE_RADIUS.get(); }
         public static int getAttackerGlowSeconds() { return ATTACKER_GLOW_SECONDS.get(); }
         public static int getBannerCaptureMinutesOrDefault() { return BANNER_CAPTURE_MINUTES.get(); }
+
+        // Mod-compat accessors
+        public static boolean isEasyFactionsIntegrationEnabled() { return ENABLE_EASY_FACTIONS_INTEGRATION.get(); }
+        public static int getEasyFactionsSyncIntervalTicks() { return EASY_FACTIONS_SYNC_INTERVAL_TICKS.get(); }
+        public static String getEasyFactionsMemberRank() { return EASY_FACTIONS_MEMBER_RANK.get(); }
+        public static boolean shouldPromoteEasyFactionsOfficers() { return PROMOTE_EASY_FACTIONS_OFFICERS.get(); }
+        public static boolean isDeferRestorationToExplosiont() { return DEFER_RESTORATION_TO_EXPLOSIONT.get(); }
 
         public static Set<com.minecolonies.api.colony.permissions.Action> getWarActions() {
                 List<? extends String> actionsStr = CONFIGURABLE_WAR_ACTIONS.get();
