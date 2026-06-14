@@ -55,6 +55,12 @@ public class VassalManager {
     public static void initialize(MinecraftServer server) {
         SERVER = server;
         loadData(server);
+        // Sweep expired war vassalizations once a minute (so expiry isn't gated on tax cycles).
+        net.machiavelli.minecolonytax.util.TickScheduler.scheduleRepeating(() -> {
+            try { sweepExpiredVassalizations(); } catch (Throwable t) {
+                LOGGER.warn("Vassalization expiry sweep error: {}", t.toString());
+            }
+        }, 60_000, 60_000);
         LOGGER.info("VassalManager initialized");
     }
 
@@ -240,6 +246,11 @@ public class VassalManager {
     public static int handleTaxIncome(IColony colony, int generatedTax) {
         VassalRelation rel = ACTIVE_VASSALS.get(colony.getID());
         if (rel == null) return 0;
+        // War vassalization auto-expiry: drop the relation once its duration elapses.
+        if (rel.expirationTime > 0 && System.currentTimeMillis() >= rel.expirationTime) {
+            expireVassalization(colony.getID(), rel);
+            return 0;
+        }
         int tribute = (int) (generatedTax * rel.percent / 100.0);
         if (tribute <= 0) return 0;
 
@@ -282,6 +293,39 @@ public class VassalManager {
         return rel != null ? rel.overlordUUID : null;
     }
 
+    /** Remaining hours on a war vassalization, 0 if expired this instant, -1 if permanent or not a vassal. */
+    public static int getRemainingVassalizationHours(int colonyId) {
+        VassalRelation rel = ACTIVE_VASSALS.get(colonyId);
+        if (rel == null || rel.expirationTime <= 0) return -1;
+        long remaining = rel.expirationTime - System.currentTimeMillis();
+        return remaining <= 0 ? 0 : (int) (remaining / (60L * 60L * 1000L));
+    }
+
+    /** Periodic sweep so war vassalizations expire even when the vassal colony generates no tax. */
+    public static void sweepExpiredVassalizations() {
+        long now = System.currentTimeMillis();
+        for (Map.Entry<Integer, VassalRelation> e : new java.util.ArrayList<>(ACTIVE_VASSALS.entrySet())) {
+            VassalRelation rel = e.getValue();
+            if (rel.expirationTime > 0 && now >= rel.expirationTime) {
+                expireVassalization(e.getKey(), rel);
+            }
+        }
+    }
+
+    private static void expireVassalization(int colonyId, VassalRelation rel) {
+        ACTIVE_VASSALS.remove(colonyId);
+        saveData();
+        IColony colony = getColonyById(colonyId);
+        if (colony != null) {
+            sendToColonyManagers(colony, Component.literal(
+                    "§aYour colony is no longer a vassal — the war vassalization has expired.")
+                    .withStyle(ChatFormatting.GREEN));
+        }
+        sendOrQueue(rel.overlordUUID, Component.literal(
+                "§7A war vassalization you held has expired.").withStyle(ChatFormatting.GRAY));
+        LOGGER.info("War vassalization expired for colony {}", colonyId);
+    }
+
     /**
      * Forces a colony to become a vassal as a result of war victory, bypassing the normal
      * proposal/acceptance flow. Used by the WarSystem vassalize-only outcome.
@@ -300,6 +344,10 @@ public class VassalManager {
         }
         int colonyId = vassalColony.getID();
         VassalRelation rel = new VassalRelation(colonyId, overlordUUID, tributePercent, System.currentTimeMillis());
+        // War vassalization auto-expires after durationHours (0 = permanent until reclaimed/revoked).
+        rel.expirationTime = durationHours > 0
+                ? System.currentTimeMillis() + (durationHours * 60L * 60L * 1000L)
+                : 0L;
         // Atomic check-then-insert: a non-null return means an active vassalization already existed.
         if (ACTIVE_VASSALS.putIfAbsent(colonyId, rel) != null) {
             return false;
@@ -470,12 +518,15 @@ public class VassalManager {
         int percent;
         long lastPayment;
         int lastTribute;
+        /** Wall-clock millis when a war vassalization auto-expires; 0 = permanent (proposal-based or until revoked). */
+        long expirationTime;
         public VassalRelation(int colonyId, UUID overlordUUID, int percent, long lastPayment) {
             this.colonyId = colonyId;
             this.overlordUUID = overlordUUID;
             this.percent = percent;
             this.lastPayment = lastPayment;
             this.lastTribute = 0;
+            this.expirationTime = 0;
         }
     }
 
