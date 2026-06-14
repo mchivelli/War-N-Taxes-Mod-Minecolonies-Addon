@@ -45,6 +45,7 @@ public final class MctClientNetHandlers {
         if (Minecraft.getInstance().screen instanceof TaxManagementScreen screen) {
             screen.updateColonyData(payload.getColonyData());
             screen.updateVassalData(payload.getVassalData());
+            screen.updateEventData(payload.getEventLogData());
         }
     }
 

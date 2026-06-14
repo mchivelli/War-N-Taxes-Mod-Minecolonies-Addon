@@ -34,8 +34,29 @@ public record RequestColonyDataPayload(int colonyId) implements CustomPacketPayl
                 net.machiavelli.minecolonytax.server.ColonyDataCollector.collectColonyData(player);
             List<net.machiavelli.minecolonytax.gui.data.VassalIncomeData> vassalData =
                 net.machiavelli.minecolonytax.server.ColonyDataCollector.collectVassalIncomeData(player);
+
+            java.util.Map<Integer, List<net.machiavelli.minecolonytax.events.random.EventLogEntry>> eventLogData =
+                new java.util.HashMap<>();
+            for (net.machiavelli.minecolonytax.gui.data.ColonyTaxData data : colonyData) {
+                eventLogData.put(data.getColonyId(), buildEventLog(data.getColonyId(), player));
+            }
+
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
-                new ColonyDataResponsePayload(colonyData, vassalData));
+                new ColonyDataResponsePayload(colonyData, vassalData, eventLogData));
         });
+    }
+
+    /**
+     * Build the per-colony event log shown in the GUI Events view: the random-event history
+     * (with dismiss support) plus raid history, newest-first. (Active war/besiege/occupation
+     * rows and structured-war history are a documented follow-up; Neo's HistoryManager has no
+     * structured-war records.)
+     */
+    public static List<net.machiavelli.minecolonytax.events.random.EventLogEntry> buildEventLog(
+            int colonyId, ServerPlayer player) {
+        java.util.List<net.machiavelli.minecolonytax.events.random.EventLogEntry> entries =
+            new java.util.ArrayList<>(
+                net.machiavelli.minecolonytax.events.random.RandomEventManager.getEventLog(colonyId));
+        return entries;
     }
 }

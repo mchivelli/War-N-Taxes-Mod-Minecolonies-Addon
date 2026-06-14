@@ -93,7 +93,9 @@ public class PvPBattleManager {
         
         // Clean up
         pvpManager.playerOriginalGameModes.remove(playerId);
-        
+        pvpManager.playerOriginalPositions.remove(playerId);
+        PvPStatsPersistence.save();
+
         player.sendSystemMessage(Component.literal("You have been restored to your original position.").withStyle(ChatFormatting.GREEN));
     }
 
@@ -680,6 +682,8 @@ public class PvPBattleManager {
                     GameType originalGameMode = pvpManager.playerOriginalGameModes.getOrDefault(playerId, GameType.SURVIVAL);
                     restorePlayer(player, originalPos, originalGameMode);
                     pvpManager.playerOriginalGameModes.remove(playerId);
+                    pvpManager.playerOriginalPositions.remove(playerId);
+                    PvPStatsPersistence.save();
                 }
             });
         }
@@ -714,8 +718,11 @@ public class PvPBattleManager {
                         continue;
                     }
 
-                    battle.getOriginalPositions().put(playerId, GlobalPos.of(player.level().dimension(), player.blockPosition()));
+                    GlobalPos battleOrigPos = GlobalPos.of(player.level().dimension(), player.blockPosition());
+                    battle.getOriginalPositions().put(playerId, battleOrigPos);
                     pvpManager.playerOriginalGameModes.put(playerId, player.gameMode.getGameModeForPlayer());
+                    pvpManager.playerOriginalPositions.put(playerId, battleOrigPos); // crash-recovery persistence
+                    PvPStatsPersistence.save();
                     // REMOVED: saveInventory(player); - Caused duplication glitch when items were moved to containers
                     teleportTo(player, spawnPos);
                     applyFreezeEffects(player);

@@ -131,6 +131,12 @@ public class ModNetworking {
             DismissSpyMissionPayload::handle
         );
 
+        registrar.playToServer(
+            DismissEventPayload.TYPE,
+            DismissEventPayload.STREAM_CODEC,
+            DismissEventPayload::handle
+        );
+
         // ---- Client-bound packets (server -> client) ----
 
         registrar.playToClient(

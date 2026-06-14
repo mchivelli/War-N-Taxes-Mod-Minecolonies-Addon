@@ -168,6 +168,13 @@ public class MineColonyTax {
 
         GuardResistanceHandler.emergencyCleanup();
 
+        // PvP player-state crash recovery — load persisted stats/game-modes/positions
+        try {
+            net.machiavelli.minecolonytax.pvp.PvPStatsPersistence.load();
+        } catch (Throwable t) {
+            LOGGER.error("PvPStatsPersistence load failed: {}", t.toString());
+        }
+
         // Web API
         if (TaxConfig.isWebAPIEnabled()) {
             try {
@@ -203,6 +210,7 @@ public class MineColonyTax {
         try { net.machiavelli.minecolonytax.siege.WarBlockLedger.flushPendingRestores(); } catch (Throwable t) { LOGGER.warn("WarBlockLedger flush error: {}", t.toString()); }
         try { net.machiavelli.minecolonytax.siege.WarBlockLedger.saveToDisk(); } catch (Throwable t) { LOGGER.warn("WarBlockLedger save error: {}", t.toString()); }
         // Flush async file writes (besiege uses AsyncSaveExecutor) before the scheduler stops.
+        try { net.machiavelli.minecolonytax.pvp.PvPStatsPersistence.save(); } catch (Throwable t) { LOGGER.warn("PvPStatsPersistence save error: {}", t.toString()); }
         try { net.machiavelli.minecolonytax.util.AsyncSaveExecutor.shutdownAndFlush(); } catch (Throwable t) { LOGGER.warn("AsyncSaveExecutor flush error: {}", t.toString()); }
 
         // TickScheduler last — other shutdowns may still enqueue tasks

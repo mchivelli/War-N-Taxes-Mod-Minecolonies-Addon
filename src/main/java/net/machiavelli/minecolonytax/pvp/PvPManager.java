@@ -40,6 +40,8 @@ public class PvPManager {
     public final Map<UUID, ItemStack[]> playerArmor = new HashMap<>();
     public final Map<UUID, SpectatorData> spectatorData = new HashMap<>();
     public final Map<UUID, GameType> playerOriginalGameModes = new HashMap<>();
+    /** Persisted original world position per player (crash/disconnect recovery while in SPECTATOR). */
+    public final Map<UUID, net.minecraft.core.GlobalPos> playerOriginalPositions = new java.util.concurrent.ConcurrentHashMap<>();
     public final Map<String, List<UUID>> activeSpectators = new HashMap<>();
     public final Map<UUID, PlayerPvPStats> playerStats = new HashMap<>();
 
@@ -58,6 +60,7 @@ public class PvPManager {
     // Constants
     public static final ScheduledExecutorService BATTLE_END_SCHEDULER = Executors.newScheduledThreadPool(1);
     public static final File ARENA_DATA_FILE = new File("config/warntax/pvp_arena_data.json");
+    public static final File PVP_STATS_FILE = new File("config/warntax/pvp_player_stats.json");
     public static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private PvPManager() {

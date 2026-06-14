@@ -49,6 +49,7 @@ public class TaxManagementScreen extends Screen {
     // --- Data (shared across pages) ---
     private final List<ColonyTaxData> colonies = new ArrayList<>();
     private final List<VassalIncomeData> vassalData = new ArrayList<>();
+    private final java.util.Map<Integer, java.util.List<net.machiavelli.minecolonytax.events.random.EventLogEntry>> eventLogData = new java.util.HashMap<>();
     private final List<OfficerData> officerData = new ArrayList<>();
     private final List<SpyMissionData> spyMissions = new ArrayList<>();
     private ColonyTaxData selectedColony = null;
@@ -106,6 +107,12 @@ public class TaxManagementScreen extends Screen {
         this.vassalData.addAll(newVassalData);
     }
 
+    public void updateEventData(
+            java.util.Map<Integer, java.util.List<net.machiavelli.minecolonytax.events.random.EventLogEntry>> data) {
+        this.eventLogData.clear();
+        if (data != null) this.eventLogData.putAll(data);
+    }
+
     public void updateOfficerData(List<OfficerData> newOfficerData, int colonyId) {
         this.officerData.clear();
         this.officerData.addAll(newOfficerData);
@@ -144,7 +151,8 @@ public class TaxManagementScreen extends Screen {
         pages.clear();
 
         pages.put(BookTab.COLONIES, new ColoniesPage(this, this.font,
-                () -> colonies, () -> selectedColony, c -> selectedColony = c));
+                () -> colonies, () -> selectedColony, c -> selectedColony = c,
+                () -> eventLogData, this::requestColonyData));
 
         pages.put(BookTab.VASSALS, new VassalsPage(this, this.font,
                 () -> vassalData, () -> colonies, this::requestColonyData));

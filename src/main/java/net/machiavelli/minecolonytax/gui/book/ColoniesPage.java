@@ -7,11 +7,16 @@ import net.machiavelli.minecolonytax.network.NetworkHandler;
 import net.machiavelli.minecolonytax.network.packets.ClaimTaxPayload;
 import net.machiavelli.minecolonytax.network.packets.PayTaxDebtPayload;
 import net.machiavelli.minecolonytax.network.packets.SetTaxPolicyPayload;
+import net.machiavelli.minecolonytax.network.packets.DismissEventPayload;
+import net.machiavelli.minecolonytax.events.random.EventLogEntry;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -25,24 +30,39 @@ public class ColoniesPage extends BookPage {
     private final Supplier<List<ColonyTaxData>> coloniesSupplier;
     private final Supplier<ColonyTaxData> selectedSupplier;
     private final Consumer<ColonyTaxData> selectCallback;
+    private final Supplier<Map<Integer, List<EventLogEntry>>> eventLogSupplier;
+    private final Runnable refreshCallback;
 
     private int scrollOffset = 0;
     private boolean showingEvents = false;
+    private int eventScrollOffset = 0;
+    /** Set during renderEventsView each frame; used to draw the tooltip inline. */
+    private EventLogEntry hoveredEventEntry = null;
+    private static final int EVENT_ITEM_H = 14;
 
     public ColoniesPage(Screen screen, Font font,
                         Supplier<List<ColonyTaxData>> coloniesSupplier,
                         Supplier<ColonyTaxData> selectedSupplier,
-                        Consumer<ColonyTaxData> selectCallback) {
+                        Consumer<ColonyTaxData> selectCallback,
+                        Supplier<Map<Integer, List<EventLogEntry>>> eventLogSupplier,
+                        Runnable refreshCallback) {
         super(screen, font);
         this.coloniesSupplier = coloniesSupplier;
         this.selectedSupplier = selectedSupplier;
         this.selectCallback = selectCallback;
+        this.eventLogSupplier = eventLogSupplier;
+        this.refreshCallback = refreshCallback;
     }
 
     @Override
     public void onActivated() {
         scrollOffset = 0;
+        eventScrollOffset = 0;
         showingEvents = false;
+    }
+
+    private static boolean isHistoryEntry(String eventId) {
+        return eventId.startsWith("raid_") || eventId.startsWith("war_");
     }
 
     // --- Left page: colony list ---
@@ -218,19 +238,72 @@ public class ColoniesPage extends BookPage {
     }
 
     private void renderEventsView(GuiGraphics g, ColonyTaxData colony, int mouseX, int mouseY) {
-        int x = rightX;
-        int y = rightY;
-        int w = rightW;
+        int x = rightX, y = rightY, w = rightW;
+        hoveredEventEntry = null; // reset each frame
 
         g.drawString(font, "Recent Events", x, y, INK, false);
-        // Back button
         drawButton(g, font, "Back", x + w - 26, y - 1, 26, 11, mouseX, mouseY, INK_FAINT);
-        y += 14;
+        y += 12;
+        drawSeparator(g, x, y, w);
+        y += 4; // list starts at rightY + 16
 
-        drawSeparator(g, x, y - 2, w);
+        Map<Integer, List<EventLogEntry>> allLogs = eventLogSupplier.get();
+        List<EventLogEntry> events = allLogs.getOrDefault(colony.getColonyId(), Collections.emptyList());
 
-        // Placeholder - events data would come from server
-        g.drawString(font, "No recent events.", x + 4, y + 10, INK_GHOST, false);
+        if (events.isEmpty()) {
+            g.drawString(font, "No recent events.", x + 4, y + 10, INK_GHOST, false);
+            return;
+        }
+
+        int available = rightH - 16;
+        int maxVisible = available / EVENT_ITEM_H;
+        int maxOffset = Math.max(0, events.size() - maxVisible);
+        if (eventScrollOffset > maxOffset) eventScrollOffset = maxOffset;
+        int visible = Math.min(maxVisible, events.size() - eventScrollOffset);
+
+        for (int i = 0; i < visible; i++) {
+            EventLogEntry entry = events.get(i + eventScrollOffset);
+            int iy = y + i * EVENT_ITEM_H;
+
+            boolean isHistory = isHistoryEntry(entry.getEventId());
+            boolean isStateEvent = entry.getEventId().startsWith("active_");
+            boolean hasDismiss = !isHistory && !isStateEvent;
+
+            boolean hovered = mouseX >= x && mouseX < x + w - 4 && mouseY >= iy && mouseY < iy + EVENT_ITEM_H;
+            if (hovered && !entry.getDescription().isEmpty()) {
+                g.fill(x, iy, x + w, iy + EVENT_ITEM_H - 1, 0x14000000);
+                hoveredEventEntry = entry;
+            }
+
+            int barColor = (isHistory || isStateEvent || entry.isActive()) ? entry.getColorCode() : INK_GHOST;
+            g.fill(x, iy, x + 2, iy + EVENT_ITEM_H - 1, barColor);
+
+            if (hasDismiss) {
+                drawButton(g, font, "x", x + w - 11, iy + 2, 10, 9, mouseX, mouseY, INK_FAINT);
+            }
+
+            String stat = entry.getCompactStat();
+            int dismissW = hasDismiss ? 12 : 0;
+            int statW = 0;
+            if (!stat.isEmpty()) {
+                statW = font.width(stat) + 3;
+                g.drawString(font, stat, x + w - dismissW - statW, iy + 3, barColor, false);
+            }
+
+            int nameColor = (isHistory || isStateEvent || entry.isActive()) ? INK : INK_GHOST;
+            int nameMaxW = w - 4 - dismissW - statW;
+            String name = truncate(font, entry.getDisplayName(), nameMaxW);
+            g.drawString(font, name, x + 4, iy + 3, nameColor, false);
+
+            g.fill(x, iy + EVENT_ITEM_H - 1, x + w, iy + EVENT_ITEM_H, CARD_BORDER);
+        }
+
+        drawScrollbar(g, x + w - 4, y, available, events.size(), maxVisible, eventScrollOffset);
+
+        // Inline tooltip (BookPage has no separate renderTooltips hook)
+        if (hoveredEventEntry != null && !hoveredEventEntry.getDescription().isEmpty()) {
+            g.renderTooltip(font, font.split(Component.literal(hoveredEventEntry.getDescription()), 160), mouseX, mouseY);
+        }
     }
 
     // --- Mouse handling ---
@@ -269,7 +342,26 @@ public class ColoniesPage extends BookPage {
                 if (mouseX >= rightX + rightW - 26 && mouseX < rightX + rightW
                         && mouseY >= rightY - 1 && mouseY < rightY + 10) {
                     showingEvents = false;
+                    eventScrollOffset = 0;
                     return true;
+                }
+                // Dismiss buttons
+                Map<Integer, List<EventLogEntry>> allLogs = eventLogSupplier.get();
+                List<EventLogEntry> events = allLogs.getOrDefault(selected.getColonyId(), Collections.emptyList());
+                if (!events.isEmpty()) {
+                    int ey = rightY + 16;
+                    int maxVisible = (rightH - 16) / EVENT_ITEM_H;
+                    int visible = Math.min(maxVisible, events.size() - eventScrollOffset);
+                    for (int i = 0; i < visible; i++) {
+                        EventLogEntry entry = events.get(i + eventScrollOffset);
+                        int iy = ey + i * EVENT_ITEM_H;
+                        if (!isHistoryEntry(entry.getEventId()) && !entry.getEventId().startsWith("active_")
+                                && isInBounds(mouseX, mouseY, rightX + rightW - 11, iy + 2, 10, 9)) {
+                            NetworkHandler.sendToServer(new DismissEventPayload(selected.getColonyId(), entry.getEventId()));
+                            refreshCallback.run();
+                            return true;
+                        }
+                    }
                 }
             } else {
                 // Action buttons at bottom
@@ -330,6 +422,17 @@ public class ColoniesPage extends BookPage {
             int maxVisible = (leftH - 14) / 22;
             int maxOffset = Math.max(0, colonies.size() - maxVisible);
             scrollOffset = Math.max(0, Math.min(maxOffset, scrollOffset - (int) delta));
+            return true;
+        }
+        if (isInRightPage(mouseX, mouseY) && showingEvents) {
+            ColonyTaxData sel = selectedSupplier.get();
+            if (sel != null) {
+                Map<Integer, List<EventLogEntry>> allLogs = eventLogSupplier.get();
+                List<EventLogEntry> events = allLogs.getOrDefault(sel.getColonyId(), Collections.emptyList());
+                int maxVisible = (rightH - 16) / EVENT_ITEM_H;
+                int maxOffset = Math.max(0, events.size() - maxVisible);
+                eventScrollOffset = Math.max(0, Math.min(maxOffset, eventScrollOffset - (int) delta));
+            }
             return true;
         }
         return false;

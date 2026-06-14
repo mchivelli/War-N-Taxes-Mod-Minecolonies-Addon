@@ -52,6 +52,9 @@ public class RandomEventManager {
 
     /** Map: colonyId -> global cooldown expiry timestamp */
     private static final Map<Integer, Long> GLOBAL_COOLDOWNS = new ConcurrentHashMap<>();
+    /** Per-colony recent event log, newest first, capped at MAX_LOG_ENTRIES (for the GUI Events view). */
+    private static final Map<Integer, java.util.LinkedList<EventLogEntry>> EVENT_LOG = new ConcurrentHashMap<>();
+    private static final int MAX_LOG_ENTRIES = 10;
 
     private static MinecraftServer SERVER;
     private static final Random RANDOM = new Random();
@@ -229,6 +232,17 @@ public class RandomEventManager {
         // Add to active events
         ACTIVE_EVENTS.computeIfAbsent(colonyId, k -> new ArrayList<>()).add(event);
 
+        // Record in event log (newest first, capped)
+        addToEventLog(colonyId, new EventLogEntry(
+            event.getEventId().toString(),
+            eventType.getDisplayName(),
+            eventType.getDescription(),
+            buildCompactStat(eventType),
+            getColorCode(eventType),
+            true,
+            eventType.getDurationCycles()
+        ));
+
         // Set cooldowns
         long cooldownDuration = eventType.getCooldownCycles() * getTaxCycleDurationMs();
         EVENT_COOLDOWNS.computeIfAbsent(colonyId, k -> new ConcurrentHashMap<>())
@@ -322,6 +336,7 @@ public class RandomEventManager {
         for (ActiveEvent event : events) {
             // Decrement remaining cycles
             event.decrementCycle();
+            syncLogEntry(colonyId, event.getEventId().toString(), event.getRemainingCycles());
 
             // Check if expired
             if (event.hasExpired()) {
@@ -335,6 +350,7 @@ public class RandomEventManager {
             restoreDeepIntegrationEffects(colony, expired);
 
             events.remove(expired);
+            markLogEntryExpired(colonyId, expired.getEventId().toString());
             notifyColonyPlayers(colony, expired, "expired");
 
             LOGGER.info("Event {} expired for colony {} ({})",
@@ -610,6 +626,30 @@ public class RandomEventManager {
                 }
             }
 
+            // Load event log
+            if (root.has("eventLog")) {
+                JsonObject logJson = root.getAsJsonObject("eventLog");
+                for (String colonyIdStr : logJson.keySet()) {
+                    int colonyId = Integer.parseInt(colonyIdStr);
+                    JsonArray logArray = logJson.getAsJsonArray(colonyIdStr);
+                    java.util.LinkedList<EventLogEntry> log = new java.util.LinkedList<>();
+                    for (JsonElement element : logArray) {
+                        JsonObject ej = element.getAsJsonObject();
+                        String compactStat = ej.has("compactStat") ? ej.get("compactStat").getAsString() : "";
+                        log.add(new EventLogEntry(
+                            ej.get("eventId").getAsString(),
+                            ej.get("displayName").getAsString(),
+                            ej.get("description").getAsString(),
+                            compactStat,
+                            ej.get("colorCode").getAsInt(),
+                            ej.get("isActive").getAsBoolean(),
+                            ej.get("remainingCycles").getAsInt()
+                        ));
+                    }
+                    EVENT_LOG.put(colonyId, log);
+                }
+            }
+
             LOGGER.info("Loaded random events data from {}", STORAGE_FILE);
         } catch (Exception e) {
             LOGGER.error("Failed to load random events data: {}", e.getMessage());
@@ -620,6 +660,66 @@ public class RandomEventManager {
     /**
      * Save data to JSON file.
      */
+    // ==================== Event Log Helpers ====================
+
+    private static void addToEventLog(int colonyId, EventLogEntry entry) {
+        java.util.LinkedList<EventLogEntry> log = EVENT_LOG.computeIfAbsent(colonyId, k -> new java.util.LinkedList<>());
+        log.addFirst(entry);
+        while (log.size() > MAX_LOG_ENTRIES) log.removeLast();
+    }
+
+    private static void syncLogEntry(int colonyId, String eventId, int remainingCycles) {
+        java.util.LinkedList<EventLogEntry> log = EVENT_LOG.get(colonyId);
+        if (log == null) return;
+        for (EventLogEntry e : log) {
+            if (e.getEventId().equals(eventId)) { e.setRemainingCycles(remainingCycles); return; }
+        }
+    }
+
+    private static void markLogEntryExpired(int colonyId, String eventId) {
+        java.util.LinkedList<EventLogEntry> log = EVENT_LOG.get(colonyId);
+        if (log == null) return;
+        for (EventLogEntry e : log) {
+            if (e.getEventId().equals(eventId)) { e.setActive(false); e.setRemainingCycles(0); return; }
+        }
+    }
+
+    private static int getColorCode(RandomEventType type) {
+        Integer chatColor = type.getColor().getColor();
+        return chatColor != null ? (0xFF000000 | chatColor) : 0xFF2C1E0E;
+    }
+
+    /** Short inline stat string for the GUI event row, e.g. "+15% tax  -0.3 hap". */
+    private static String buildCompactStat(RandomEventType type) {
+        StringBuilder sb = new StringBuilder();
+        double tax = type.getTaxMultiplier();
+        double hap = type.getHappinessModifier();
+        if (tax != 1.0) {
+            int pct = (int) Math.round((tax - 1.0) * 100);
+            sb.append(pct > 0 ? "+" : "").append(pct).append("% tax");
+        }
+        if (hap != 0.0) {
+            if (sb.length() > 0) sb.append("  ");
+            sb.append(hap > 0 ? "+" : "").append(String.format("%.1f", hap)).append(" hap");
+        }
+        return sb.toString();
+    }
+
+    /** Recent event log for a colony, newest first (GUI). */
+    public static List<EventLogEntry> getEventLog(int colonyId) {
+        java.util.LinkedList<EventLogEntry> log = EVENT_LOG.get(colonyId);
+        return log != null ? new ArrayList<>(log) : new ArrayList<>();
+    }
+
+    /** Remove a specific entry from the event log (player-initiated dismiss in GUI). */
+    public static void dismissFromEventLog(int colonyId, String eventId) {
+        java.util.LinkedList<EventLogEntry> log = EVENT_LOG.get(colonyId);
+        if (log == null) return;
+        log.removeIf(e -> e.getEventId().equals(eventId));
+        if (log.isEmpty()) EVENT_LOG.remove(colonyId);
+        saveData();
+    }
+
     private static void saveData() {
         try {
             // Ensure directory exists
@@ -671,6 +771,25 @@ public class RandomEventManager {
                 cooldownsJson.add(entry.getKey().toString(), colonyCooldownsJson);
             }
             root.add("eventCooldowns", cooldownsJson);
+
+            // Save event log
+            JsonObject logJson = new JsonObject();
+            for (Map.Entry<Integer, java.util.LinkedList<EventLogEntry>> logEntry : EVENT_LOG.entrySet()) {
+                JsonArray logArray = new JsonArray();
+                for (EventLogEntry entry : logEntry.getValue()) {
+                    JsonObject ej = new JsonObject();
+                    ej.addProperty("eventId", entry.getEventId());
+                    ej.addProperty("displayName", entry.getDisplayName());
+                    ej.addProperty("description", entry.getDescription());
+                    ej.addProperty("compactStat", entry.getCompactStat());
+                    ej.addProperty("colorCode", entry.getColorCode());
+                    ej.addProperty("isActive", entry.isActive());
+                    ej.addProperty("remainingCycles", entry.getRemainingCycles());
+                    logArray.add(ej);
+                }
+                logJson.add(logEntry.getKey().toString(), logArray);
+            }
+            root.add("eventLog", logJson);
 
             // Write to file
             try (Writer writer = Files.newBufferedWriter(path)) {
