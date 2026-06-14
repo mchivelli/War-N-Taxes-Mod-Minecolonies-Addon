@@ -88,6 +88,7 @@ public class TaxConfig {
         public static final ForgeConfigSpec.IntValue MAX_SIEGE_RADIUS;
         public static final ForgeConfigSpec.IntValue ATTACKER_GLOW_SECONDS;
         public static final ForgeConfigSpec.IntValue BANNER_CAPTURE_MINUTES;
+        public static final ForgeConfigSpec.IntValue BANNER_MAX_REPLANTS;
 
         // Explosion't compat
         public static final ForgeConfigSpec.BooleanValue DEFER_RESTORATION_TO_EXPLOSIONT;
@@ -742,6 +743,14 @@ public class TaxConfig {
                                                 +
                                                 "attacker may re-plant once. Behind EnableExperimentalSiegeObjectives.")
                                 .defineInRange("BannerCaptureMinutes", 10, 1, 120);
+
+                BANNER_MAX_REPLANTS = BUILDER.comment(
+                                "How many times an attacker may re-plant a destroyed Siege Banner before the\n"
+                                                +
+                                                "capture path is locked for that war. 0 = no re-plants (one attempt only).\n"
+                                                +
+                                                "Behind EnableExperimentalSiegeObjectives.")
+                                .defineInRange("BannerMaxReplants", 1, 0, 10);
 
                 DEFER_RESTORATION_TO_EXPLOSIONT = BUILDER.comment(
                                 "Compat: if Harmonised's 'Explosion't' mod is installed AND this is true, the WarBlockLedger\n"
@@ -2864,6 +2873,10 @@ public class TaxConfig {
 
         public static int getBannerCaptureMinutesOrDefault() {
                 return BANNER_CAPTURE_MINUTES.get();
+        }
+
+        public static int getBannerMaxReplants() {
+                return BANNER_MAX_REPLANTS.get();
         }
 
         public static boolean isDeferRestorationToExplosiont() {

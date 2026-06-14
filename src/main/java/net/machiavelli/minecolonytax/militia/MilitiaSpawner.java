@@ -37,6 +37,13 @@ public final class MilitiaSpawner {
     private static final Logger LOGGER = LogManager.getLogger(MilitiaSpawner.class);
     private static final Random RNG = new Random();
 
+    // EntityMercenary.shouldDespawn() discards a mercenary whose colony is null. We
+    // spawn through the api ModEntities.MERCENARY.create() and intentionally do NOT
+    // compile-link the internal core EntityMercenary type, so the colony is assigned
+    // reflectively. The Method handle is resolved once and cached.
+    private static java.lang.reflect.Method setColonyMethod;
+    private static boolean setColonyResolved = false;
+
     private MilitiaSpawner() {}
 
     /**
@@ -77,6 +84,7 @@ public final class MilitiaSpawner {
                 militia.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, durationTicks, 0));
                 world.addFreshEntity(militia);
                 trackingSet.add(militia);
+                assignColony(militia, colony);
                 spawned++;
             } catch (NoClassDefFoundError ncdfe) {
                 // ModEntities.MERCENARY uses internal types; degrade silently if absent.
@@ -92,6 +100,32 @@ public final class MilitiaSpawner {
                     String.format(Locale.ROOT, "%.2f", multiplier));
         }
         return spawned;
+    }
+
+    /**
+     * Assign the colony to a freshly-spawned militia mercenary so MineColonies'
+     * {@code EntityMercenary.shouldDespawn()} (which discards mercenaries whose
+     * colony is null) does not remove it ~8 seconds after spawn. Done reflectively
+     * to keep this class free of the internal core EntityMercenary import; degrades
+     * silently if the method is unavailable.
+     */
+    private static void assignColony(PathfinderMob militia, IColony colony) {
+        try {
+            if (!setColonyResolved) {
+                setColonyResolved = true;
+                try {
+                    setColonyMethod = militia.getClass().getMethod("setColony", IColony.class);
+                } catch (NoSuchMethodException nsme) {
+                    setColonyMethod = null;
+                    LOGGER.debug("Militia setColony unavailable; reinforcements may self-despawn early");
+                }
+            }
+            if (setColonyMethod != null) {
+                setColonyMethod.invoke(militia, colony);
+            }
+        } catch (Throwable t) {
+            LOGGER.debug("Militia setColony failed (non-fatal): {}", t.getMessage());
+        }
     }
 
     /**

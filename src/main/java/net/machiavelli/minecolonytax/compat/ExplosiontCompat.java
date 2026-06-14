@@ -44,19 +44,18 @@ public final class ExplosiontCompat {
 
     /**
      * Whether the WarBlockLedger should step aside and let Explosion't handle
-     * restoration. True whenever Explosion't is present — the mixin ensures
-     * its tick is war-aware. The legacy {@code DeferRestorationToExplosiont}
-     * config is no longer a requirement; we keep it as an explicit OFF switch
-     * (e.g. for operators who want OUR scoped restoration even with
-     * Explosion't installed).
+     * restoration. Returns true whenever Explosion't is present: the war-aware
+     * mixin pauses its heal countdown during conflicts, so Explosion't is the
+     * canonical restoration path and our ledger would otherwise double-restore.
+     * The legacy {@code DeferRestorationToExplosiont} config flag is retained for
+     * back-compat and can force-enable deferral, but while the mod is present we
+     * defer regardless — it is not an OFF switch in that case.
      */
     public static boolean shouldDeferToExplosiont() {
         if (!isPresent()) return false;
-        // The legacy config keeps a value of FALSE meaning "use our ledger anyway".
-        // Default is FALSE for backward compatibility; flipping TRUE preserves the
-        // documented opt-in. Either way, when the mod is present and not
-        // explicitly opted-out, we now default to deferring since the mixin
-        // makes Explosion't war-aware.
+        // When Explosion't is installed, our mixin makes its per-tick healing
+        // war-aware, so we always hand restoration off to it. The legacy config can
+        // force deferral even without the mixin, but cannot disable it here.
         return net.machiavelli.minecolonytax.TaxConfig.isDeferRestorationToExplosiont()
                 || isMixinIntegrationActive();
     }

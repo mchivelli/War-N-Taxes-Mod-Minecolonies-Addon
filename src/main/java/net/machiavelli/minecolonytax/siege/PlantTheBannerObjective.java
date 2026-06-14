@@ -172,7 +172,7 @@ public final class PlantTheBannerObjective {
             return PlacementResult.deny("The Siege Banner must be planted INSIDE the Town Hall building.");
         }
         int replantsUsed = REPLANT_COUNT.getOrDefault(war.getWarID(), 0);
-        int maxReplants = 1;
+        int maxReplants = TaxConfig.getBannerMaxReplants();
         if (replantsUsed > maxReplants) {
             return PlacementResult.deny(
                     "The capture path is locked — you have exhausted your re-plants for this war.");

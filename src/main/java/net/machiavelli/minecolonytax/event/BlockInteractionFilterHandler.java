@@ -164,6 +164,12 @@ public class BlockInteractionFilterHandler {
         // Only explosive damage (siege machines) may destroy blocks.
         // Denying here prevents MineColonies from applying its levitation punishment.
         if (type == InteractionType.BREAK) {
+            // Exception: a planted Siege Banner must stay breakable so defenders can
+            // contest a Plant-the-Banner capture. Let it fall through to
+            // PlantTheBannerObjective.onBlockBreak instead of the blanket war deny.
+            if (block instanceof net.machiavelli.minecolonytax.siege.SiegeBannerBlock) {
+                return FilterResult.PASS_THROUGH;
+            }
             LOGGER.debug("CONFLICT DENIED (BREAK): Player {} cannot break blocks during raids/wars at {}",
                 player.getName().getString(), pos);
             return FilterResult.deny("Block breaking is not allowed during raids and wars!", null);

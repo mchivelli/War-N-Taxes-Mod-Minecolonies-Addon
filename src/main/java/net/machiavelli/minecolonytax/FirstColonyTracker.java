@@ -299,8 +299,21 @@ public class FirstColonyTracker {
             File file = new File(DATA_FILE);
             file.getParentFile().mkdirs();
 
-            try (FileWriter writer = new FileWriter(file)) {
+            // Atomic write: serialize to a temp file then move it into place, so a crash
+            // mid-write cannot truncate firstColonyData.json. A truncated registry would
+            // make getFirstColonyOwner() return null for every colony, which makes
+            // ColonyTierGuard treat every protected home base as a transferable secondary.
+            File tmp = new File(file.getParentFile(), file.getName() + ".tmp");
+            try (FileWriter writer = new FileWriter(tmp)) {
                 GSON.toJson(playerColoniesMap, writer);
+            }
+            try {
+                java.nio.file.Files.move(tmp.toPath(), file.toPath(),
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException amnse) {
+                java.nio.file.Files.move(tmp.toPath(), file.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
 
             LOGGER.debug("First colony data saved successfully");
@@ -329,8 +342,11 @@ public class FirstColonyTracker {
                 playerColoniesMap.putAll(loadedData);
                 LOGGER.info("Loaded first colony data for {} players", playerColoniesMap.size());
             }
-        } catch (IOException e) {
-            LOGGER.error("Failed to load first colony data", e);
+        } catch (Exception e) {
+            // Broadened from IOException: a corrupt/truncated file throws
+            // JsonSyntaxException (a RuntimeException), which must not propagate past
+            // load. Degrade to "start fresh" so bootstrap can re-seed the registry.
+            LOGGER.error("Failed to load first colony data (starting fresh)", e);
         }
     }
 

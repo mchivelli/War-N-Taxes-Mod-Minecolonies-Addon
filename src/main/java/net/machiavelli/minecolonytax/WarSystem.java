@@ -712,6 +712,13 @@ public class WarSystem {
     }
 
     public static void checkForVictory(WarData war) {
+        // Re-entry guard: the economic transfers and the vassalization money-grab below
+        // run BEFORE the idempotent endWar() call, and several death/objective events can
+        // call this within a single tick. If this war was already resolved (removed from
+        // ACTIVE_WARS, or its slot replaced), bail so spoils/grabs cannot double-fire.
+        if (war == null || ACTIVE_WARS.get(war.getColony().getID()) != war) {
+            return;
+        }
         boolean allAttackersDead = war.getAttackerLives().values().stream().allMatch(lives -> lives <= 0);
         boolean allDefendersDead = war.getDefenderLives().values().stream().allMatch(lives -> lives <= 0);
         boolean allDefenderGuardsDead = war.getRemainingDefenderGuards() <= 0;
@@ -1806,9 +1813,13 @@ public class WarSystem {
                     .append(Component.literal("\n"))
                     .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY));
             broadcastComponent(war, stalemateNoLossesMsg);
-            // Original penalty logic for stalemate:
-            war.getAttackerLives().keySet().forEach(uuid -> WarEconomyHandler.deductTeamBalanceWithReport(uuid, 0.25));
-            war.getDefenderLives().keySet().forEach(uuid -> WarEconomyHandler.deductTeamBalanceWithReport(uuid, 0.25));
+            // Stalemate penalty: deduct the configured WarStalematePercentage from both
+            // sides' team balances (was a hardcoded 0.25 here — now honors the config so
+            // the player-balance deduction matches the colony-tax deduction and the
+            // penalty report below).
+            double stalematePct = TaxConfig.getWarStalematePercentage();
+            war.getAttackerLives().keySet().forEach(uuid -> WarEconomyHandler.deductTeamBalanceWithReport(uuid, stalematePct));
+            war.getDefenderLives().keySet().forEach(uuid -> WarEconomyHandler.deductTeamBalanceWithReport(uuid, stalematePct));
             TaxManager.deductColonyTax(war.getColony(), TaxConfig.getWarStalematePercentage()); // Defender colony
             if (war.getAttackerColony() != null)
                 TaxManager.deductColonyTax(war.getAttackerColony(), TaxConfig.getWarStalematePercentage()); // Attacker
@@ -3811,9 +3822,10 @@ public class WarSystem {
                     .initializeColonyMilitia(war.getAttackerColony().getID());
         }
 
-        WARSYSTEM_LOGGER.info("Initialized militia tracking system for war between {} and {}",
-                war.getAttackerColony() != null ? war.getAttackerColony().getName() : "Unknown",
-                war.getColony().getName());
+        if (TaxConfig.isNormalLogging())
+            WARSYSTEM_LOGGER.info("Initialized militia tracking system for war between {} and {}",
+                    war.getAttackerColony() != null ? war.getAttackerColony().getName() : "Unknown",
+                    war.getColony().getName());
     }
 
     /**
@@ -3826,7 +3838,8 @@ public class WarSystem {
             // Even if militia is disabled, we need to set the total defender count for kill
             // tracking
             setWarDefenderCounts(war);
-            WARSYSTEM_LOGGER.info("Militia disabled - Set defender counts for war without militia activation");
+            if (TaxConfig.isNormalLogging())
+                WARSYSTEM_LOGGER.info("Militia disabled - Set defender counts for war without militia activation");
             return;
         }
 
@@ -3859,8 +3872,9 @@ public class WarSystem {
             }
         }
 
-        WARSYSTEM_LOGGER.info("Activated war militia - Defenders: {} militia, Attackers: {} militia",
-                defenderMilitia, attackerMilitia);
+        if (TaxConfig.isNormalLogging())
+            WARSYSTEM_LOGGER.info("Activated war militia - Defenders: {} militia, Attackers: {} militia",
+                    defenderMilitia, attackerMilitia);
     }
 
     /**

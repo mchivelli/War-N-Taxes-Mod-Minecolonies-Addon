@@ -210,6 +210,19 @@ public class BesiegeManager {
                     Set<UUID> indexEntry = COLONY_RAID_INDEX.remove(raid.colonyId);
                     if (indexEntry != null) indexEntry.clear();
 
+                    // The colony's defenders are down and every raid on it is being torn
+                    // down this tick (capture below, or min-attacker collapse). Because the
+                    // index entry was just cleared, cleanupRaid's "last raid" check can no
+                    // longer fire its despawn — so despawn the shared militia-upgrade
+                    // reinforcements here. Guards/mercenaries are already dead (per
+                    // allDefendersDead); militia are NOT victory-counted and can still be
+                    // alive. despawnAll is idempotent and clears the (possibly shared-by-
+                    // reference) set, so the co-besieger calls are safe no-ops.
+                    net.machiavelli.minecolonytax.militia.MilitiaSpawner.despawnAll(raid.militiaSupport);
+                    for (BesiegeRaidData co : coBesiegers) {
+                        net.machiavelli.minecolonytax.militia.MilitiaSpawner.despawnAll(co.militiaSupport);
+                    }
+
                     // 'Not solo' rule: the attacking force must meet BesiegeMinAttackers to
                     // actually claim the colony. If too few took part, the defenders fell but
                     // the colony is NOT captured — raids end with cooldowns and no spoils.

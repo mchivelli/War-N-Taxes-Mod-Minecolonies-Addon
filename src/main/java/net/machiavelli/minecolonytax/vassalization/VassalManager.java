@@ -271,12 +271,15 @@ public class VassalManager {
         if (tribute <= 0)
             return 0;
 
-        TaxManager.adjustTax(colony, -tribute);
-
+        // Only siphon the vassal if there is an overlord colony to receive the tribute.
+        // If the overlord's primary colony was deleted/abandoned, deducting here would
+        // destroy the tribute (taken from the vassal, credited to nobody).
         IColony overlordColony = getPrimaryColonyOfPlayer(rel.overlordUUID);
-        if (overlordColony != null) {
-            TaxManager.adjustTax(overlordColony, tribute);
+        if (overlordColony == null) {
+            return 0;
         }
+        TaxManager.adjustTax(colony, -tribute);
+        TaxManager.adjustTax(overlordColony, tribute);
         rel.lastPayment = System.currentTimeMillis();
         rel.lastTribute = tribute;
 
@@ -759,12 +762,13 @@ public class VassalManager {
         if (tributeOwed <= 0)
             return 0;
 
-        TaxManager.adjustTax(vassalColony, -tributeOwed);
-
+        // Only siphon the vassal if there is an overlord colony to receive the tribute.
         IColony overlordColony = getPrimaryColonyOfPlayer(overlordId);
-        if (overlordColony != null) {
-            TaxManager.adjustTax(overlordColony, tributeOwed);
+        if (overlordColony == null) {
+            return 0;
         }
+        TaxManager.adjustTax(vassalColony, -tributeOwed);
+        TaxManager.adjustTax(overlordColony, tributeOwed);
 
         rel.lastPayment = System.currentTimeMillis();
         rel.lastTribute = tributeOwed;
