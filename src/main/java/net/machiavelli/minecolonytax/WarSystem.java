@@ -544,6 +544,12 @@ public class WarSystem {
             }
             // Apply victory/defeat balance transfers - defenders win, attackers pay
             applyWarEconomyTransfers(war, false);
+            // War-history rows for the colony Events view (defender won, attacker lost)
+            HistoryManager.getColonyHistory(war.getColony().getID()).addWarEntry(attackerColonyName, "VICTORY", 0);
+            if (war.getAttackerColony() != null) {
+                HistoryManager.getColonyHistory(war.getAttackerColony().getID()).addWarEntry(defenderColonyName, "DEFEAT", 0);
+            }
+            HistoryManager.saveHistory();
         } else if (attackersWin) {
             String defenderColonyName = war.getColony().getName();
             String attackerColonyName = war.getAttackerColony() != null ? war.getAttackerColony().getName() : "The Attackers";
@@ -564,6 +570,12 @@ public class WarSystem {
             }
             // Apply victory/defeat balance transfers - attackers win, defenders pay
             applyWarEconomyTransfers(war, true);
+            // War-history rows for the colony Events view (attacker won, defender lost)
+            HistoryManager.getColonyHistory(war.getColony().getID()).addWarEntry(attackerColonyName, "DEFEAT", 0);
+            if (war.getAttackerColony() != null) {
+                HistoryManager.getColonyHistory(war.getAttackerColony().getID()).addWarEntry(defenderColonyName, "VICTORY", 0);
+            }
+            HistoryManager.saveHistory();
             if (TaxConfig.ENABLE_COLONY_TRANSFER.get()) {
                 transferOwnership(war.getColony(), war.getAttacker());
             } else if (TaxConfig.isWarVassalizationEnabled()) {

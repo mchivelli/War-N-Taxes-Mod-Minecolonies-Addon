@@ -119,10 +119,37 @@ public class HistoryManager
         }
     }
     
+    /** Structured record of a resolved war, shown in the colony Events view. */
+    public static class WarEntry {
+        private final long timestamp;
+        private final String opponentColonyName;
+        private final String outcome; // "VICTORY", "DEFEAT", "STALEMATE"
+        private final long amountTransferred;
+
+        public WarEntry(long timestamp, String opponentColonyName, String outcome, long amountTransferred) {
+            this.timestamp = timestamp;
+            this.opponentColonyName = opponentColonyName;
+            this.outcome = outcome;
+            this.amountTransferred = amountTransferred;
+        }
+
+        public long getTimestamp() { return timestamp; }
+        public String getOpponentColonyName() { return opponentColonyName; }
+        public String getOutcome() { return outcome; }
+        public long getAmountTransferred() { return amountTransferred; }
+
+        public String getFormattedTimestamp() {
+            return DateTimeFormatter.ofPattern("MM-dd HH:mm")
+                .withZone(ZoneId.systemDefault())
+                .format(Instant.ofEpochMilli(timestamp));
+        }
+    }
+
     public static class ColonyHistory {
         private final List<String> events = new ArrayList<>();
         private final List<String> raidEvents = new ArrayList<>(); // Legacy string events
         private final List<RaidEntry> structuredRaids = new ArrayList<>(); // New structured raid data
+        private final List<WarEntry> structuredWars = new ArrayList<>(); // Structured war-outcome history
 
         public void addEvent(String event) {
             events.add(event);
@@ -181,6 +208,18 @@ public class HistoryManager
          */
         public List<RaidEntry> getStructuredRaids() {
             return new ArrayList<>(structuredRaids);
+        }
+
+        /** Record a resolved war outcome (VICTORY / DEFEAT / STALEMATE) against an opponent. */
+        public void addWarEntry(String opponentColonyName, String outcome, long amountTransferred) {
+            structuredWars.add(new WarEntry(System.currentTimeMillis(), opponentColonyName, outcome, amountTransferred));
+            if (structuredWars.size() > 50) structuredWars.remove(0);
+            String sign = amountTransferred > 0 ? "+" : "";
+            addEvent(String.format("[WAR] %s vs '%s'. Transferred: %s%d", outcome, opponentColonyName, sign, amountTransferred));
+        }
+
+        public List<WarEntry> getStructuredWars() {
+            return structuredWars != null ? new ArrayList<>(structuredWars) : new ArrayList<>();
         }
         
         /**

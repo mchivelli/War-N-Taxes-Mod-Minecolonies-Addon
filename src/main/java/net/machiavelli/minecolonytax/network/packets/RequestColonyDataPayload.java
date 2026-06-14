@@ -65,6 +65,9 @@ public record RequestColonyDataPayload(int colonyId) implements CustomPacketPayl
             for (net.machiavelli.minecolonytax.data.HistoryManager.RaidEntry raid : history.getStructuredRaids()) {
                 entries.add(raidToLogEntry(raid));
             }
+            for (net.machiavelli.minecolonytax.data.HistoryManager.WarEntry war : history.getStructuredWars()) {
+                entries.add(warToLogEntry(war));
+            }
         }
 
         // Active war (this colony as defender, or as attacker)
@@ -149,6 +152,19 @@ public record RequestColonyDataPayload(int colonyId) implements CustomPacketPayl
         if (uuid == null || requestingPlayer.getServer() == null) return "unknown";
         ServerPlayer p = requestingPlayer.getServer().getPlayerList().getPlayer(uuid);
         return p != null ? p.getName().getString() : "a player";
+    }
+
+    private static net.machiavelli.minecolonytax.events.random.EventLogEntry warToLogEntry(
+            net.machiavelli.minecolonytax.data.HistoryManager.WarEntry war) {
+        String id = "war_" + war.getTimestamp();
+        String outcome = war.getOutcome();
+        int color = "VICTORY".equals(outcome) ? 0xFF2A6E2A
+                  : "DEFEAT".equals(outcome) ? 0xFFA03030 : 0xFF777777;
+        String name = ("VICTORY".equals(outcome) ? "Won war vs " : "DEFEAT".equals(outcome) ? "Lost war vs " : "War vs ")
+                + war.getOpponentColonyName();
+        String desc = outcome + " vs " + war.getOpponentColonyName() + "  (" + war.getFormattedTimestamp() + ")";
+        String stat = outcome.charAt(0) + outcome.substring(1).toLowerCase();
+        return new net.machiavelli.minecolonytax.events.random.EventLogEntry(id, name, desc, stat, color, false, 0);
     }
 
     private static net.machiavelli.minecolonytax.events.random.EventLogEntry raidToLogEntry(
