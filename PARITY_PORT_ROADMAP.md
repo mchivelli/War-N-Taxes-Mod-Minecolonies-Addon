@@ -68,3 +68,51 @@ Real missing FEATURES, dependency-ordered:
 Besiege keys (`BesiegeAllowChestAccess`, `VassalLockOutFormerOwner`, `BesiegeMinAttackers`,
 `BesiegeShareSpoils`, `BesiegeRequireOnline`, `BesiegeOfflineGraceMinutes`) land with Stage 4, not before
 (they would be dead config otherwise).
+
+---
+
+## STATUS (updated 2026-06-14)
+
+| Stage | Status | Commit |
+|-------|--------|--------|
+| 1 — War vassalization + money grab | ✅ DONE | `90f7df7` |
+| 2 — Foundations (tier guard, perm snapshot, async save) | ✅ DONE | `848daed` |
+| 3 — Upgrade/investment backend | ✅ DONE (GUI/payloads = 3b, pending) | `6bb0452` |
+| 4 — Besiege system (+ multiplayer/online/spoils features) | ✅ DONE & WIRED | `04379d6`, `c52550c` |
+| 5 — Siege victory objectives (banner/demolition/ledger) | ✅ DONE & WIRED | `04379d6`, `c52550c` |
+| 6 — Compat (Explosiont, EasyFactions, FtbTeams) | ✅ FILES DONE (5 config keys pending) | `04379d6` |
+
+**`gradlew build` is GREEN → `WarNTaxes-NeoForge-5.0.jar`. MineColonies API guard passes.**
+
+### Stage 3b — Investment GUI + network (DONE) — commit `67e430e`
+- `InvestmentsPage` book tab (gated on `isUpgradesEnabled`), 3 payloads
+  (`RequestInvestmentDataPayload`/`InvestmentDataResponsePayload`/`BuyInvestmentPayload`),
+  registered in `ModNetworking`, client handler + screen wiring, `investments_icon` asset.
+- **Verified in-client:** payloads auto-register, config parses, no crash.
+
+### Stage 6 config (DONE) — commit `67e430e`
+- Real `TaxConfig` keys for `EnableEasyFactionsIntegration` / `EasyFactionsSyncIntervalTicks` /
+  `EasyFactionsMemberRank` / `PromoteEasyFactionsOfficers` / `DeferRestorationToExplosiont`;
+  compat stubs replaced with the real accessors.
+
+### Misc files — ASSESSED: 5 of 6 already covered by Neo equivalents (NOT gaps)
+- `commands/TreasuryCommand` → Neo `commands/WarChestCommand` ✅
+- `db/WarStatsDB` → Neo `webapi/` (WebAPIServer + WarStatsAPIData + PlayerDataCache) ✅
+- `espionage/SpyClientHandler` → Neo espionage pkg (SpyEntityRenderer/SpyIntelBookGenerator/SpyMapGenerator) ✅
+- `pvp/PvPStatsPersistence` → Neo `pvp/persistence/` + `pvp/model/PlayerPvPStats` ✅
+- `commands/DebugTaxCommand` → Neo `/wnt debugtax` (+ wardebug/debugguards/debugbossbar) ✅
+- `events/random/EventLogEntry` → **the one genuine remaining gap.** NOT a misc file — it backs a
+  player-facing random-event-HISTORY display on the colony book page (RandomEventManager EVENT_LOG +
+  ColonyDataResponse field + ColoniesPage rendering + DismissEvent payload). Porting it is an invasive
+  change to Neo's *working* colony payload/page. Deferred as an optional secondary-display feature.
+
+### Optional follow-ups (non-blocking)
+- **Stage 1b**: `WarVassalizationDurationHours` expiry (extend `VassalRelation` + expiry check; currently permanent-until-revoked).
+- **Random-event-history display** (`EventLogEntry`, see above).
+- Distinct `investments_icon.png` art (currently a copy of `economy_icon.png`).
+- wiki/CHANGELOG for the NeoForge Siege SMP feature set.
+
+## FINAL: Siege SMP parity port is functionally COMPLETE
+`gradlew build` green → `WarNTaxes-NeoForge-5.0.jar`; MineColonies API guard passes; **server AND
+client boot clean, player joins world, all new config sections parse, investment networking registers.**
+6 commits: `90f7df7`, `848daed`, `6bb0452`, `04379d6`, `c52550c`, `67e430e`.
