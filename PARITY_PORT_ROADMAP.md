@@ -125,6 +125,17 @@ The last two genuine feature gaps (everything else was NeoForge-renamed equivale
 ported — Neo replaced it with the `webapi/` HTTP API (`WebAPIServer`). Same goal, different transport.
 Port `WarStatsDB` only if you specifically need the MySQL push for an existing website backend.
 
+## 1:1 closeout — additional gaps closed
+- **Full Events view** (`1388e92`): raid history + active war/besiege/occupation rows added.
+- **War-vassalization auto-expiry** (`f0a643f`): `WarVassalizationDurationHours` now real (Stage 1b done).
+- **Structured war-history** (`674572f`): `HistoryManager.WarEntry` + recording + Events-view rows.
+
+### The ONLY thing intentionally not ported
+- `WarStatsDB` (Forge's MySQL/MariaDB push to a companion website) — Neo replaced it with the
+  `webapi/` HTTP API (`WebAPIServer`), which is the cleaner/more-optimized equivalent. Porting the
+  legacy JDBC layer back would be redundant (and needs a MySQL driver dep). Do it only if you run
+  the MySQL+website backend specifically.
+
 ## FINAL: Siege SMP parity port is functionally COMPLETE
 `gradlew build` green → `WarNTaxes-NeoForge-5.0.jar`; MineColonies API guard passes; **server AND
 client boot clean, player joins world, all new config sections parse, investment networking registers.**
