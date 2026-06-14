@@ -112,6 +112,19 @@ Besiege keys (`BesiegeAllowChestAccess`, `VassalLockOutFormerOwner`, `BesiegeMin
 - Distinct `investments_icon.png` art (currently a copy of `economy_icon.png`).
 - wiki/CHANGELOG for the NeoForge Siege SMP feature set.
 
+## 1:1 closeout (commit `158c7f1`)
+The last two genuine feature gaps (everything else was NeoForge-renamed equivalents):
+- **Random-event-history display** — `EventLogEntry` + `DismissEventPayload` + `RandomEventManager.EVENT_LOG`
+  (persisted) + `ColonyDataResponsePayload` 3rd field + `RequestColonyDataPayload.buildEventLog` +
+  real `ColoniesPage.renderEventsView` (rows/tooltip/dismiss/scroll). Server-verified.
+  *(Follow-up: raid/active-state + structured-war rows in the Events view — Neo `HistoryManager` lacks structured wars.)*
+- **PvP crash-recovery persistence** — `PvPStatsPersistence` (atomic JSON; login-restore self-registers) +
+  `PvPManager.PVP_STATS_FILE`/`playerOriginalPositions` + save-sites in `PvPBattleManager` + start/stop in `MineColonyTax`. Server-verified.
+
+**Architecture note:** `WarStatsDB` (Forge MySQL push for a companion website) is intentionally NOT
+ported — Neo replaced it with the `webapi/` HTTP API (`WebAPIServer`). Same goal, different transport.
+Port `WarStatsDB` only if you specifically need the MySQL push for an existing website backend.
+
 ## FINAL: Siege SMP parity port is functionally COMPLETE
 `gradlew build` green → `WarNTaxes-NeoForge-5.0.jar`; MineColonies API guard passes; **server AND
 client boot clean, player joins world, all new config sections parse, investment networking registers.**
