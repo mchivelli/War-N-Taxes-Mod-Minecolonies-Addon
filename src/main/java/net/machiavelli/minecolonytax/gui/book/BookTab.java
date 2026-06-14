@@ -22,10 +22,8 @@ public enum BookTab {
             "textures/gui/icons/warchest_icon.png", false),
     ESPIONAGE("Espionage", Side.RIGHT, 320, 133, 28, 22,
             "textures/gui/icons/espionage_icon.png", false),
-    INVESTMENTS("Investments", Side.RIGHT, 320, 164, 28, 22,
-            "textures/gui/icons/investments_icon.png", false),
-    ECONOMY("Economy", Side.LEFT, 14, 186, 28, 22,
-            "textures/gui/icons/economy_icon.png", true);
+    INVESTMENTS("Investments", Side.LEFT, 14, 186, 28, 22,
+            "textures/gui/icons/investments_icon.png", false);
 
     public enum Side { LEFT, RIGHT }
 

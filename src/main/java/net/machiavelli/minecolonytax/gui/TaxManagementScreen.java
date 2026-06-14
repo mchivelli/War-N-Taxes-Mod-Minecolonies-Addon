@@ -172,8 +172,6 @@ public class TaxManagementScreen extends Screen {
                 () -> spyMissions, () -> colonies,
                 eb -> this.addRenderableWidget(eb)));
 
-        pages.put(BookTab.ECONOMY, new EconomyPage(this, this.font));
-
         // Let pages create their widgets, then position every page.
         for (BookPage page : pages.values()) page.init();
         updatePageLayouts();
