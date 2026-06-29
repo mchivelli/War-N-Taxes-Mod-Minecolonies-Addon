@@ -20,6 +20,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import net.neoforged.neoforge.common.NeoForge;
+import net.machiavelli.minecolonytax.compat.ColonyBuildingUtil;
 import net.machiavelli.minecolonytax.raid.RaidManager;
 import net.machiavelli.minecolonytax.data.WarData;
 
@@ -419,7 +420,7 @@ public class TaxManager {
                     double colonyAvgHappiness = calculateColonyAverageHappiness(colony);
                     double happinessMultiplier = TaxConfig.calculateHappinessTaxMultiplier(colonyAvgHappiness);
 
-                    for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+                    for (IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
                         if (building.getBuildingLevel() > 0 && building.isBuilt()) {
                             buildingCount++;
                             String buildingType = building.getBuildingDisplayName();
@@ -467,7 +468,7 @@ public class TaxManager {
                     finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
 
                     // --- Guard Tower Tax Boost Processing ---
-                    for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+                    for (IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
                         if (building.getBuildingLevel() > 0 && building.isBuilt()) {
                             // Count guard towers using the same logic as WarSystem
                             String displayName = building.getBuildingDisplayName();

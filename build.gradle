@@ -11,6 +11,7 @@ group = mod_group_id
 
 repositories {
     mavenLocal()
+    mavenCentral()
     maven {
         url = "https://maven.pkg.github.com/ldtteam/minecolonies"
         credentials {
@@ -115,7 +116,80 @@ dependencies {
     // architectury>=13.0.8 and ftblibrary>=2101.1.25 for NeoForge 1.21.1.
     implementation "curse.maven:architectury-api-419699:5786327"   // Architectury API 13.0.8
     implementation "curse.maven:ftb-library-404465:7746959"        // FTB Library 2101.1.31
+
+    // Unit tests (plain JUnit, no Minecraft bootstrap needed)
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat 'full'
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MineColonies API compatibility guard.
+//
+// MineColonies renamed IColony#getBuildingManager() to getServerBuildingManager(),
+// which crashed users running a different MineColonies version than the one we
+// compile against (NoSuchMethodError during server tick). ALL building access must
+// go through the reflection shim ColonyBuildingUtil.getBuildings(colony), which
+// supports both API shapes at runtime.
+//
+// This task fails the build if any source file outside the shim calls either
+// method directly (or references the version-specific manager interface).
+// Runs automatically as part of `gradlew build` / `gradlew check`.
+// ---------------------------------------------------------------------------
+def buildingApiGuard = tasks.register('checkBuildingApiUsage') {
+    group = 'verification'
+    description = 'Fails the build on direct MineColonies building-manager API usage outside ColonyBuildingUtil'
+    def srcDir = file('src/main/java')
+    def reportFile = layout.buildDirectory.file('reports/buildingApiGuard.txt')
+    inputs.dir(srcDir)
+    outputs.file(reportFile)
+    doLast {
+        def offenders = []
+        def pattern = ~/\.\s*(getServerBuildingManager|getBuildingManager)\s*\(|\bIRegisteredStructureManager\b/
+        srcDir.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+            if (!f.name.endsWith('.java') || f.name == 'ColonyBuildingUtil.java') return
+            boolean inBlockComment = false
+            f.readLines('UTF-8').eachWithIndex { line, idx ->
+                def code = line
+                if (inBlockComment) {
+                    def end = code.indexOf('*/')
+                    if (end < 0) return
+                    code = code.substring(end + 2)
+                    inBlockComment = false
+                }
+                code = code.replaceAll('//.*$', '')
+                while (true) {
+                    def start = code.indexOf('/*')
+                    if (start < 0) break
+                    def end = code.indexOf('*/', start + 2)
+                    if (end < 0) { code = code.substring(0, start); inBlockComment = true; break }
+                    code = code.substring(0, start) + code.substring(end + 2)
+                }
+                if (code =~ pattern) {
+                    offenders << "${f.absolutePath}:${idx + 1}: ${line.trim()}"
+                }
+            }
+        }
+        def report = reportFile.get().asFile
+        report.parentFile.mkdirs()
+        report.text = offenders.isEmpty() ? 'OK - no direct building-manager API usage.\n' : offenders.join('\n') + '\n'
+        if (!offenders.isEmpty()) {
+            throw new GradleException(
+                "Direct MineColonies building-manager API usage detected.\n" +
+                "Use ColonyBuildingUtil.getBuildings(colony) instead - direct calls crash with NoSuchMethodError " +
+                "on MineColonies versions that have the other API shape:\n  " + offenders.join('\n  '))
+        }
+    }
+}
+tasks.named('check') { dependsOn buildingApiGuard }
 
 // This block of code expands all declared replace properties in the specified resource targets.
 tasks.withType(ProcessResources).configureEach {

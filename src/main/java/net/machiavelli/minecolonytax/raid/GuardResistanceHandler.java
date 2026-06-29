@@ -4,6 +4,7 @@ import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
 import net.machiavelli.minecolonytax.TaxConfig;
+import net.machiavelli.minecolonytax.compat.ColonyBuildingUtil;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import org.apache.logging.log4j.LogManager;
@@ -45,7 +46,7 @@ public class GuardResistanceHandler {
         
         try {
             // Find all guard buildings in the colony
-            for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+            for (IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
                 if (isGuardBuilding(building)) {
                     // Apply resistance to all citizens in guard buildings
                     building.getAllAssignedCitizen().forEach(citizenData -> {
@@ -110,7 +111,7 @@ public class GuardResistanceHandler {
         
         try {
             // Find all guard buildings and remove resistance effects
-            for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+            for (IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
                 if (isGuardBuilding(building)) {
                     building.getAllAssignedCitizen().forEach(citizenData -> {
                         if (citizenData != null && citizenData.getEntity().isPresent()) {
@@ -230,7 +231,7 @@ public class GuardResistanceHandler {
         
         try {
             // Find all guard buildings in the colony
-            for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+            for (IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
                 if (isGuardBuilding(building)) {
                     // Apply resistance to all citizens in guard buildings
                     building.getAllAssignedCitizen().forEach(citizenData -> {
@@ -293,7 +294,7 @@ public class GuardResistanceHandler {
         
         try {
             // Find all guard buildings and remove resistance effects
-            for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+            for (IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
                 if (isGuardBuilding(building)) {
                     building.getAllAssignedCitizen().forEach(citizenData -> {
                         if (citizenData != null && citizenData.getEntity().isPresent()) {
@@ -343,7 +344,7 @@ public class GuardResistanceHandler {
         
         try {
             // Find all guard buildings in the colony
-            for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+            for (IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
                 if (isGuardBuilding(building)) {
                     // Apply resistance to all citizens in guard buildings
                     building.getAllAssignedCitizen().forEach(citizenData -> {
@@ -406,7 +407,7 @@ public class GuardResistanceHandler {
         
         try {
             // Find all guard buildings and remove resistance effects
-            for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+            for (IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
                 if (isGuardBuilding(building)) {
                     building.getAllAssignedCitizen().forEach(citizenData -> {
                         if (citizenData != null && citizenData.getEntity().isPresent()) {

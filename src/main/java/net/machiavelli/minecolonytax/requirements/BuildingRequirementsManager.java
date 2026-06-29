@@ -3,6 +3,7 @@ package net.machiavelli.minecolonytax.requirements;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.buildings.IBuilding;
 import net.machiavelli.minecolonytax.TaxConfig;
+import net.machiavelli.minecolonytax.compat.ColonyBuildingUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -199,7 +200,7 @@ public class BuildingRequirementsManager {
             LOGGER.debug("Checking building requirements for colony {}: {} level {}+", 
                         colony.getID(), buildingType, minLevel);
                         
-            for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+            for (IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
                 String actualBuildingType = building.getBuildingType().getRegistryName().getPath().toLowerCase();
                 int buildingLevel = building.getBuildingLevel();
                 

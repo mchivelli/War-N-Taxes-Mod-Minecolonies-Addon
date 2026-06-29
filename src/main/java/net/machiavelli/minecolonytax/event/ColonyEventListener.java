@@ -6,6 +6,7 @@ import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
 import net.machiavelli.minecolonytax.MineColonyTax;
 import net.machiavelli.minecolonytax.TaxConfig;
+import net.machiavelli.minecolonytax.compat.ColonyBuildingUtil;
 import net.machiavelli.minecolonytax.raid.EntityRaidManager;
 import net.machiavelli.minecolonytax.raid.RaidManager;
 import net.machiavelli.minecolonytax.raid.ActiveRaidData;
@@ -66,7 +67,7 @@ public class ColonyEventListener {
             int guardTowerCount = 0;
             int newOrUpgradedBuildingsCount = 0;
 
-            for (IBuilding building : colony.getBuildingManager().getBuildings().values()) {
+            for (IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {
                 int currentLevel = building.getBuildingLevel();
 
                 // Count Guard Towers
