@@ -10,9 +10,11 @@ War 'N Taxes transforms peaceful city-building into a strategic simulation. Colo
 - **Taxation & Economy**: Automatically generates revenue based on your colony's development and citizen happiness. Includes debt management, extortion, and a dedicated Treasury fund used to fund wars and upgrades.
 - **War & PvP**: Wage war against other colonies, engage in sieges, and claim their wealth or vassalize them. Build your militia and ensure your guard towers are ready.
 - **High Stakes War**: Your first colony is your Capital and can only be attacked while you are online. Additional outpost colonies are vulnerable even while you are offline. Declare war knowing your own colony is also wagered on the outcome.
+- **Besiege System**: Raid a rival colony — solo or alongside other players — to force it into tax vassalage and grab a cut of its treasury, without triggering a server-wide war. The former owner keeps playing their colony; only the tribute is siphoned.
 - **Colony Occupation**: Winning a war puts the defeated colony into an Occupation phase. The winner collects a share of taxes while the original owner has a window to fight back before full ownership transfers.
-- **War Persistence**: Active wars survive server restarts and crashes. No one can escape a losing war by restarting the server.
-- **Vassalization System**: Subjugate defeated colonies during wars so they pay you periodic tribute.
+- **War Persistence**: Active wars survive server restarts and crashes. No one can escape a losing war by restarting the server. Explosion damage from sieges is recorded and fully repaired when the war ends.
+- **Vassalization System**: Subjugate defeated colonies so they pay you periodic tribute. When a war win vassalizes a colony instead of transferring it, the victor also takes a one-time cut of the loser's colony treasury and personal wallet.
+- **Experimental Siege Objectives**: Optional win conditions where attackers plant a Siege Banner inside the town hall or demolish the town hall building with explosives.
 - **Espionage**: Deploy real spies that travel to rival colonies, gather tiered intelligence over time, and attempt to flee when detected rather than dying on the spot.
 - **Colony Investments**: Permanently upgrade your colony using Treasury funds. Ten investment types cover militia size, spy capabilities, raid force, defense, tax efficiency, fortification, counter-intelligence, and treasury capacity.
 - **Random Events**: Dynamic events like Merchants, Food Shortages, Plagues, and Festivals keep leadership engaging.

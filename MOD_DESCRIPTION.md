@@ -21,7 +21,7 @@ Originally crafted for The Warborn Realms SMP Server, now available for your wor
 
 ---
 
-## 📖 NEW: War 'N Taxes Codex (v4.0)
+## 📖 War 'N Taxes Codex
 
 A **complete in-game guidebook** powered by Patchouli that teaches players everything about the mod!
 

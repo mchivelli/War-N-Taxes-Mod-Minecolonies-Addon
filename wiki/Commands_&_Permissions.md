@@ -40,7 +40,7 @@ These commands can be executed by players who hold sufficient rank in their resp
 | `/wnt revoke <player>` | Revoke a vassalization relationship. |
 | `/wnt vasals` | List your current vassals. |
 | **Besiege Commands** | |
-| `/wnt besiege <colony>` | Besiege a target non-primary colony. On victory, siphons a portion of their taxes. Former owner can use this same command to reclaim their besieged colony. |
+| `/wnt besiege <colony>` | Besiege a target colony (solo, or join other besiegers on the same colony). On victory, siphons a portion of their taxes and takes a one-time cut of their treasury. Former owner can use this same command to reclaim their besieged colony. |
 | **Colony Claiming Commands** | |
 | `/wnt claimcolony [colony]` | Claim an abandoned colony by starting a claiming raid against it. |
 | `/wnt claimstatus` | Check your eligibility and cooldown for claiming abandoned colonies. |

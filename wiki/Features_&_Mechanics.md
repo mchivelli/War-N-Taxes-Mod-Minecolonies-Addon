@@ -20,9 +20,20 @@ Colonies can declare war on one another, changing interactions from peaceful to 
 - **Extortion:** Before a war starts, the attacker can demand a percentage of the defender's wealth as a one-time payment to cancel the declaration. Paying grants temporary immunity.
 - **Occupation:** Winning a war does not instantly transfer the losing colony. Instead the defeated colony enters an **Occupation phase** where the winner collects a share of taxes while the original owner has a set number of real-time days to fight back via a reclamation war. Ownership only transfers if no reclamation war is won within that window. See [Colony Occupation](Occupation_System) for details.
 - **Reclamation Wars:** Players whose colonies are occupied can declare war with waived building requirements and treasury costs — ensuring they are never permanently locked out of fighting back.
-- **Vassalization:** If occupation and direct transfer are both disabled, the defeated colony instead pays a percentage of ongoing tax income as tribute to the victor.
+- **Vassalization & the Money Grab:** If occupation and direct transfer are both disabled, the defeated colony stays in its owner's hands but pays ongoing tribute. On top of that, the victor takes a one-time cut of the loser's colony treasury (default 50%) and the losing player's wallet (default 25%).
+- **Experimental Siege Objectives:** Optional win conditions — plant a Siege Banner inside the enemy town hall and hold it, or demolish the town hall building with explosives. Off by default (`EnableExperimentalSiegeObjectives`).
+- **Persistent Siege Damage:** Explosion damage during a war is recorded and fully restored when the war ends — including chest and sign contents — so siege warfare does not permanently scar the map. The ledger survives restarts.
 - **Peace Treaties:** Players can propose white peace or demand reparations at any point during a war.
 - **War Persistence:** Active wars survive server restarts and crashes. All war state is saved to `config/warntax/active_wars.json` automatically.
+
+---
+
+## 2b. The Besiege System
+For contesting a single colony without a full server-wide war, use a **Besiege**. See [Besiege System](Besiege_System) for the full guide.
+- **Solo or multiplayer:** One player can besiege a colony, or several can attack the same colony together and share the spoils (`BesiegeShareSpoils`).
+- **Outcome:** On victory the colony is force-vassalized — it pays a share of tax income each cycle — and the winner takes a one-time cut of its treasury. The former owner keeps full access to their own colony by default; only the tribute is siphoned (set `VassalLockOutFormerOwner` to lock them out instead).
+- **Online and not solo:** Besiegers must stay online (`BesiegeRequireOnline`), and a server can require a minimum number of attackers before a colony can actually be captured (`BesiegeMinAttackers`).
+- **Colony tiers:** A Secondary (outpost) colony can eventually be claimed outright; a Primary (capital) can only be tax-occupied unless `EnablePrimaryColonyTransfer` is on.
 
 ---
 
@@ -59,3 +70,11 @@ To prevent server clutter from inactive players, colonies can be set to "Auto-Ab
 - Abandoned colonies become open for the taking using `/wnt claimcolony`.
 - Claiming is not free! Initiating a claim triggers a massive *Claiming Raid* where all remaining citizens become hostile militia to defend their home. If the claimer survives the raid, the colony is theirs.
 - Alternatively, admins can permanently protect specific colonies from ever decaying or being claimed.
+
+---
+
+## 7. Colony Investments
+Spend the Treasury funds you build up between wars on permanent, per-colony upgrades. See [Colony Investments](Investments_System) for the full guide.
+- **Ten upgrade types:** militia size, spy capacity, spy speed, spy evasion, raid force, guard defense, treasury capacity, tax efficiency, fortification (siege/raid damage reduction), and counter-intelligence (auto-detect incoming spies).
+- **Funded from the Treasury:** Each purchase is paid from your colony Treasury, and every level costs more than the last.
+- **Persistent:** Upgrade levels are saved per colony and survive server restarts.

@@ -43,8 +43,8 @@ The High Stakes system introduces two mechanics that make war risky for **both**
 
 Every player's **first colony** is automatically designated as their **Primary Colony** (capital). Any additional colonies they create are **Secondary Colonies** (outposts). The mod tracks this via `FirstColonyTracker`, persisted in `config/warntax/firstColonyData.json`.
 
-- **Primary Colony (Capital):** Can **only be attacked when the owner is online**. This protects a player's main base from offline griefing.
-- **Secondary Colonies (Outposts):** Can be attacked **even when the owner is offline**. The colony's guards defend automatically, but no players will be present on the defending side.
+- **Primary Colony (Capital):** Can **only be attacked when the owner is online**. This protects a player's main base from offline griefing. A Primary colony can be tax-occupied (its taxes diverted to the victor) but its **ownership cannot be permanently taken** unless the server enables `EnablePrimaryColonyTransfer` (default off). Normally the owner reclaims a tax-occupied capital by winning a counter-besiege; a defeated Primary stays tax-occupied for `PrimaryColonyTaxOccupationDays` (default 7) before the occupation expires.
+- **Secondary Colonies (Outposts):** Can be attacked **even when the owner is offline**. The colony's guards defend automatically, but no players will be present on the defending side. Unlike a capital, a Secondary colony can be **permanently claimed** after a decisive enough defeat.
 
 During an offline outpost attack:
 1. The war starts immediately — no acceptance prompt, no join phase
@@ -180,6 +180,13 @@ If neither occupation nor transfer is enabled, the loser becomes a vassal:
 
 - The losing colony pays `WarVassalizationTributePercentage` (default: 15%) of their tax income as tribute for `WarVassalizationDurationHours` (default: 168 hours = 1 week)
 
+**The "huge money" war grab.** Because this path keeps the colony in the loser's hands (no deed transfer), the victor instead takes a one-time pile of money on top of the ongoing tribute:
+
+- **Treasury cut:** `WarVassalizationTreasuryGrabPercent` (default: 50%) of the losing colony's Treasury is moved straight into the victor's primary colony Treasury. The transfer is cap-aware, so no coins are lost.
+- **Wallet cut:** `WarVassalizationPlayerBalanceGrabPercent` (default: 25%) of the losing player's personal wallet balance is taken as well (requires an economy mod such as SDMShop / SDMEconomy).
+
+Either percentage can be set to `0` to disable that half of the grab. By default the former owner keeps access to their vassalized colony; a server can lock them out instead with `VassalLockOutFormerOwner` (see the [Besiege System](Besiege_System) page).
+
 ### Outcome 4: Economic Penalties Only
 
 If all territory systems are disabled, the war resolves purely through economic penalties (see section 7).
@@ -246,6 +253,34 @@ Wars can involve teams. If players use FTB Teams or similar team systems, allies
 - Accepted allies contribute lives to their side and share in victory rewards or defeat penalties
 - Declined allies are excluded from the war entirely
 - Both attacker and defender sides can have allies join during the join phase
+
+---
+
+## 10. Experimental Siege Objectives
+
+Gated behind `EnableExperimentalSiegeObjectives` (default **off**). When this is off, wars are won only by the classic lives-and-guards conditions in section 5. When on, attackers gain two extra ways to force a colony to fall:
+
+### Plant the Banner
+
+- Attackers are given a **Siege Banner**. Planting it inside the town-hall borders starts a capture timer, shown as a boss bar to war participants only.
+- Hold the banner for `BannerCaptureMinutes` (default 10) to win the war.
+- Defenders can **break the banner** to stop the capture. An attacker may re-plant it up to `BannerMaxReplants` times (default 1).
+
+### Demolish the Town Hall
+
+- Destroy the town-hall **building** with explosives — ideally siege weaponry.
+- Each valid hit (landed within `MaxSiegeRadius` blocks, default 500, of the town hall) makes the attacker **glow** for `AttackerGlowSeconds` (default 30) and broadcasts their coordinates to the defenders, so attacking is never invisible.
+- After `TownHallExplosiveHitsRequired` valid hits (default 5) the colony falls. A per-attacker cooldown of `TownHallHitCooldownMinutes` (default 5) sits between counted hits.
+
+> Both objectives respect the same outcome rules as a normal war victory (occupation, transfer, or vassalization with the money grab).
+
+---
+
+## 11. Militia, Siege Damage, and Battlefield Cleanup
+
+- **Militia investment:** A colony can invest in extra **Militia** who spawn as additional defenders, scaled to its guard count, during wars, besieges, and raids. Militia extend a fight but **never count as a victory objective** — only guards and player lives decide a war — and they despawn when the conflict ends. See the [Colony Investments](Investments_System) page.
+- **Persistent siege damage restoration:** Explosion damage caused during a war is recorded and **fully restored when the war ends** — blocks and the contents of chests, signs, and other block entities are put back intact, so siege warfare does not permanently scar the map. This damage ledger survives server restarts. See [War Persistence](War_Persistence) for details, including the optional `DeferRestorationToExplosiont` hand-off to the Explosion't mod.
+- **Hand-breaking blocked during war:** While a war is active, blocks can no longer be broken by hand near the conflict — only **explosive damage** destroys them. Chests, doors, and combat still work as normal.
 
 ---
 

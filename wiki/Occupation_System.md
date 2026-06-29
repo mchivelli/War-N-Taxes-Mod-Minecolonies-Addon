@@ -76,4 +76,15 @@ See [War & PvP System](War_System) for full details on the Colony Wager mechanic
 | Reclamation war lost | Ownership transfers immediately to occupier |
 | Occupation window expires with no reclamation | Ownership transfers automatically |
 | Server restart during occupation | Occupation state is restored from disk; no data lost |
-| War won (occupation disabled) | Colony transfers directly if `EnableColonyTransfer` is true; otherwise vassalization applies |
+| War won (occupation disabled) | Colony transfers directly if `EnableColonyTransfer` is true; otherwise the colony is vassalized and the victor takes a one-time treasury and wallet cut (see below) |
+
+---
+
+## Vassalization Instead of Occupation
+
+If both occupation and direct transfer are disabled, a war win **vassalizes** the losing colony rather than occupying it. The colony stays in its owner's hands and keeps paying ongoing tribute, but the victor also collects a one-time "spoils of war" grab:
+
+- `WarVassalizationTreasuryGrabPercent` (default 50%) of the loser's colony Treasury, moved to the victor's primary colony.
+- `WarVassalizationPlayerBalanceGrabPercent` (default 25%) of the losing player's personal wallet (requires an economy mod).
+
+By default the former owner keeps full access to their vassalized colony; only the tribute is siphoned. A server can lock them out with `VassalLockOutFormerOwner`. See [War & PvP System](War_System#outcome-3-vassalization) and the [Besiege System](Besiege_System) for the full vassalization model.

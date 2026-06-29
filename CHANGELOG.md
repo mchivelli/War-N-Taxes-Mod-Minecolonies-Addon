@@ -7,14 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added - Siege & Vassalization Controls
-
-- **Configurable besiege chest access** — attackers no longer hard-blocked from containers during a siege. New `BesiegeAllowChestAccess` (default `false`, combat-only) lets servers permit looting mid-siege.
-- **Owner keeps access while vassalized** — when a colony is vassalized via besiege occupation, its original owner now **retains** colony access (chests, buildings) by default; only tax tribute is siphoned. The old full lockout is now opt-in via `VassalLockOutFormerOwner` (default `false`).
-- **Online requirement for sieges** — `BesiegeRequireOnline` (default `true`): a besieger who logs off longer than `BesiegeOfflineGraceMinutes` (default 5) has their participation cancelled. With multiple attackers, one logging off does not collapse the siege for the others.
-- **Multiplayer sieges share the spoils** — when several players besiege the same colony (each runs `/wnt besiege` on it), victory now splits the treasury spoils across **all** participating besiegers' primary colonies (`BesiegeShareSpoils`, default `true`) instead of only the first to resolve. The lead besieger still receives the ongoing tax-tribute stream.
-- **"Not solo" minimum-attacker gate** — `BesiegeMinAttackers` (default 1): if fewer than this many distinct besiegers take part, the defenders can be wiped but the colony is **not** captured. Set to 2+ to force players to band together.
-- **Vassalize-only "huge money" war grab** — when a war victory vassalizes a colony instead of transferring it (deed-transfer disabled), the victor now takes a one-time cut of the loser's colony treasury (`WarVassalizationTreasuryGrabPercent`, default 50%) and the losing player's wallet (`WarVassalizationPlayerBalanceGrabPercent`, default 25%). Either can be set to 0 to disable.
+_Nothing yet._
 
 ## [5.0.0] - 2026-06-05
 
@@ -44,6 +37,44 @@ Gated behind `EnableExperimentalSiegeObjectives` (default off):
 - New **Militia** investment spawns extra defenders scaled to a colony's guard count (applies to wars, besieges, and raids). Militia extend a fight but **never count as victory objectives** — only guards and player lives do — and despawn when the conflict ends.
 - Explosion damage during a war is now recorded and **fully restored when the war ends**, blocks and block-entity contents (chests, signs) intact, so siege warfare no longer permanently scars the map. The damage ledger **persists across server restarts** (saved on stop, reloaded and pruned on start).
 - **Explosion't integration**: when the Explosion't mod is installed, a war-aware mixin pauses its regeneration during any active war/raid/besiege and resumes only after the conflict ends (`DeferRestorationToExplosiont`).
+
+### Added - Siege & Vassalization Controls (refinements)
+
+- **Configurable besiege chest access** — attackers no longer hard-blocked from containers during a siege. New `BesiegeAllowChestAccess` (default `false`, combat-only) lets servers permit looting mid-siege.
+- **Owner keeps access while vassalized** — when a colony is vassalized via besiege occupation, its original owner now **retains** colony access (chests, buildings) by default; only tax tribute is siphoned. The old full lockout is now opt-in via `VassalLockOutFormerOwner` (default `false`).
+- **Online requirement for sieges** — `BesiegeRequireOnline` (default `true`): a besieger who logs off longer than `BesiegeOfflineGraceMinutes` (default 5) has their participation cancelled. With multiple attackers, one logging off does not collapse the siege for the others.
+- **Multiplayer sieges share the spoils** — when several players besiege the same colony (each runs `/wnt besiege` on it), victory now splits the treasury spoils across **all** participating besiegers' primary colonies (`BesiegeShareSpoils`, default `true`) instead of only the first to resolve. The lead besieger still receives the ongoing tax-tribute stream.
+- **"Not solo" minimum-attacker gate** — `BesiegeMinAttackers` (default 1): if fewer than this many distinct besiegers take part, the defenders can be wiped but the colony is **not** captured. Set to 2+ to force players to band together.
+- **Vassalize-only "huge money" war grab** — when a war victory vassalizes a colony instead of transferring it (deed-transfer disabled), the victor now takes a one-time cut of the loser's colony treasury (`WarVassalizationTreasuryGrabPercent`, default 50%) and the losing player's wallet (`WarVassalizationPlayerBalanceGrabPercent`, default 25%). Either can be set to 0 to disable.
+
+### Fixed - Release-readiness audit pass
+
+A full release-readiness audit found and fixed a batch of money-loss and feature-loss bugs:
+
+- **Paying off tax debt no longer destroys your coins.** On servers using item currency, paying a debt you couldn't fully afford used to consume the coins from your inventory *and* leave the debt unpaid. Payment now checks you have enough before taking anything.
+- **Spy rewards earned while you were offline now arrive when you log back in.** If a spy mission finished while the owner was away, the intel report book and map were silently lost (and the colony was still charged). Pending rewards are now delivered on login and saved across restarts.
+- **Paid colony upgrades survive a crash.** A crash while the game was saving could wipe the upgrades file, resetting every colony's investment levels to zero after you had already paid. Upgrade data is now written safely (write-then-swap) so a crash can't corrupt it.
+- **War militia now actually fight the enemy.** Militia summoned during a war equipped weapons and announced they had joined the defense but would only swing back after being hit. They now seek out and attack enemy war participants on their own.
+- **Six admin commands no longer disappear after `/reload`.** The treasury, raid-repair, faction, tax-policy, random-events, and recipe-test commands were only registered at server boot and vanished after a `/reload`; they are now re-registered every reload.
+- **A corrupt tax-data file no longer prevents the world from loading.** A truncated or malformed `colonyTaxData.json` used to crash world load; it is now handled gracefully by starting fresh.
+- **Raid penalties now work and persist.** The raid-penalty system was never started up, so `/wnt repair` always failed and penalties were forgotten on every restart. It is now initialized properly and its data is saved and restored.
+- **Duel wagers are now real.** `/pvp duel <wager>` advertised a coin stake but never collected or paid it. Wagers are now escrowed when a duel is accepted, paid to the winner, and refunded on a draw, disconnect, timeout, or server shutdown.
+- **Team friendly-fire protection now triggers.** The setting meant to stop teammates from damaging each other in team battles never actually fired; same-team members are now correctly detected and protected (one-on-one and free-for-all fights are unaffected).
+- **Safer saves and corrupt-file handling across more systems** — the tax-policy, raid-penalty, random-events, besiege, faction, and spy data files now use the same crash-safe write-then-swap approach and survive a corrupt file on load without aborting world load.
+- **Occupation and vassal taxes can no longer push a colony's tax ledger negative.** When a colony is both occupied and paying vassal tribute, the combined cut is now floored so it never takes more than the colony has, and the amount credited to the collector always equals the amount debited (no coins created or destroyed).
+- Removed several orphaned, never-wired features (trade routes and a pair of unused network packets) to reduce confusion and dead weight.
+
+### Fixed - War-system soundness pass
+
+A focused audit of the war, besiege, occupation, siege, and militia systems:
+
+- **War/besiege militia stay on the field.** Summoned militia were being discarded a few seconds after spawning (they were created without being tied to a colony), so the paid Militia investment did nothing. They are now correctly assigned to their colony and persist for the fight, and despawn properly when a besiege ends.
+- **The Siege Banner can be broken again.** The during-war block-break ban was overriding the banner's own handler, making a planted Siege Banner unbreakable and Plant-the-Banner impossible for defenders to stop. The banner is now exempt from the war break-ban.
+- **First-colony (capital) registry is crash-safe.** The file tracking which colony is each player's capital is now written with the crash-safe write-then-swap method and tolerates a corrupt file on load, so a crash mid-save can't blank it and make every capital look claimable.
+- **Victory can no longer pay out twice.** A re-entry guard prevents war victory spoils and the vassalization money grab from firing more than once in the same tick.
+- **Configurable war stalemate.** A no-loss stalemate now honors the `WarStalematePercentage` setting instead of a hardcoded value.
+- **New `BannerMaxReplants` config key** controls how many times a Siege Banner may be replanted (previously hardcoded).
+- **Vassal tribute is only taken when there's an overlord to receive it** — tribute is no longer deducted from a vassal and then dropped when the receiving colony is gone.
 
 ### Added - New Configuration (War Settings)
 

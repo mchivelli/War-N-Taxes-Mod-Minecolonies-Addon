@@ -1403,6 +1403,10 @@ _The following keys are grouped in the config under access controls and multipla
 - **Description**: How long (minutes) the Siege Banner must remain planted inside the Town Hall borders for the attacker to win via the Plant the Banner objective. A war-scoped boss bar (visible only to war participants) counts down this timer.
 - **Default Value**: 10
 
+### BannerMaxReplants
+- **Description**: How many times an attacker may re-plant the Siege Banner after defenders break it during the same war. Only applies when EnableExperimentalSiegeObjectives is true. Set to 0 to allow no re-plants (one chance only).
+- **Default Value**: 1
+
 ### DeferRestorationToExplosiont
 - **Description**: If true and the Explosion't mod is installed, explosion-damage restoration is handed off to Explosion't (whose heal is paused during conflict by a war-aware mixin and resumes after). If false (default), the built-in WarBlockLedger captures and restores war-damaged blocks itself. See [War Persistence](War_Persistence.md#explosion-damage-restoration-warblockledger).
 - **Default Value**: false
