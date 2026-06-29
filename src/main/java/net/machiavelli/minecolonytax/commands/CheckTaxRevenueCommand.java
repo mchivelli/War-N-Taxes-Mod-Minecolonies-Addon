@@ -54,7 +54,7 @@ public class CheckTaxRevenueCommand {
             for (IColony colony : colonies) {
                 Rank playerRank = colony.getPermissions().getRank(player.getUUID());
 
-                if (playerRank.isColonyManager()) {
+                if (playerRank != null && playerRank.isColonyManager()) {
                     foundColonies = true;
                     int taxRevenue = TaxManager.getStoredTaxForColony(colony);
                     source.sendSuccess(() -> Component.translatable("command.checktax.self", colony.getName(), taxRevenue), false);
@@ -87,7 +87,7 @@ public class CheckTaxRevenueCommand {
             boolean foundColonies = false;
             for (IColony colony : colonyManager.getAllColonies()) {
                 Rank playerRank = colony.getPermissions().getRank(targetPlayer.getUUID());
-                if (playerRank.isColonyManager()) {
+                if (playerRank != null && playerRank.isColonyManager()) {
                     foundColonies = true;
                     int taxRevenue = TaxManager.getStoredTaxForColony(colony);
                     source.sendSuccess(() -> Component.translatable("command.checktax.other", playerArg, colony.getName(), taxRevenue), false);

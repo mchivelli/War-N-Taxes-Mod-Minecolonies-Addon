@@ -16,13 +16,10 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.registries.ForgeRegistries;
 import net.machiavelli.minecolonytax.integration.SDMShopIntegration;
 
 import java.util.List;
@@ -83,7 +80,7 @@ public class TaxDebtCommand {
             // Continue even if there's no debt - players can add to their colony's balance
 
             // Attempt to deduct the specified amount from the player's funds.
-            boolean deducted = deductCurrency(player, amount);
+            boolean deducted = deductCurrency(player, colony, amount);
             if (!deducted) {
                 source.sendFailure(Component.translatable("command.taxdebt.insufficient_funds", amount));
                 continue;
@@ -105,7 +102,7 @@ public class TaxDebtCommand {
      * Deducts currency from the player using SDMShopR if enabled, or from the
      * player's inventory otherwise.
      */
-    private static boolean deductCurrency(ServerPlayer player, int amount) {
+    private static boolean deductCurrency(ServerPlayer player, IColony colony, int amount) {
         if (TaxConfig.isSDMShopConversionEnabled() && SDMShopIntegration.isAvailable()) {
             long balance = SDMShopIntegration.getMoney(player);
             if (balance < amount) {
@@ -114,32 +111,14 @@ public class TaxDebtCommand {
             SDMShopIntegration.setMoney(player, balance - amount);
             return true;
         } else {
-            return deductCurrencyFromInventory(player, amount);
+            // Route through the safe path: CurrencyService.takeFromPlayer (via
+            // ItemUtils.takeCurrencyFromInventory) runs a countInventoryValue
+            // sufficiency pass + canMakeExactChange BEFORE mutating any stack,
+            // so an underpaying player loses nothing (non-destructive on failure).
+            int taken = net.machiavelli.minecolonytax.integration.CurrencyService.takeFromPlayer(
+                    player, colony, amount,
+                    net.machiavelli.minecolonytax.integration.CurrencyService.Source.INVENTORY);
+            return taken >= amount;
         }
-    }
-
-    /**
-     * Deducts the required currency from the player's inventory.
-     * Uses ForgeRegistries to obtain the registry name for modded items.
-     */
-    private static boolean deductCurrencyFromInventory(ServerPlayer player, int amount) {
-        int remaining = amount;
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            ItemStack stack = player.getInventory().getItem(i);
-            if (!stack.isEmpty()) {
-                ResourceLocation registryName = ForgeRegistries.ITEMS.getKey(stack.getItem());
-                if (registryName != null && registryName.toString().equals(TaxConfig.getCurrencyItemName())) {
-                    int available = stack.getCount();
-                    if (available >= remaining) {
-                        stack.shrink(remaining);
-                        return true;
-                    } else {
-                        remaining -= available;
-                        stack.setCount(0);
-                    }
-                }
-            }
-        }
-        return remaining <= 0;
     }
 }

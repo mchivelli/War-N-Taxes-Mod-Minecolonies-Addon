@@ -23,7 +23,6 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import net.minecraftforge.fml.loading.FMLEnvironment;
 import com.minecolonies.api.IMinecoloniesAPI;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
@@ -61,6 +60,23 @@ public class PvPEventHandler {
 
     @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent event) {
+        // C#1: refund every in-flight wagered battle BEFORE we save, so escrowed coins
+        // are returned to online participants instead of being destroyed on /stop or
+        // restart (battles are not persisted to disk). refundAllWagers is idempotent —
+        // it zeroes the wager — so this is safe even if a battle is mid-settlement.
+        // Residual limitation: participants who are already OFFLINE at shutdown cannot be
+        // delivered synchronously and will lose their stake; full disk persistence of
+        // escrow would be required to cover that case.
+        try {
+            for (ActiveBattle battle : new java.util.ArrayList<>(pvpManager.activeBattles.values())) {
+                if (battle != null && battle.getWager() > 0) {
+                    battleManager.refundAllWagers(battle);
+                }
+            }
+        } catch (Throwable t) {
+            LOGGER.error("Error refunding in-flight wagers on shutdown: {}", t.toString());
+        }
+
         // Persist PvP stats + any stranded original-gamemode/position entries (fix #1, #4a).
         try {
             PvPStatsPersistence.save();
@@ -95,10 +111,21 @@ public class PvPEventHandler {
         net.machiavelli.minecolonytax.commands.WarStatsCommand.register(event.getDispatcher());
         net.machiavelli.minecolonytax.commands.WarHistoryCommand.register(event.getDispatcher());
 
-        // Only register GUI command on client side to prevent server crashes
-        if (FMLEnvironment.dist.isClient()) {
-            net.machiavelli.minecolonytax.commands.TaxGUICommand.register(event.getDispatcher());
-        }
+        // Moved here from MineColonyTax.onServerStarting (H5): registering on the
+        // RegisterCommandsEvent re-runs on every dispatcher rebuild, including /reload.
+        // Bodies reference their managers statically, so registering before manager
+        // init is safe.
+        net.machiavelli.minecolonytax.commands.RecipeDisableTestCommand.register(event.getDispatcher());
+        net.machiavelli.minecolonytax.commands.TreasuryCommand.register(event.getDispatcher());
+        net.machiavelli.minecolonytax.commands.RaidRepairCommand.register(event.getDispatcher());
+        net.machiavelli.minecolonytax.commands.FactionCommand.register(event.getDispatcher());
+        net.machiavelli.minecolonytax.commands.TaxPolicyCommand.register(event.getDispatcher());
+        net.machiavelli.minecolonytax.commands.RandomEventsCommand.register(event.getDispatcher());
+
+        // M14: register the GUI command unconditionally. Its body already guards on
+        // (source.getEntity() instanceof ServerPlayer) and only sends a packet, so it is
+        // safe on a dedicated server. Dist-gating it previously made it missing server-side.
+        net.machiavelli.minecolonytax.commands.TaxGUICommand.register(event.getDispatcher());
     }
 
     @SubscribeEvent
@@ -274,32 +301,36 @@ public class PvPEventHandler {
             return;
         }
 
-        // Check for friendly fire in team battles
-        if (TaxConfig.PVP_DISABLE_FRIENDLY_FIRE.get()) {
-            // Get the battle ID and check if it's a team battle in the PvPManager
-            String battleId = battle.getBattleId();
-            TeamBattle teamBattle = pvpManager.pendingTeamBattles.get(battleId);
+        // Check for friendly fire in team battles.
+        // H9: the old pvpManager.pendingTeamBattles.get(battleId) lookup was always null
+        // (live ActiveBattle ids are 'ab_'/'challenge_' while pendingTeamBattles is keyed
+        // 'team_battle_' and the entry is removed before the battle starts). Resolve teams
+        // directly off the live ActiveBattle instead.
+        if (TaxConfig.PVP_DISABLE_FRIENDLY_FIRE.get()
+                && event.getSource().getEntity() instanceof ServerPlayer attacker) {
+            int victimTeam = battle.getTeamIndex(player.getUUID());
+            int attackerTeam = battle.getTeamIndex(attacker.getUUID());
 
-            if (teamBattle != null && event.getSource().getEntity() instanceof ServerPlayer attacker) {
-                // Check if both players are in the battle and on the same team
-                if (teamBattle.arePlayersOnSameTeam(player.getUUID(), attacker.getUUID())) {
-                    // Cancel friendly fire damage
-                    event.setCanceled(true);
+            // Same-team only, and only when the team has more than one member so 1v1
+            // duels / FFA (each player alone on a team) are never affected.
+            if (victimTeam >= 0 && victimTeam == attackerTeam
+                    && battle.getTeams().get(victimTeam).size() > 1) {
+                // Cancel friendly fire damage
+                event.setCanceled(true);
 
-                    // Notify the attacker once every 2 seconds to prevent spam
-                    long currentTime = System.currentTimeMillis();
-                    UUID attackerUUID = attacker.getUUID();
-                    Long lastNotifyTime = pvpManager.lastFriendlyFireNotifications.getOrDefault(attackerUUID, 0L);
+                // Notify the attacker once every 2 seconds to prevent spam
+                long currentTime = System.currentTimeMillis();
+                UUID attackerUUID = attacker.getUUID();
+                Long lastNotifyTime = pvpManager.lastFriendlyFireNotifications.getOrDefault(attackerUUID, 0L);
 
-                    if (currentTime - lastNotifyTime > 2000) { // 2 seconds cooldown
-                        attacker.sendSystemMessage(
-                                Component.literal("Cannot damage teammates when friendly fire is disabled!")
-                                        .withStyle(ChatFormatting.RED));
-                        pvpManager.lastFriendlyFireNotifications.put(attackerUUID, currentTime);
-                    }
-
-                    return;
+                if (currentTime - lastNotifyTime > 2000) { // 2 seconds cooldown
+                    attacker.sendSystemMessage(
+                            Component.literal("Cannot damage teammates when friendly fire is disabled!")
+                                    .withStyle(ChatFormatting.RED));
+                    pvpManager.lastFriendlyFireNotifications.put(attackerUUID, currentTime);
                 }
+
+                return;
             }
         }
 

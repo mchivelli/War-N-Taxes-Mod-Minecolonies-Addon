@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.machiavelli.minecolonytax.TaxConfig;
+import net.machiavelli.minecolonytax.integration.CurrencyService;
 import net.machiavelli.minecolonytax.pvp.model.*;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -628,8 +629,22 @@ public class PvPBattleManager {
             }
         }
 
+        // Escrow the wager from EVERY participant before the battle begins. If any
+        // player cannot afford the stake, abort and refund everyone already debited
+        // so escrowed coins are never lost. wager == 0 is a free duel (no-op).
+        // Resolve the source ONCE up-front so escrow and settlement always agree (fix #5).
+        int wager = request.getAmount();
+        CurrencyService.Source source = wagerSource();
+        if (wager > 0 && !escrowWager(allPlayers, wager, source)) {
+            return;
+        }
+
         String battleId = "challenge_" + System.currentTimeMillis();
         ActiveBattle battle = new ActiveBattle(battleId, teams, map.getSpawnPoints(), request.getMapName());
+        battle.setWager(wager);
+        // Remember the exact source escrow took from so refunds/payouts use the same
+        // store, even if WALLET availability flips mid-battle (fix #5).
+        battle.setWagerSource(wager > 0 ? source : null);
         pvpManager.activeBattles.put(battleId, battle);
 
         for (Map.Entry<UUID, GlobalPos> entry : originalPositions.entrySet()) {
@@ -637,6 +652,120 @@ public class PvPBattleManager {
         }
 
         startBattle(battle);
+    }
+
+    /**
+     * Returns the currency source used for duel wagers: the player's economy wallet
+     * (SDMShop / SDM-Economy) when available, otherwise physical inventory currency.
+     * Mirrors {@link CurrencyService#deliverClaimedTaxOrRefund} so wagers use the same
+     * money the player sees for taxes.
+     */
+    private CurrencyService.Source wagerSource() {
+        return CurrencyService.isAvailable(CurrencyService.Source.WALLET)
+                ? CurrencyService.Source.WALLET
+                : CurrencyService.Source.INVENTORY;
+    }
+
+    /**
+     * Deduct {@code wager} from each participant via {@code source}. If anyone cannot pay,
+     * refund all players already debited and abort. Wagers are not colony-bound, so colony
+     * is null. The caller resolves the source once so escrow and settlement match (fix #5).
+     *
+     * @return true if every participant was successfully debited; false (with refunds done) otherwise
+     */
+    private boolean escrowWager(List<UUID> players, int wager, CurrencyService.Source source) {
+        List<UUID> debited = new ArrayList<>();
+        for (UUID id : players) {
+            ServerPlayer player = getPlayerByUUID(id);
+            int taken = (player != null) ? CurrencyService.takeFromPlayer(player, null, wager, source) : 0;
+            if (taken < wager) {
+                // This player could not pay — refund everyone already debited and abort.
+                for (UUID refundId : debited) {
+                    refundWager(refundId, wager, source);
+                }
+                String who = (player != null) ? player.getName().getString() : "A player";
+                for (UUID notifyId : players) {
+                    ServerPlayer p = getPlayerByUUID(notifyId);
+                    if (p != null) {
+                        p.sendSystemMessage(Component.literal(who + " cannot afford the "
+                                + wager + " wager. Duel cancelled - all stakes refunded.")
+                                .withStyle(ChatFormatting.RED));
+                    }
+                }
+                return false;
+            }
+            debited.add(id);
+        }
+        return true;
+    }
+
+    /**
+     * Deliver {@code amount} to an online player via {@code source}, honoring the
+     * {@link CurrencyService#giveToPlayer} return value. If the primary source fails to
+     * deliver the full amount, retry via the ALTERNATE source (WALLET&lt;-&gt;INVENTORY) so
+     * escrowed coins are never silently dropped. Mirrors
+     * {@link CurrencyService#deliverClaimedTaxOrRefund}'s {@code given <= 0} handling.
+     *
+     * @return true only if the full {@code amount} was actually delivered.
+     */
+    private boolean deliverWagerOrFallback(ServerPlayer player, int amount, CurrencyService.Source source,
+            String purpose) {
+        if (amount <= 0 || player == null) return false;
+        int given = CurrencyService.giveToPlayer(player, null, amount, source);
+        if (given >= amount) {
+            return true;
+        }
+        // Primary source could not deliver — try the alternate store so coins are not lost.
+        CurrencyService.Source alternate = (source == CurrencyService.Source.WALLET)
+                ? CurrencyService.Source.INVENTORY
+                : CurrencyService.Source.WALLET;
+        LOGGER.error("Wager {} delivery to {} via {} returned {} (< {}); retrying via {}.",
+                purpose, player.getName().getString(), CurrencyService.label(source), given, amount,
+                CurrencyService.label(alternate));
+        int givenAlt = CurrencyService.giveToPlayer(player, null, amount, alternate);
+        if (givenAlt >= amount) {
+            return true;
+        }
+        // Both stores failed — only now is the coin truly undeliverable. Log the loss.
+        LOGGER.error("LOST {} coins: could not deliver wager {} to {} via {} ({}) or {} ({}).",
+                amount, purpose, player.getName().getString(), CurrencyService.label(source), given,
+                CurrencyService.label(alternate), givenAlt);
+        return false;
+    }
+
+    /** Return an escrowed wager to a single player via the same source it was taken from. */
+    private void refundWager(UUID playerId, int wager, CurrencyService.Source source) {
+        if (wager <= 0) return;
+        ServerPlayer player = getPlayerByUUID(playerId);
+        if (player == null) return;
+        // Only confirm the refund to the player when the coins were actually delivered (H#3).
+        if (deliverWagerOrFallback(player, wager, source, "refund")) {
+            player.sendSystemMessage(Component.literal("Your " + wager + " wager was refunded.")
+                    .withStyle(ChatFormatting.YELLOW));
+        }
+    }
+
+    /** Refund the escrowed wager to every participant of a battle (draw/cancel/disconnect/abort). */
+    public void refundAllWagers(ActiveBattle battle) {
+        int wager = battle.getWager();
+        if (wager <= 0) return;
+        // Use the source escrow actually took from, not a freshly-recomputed one, so a
+        // mid-battle WALLET availability flip can't refund from the wrong store (fix #5).
+        CurrencyService.Source source = resolveBattleSource(battle);
+        for (UUID playerId : battle.getAllPlayers()) {
+            refundWager(playerId, wager, source);
+        }
+        battle.setWager(0); // mark settled so we never double-refund
+    }
+
+    /**
+     * Resolve the currency source a battle's wager was escrowed from. Falls back to the
+     * current {@link #wagerSource()} only for legacy battles created before the source was
+     * stored (defensive; new battles always set it at escrow time).
+     */
+    private CurrencyService.Source resolveBattleSource(ActiveBattle battle) {
+        Object stored = battle.getWagerSource();
+        return (stored instanceof CurrencyService.Source s) ? s : wagerSource();
     }
 
     private void checkForBattleEnd(ActiveBattle battle) {
@@ -697,6 +826,8 @@ public class PvPBattleManager {
     }
 
     private void endBattleAsDraw(ActiveBattle battle, String reason) {
+        // No winner: return every escrowed stake so wagered coins are never lost.
+        refundAllWagers(battle);
         boolean isDuel = battle.getTeams().size() == 2 && battle.getTeams().get(0).size() == 1
                 && battle.getTeams().get(1).size() == 1;
         for (List<UUID> team : battle.getTeams()) {
@@ -761,6 +892,22 @@ public class PvPBattleManager {
             // If player is offline, leave entries in place so PlayerLoggedInEvent
             // can restore them on next login (fix #4b).
         }
+
+        // M18: restore every spectator for this battle so none is stranded in
+        // SPECTATOR mode at the arena after the fight ends. stopSpectating restores
+        // their gamemode and teleports them back to their original position.
+        List<UUID> spectators = pvpManager.activeSpectators.remove(battleId);
+        if (spectators != null) {
+            for (UUID spectatorId : new ArrayList<>(spectators)) {
+                ServerPlayer spectator = server.getPlayerList().getPlayer(spectatorId);
+                if (spectator != null) {
+                    stopSpectating(spectator, true);
+                }
+                // Offline spectator: their persisted SpectatorData is restored on next
+                // login by the disconnect/login handler, so nothing to do here.
+            }
+        }
+
         PvPStatsPersistence.save();
     }
 
@@ -783,7 +930,9 @@ public class PvPBattleManager {
                     if (spawnIndex >= battle.getSpawnPositions().size()) {
                         LOGGER.error("Not enough spawn points for battle {}. This should have been checked earlier.",
                                 battle.getBattleId());
-                        // Early exit to prevent crash
+                        // Abort cleanly: refund any escrowed wager, free the map, and drop the
+                        // half-started battle so escrowed coins are never stranded.
+                        abortStartedBattle(battle, "Not enough spawn points - battle cancelled, stakes refunded.");
                         return;
                     }
                     GlobalPos spawnPos = battle.getSpawnPositions().get(spawnIndex);
@@ -813,6 +962,26 @@ public class PvPBattleManager {
                     battle.getBattleId(), TaxConfig.BATTLE_DURATION_SECONDS.get(), battleDurationTicks);
         }
         startBattleCountdown(battle);
+    }
+
+    /**
+     * Tear down a battle that failed during {@link #startBattle} (e.g. spawn-point
+     * shortage) before it could properly run. Refunds escrowed wagers, frees the map,
+     * removes battle tracking, and notifies any online participants.
+     */
+    private void abortStartedBattle(ActiveBattle battle, String reason) {
+        refundAllWagers(battle);
+        pvpManager.activeBattles.remove(battle.getBattleId());
+        pvpManager.battleTimers.remove(battle.getBattleId());
+        pvpManager.lastNotificationTime.remove(battle.getBattleId());
+        pvpManager.battleDamage.remove(battle.getBattleId());
+        unlockMap(battle.getMapName());
+        for (UUID playerId : battle.getAllPlayers()) {
+            ServerPlayer player = getPlayerByUUID(playerId);
+            if (player != null) {
+                player.sendSystemMessage(Component.literal(reason).withStyle(ChatFormatting.RED));
+            }
+        }
     }
 
     private void startBattleCountdown(ActiveBattle battle) {
@@ -847,6 +1016,8 @@ public class PvPBattleManager {
 
     private void cancelBattleDueToDisconnect(ActiveBattle battle, ServerPlayer disconnectedPlayer) {
         String battleId = battle.getBattleId();
+        // Battle cancelled with no winner — return every escrowed stake.
+        refundAllWagers(battle);
         for (UUID playerId : battle.getAllPlayers()) {
             if (!playerId.equals(disconnectedPlayer.getUUID())) {
                 ServerPlayer player = getPlayerByUUID(playerId);
@@ -1067,6 +1238,58 @@ public class PvPBattleManager {
     }
 
     private void processBattleRewards(ActiveBattle battle, List<UUID> winners) {
-        // Rewards can be handled here later
+        int wager = battle.getWager();
+        if (wager <= 0 || winners == null || winners.isEmpty()) {
+            battle.setWager(0); // nothing escrowed (or already settled) — no payout
+            return;
+        }
+
+        // Settle using the source escrow actually took from (fix #5).
+        CurrencyService.Source source = resolveBattleSource(battle);
+
+        // Full pot = every participant's stake.
+        int pot = wager * battle.getAllPlayers().size();
+        battle.setWager(0); // mark settled BEFORE paying so an end-path refund can't double-spend
+
+        // Pay only ONLINE winners; an offline winner cannot be delivered synchronously
+        // and we must not burn their share. Determine the deliverable recipients first (#6).
+        List<UUID> onlineWinners = new ArrayList<>();
+        for (UUID winnerId : winners) {
+            if (getPlayerByUUID(winnerId) != null) {
+                onlineWinners.add(winnerId);
+            }
+        }
+
+        if (onlineWinners.isEmpty()) {
+            // No winner is online to receive the pot. Refunding every participant their
+            // original stake conserves money instead of destroying the pot (#6). Losers'
+            // escrow is returned via the stored source; idempotent re-credit.
+            for (UUID playerId : battle.getAllPlayers()) {
+                ServerPlayer p = getPlayerByUUID(playerId);
+                if (p != null && deliverWagerOrFallback(p, wager, source, "winner-offline-refund")) {
+                    p.sendSystemMessage(Component.literal(
+                            "No winner was online to collect the pot - your " + wager + " stake was refunded.")
+                            .withStyle(ChatFormatting.YELLOW));
+                }
+            }
+            return;
+        }
+
+        // Split the pot evenly among ONLINE winners; remainder to the first.
+        int share = pot / onlineWinners.size();
+        int remainder = pot - (share * onlineWinners.size());
+
+        boolean first = true;
+        for (UUID winnerId : onlineWinners) {
+            int payout = share + (first ? remainder : 0);
+            first = false;
+            if (payout <= 0) continue;
+            ServerPlayer winner = getPlayerByUUID(winnerId);
+            // Only announce the win when the coins were actually delivered (H#3).
+            if (deliverWagerOrFallback(winner, payout, source, "win")) {
+                winner.sendSystemMessage(Component.literal("You won " + payout + " coins from the wager!")
+                        .withStyle(ChatFormatting.GOLD));
+            }
+        }
     }
 }

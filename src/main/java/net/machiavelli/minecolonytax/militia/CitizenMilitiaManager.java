@@ -249,11 +249,16 @@ public class CitizenMilitiaManager {
             entity.targetSelector.addGoal(0, new HurtByTargetGoal(entity));
             entity.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(entity, ServerPlayer.class, 16, true, false, (target) -> {
                 if (target instanceof ServerPlayer serverPlayer) {
+                    // PvE raiders populate RaidManager; the war flow does NOT, so also treat
+                    // active-war enemies of this colony as valid targets. HurtByTargetGoal
+                    // (added above) remains the retaliation fallback for anything else.
                     boolean isRaiding = RaidManager.isPlayerCurrentlyRaiding(serverPlayer.getUUID(), citizen.getColony());
-                    if (isRaiding) {
-                        if (TaxConfig.isDebugLogging()) LOGGER.info("MILITIA TARGETING: {} is targeting raiding player: {}", citizen.getName(), serverPlayer.getName().getString());
+                    boolean isWarEnemy = net.machiavelli.minecolonytax.WarSystem.isEnemyWarParticipant(serverPlayer.getUUID(), citizen.getColony());
+                    boolean isHostile = isRaiding || isWarEnemy;
+                    if (isHostile) {
+                        if (TaxConfig.isDebugLogging()) LOGGER.info("MILITIA TARGETING: {} is targeting hostile player: {} (raiding={}, warEnemy={})", citizen.getName(), serverPlayer.getName().getString(), isRaiding, isWarEnemy);
                     }
-                    return isRaiding;
+                    return isHostile;
                 }
                 return false;
             }));

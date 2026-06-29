@@ -16,6 +16,15 @@ public class ActiveBattle {
     private final long startTime;
     private final Map<UUID, Integer> originalScores;
     private final Map<UUID, GlobalPos> originalPositions;
+    /** Per-player escrowed stake. 0 means a free duel/battle (no wager). */
+    private int wager;
+    /**
+     * The currency source the wager was escrowed FROM at duel start
+     * ({@link net.machiavelli.minecolonytax.integration.CurrencyService.Source}).
+     * Stored as Object to keep this model free of integration imports; refund/payout
+     * cast it back so settlement always uses the same store escrow took from (fix #5).
+     */
+    private Object wagerSource;
 
     public ActiveBattle(String battleId, List<List<UUID>> teams, List<GlobalPos> spawnPositions, String mapName) {
         this.battleId = battleId;
@@ -25,6 +34,8 @@ public class ActiveBattle {
         this.startTime = System.currentTimeMillis();
         this.originalScores = new HashMap<>();
         this.originalPositions = new HashMap<>();
+        this.wager = 0;
+        this.wagerSource = null;
     }
 
     // Getters
@@ -33,6 +44,11 @@ public class ActiveBattle {
     public List<GlobalPos> getSpawnPositions() { return spawnPositions; }
     public String getMapName() { return mapName; }
     public long getStartTime() { return startTime; }
+    public int getWager() { return wager; }
+    public void setWager(int wager) { this.wager = wager; }
+    /** The currency source the wager was escrowed from; null for free battles. See {@link #wagerSource}. */
+    public Object getWagerSource() { return wagerSource; }
+    public void setWagerSource(Object wagerSource) { this.wagerSource = wagerSource; }
     public Map<UUID, Integer> getOriginalScores() { return originalScores; }
     public Map<UUID, GlobalPos> getOriginalPositions() { return originalPositions; }
 

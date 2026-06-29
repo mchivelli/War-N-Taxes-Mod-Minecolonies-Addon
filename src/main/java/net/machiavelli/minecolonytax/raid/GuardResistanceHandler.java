@@ -275,10 +275,8 @@ public class GuardResistanceHandler {
      * @param colony The colony where the war ended
      */
     public static void removeResistanceFromGuardsForWar(IColony colony) {
-        if (!TaxConfig.isGuardResistanceDuringRaidsEnabled()) {
-            return;
-        }
-
+        // AUDIT FIX (D2 M10): no config-flag gate here. Removal must run whenever the tracking
+        // map has entries, otherwise toggling the feature off mid-war strands the buff forever.
         Integer colonyId = colony.getID();
         Set<UUID> affectedGuards = colonyWarGuardEffects.get(colonyId);
 
@@ -389,10 +387,8 @@ public class GuardResistanceHandler {
      * @param colony The colony where the raid ended
      */
     public static void removeResistanceFromGuardsForRaid(IColony colony) {
-        if (!TaxConfig.isGuardResistanceDuringRaidsEnabled()) {
-            return;
-        }
-
+        // AUDIT FIX (D2 M10): no config-flag gate here. Removal must run whenever the tracking
+        // map has entries, otherwise toggling the feature off mid-raid strands the buff forever.
         Integer colonyId = colony.getID();
         Set<UUID> affectedGuards = colonyGuardEffects.get(colonyId);
 

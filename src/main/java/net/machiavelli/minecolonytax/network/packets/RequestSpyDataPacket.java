@@ -27,6 +27,10 @@ public class RequestSpyDataPacket {
             if (player == null || !TaxConfig.isSpySystemEnabled())
                 return;
 
+            // Secondary drain for offline-completed mission rewards: deliver any queued intel
+            // books / maps when the player opens the spy GUI. Safe to call repeatedly.
+            SpyManager.deliverPendingRewards(player);
+
             String playerId = player.getUUID().toString();
             // GUI only shows active deployments; completed missions deliver intel via Written Book
             List<SpyMission> missions = SpyManager.getActiveMissionsForPlayer(playerId);

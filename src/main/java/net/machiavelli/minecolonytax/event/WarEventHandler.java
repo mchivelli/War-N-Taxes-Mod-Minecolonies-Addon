@@ -261,6 +261,10 @@ public class WarEventHandler {
         net.machiavelli.minecolonytax.db.WarStatsDB.upsertPlayerLogin(
                 player.getUUID(), player.getName().getString());
 
+        // Deliver any spy mission rewards (intel book / map) that couldn't be handed over while
+        // the player was offline at mission completion. Safe to call repeatedly — drains the queue.
+        net.machiavelli.minecolonytax.espionage.SpyManager.deliverPendingRewards(player);
+
         UUID playerUUID = player.getUUID();
         
         if (disconnectedWarParticipants.containsKey(playerUUID)) {

@@ -360,8 +360,10 @@ public class TaxPolicyManager {
                 COLONY_POLICIES.clear();
                 COLONY_POLICIES.putAll(loaded);
             }
-        } catch (IOException e) {
-            LOGGER.error("Failed to load tax policies data", e);
+        } catch (Exception e) {
+            // Broadened to Exception so a corrupt/truncated JSON (Gson throws JsonSyntaxException,
+            // a RuntimeException) degrades to "start fresh" instead of crashing world load.
+            LOGGER.error("Failed to load tax policies data (starting fresh)", e);
         }
     }
 
@@ -369,8 +371,20 @@ public class TaxPolicyManager {
         Path path = Paths.get(STORAGE_FILE);
         try {
             Files.createDirectories(path.getParent());
-            try (Writer writer = new FileWriter(path.toFile())) {
+            // Atomic write: write to .tmp, then move into place so a crash mid-write can't
+            // leave a truncated tax_policies.json that fails the next load.
+            File file = path.toFile();
+            File tmp = new File(file.getParentFile(), file.getName() + ".tmp");
+            try (FileWriter writer = new FileWriter(tmp)) {
                 GSON.toJson(COLONY_POLICIES, writer);
+            }
+            try {
+                Files.move(tmp.toPath(), file.toPath(),
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException amnse) {
+                Files.move(tmp.toPath(), file.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException e) {
             LOGGER.error("Failed to save tax policies data", e);

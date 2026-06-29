@@ -375,6 +375,17 @@ public class OccupationManager {
         int diverted = (int) (generatedTax * occupationTaxRate);
         if (diverted <= 0) return 0;
 
+        // MONEY CONSERVATION (release fix C#2): the occupier must be credited EXACTLY the
+        // amount the occupied colony is debited, and the occupied colony must never go
+        // negative. Clamp the diversion to the occupied colony's available positive ledger
+        // balance HERE, before crediting the occupier, then return the clamped value so the
+        // caller debits precisely what was credited. Previously the full (unclamped) amount
+        // was credited to the occupier while TaxManager later debited only the clamped
+        // amount, creating money whenever available < diverted.
+        int available = Math.max(0, TaxManager.getStoredTaxForColonyId(colonyId));
+        diverted = Math.min(diverted, available);
+        if (diverted <= 0) return 0;
+
         if (data.occupierColonyId > 0) {
             IColony occupierColony = findColonyById(data.occupierColonyId);
             if (occupierColony != null) {

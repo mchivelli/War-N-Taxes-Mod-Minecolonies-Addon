@@ -705,12 +705,20 @@ public class TaxManager {
                         double divertedAmount = net.machiavelli.minecolonytax.faction.FactionManager
                                 .processFactionTax(colonyId, totalGeneratedTax);
                         if (divertedAmount > 0) {
-                            adjustTax(colony, -(int) divertedAmount);
-                            factionPoolContribution = (int) divertedAmount; // Track for reporting
+                            // MONEY CONSERVATION (release fix, faction-pool branch):
+                            // FactionManager.processFactionTax now clamps the diversion to this
+                            // colony's available ledger balance BEFORE crediting the pool and returns
+                            // that clamped (integer) value, so the pool credit == the debit below and
+                            // the colony can never go negative. The min() here is therefore a harmless
+                            // defensive floor (it can never reduce the debit below the credited amount).
+                            int available = Math.max(0, colonyTaxMap.getOrDefault(colonyId, 0));
+                            int debit = Math.min((int) divertedAmount, available);
+                            adjustTax(colony, -debit);
+                            factionPoolContribution = debit; // Track for reporting (actual debit)
                             finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
 
                             if (TaxConfig.isDebugLogging()) {
-                                LOGGER.info("Contributed {} to Faction Shared Pool for colony {}", (int) divertedAmount,
+                                LOGGER.info("Contributed {} to Faction Shared Pool for colony {}", debit,
                                         colony.getName());
                             }
                         }
@@ -721,6 +729,17 @@ public class TaxManager {
                             && net.machiavelli.minecolonytax.occupation.OccupationManager.isOccupied(colonyId)) {
                         int diverted = net.machiavelli.minecolonytax.occupation.OccupationManager
                                 .processAutomaticOccupationTax(colonyId, totalGeneratedTax);
+                        if (diverted > 0) {
+                            // MONEY CONSERVATION (release fix C#2): processAutomaticOccupationTax now
+                            // clamps the diversion to the occupied colony's available balance BEFORE
+                            // crediting the occupier and returns that clamped value, so the debit below
+                            // equals the occupier credit exactly. We keep a defensive floor-at-0 clamp
+                            // here as a harmless no-op safety net (vassal tribute above could in theory
+                            // shrink the balance between calls); it never raises the debit above the
+                            // amount already credited.
+                            int available = Math.max(0, colonyTaxMap.getOrDefault(colonyId, 0));
+                            diverted = Math.min(diverted, available);
+                        }
                         if (diverted > 0) {
                             adjustTax(colony, -diverted);
                             finalTaxBalance = colonyTaxMap.getOrDefault(colonyId, 0);
@@ -1204,8 +1223,11 @@ public class TaxManager {
                     colonyTaxMap.putAll(loadedData);
                     LOGGER.info("Loaded tax data from file.");
                 }
-            } catch (IOException e) {
-                LOGGER.error("Error loading tax data", e);
+            } catch (Exception e) {
+                // Broadened from IOException: a corrupt/truncated file throws
+                // JsonSyntaxException (a RuntimeException), which must not propagate
+                // out of onServerStarting (fatal to world load). Degrade to start-fresh.
+                LOGGER.error("Error loading tax data (starting fresh)", e);
             }
         } else {
             LOGGER.info("No existing tax data file found at: {}", taxFile.getAbsolutePath());
@@ -1242,8 +1264,8 @@ public class TaxManager {
         // and clamp to int range before storing. Keeps existing semantics for both positive (pay-down) and
         // negative (deduct) callers — this method is reused by WarSystem reparations, RaidKillTracker, and
         // RaidManager as a general "adjust tax with logging+save", so we cannot restrict the sign here.
-        // The "must be in debt" pre-check belongs in the user-facing packet/command callers (PayDebtPacket and
-        // PayTaxDebtPacket already enforce currentTax < 0 before calling this method).
+        // The "must be in debt" pre-check belongs in the user-facing packet/command callers, which
+        // already enforce currentTax < 0 before calling this method.
         long widened = (long) currentTax + (long) amount;
         int newBalance;
         if (widened > Integer.MAX_VALUE) {

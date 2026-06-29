@@ -48,6 +48,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.lang.reflect.Type;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -1438,13 +1441,29 @@ public class BesiegeManager {
         final File f = new File(SERVER.getServerDirectory(), STORAGE_FILE);
 
         net.machiavelli.minecolonytax.util.AsyncSaveExecutor.submit("besiege", () -> {
+            // Atomic write: serialize to a sibling .tmp file, then rename over the final
+            // path so a crash mid-write cannot leave a truncated besiege occupation file.
+            File tmpFile = new File(f.getParentFile(), f.getName() + ".tmp");
             try {
                 f.getParentFile().mkdirs();
-                try (FileWriter w = new FileWriter(f)) {
+                try (FileWriter w = new FileWriter(tmpFile)) {
                     GSON.toJson(list, w);
+                }
+                try {
+                    Files.move(tmpFile.toPath(), f.toPath(),
+                            StandardCopyOption.ATOMIC_MOVE,
+                            StandardCopyOption.REPLACE_EXISTING);
+                } catch (AtomicMoveNotSupportedException atomicEx) {
+                    // Some filesystems (notably across drive letters on Windows) cannot
+                    // ATOMIC_MOVE — fall back to a regular replace.
+                    Files.move(tmpFile.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
                 }
             } catch (Exception e) {
                 LOGGER.error("Failed to save besiege occupation data", e);
+                // Best-effort cleanup of the temp file so it doesn't accumulate.
+                if (tmpFile.exists()) {
+                    try { tmpFile.delete(); } catch (Exception ignored) { /* nothing else to do */ }
+                }
             }
         });
     }

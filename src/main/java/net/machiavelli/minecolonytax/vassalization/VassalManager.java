@@ -516,6 +516,11 @@ public class VassalManager {
     }
 
     private static void loadData(MinecraftServer server) {
+        // AUDIT FIX (D2 M6): clear static maps before repopulating so colony-id-keyed relations
+        // do not leak across worlds within a single JVM (single-player world switches). Mirrors
+        // OccupationManager's load behaviour.
+        ACTIVE_VASSALS.clear();
+        PENDING_PROPOSALS.clear();
         File f = new File(server.getServerDirectory(), STORAGE_FILE);
         if (!f.exists())
             return;

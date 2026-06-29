@@ -711,6 +711,76 @@ public class WarSystem {
         }
     }
 
+    /**
+     * Returns true when {@code playerUuid} is an enemy of {@code colony} in any active war.
+     * <p>
+     * "Enemy" means the player is on the OPPOSING side of a war that involves {@code colony}:
+     * <ul>
+     *   <li>If {@code colony} is the defending colony of a war, an attacker (an entry in
+     *       attackerLives, or the attacking colony's owner) is an enemy.</li>
+     *   <li>If {@code colony} is the attacking colony of a war, a defender (an entry in
+     *       defenderLives, or the defending colony's owner) is an enemy.</li>
+     * </ul>
+     * Purely additive helper used by militia/guard targeting so war participants are
+     * autonomously attacked the way PvE raiders are. Fully null-safe; never throws.
+     *
+     * @param playerUuid the player to test
+     * @param colony     the colony the citizen/guard belongs to
+     * @return true if the player is an active war enemy of the colony
+     */
+    public static boolean isEnemyWarParticipant(UUID playerUuid, IColony colony) {
+        if (playerUuid == null || colony == null) {
+            return false;
+        }
+        for (WarData war : ACTIVE_WARS.values()) {
+            if (war == null) {
+                continue;
+            }
+            // Only actively-fought wars should mark enemies. During the JOINING
+            // countdown nobody is hostile yet, so skip non-INWAR wars (matches the
+            // INWAR gating used in the tick/expiry paths).
+            if (war.getStatus() != WarData.WarStatus.INWAR) {
+                continue;
+            }
+            IColony defenderColony = war.getColony();
+            IColony attackerColony = war.getAttackerColony();
+
+            int defenderColonyId = defenderColony != null ? defenderColony.getID() : Integer.MIN_VALUE;
+            int attackerColonyId = attackerColony != null ? attackerColony.getID() : Integer.MIN_VALUE;
+            int colonyId = colony.getID();
+
+            // A player listed on BOTH rosters is treated as friendly (never flag),
+            // so a citizen of one side cannot be attacked by its own side.
+            boolean onDefenderSide = war.getDefenderLives() != null && war.getDefenderLives().containsKey(playerUuid);
+            boolean onAttackerSide = war.getAttackerLives() != null && war.getAttackerLives().containsKey(playerUuid);
+
+            // This colony is defending — attackers are enemies.
+            if (colonyId == defenderColonyId) {
+                if (onAttackerSide && !onDefenderSide) {
+                    return true;
+                }
+                if (attackerColony != null && attackerColony.getPermissions() != null
+                        && playerUuid.equals(attackerColony.getPermissions().getOwner())
+                        && !onDefenderSide) {
+                    return true;
+                }
+            }
+
+            // This colony is attacking — defenders are enemies.
+            if (attackerColony != null && colonyId == attackerColonyId) {
+                if (onDefenderSide && !onAttackerSide) {
+                    return true;
+                }
+                if (defenderColony != null && defenderColony.getPermissions() != null
+                        && playerUuid.equals(defenderColony.getPermissions().getOwner())
+                        && !onAttackerSide) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public static void checkForVictory(WarData war) {
         // Re-entry guard: the economic transfers and the vassalization money-grab below
         // run BEFORE the idempotent endWar() call, and several death/objective events can
@@ -1705,6 +1775,13 @@ public class WarSystem {
     }
 
     public static void handleTimeExpiry(WarData war) {
+        // Re-entry guard (mirrors checkForVictory): the economic stalemate/transfer paths
+        // below run before the idempotent endWar() call, and timer warnings + tick checks
+        // can both fire this for the same war. If this war was already resolved (removed
+        // from ACTIVE_WARS, or its slot replaced), bail so penalties cannot double-fire.
+        if (war == null || ACTIVE_WARS.get(war.getColony().getID()) != war) {
+            return;
+        }
         if (war.getColony().getWorld() == null || war.getColony().getWorld().getServer() == null)
             return;
 

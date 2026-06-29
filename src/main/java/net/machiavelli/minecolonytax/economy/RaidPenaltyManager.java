@@ -17,9 +17,11 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.*;
 import java.lang.reflect.Type;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -252,20 +254,39 @@ public class RaidPenaltyManager {
                 long now = System.currentTimeMillis();
                 RAID_PENALTIES.entrySet().removeIf(e -> e.getValue() <= now);
             }
-        } catch (IOException e) {
-            LOGGER.error("Failed to load raid penalties data", e);
+        } catch (Exception e) {
+            // Corrupt/truncated JSON (Gson throws JsonSyntaxException) degrades to "start
+            // fresh" instead of crashing world load.
+            LOGGER.error("Failed to load raid penalties data (starting fresh)", e);
         }
     }
 
     private static void saveData() {
         Path path = Paths.get(STORAGE_FILE);
+        File file = path.toFile();
+        File tmpFile = new File(file.getParentFile(), file.getName() + ".tmp");
         try {
             Files.createDirectories(path.getParent());
-            try (Writer writer = new FileWriter(path.toFile())) {
+            // Atomic write: serialize to a sibling .tmp file, then rename over the final
+            // path so a crash mid-write cannot leave a truncated raid_penalties.json.
+            try (Writer writer = new FileWriter(tmpFile)) {
                 GSON.toJson(RAID_PENALTIES, writer);
             }
-        } catch (IOException e) {
+            try {
+                Files.move(tmpFile.toPath(), path,
+                        StandardCopyOption.ATOMIC_MOVE,
+                        StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException atomicEx) {
+                // Some filesystems (notably across drive letters on Windows) cannot
+                // ATOMIC_MOVE — fall back to a regular replace.
+                Files.move(tmpFile.toPath(), path, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (Exception e) {
             LOGGER.error("Failed to save raid penalties data", e);
+            // Best-effort cleanup of the temp file so it doesn't accumulate.
+            if (tmpFile.exists()) {
+                try { tmpFile.delete(); } catch (Exception ignored) { /* nothing else to do */ }
+            }
         }
     }
 }

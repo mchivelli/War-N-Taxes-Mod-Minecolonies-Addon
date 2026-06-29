@@ -13,6 +13,11 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.lang.reflect.Type;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -154,18 +159,51 @@ public class ColonyUpgradeManager {
                 UPGRADES.clear();
                 UPGRADES.putAll(loaded);
             }
+            // If parse returned null on a non-empty file, treat the file as corrupt and
+            // keep whatever is already in memory — do NOT wipe paid investments.
         } catch (Exception e) {
-            LOGGER.error("Failed to load colony investment data: {}", e.getMessage());
+            // Corrupt/truncated JSON (Gson throws JsonSyntaxException) degrades to keeping
+            // the prior in-memory UPGRADES rather than crashing world load or losing data.
+            LOGGER.error("Failed to load colony investment data: {} (starting fresh)", e.getMessage());
         }
     }
 
     private static void saveData() {
+        // Snapshot on the calling (main/server) thread, write off-thread + coalesced so a
+        // purchase storm no longer blocks ticks on disk I/O (matches TreasuryManager).
+        final Map<Integer, ColonyUpgradeData> snapshot = new HashMap<>(UPGRADES);
+        net.machiavelli.minecolonytax.util.AsyncSaveExecutor.submit("colony_upgrades", () -> writeData(snapshot));
+    }
+
+    private static void writeData(Map<Integer, ColonyUpgradeData> data) {
         File file = new File(STORAGE_FILE);
         file.getParentFile().mkdirs();
-        try (FileWriter writer = new FileWriter(file)) {
-            GSON.toJson(UPGRADES, writer);
+
+        // Atomic write: serialize to a sibling .tmp file, then rename over the final path.
+        // Prevents a crash mid-write from leaving a truncated colony_upgrades.json (which
+        // would silently zero every colony's paid investments on the next load).
+        File tmpFile = new File(file.getParentFile(), file.getName() + ".tmp");
+        try {
+            try (FileWriter writer = new FileWriter(tmpFile)) {
+                GSON.toJson(data, writer);
+            }
+            Path tmpPath = tmpFile.toPath();
+            Path finalPath = file.toPath();
+            try {
+                Files.move(tmpPath, finalPath,
+                        StandardCopyOption.ATOMIC_MOVE,
+                        StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException atomicEx) {
+                // Some filesystems (notably across drive letters on Windows) cannot
+                // ATOMIC_MOVE — fall back to a regular replace.
+                Files.move(tmpPath, finalPath, StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (Exception e) {
             LOGGER.error("Failed to save colony investment data: {}", e.getMessage());
+            // Best-effort cleanup of the temp file so it doesn't accumulate.
+            if (tmpFile.exists()) {
+                try { tmpFile.delete(); } catch (Exception ignored) { /* nothing else to do */ }
+            }
         }
     }
 }

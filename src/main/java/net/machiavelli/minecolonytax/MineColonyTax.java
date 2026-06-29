@@ -3,12 +3,6 @@ package net.machiavelli.minecolonytax;
 import net.machiavelli.minecolonytax.network.NetworkHandler;
 import net.machiavelli.minecolonytax.vassalization.VassalManager;
 import net.machiavelli.minecolonytax.recipe.ModRecipeSerializers;
-import net.machiavelli.minecolonytax.commands.RecipeDisableTestCommand;
-import net.machiavelli.minecolonytax.commands.TreasuryCommand;
-import net.machiavelli.minecolonytax.commands.RaidRepairCommand;
-import net.machiavelli.minecolonytax.commands.FactionCommand;
-import net.machiavelli.minecolonytax.commands.TaxPolicyCommand;
-import net.machiavelli.minecolonytax.commands.RandomEventsCommand;
 import net.machiavelli.minecolonytax.economy.TreasuryManager;
 import net.machiavelli.minecolonytax.economy.policy.TaxPolicyManager;
 import net.machiavelli.minecolonytax.data.HistoryManager;
@@ -91,21 +85,21 @@ public class MineColonyTax {
 
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
-        RecipeDisableTestCommand.register(event.getServer().getCommands().getDispatcher());
-        TreasuryCommand.register(event.getServer().getCommands().getDispatcher());
-        RaidRepairCommand.register(event.getServer().getCommands().getDispatcher());
-        FactionCommand.register(event.getServer().getCommands().getDispatcher());
-        TaxPolicyCommand.register(event.getServer().getCommands().getDispatcher());
-        RandomEventsCommand.register(event.getServer().getCommands().getDispatcher());
-        if (TaxConfig.isNormalLogging()) {
-            LOGGER.info("TreasuryCommand registered");
-            LOGGER.info("TaxPolicyCommand registered");
-            LOGGER.info("RandomEventsCommand registered");
-        }
+        // Command registration (TreasuryCommand, RaidRepairCommand, FactionCommand,
+        // TaxPolicyCommand, RandomEventsCommand, RecipeDisableTestCommand) has moved to
+        // PvPEventHandler.onRegisterCommands so the commands re-register on every dispatcher
+        // rebuild, including after /reload — registering them here only ran at boot (H5).
 
         if (TaxConfig.isNormalLogging()) LOGGER.info("Server starting - initializing TaxManager with configured interval of {} minutes",
                 TaxConfig.getTaxIntervalInMinutes());
         TaxManager.initialize(event.getServer());
+
+        try {
+            net.machiavelli.minecolonytax.economy.RaidPenaltyManager.initialize(event.getServer());
+            if (TaxConfig.isNormalLogging()) LOGGER.info("RaidPenaltyManager initialized");
+        } catch (Throwable t) {
+            LOGGER.error("Failed to initialize RaidPenaltyManager: {}", t.toString());
+        }
 
         FirstColonyTracker.loadData();
 
@@ -369,6 +363,13 @@ public class MineColonyTax {
             if (TaxConfig.isNormalLogging()) LOGGER.info("WarExhaustionManager shutdown complete");
         } catch (Throwable t) {
             LOGGER.warn("Error during WarExhaustionManager shutdown: {}", t.toString());
+        }
+
+        try {
+            net.machiavelli.minecolonytax.economy.RaidPenaltyManager.shutdown();
+            if (TaxConfig.isNormalLogging()) LOGGER.info("RaidPenaltyManager shutdown complete");
+        } catch (Throwable t) {
+            LOGGER.warn("Error during RaidPenaltyManager shutdown: {}", t.toString());
         }
 
         try {

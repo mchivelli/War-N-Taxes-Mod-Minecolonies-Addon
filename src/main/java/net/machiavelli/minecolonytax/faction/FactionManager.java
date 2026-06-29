@@ -50,8 +50,11 @@ public class FactionManager {
             if (loaded != null) {
                 FACTIONS = loaded;
             }
-        } catch (IOException e) {
-            LOGGER.error("Failed to load factions data", e);
+        } catch (Exception e) {
+            // Broadened to Exception so a corrupt/truncated factions.json (Gson throws
+            // JsonSyntaxException, a RuntimeException) degrades to "start fresh" instead of
+            // crashing world load — init() is invoked from an unwrapped onServerStarting.
+            LOGGER.error("Failed to load factions data (starting fresh)", e);
         }
     }
 
@@ -226,6 +229,21 @@ public class FactionManager {
             if (divertedAmount < 0)
                 divertedAmount = 0;
         }
+
+        // MONEY CONSERVATION (release fix): clamp the diversion to the contributing
+        // colony's available ledger balance BEFORE crediting the pool, so the pool is
+        // credited EXACTLY what TaxManager debits from the colony (credit == debit) and
+        // the colony can never be driven negative. divertedAmount is derived from gross
+        // generated tax, but the ledger may already be drained by maintenance/vassal
+        // tribute/treasury this cycle, so without this clamp a low-balance colony would
+        // mint money into the pool. Truncate to an integer amount to match the int debit
+        // that TaxManager.adjustTax applies.
+        int available = Math.max(0, net.machiavelli.minecolonytax.TaxManager.getStoredTaxForColonyId(colonyId));
+        if (divertedAmount > available)
+            divertedAmount = available;
+        divertedAmount = Math.floor(divertedAmount);
+        if (divertedAmount <= 0)
+            return 0;
 
         faction.addTax((long) divertedAmount);
         saveData(); // Save frequently on tax updates

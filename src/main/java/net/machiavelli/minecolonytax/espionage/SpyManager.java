@@ -23,6 +23,10 @@ import org.apache.logging.log4j.Logger;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.Writer;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -71,6 +75,9 @@ public class SpyManager {
         Map<Integer, Double> sabotageEffects = new HashMap<>();
         Map<Integer, Integer> bribedGuards = new HashMap<>();
         Map<Integer, Long> stolenSecretsBuff = new HashMap<>();
+        // playerUUID -> mission IDs whose rewards await an offline owner. Persisted so queued
+        // rewards survive a restart. See audit H2 / MED-5.
+        Map<String, List<String>> pendingRewards = new HashMap<>();
     }
 
     public static void initialize(MinecraftServer server) {
@@ -125,6 +132,9 @@ public class SpyManager {
 
                 if (loaded.stolenSecretsBuff != null)
                     STOLEN_SECRETS_BUFF.putAll(loaded.stolenSecretsBuff);
+
+                if (loaded.pendingRewards != null)
+                    PENDING_REWARDS.putAll(loaded.pendingRewards);
             }
             if (TaxConfig.isNormalLogging()) LOGGER.info("Loaded {} active spy missions, {} completed missions",
                     ACTIVE_MISSIONS.size(), COMPLETED_MISSIONS.size());
@@ -144,14 +154,35 @@ public class SpyManager {
         data.sabotageEffects.putAll(SABOTAGE_EFFECTS);
         data.bribedGuards.putAll(BRIBED_GUARDS);
         data.stolenSecretsBuff.putAll(STOLEN_SECRETS_BUFF);
+        // Deep-copy each list so the worker thread never serializes a list mid-mutation.
+        PENDING_REWARDS.forEach((k, v) -> data.pendingRewards.put(k, new ArrayList<>(v)));
 
         final File file = new File(STORAGE_FILE);
+        final File tmpFile = new File(file.getParentFile(), file.getName() + ".tmp");
         net.machiavelli.minecolonytax.util.AsyncSaveExecutor.submit("espionage", () -> {
-            file.getParentFile().mkdirs();
-            try (FileWriter writer = new FileWriter(file)) {
-                GSON.toJson(data, writer);
+            try {
+                file.getParentFile().mkdirs();
+                // Atomic write: serialize to a sibling .tmp file in the same directory, then rename
+                // over the final path so a crash mid-write cannot leave a truncated espionage.json
+                // that loadData would then treat as "no data" and wipe all spy state.
+                try (Writer writer = new FileWriter(tmpFile)) {
+                    GSON.toJson(data, writer);
+                }
+                try {
+                    Files.move(tmpFile.toPath(), file.toPath(),
+                            StandardCopyOption.ATOMIC_MOVE,
+                            StandardCopyOption.REPLACE_EXISTING);
+                } catch (AtomicMoveNotSupportedException atomicEx) {
+                    // Some filesystems (notably across drive letters on Windows) cannot
+                    // ATOMIC_MOVE — fall back to a regular replace.
+                    Files.move(tmpFile.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                }
             } catch (Exception e) {
                 LOGGER.error("Failed to save espionage data: {}", e.getMessage());
+                // Best-effort cleanup of the temp file so it doesn't accumulate.
+                if (tmpFile.exists()) {
+                    try { tmpFile.delete(); } catch (Exception ignored) { /* nothing else to do */ }
+                }
             }
         });
     }

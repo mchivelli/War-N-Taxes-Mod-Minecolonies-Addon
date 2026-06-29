@@ -20,9 +20,11 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.*;
 import java.lang.reflect.Type;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -917,9 +919,20 @@ public class RandomEventManager {
             }
             root.add("colonyFirstSeen", firstSeenJson);
 
-            // Write to file
-            try (Writer writer = Files.newBufferedWriter(path)) {
+            // Atomic write: serialize to a sibling .tmp file, then rename over the final
+            // path so a crash mid-write cannot leave a truncated random events file.
+            Path tmpPath = path.resolveSibling(path.getFileName().toString() + ".tmp");
+            try (Writer writer = Files.newBufferedWriter(tmpPath)) {
                 GSON.toJson(root, writer);
+            }
+            try {
+                Files.move(tmpPath, path,
+                        StandardCopyOption.ATOMIC_MOVE,
+                        StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException atomicEx) {
+                // Some filesystems (notably across drive letters on Windows) cannot
+                // ATOMIC_MOVE — fall back to a regular replace.
+                Files.move(tmpPath, path, StandardCopyOption.REPLACE_EXISTING);
             }
 
             LOGGER.debug("Saved random events data to {}", STORAGE_FILE);
