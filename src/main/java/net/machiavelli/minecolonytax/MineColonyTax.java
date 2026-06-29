@@ -18,7 +18,6 @@ import net.machiavelli.minecolonytax.occupation.OccupationManager;
 import net.machiavelli.minecolonytax.attachment.PlayerWarDataAttachment;
 import net.machiavelli.minecolonytax.raid.GuardResistanceHandler;
 import net.machiavelli.minecolonytax.recipe.ModRecipeSerializers;
-import net.machiavelli.minecolonytax.trade.TradeRouteManager;
 import net.machiavelli.minecolonytax.vassalization.VassalManager;
 import net.machiavelli.minecolonytax.webapi.WebAPIServer;
 import net.neoforged.bus.api.IEventBus;
@@ -90,7 +89,6 @@ public class MineColonyTax {
         VassalManager.initialize(event.getServer());
         FactionManager.init();
         TaxPolicyManager.initialize(event.getServer());
-        TradeRouteManager.initialize(event.getServer());
         RandomEventManager.initialize(event.getServer());
 
         if (TaxConfig.isSpySystemEnabled()) {
@@ -202,7 +200,6 @@ public class MineColonyTax {
         try { WarExhaustionManager.shutdown(); }    catch (Throwable t) { LOGGER.warn("WarExhaustionManager shutdown error: {}", t.toString()); }
         try { FactionManager.saveData(); }          catch (Throwable t) { LOGGER.warn("FactionManager save error: {}", t.toString()); }
         try { TaxPolicyManager.shutdown(); }        catch (Throwable t) { LOGGER.warn("TaxPolicyManager shutdown error: {}", t.toString()); }
-        try { TradeRouteManager.shutdown(); }       catch (Throwable t) { LOGGER.warn("TradeRouteManager shutdown error: {}", t.toString()); }
         try { RandomEventManager.shutdown(); }      catch (Throwable t) { LOGGER.warn("RandomEventManager shutdown error: {}", t.toString()); }
         try { SpyManager.shutdown(); }              catch (Throwable t) { LOGGER.warn("SpyManager shutdown error: {}", t.toString()); }
         try { OccupationManager.shutdown(); }       catch (Throwable t) { LOGGER.warn("OccupationManager shutdown error: {}", t.toString()); }

@@ -33,6 +33,54 @@ conflicts, and the redesigned book GUI renders correctly on a live client.
 - Added the missing GUI textures (`book_background.png`, tab icons), the spy entity texture, and the codex item texture.
 - Dedicated-server load-time defects that prevented the mod from loading at all: missing `[[mods]]` header in `neoforge.mods.toml`, missing transitive dependencies, invalid empty `@EventBusSubscriber` classes, and client-class references that crashed registration on a dedicated server (dist isolation).
 
+### Siege SMP parity port (2026-06-14)
+
+The NeoForge port had branched off before the Forge "Siege SMP" body of work landed, so its
+first 5.0.0 build was missing those systems. This run brings NeoForge to full feature parity
+with the Forge release. Everything below ships as part of 5.0.0 (no version bump).
+
+- **War vassalization with a one-time "huge money" grab.** When you win an offensive war and
+  colony transfers are turned off, the losing colony is now forced into vassalage instead of
+  changing hands. On the moment of vassalization the winner seizes a one-time cut of the loser's
+  war chest **and** a one-time cut of the defending owner's personal wallet (both percentages
+  configurable). This makes "don't take their town, bleed them dry" a real strategic choice.
+- **Forced vassalization auto-expiry.** War-imposed vassal status now ends on its own after a
+  configurable number of hours (`WarVassalizationDurationHours`) rather than lasting forever until
+  manually revoked.
+- **Colony tiers and permission-guard foundations.** Groundwork that protects colony ownership and
+  permission state during sieges and ownership changes, with a snapshot/restore safety net so a
+  colony can't be left in a broken or ownerless permission state.
+- **Upgrade / Investment system with an in-game book tab.** A new "Investments" page in the colony
+  book lets you spend your war chest on lasting colony upgrades. (The Investments tab now occupies
+  the slot the old Economy tab used; the standalone Economy tab has been removed.)
+- **Besiege system — true multiplayer sieges.** Lay siege to another player's colony with support
+  for multiple attackers at once, a configurable minimum-attacker requirement before a siege can
+  start, and shared spoils split across everyone on the attacking side. Sieges require the target
+  owner to be online (not solo), with a configurable offline grace window. Chest/container access
+  during a siege is configurable, and a colony's original owner keeps access to their own colony
+  even while vassalized.
+- **Siege victory objectives (experimental).** Two new ways to win a siege: **Plant the Banner**
+  (place and hold a siege banner inside the enemy colony) and **Demolish the Town Hall**. A
+  war-damage ledger records blocks broken during the siege so the battlefield can be restored
+  afterward.
+- **Mod compatibility.** Optional, reflection-guarded integrations: **Explosion't** (war damage
+  regeneration is deferred so siege damage sticks until the war resolves), **Easy Factions**
+  (faction membership/rank sync), and **FTB Teams**.
+- **Random-event history in the colony book.** The book's Events view now shows a running history of
+  random events (with a dismiss option) alongside raid history, rows for any active war / siege /
+  occupation, and a structured war-history log.
+- **PvP crash-recovery persistence.** PvP arena state is now written to disk so an unexpected
+  server crash mid-match no longer strands players or loses their pre-match position.
+- **MineColonies building-API safety guard.** Added a `checkBuildingApiUsage` Gradle check (plus
+  JUnit shim tests) that fails the build if code calls the MineColonies building manager directly.
+  This prevents the `NoSuchMethodError` crashes that happen when running against a different
+  MineColonies version, the same cross-version protection the Forge build has.
+
+#### Intentionally not ported
+- The legacy MySQL-based war-stats push (`WarStatsDB`) was **not** carried over. The NeoForge port
+  uses the built-in HTTP web API (`webapi/`) to expose war statistics instead — same goal, cleaner
+  transport, no database driver dependency.
+
 ## [Unreleased]
 
 ### 🐛 Critical Raid System Bug Fixes
