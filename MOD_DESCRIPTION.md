@@ -1,166 +1,200 @@
-# 🏰 MineColonies: War 'N Taxes Addon
+<!--
+══════════════════════════════════════════════════════════════════════════════
+  CURSEFORGE DESCRIPTION — WarNTaxes 5.0   (CurseForge accepts Markdown)
+══════════════════════════════════════════════════════════════════════════════
+  IMAGE UPLOAD GUIDE (forgecdn hosting):
+  In the CurseForge description editor, upload each file from
+  marketing/curseforge/ and replace the matching (0X_name.jpg) placeholder URL
+  with the media.forgecdn.net URL it gives you. Placeholders & files:
 
-![War 'N Taxes Banner](https://media.forgecdn.net/attachments/description/1129258/description_b7e3011c-d15f-48e4-a952-7fd8b4f30663.png)
+    01_hero.jpg          -> top hero banner
+    02_taxation.jpg      -> Taxation section
+    03_war_siege.jpg     -> War System section
+    04_besiege.jpg       -> Siege SMP / Besiege section
+    05_espionage.jpg     -> Espionage section
+    06_militia_raids.jpg -> Raids & Militia section
+    07_occupation.jpg    -> Occupation & Vassalization section
+    08_pvp_arena.jpg     -> PvP Arena section
+    09_aerial_night.jpg  -> Community / footer
 
-**War 'N Taxes** (formerly MinecolonyTax) is the ultimate addon for MineColonies, transforming your colonies into thriving economic powerhouses and strategic battlegrounds. Designed for modpack developers and server owners, this comprehensive mod introduces:
+  The repeating "divider" image already uses a working forgecdn URL — no upload
+  needed. Delete this whole comment block before publishing.
+══════════════════════════════════════════════════════════════════════════════
+-->
 
-- 💰 **Dynamic Taxation System** with configurable rates for every building
-- ⚔️ **Epic War & Raid Mechanics** with territory control
-- 👑 **Vassalization & Tribute Systems** for diplomatic domination
-- 🏟️ **PvP Arena Duels & Team Battles**
-- 📖 **Complete In-Game Guidebook** powered by Patchouli
-- 🔧 **Seamless SDMShop Integration** for economy management
+# 🏰 WarNTaxes — War 'N Taxes for MineColonies
 
-Originally crafted for The Warborn Realms SMP Server, now available for your world!
+![WarNTaxes](01_hero.jpg)
 
-> ⚠️ **Note:** This is regularly updated with new features. Found a bug? Report it on [Discord](https://discord.gg/BBAFqg9yY8)!
+**WarNTaxes** turns your MineColonies world into a living strategy game: a full economy of **taxes and treasuries**, **wars and sieges** between colonies, **espionage**, **occupation**, **vassal tribute**, and **colony investments** — built for SMP servers and modpacks.
+
+- 💰 **Dynamic Taxation** — configurable rates for every building, with maintenance, caps and happiness modifiers
+- ⚔️ **Wars & Multiplayer Sieges** — besiege rival colonies together and split the spoils
+- 🕵️ **Espionage** — deploy spies that travel, infiltrate, gather tiered intel, and flee when caught
+- 👑 **Occupation, Vassalization & Tribute** — dominate rivals and siphon their income
+- 🏗️ **Colony Investments** — spend your treasury on militia, defense, spies and more
+- 🏟️ **PvP Arena Duels & Team Battles** — fair fights that never touch progression
+- 📖 **In-Game Codex** (Patchouli) + multi-language support
+
+> ⚠️ Actively developed. Found a bug or have an idea? Tell us on [Discord](https://discord.gg/BBAFqg9yY8)!
 
 ---
 
-![Features Divider](https://media.forgecdn.net/attachments/description/1129258/description_4c27eea7-fc84-4fbb-85be-78b6e369c762.png)
+![Divider](https://media.forgecdn.net/attachments/description/1129258/description_4c27eea7-fc84-4fbb-85be-78b6e369c762.png)
 
 ---
 
-## 📖 War 'N Taxes Codex
+## 💰 Taxation System
 
-A **complete in-game guidebook** powered by Patchouli that teaches players everything about the mod!
+![Taxation](02_taxation.jpg)
+
+Every colony generates tax from its buildings — the economic engine behind everything else.
 
 | Feature | Description |
 |---------|-------------|
-| 📚 **9 Content Categories** | Getting Started, Tax System, Raids, Wars, Diplomacy, PvP Arena, Colony Management, Commands, Configuration |
-| 🎁 **Auto Distribution** | Players receive the codex on first join |
-| 🖱️ **Interactive Commands** | Clickable links that execute commands directly |
-| 🌐 **Multi-Language** | German, Russian, French, Spanish translations |
-| 🏆 **Advancements** | Track progress for claiming tax, starting raids, declaring war |
+| **Per-Building Rates** | Set base and per-level tax for every MineColonies building |
+| **Maintenance Costs** | Military buildings cost upkeep, deducted from revenue |
+| **Revenue Cap** | Tax stops accumulating at a configurable maximum |
+| **Happiness Modifier** | Happier colonies generate more tax |
+| **Guard Tower Boost** | More guards → higher revenue |
+| **Tax Freeze** | Halt collection as a war penalty |
+
+**Currency:** seamless **SDMShop** integration, a built-in colony balance, or your own custom currency item (`SDMShopConversion = false`).
 
 ---
 
-## 💰 Core Tax System
+## ⚔️ War System
 
-| Feature | Description |
-|---------|-------------|
-| **Configurable Tax Rates** | Define base and upgrade tax for every MineColonies building |
-| **Maintenance Costs** | Military buildings have upkeep costs deducted from revenue |
-| **Tax Revenue Cap** | Taxes stop accumulating at a configurable maximum |
-| **Tax Freeze** | Temporarily halt collection as war penalties |
-| **Happiness Modifier** | Colony happiness affects tax generation |
-| **Guard Tower Boost** | More guards = higher tax revenue |
+![War](03_war_siege.jpg)
 
-### 💵 Currency Options
-- **SDMShop Integration** - Seamless conversion with null-safe handling
-- **Custom Currency** - Set `SDMShopConversion = false` and configure your item
-- **Colony Balance** - Built-in virtual economy
+Declare war on rival colonies and fight for dominance.
 
----
-
-## ⚔️ War & Raid Mechanics
-
-### 🏴 War System
 | Phase | Description |
 |-------|-------------|
-| **Declaration** | `/wnt wagewar "<colony>"` triggers join phase |
+| **Declaration** | `/wnt wagewar "<colony>"` opens a join phase |
 | **Preparation** | Allies and officers join with `/wnt joinwar` |
-| **Active Combat** | 2-hour default duration, 5 lives per player |
-| **Resolution** | Total Victory, Strategic Victory, Stalemate, or Vassalization |
+| **Active Combat** | Configurable duration, lives per player, 1:1 team balancing |
+| **Resolution** | Total Victory, Strategic Victory, Stalemate, or **Vassalization** |
 
-### ⚡ Raid System
-- **Tax Theft** - Steal accumulated tax from enemy colonies
-- **Militia Defense** - Citizens become armed defenders
-- **Mercenary Spawns** - Additional defenders if garrison is small
-- **Configurable Duration** - Set raid length and cooldowns
+**Colony tiers:** your **first** colony is a **Primary** (capital) — it can be tax-occupied but its ownership can't be permanently taken unless the server enables `EnablePrimaryColonyTransfer`. Additional **Secondary** colonies can be captured outright.
 
-### 🎯 Combat Features
-- **1:1 Ratio Balance** - Teams differ by at most ±1 player
-- **Normalized Lives** - Fair outcome calculation including guards
-- **Death Handling** - Spectator mode when out of lives
-- **Disconnect Protection** - Individual pauses, war continues
+**Vassalize-only "huge money" grab:** when colony transfer is off, winning a war **vassalizes** the loser and takes a one-time cut of their **colony treasury** (`WarVassalizationTreasuryGrabPercent`) and **player wallet** (`WarVassalizationPlayerBalanceGrabPercent`).
 
 ---
 
-## 👑 Vassalization System
+## 🏰 Siege SMP — Multiplayer Besieging
 
-Create a **network of tribute-paying colonies** under your dominion!
+![Besiege](04_besiege.jpg)
 
-| Command | Description |
-|---------|-------------|
-| `/wnt vassalize <percent> "<colony>"` | Offer vassalization |
-| `/wnt vassalaccept <colonyId>` | Accept a proposal |
-| `/wnt vassaldecline <colonyId>` | Decline a proposal |
-| `/wnt revoke <player>` | End a vassal relationship |
-| `/wnt vassals` | View your vassals and tribute |
+Lay siege to a colony with `/wnt besiege` — designed for real SMP play:
 
-### 🏛️ War Vassalization (v3.2.11)
-When colony transfer is disabled, **winning a war vassalizes the enemy** instead:
-- Configurable duration (default: 1 week)
-- 25% tribute rate (configurable)
-- Automatic expiration with notifications
+- 🤝 **Band together** — several players can besiege the same colony at once and **share the spoils** (`BesiegeShareSpoils`); a minimum-attacker gate (`BesiegeMinAttackers`) can force "not solo" raids
+- 🌐 **Online & fair** — besiegers must stay online (`BesiegeRequireOnline` + an offline grace period); one player logging off doesn't collapse the siege for the rest
+- 🔒 **Owner keeps access while vassalized** — by default the original owner still uses their colony (only tax tribute is siphoned); full lockout is opt-in via `VassalLockOutFormerOwner`
+- 📦 **Configurable looting** — `BesiegeAllowChestAccess` decides whether attackers can open containers mid-siege
+- 🛡️ **Persistent siege damage** — war explosions are recorded and **fully restored when the war ends** (blocks and chest contents intact), and the ledger survives server restarts
 
----
-
-## 🏚️ Colony Abandonment & Claiming (v3.2)
-
-### Automatic Abandonment
-Colonies become **abandoned** after owner/officer inactivity (default: 14 days)
-
-### Colony Claiming Raids
-| Feature | Description |
-|---------|-------------|
-| **5-Minute Raid** | Kill ALL defenders to claim |
-| **Hostile Militia** | All citizens become armed defenders |
-| **Mercenary Spawns** | If fewer than 5 defenders exist |
-| **Victory = Ownership** | Successful claimers become Officers |
-
-### Commands
-```
-/wnt listabandoned          - View abandoned colonies
-/wnt claimcolony <colony>   - Initiate claiming raid
-/wnt forceabandon <colony>  - Admin forced abandonment
-```
-
-### Configuration
-- `AutoAbandonmentEnabled` (default: true)
-- `ColonyInactivityDays` (default: 14)
-- `ClaimingRaidDurationMinutes` (default: 5)
-- `EnableListAbandonedForAll` - Allow all players to view abandoned list
+### Experimental Siege Objectives
+Gated behind `EnableExperimentalSiegeObjectives`:
+- 🚩 **Plant the Banner** — hold a planted siege banner inside the town-hall borders to capture
+- 💥 **Demolish the Town Hall** — destroy it with explosives; each hit makes the attacker glow and pings the defenders
 
 ---
 
-## 🏟️ PvP Arena System
+## 🕵️ Espionage
 
-Host **fair duels and team battles** that don't affect progression!
+![Espionage](05_espionage.jpg)
+
+Deploy spies to learn your rivals' secrets before you strike.
+
+| Stage | What happens |
+|-------|--------------|
+| **Travel** | Spies physically travel to the target — no instant intel |
+| **Infiltrate** | Intel accumulates over time in tiers (early / mid / late) |
+| **Flee** | When detected, the spy tries to escape the colony border |
+| **Escape / Recall** | Intel is preserved; a killed spy loses everything |
+
+Optional **JourneyMap** integration plots spy positions on your map.
+
+---
+
+## ⚡ Raids & Militia
+
+![Raids](06_militia_raids.jpg)
+
+Faster than war, raids let you **steal accumulated tax** from a colony.
+
+- **Militia defense** — citizens take up arms to defend
+- **Mercenary spawns** — extra defenders when the garrison is small
+- **Militia investment** — buy extra defenders that scale with guard count (wars, sieges and raids); they extend a fight but never count as a victory objective
+- **Configurable** — raid length, cooldowns, and required buildings
+
+---
+
+## 👑 Occupation & Vassalization
+
+![Occupation](07_occupation.jpg)
+
+Winning isn't just destruction — it's **domination**.
+
+- **Occupation** — after a war, collect the loser's taxes for a set period; they wage a reclamation war to win it back
+- **Vassal tribute** — bind colonies into a tribute network that pays you every cycle
+- **Commands** — `/wnt vassalize <percent> "<colony>"`, `/wnt vassalaccept <id>`, `/wnt vassaldecline <id>`, `/wnt revoke <player>`, `/wnt vassals`
+- **War vassalization** auto-expires after a configurable duration with notifications
+
+---
+
+## 🏗️ Colony Investments
+
+Reinvest your treasury into lasting upgrades from the in-game **Investments** tab:
+
+| Investment | Effect |
+|------------|--------|
+| **Militia** | More defenders in conflicts |
+| **Defense** | Tougher colony defense |
+| **Raid Force** | Stronger raids |
+| **Spy Capacity / Speed / Evasion** | Better espionage |
+
+---
+
+## 🏟️ PvP Arena
+
+![PvP Arena](08_pvp_arena.jpg)
+
+Host **fair duels and team battles** that don't affect progression.
 
 | Feature | Description |
 |---------|-------------|
 | **Arena Setup** | `/pvparena p1` and `/pvparena p2` |
-| **Duel Challenges** | `/pvp` with clickable accept/decline |
+| **Duels** | `/pvp` with clickable accept / decline |
 | **Team Battles** | Organized multi-player combat |
 | **Spectator Mode** | `/pvp spectate [player]` |
 | **Inventory Safety** | Gear saved during duels, restored after |
 
 ---
 
-## 🔧 Advanced Configuration
+## 🎲 Random Events
 
-### Building Requirements
-Smart `building:level:amount` syntax for raids, wars, and claiming:
-```
-townhall:2:1,guardtower:1:3
-```
+Tax cycles can trigger **random events** — bandit raids, festivals, shortages and more — driven by your colony's composition. Every event type is individually toggleable, and a per-colony **event history** is viewable in the colony book.
 
-### Configurable Actions
-Control what players can do during conflicts:
-- `PLACE_BLOCK`, `BREAK_BLOCK`
-- `ATTACK_ENTITIES`, `USE_ITEMS`
-- Default / Raid / War action sets
+---
 
-### Recipe Control
-Disable building hut recipes directly in config!
+## 📖 The War 'N Taxes Codex
+
+A complete in-game guidebook (Patchouli) that teaches players everything:
+
+| Feature | Description |
+|---------|-------------|
+| 📚 **Content Categories** | Getting Started, Tax, Raids, Wars, Diplomacy, PvP, Colony Management, Commands, Configuration |
+| 🎁 **Auto Distribution** | Players receive the codex on first join |
+| 🖱️ **Clickable Commands** | Run commands straight from the book |
+| 🌐 **Multi-Language** | German, Russian, French, Spanish |
+| 🏆 **Advancements** | Track claiming tax, raiding, declaring war |
 
 ---
 
 ## 📋 Essential Commands
 
-### Player Commands
 | Command | Description |
 |---------|-------------|
 | `/wnt help` | Show all commands |
@@ -168,14 +202,11 @@ Disable building hut recipes directly in config!
 | `/wnt taxinfo` | View tax breakdown |
 | `/wnt raid "<colony>"` | Start a raid |
 | `/wnt wagewar "<colony>"` | Declare war |
+| `/wnt besiege "<colony>"` | Begin / join a siege |
+| `/wnt vassalize <percent> "<colony>"` | Offer vassalization |
 | `/wnt peace` | Propose peace terms |
 
-### Admin Commands
-| Command | Description |
-|---------|-------------|
-| `/wnt forceabandon` | Force colony abandonment |
-| `/wnt debugtax` | Debug tax calculation |
-| `/wnt endwar` | Force end active war |
+Admin: `/wnt endwar`, `/wnt forceabandon`, `/wnt debug …`
 
 ---
 
@@ -184,41 +215,31 @@ Disable building hut recipes directly in config!
 | Mod | Status |
 |-----|--------|
 | **MineColonies** | Required |
-| **FTB Teams** | Required |
-| **SDMShop** | Recommended (for currency) |
-| **Recruits Mod** | Recommended |
-| **Patchouli** | Recommended (for guidebook) |
+| **SDMShop** | Recommended (currency) |
+| **FTB Teams** | Optional (team integration) |
+| **Recruits** | Optional |
+| **Patchouli** | Recommended (Codex) |
+| **JourneyMap** | Optional (spy map markers) |
+
+Available for **Forge 1.20.1** and **NeoForge 1.21.1**.
 
 ---
 
+![Community](09_aerial_night.jpg)
+
 ## 🌐 Community & Support
 
-### 🔥 The Warborn Realms Community
 | Resource | Link |
 |----------|------|
-| 📦 **Modpack** | [EpicWarsCvC on CurseForge](https://www.curseforge.com/minecraft/modpacks/epicwars-colony-vs-colony-smp-modpack) |
+| 📦 **Modpack** | [EpicWars: Colony vs Colony SMP](https://www.curseforge.com/minecraft/modpacks/epicwars-colony-vs-colony-smp-modpack) |
 | 🌍 **Website** | [warbornrealms.com](https://warbornrealms.com/) |
 | 💬 **Discord** | [Join our server](https://discord.gg/BBAFqg9yY8) |
 | 🎮 **Server IP** | `play.warbornrealms.com` |
 
-### 🖥️ Premium Server Hosting
-We offer **extreme performance** hosting for heavy modded servers:
-- **Ryzen 9 7950x3D** with dedicated cores
-- **16-32 GB RAM** with ultra-fast I/O
-- *Limited availability* - Contact on Discord
-
 ---
 
-## 🚀 Transform Your MineColonies Experience!
+## 🚀 Build your empire. Crush your rivals. Rule the server.
 
-With **War 'N Taxes**, your colonies become living, breathing economies where:
-- 💰 **Taxes fund your ambitions**
-- ⚔️ **Wars determine dominance**
-- 👑 **Vassals pay tribute to the strong**
-- 🏆 **Strategy trumps brute force**
+With **WarNTaxes**, your colonies become economies where **taxes fund your ambitions**, **sieges decide dominance**, and **vassals pay tribute to the strong**.
 
-*Build your empire. Crush your rivals. Rule the server.*
-
----
-
-**Your feedback shapes this mod!** Report bugs or suggest features on Discord or in the comments.
+*Your feedback shapes this mod — report bugs and suggest features on Discord or in the comments!*
