@@ -701,10 +701,14 @@ public class ColonyClaimingRaidManager {
                         citizen.removeEffect(MobEffects.MOVEMENT_SPEED);
                         citizen.removeEffect(MobEffects.DAMAGE_BOOST);
                         citizen.setTarget(null);
+                        // FIX (release audit): the failure path previously left the injected
+                        // targeting goal on the citizen, so it kept hunting the (former) claimer
+                        // every tick until a chunk reload. Remove it here too.
+                        citizen.targetSelector.removeAllGoals(goal -> goal instanceof NearestAttackableTargetGoal);
                     }
                 }
             }
-            
+
             // Remove mercenaries
             for (Entity mercenary : raidData.spawnedMercenaries) {
                 if (mercenary.isAlive()) {
@@ -815,14 +819,61 @@ public class ColonyClaimingRaidManager {
             // ownerless. setOwner(Player) updates the cached ownerUUID that getOwner() returns
             // (setPlayerRank does NOT). claimingPlayer is an online ServerPlayer, so this is the
             // correct, complete fix. [1.21-PORT] re-verify the owner API — see PORTING_NOTES.md.
+            boolean ownerSet = false;
             try {
-                permissions.setOwner(claimingPlayer);
-                if (TaxConfig.isNormalLogging()) LOGGER.info("Claiming owner set: {} is now the actual owner of claimed colony {}",
+                ownerSet = permissions.setOwner(claimingPlayer);
+                if (ownerSet && TaxConfig.isNormalLogging()) LOGGER.info("Claiming owner set: {} is now the actual owner of claimed colony {}",
                     claimingPlayer.getName().getString(), colony.getName());
             } catch (Exception e) {
                 LOGGER.error("Failed to set claiming player as actual owner: {}", e.getMessage());
             }
-            
+
+            // FIX (release audit): setOwner can return false / throw (e.g. MineColonies rejects
+            // the assignment). The old code swallowed that and continued, leaving the claimer at
+            // Owner *rank* but with the cached owner stale — exactly the ownerless / GUI-crash
+            // state we guard against. Abort the claim cleanly instead: revoke the granted combat
+            // permissions, undo the claimer's rank promotion, and leave the colony in its prior
+            // abandoned (claimable) state. The raid is already removed from activeClaimingRaids
+            // by the caller, so we do not re-enter endClaimingRaid here.
+            if (!ownerSet) {
+                LOGGER.error("CLAIM ABORTED: setOwner failed for colony {} — claimer {} not made owner; reverting to abandoned state.",
+                        colony.getName(), claimingPlayer.getName().getString());
+                setClaimingInteractionPermissions(colony, false);
+                if (colony.getWorld() != null) {
+                    try {
+                        permissions.setPlayerRank(claimingPlayer.getUUID(), permissions.getRankNeutral(), colony.getWorld());
+                    } catch (Exception ignored) {}
+                }
+                if (claimingPlayer != null) {
+                    claimingPlayer.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                        "Colony claim failed: ownership could not be assigned. Please try again.")
+                        .withStyle(ChatFormatting.RED));
+                }
+                return;
+            }
+
+            // FIX (release audit): demote any OTHER player still holding a colony-manager rank.
+            // Abandonment intentionally keeps the former owner at Owner rank (to avoid a null-owner
+            // GUI crash), so without this the claimed colony would have TWO owner-ranked players —
+            // the old owner could return and override the claimer. setOwner above already moved the
+            // cached owner to the claimer; here we strip the stale manager rank from everyone else.
+            if (colony.getWorld() != null) {
+                Rank neutralForDemote = permissions.getRankNeutral();
+                for (UUID pid : new java.util.ArrayList<>(permissions.getPlayers().keySet())) {
+                    if (pid.equals(claimingPlayer.getUUID())) continue;
+                    Rank r = permissions.getRank(pid);
+                    if (r != null && r.isColonyManager()) {
+                        try {
+                            permissions.setPlayerRank(pid, neutralForDemote, colony.getWorld());
+                            if (TaxConfig.isNormalLogging()) LOGGER.info("CLAIM: demoted former manager {} to neutral on claimed colony {}",
+                                pid, colony.getName());
+                        } catch (Exception e) {
+                            LOGGER.error("CLAIM: failed to demote former manager {} on colony {}: {}", pid, colony.getName(), e.getMessage());
+                        }
+                    }
+                }
+            }
+
             // STEP 2: Restore normal permissions for neutral players (they were restricted during abandonment)
             Rank neutralRank = permissions.getRankNeutral();
             
@@ -863,9 +914,12 @@ public class ColonyClaimingRaidManager {
                     citizen.removeEffect(MobEffects.MOVEMENT_SPEED);
                     citizen.removeEffect(MobEffects.DAMAGE_BOOST);
                     citizen.setTarget(null);
-                    
-                    // Clear any targeting goals that were added
-                    citizen.targetSelector.removeAllGoals(goal -> true);
+
+                    // FIX (release audit): remove ONLY the targeting goal we injected during the
+                    // raid, not every goal on the citizen. removeAllGoals(goal -> true) stripped the
+                    // citizen's normal AI too. NearestAttackableTargetGoal is the type we added in
+                    // convertCitizensToMilitia.
+                    citizen.targetSelector.removeAllGoals(goal -> goal instanceof NearestAttackableTargetGoal);
                 }
             }
             
@@ -1323,10 +1377,17 @@ public class ColonyClaimingRaidManager {
      * Handles both neutral and hostile ranks + attack permissions.
      */
     public static void setClaimingInteractionPermissions(IColony colony, boolean allowed) {
-        if (!TaxConfig.isAbandonedColonyClaimingEnabled()) {
+        if (colony == null) {
             return;
         }
-        
+        // FIX (release audit): only the GRANT path is gated by the feature toggle. The REVOKE
+        // path (allowed=false) must ALWAYS run — otherwise an admin disabling the feature while a
+        // raid is active would strand the granted attack permissions on the colony's Neutral rank
+        // forever, leaving it permanently attackable by anyone.
+        if (allowed && !TaxConfig.isAbandonedColonyClaimingEnabled()) {
+            return;
+        }
+
         IPermissions perms = colony.getPermissions();
         Rank hostile = perms.getRankHostile();
         Rank neutral = perms.getRankNeutral();

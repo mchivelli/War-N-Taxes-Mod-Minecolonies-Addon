@@ -243,6 +243,16 @@ public class ColonyAbandonmentManager {
      * Abandon a colony by removing all owners and officers.
      */
     private static boolean abandonColony(IColony colony, MinecraftServer server) {
+        // Defensive guard (4.x world-brick fix): this is the most dangerous owner/permission
+        // writer in the mod. All current callers are already gated on the abandonment master
+        // switch, but guarding here makes the safety invariant local — a future caller that
+        // forgets the gate cannot reintroduce unconditional owner writes. (Admin force-abandon
+        // uses forceAbandonColony, which does NOT route through here.)
+        if (!TaxConfig.isColonyAbandonmentSystemEnabled()) {
+            LOGGER.warn("abandonColony() called for colony {} while the abandonment system is disabled — refusing.",
+                    colony != null ? colony.getName() : "null");
+            return false;
+        }
         try {
             // Get the actual inactivity hours used for the abandonment decision
             long officerVisitHours = net.machiavelli.minecolonytax.event.OfficerColonyVisitTracker.getHoursSinceOfficerVisit(colony.getID());
@@ -280,22 +290,22 @@ public class ColonyAbandonmentManager {
             cleanupAbandonedEntries(permissions);
 
             // Keep a valid owner in the colony to prevent GUI crashes in MineColonies.
+            // 4.x world-brick fix: NEVER inject a synthetic '[AUTO_OWNER]' placeholder and NEVER
+            // assign ownership via setPlayerRank (which does NOT update the cached owner that
+            // getOwner() returns — that was the historical brick: a colony whose rank said
+            // "owner" but whose cached owner stayed null). If the cached owner is null, delegate
+            // to fixNullOwnerColony(), which promotes a real ONLINE colony-manager via
+            // setOwner() (the only call that updates the cached owner). If no manager is online,
+            // the colony is left genuinely owner-less — the same state MineColonies itself uses
+            // for abandoned colonies — and a real owner is restored on next manager login.
             UUID colonyOwner = permissions.getOwner();
             if (colonyOwner == null) {
-                LOGGER.warn("Null owner detected during abandonment of colony {} - assigning placeholder", colony.getName());
-                UUID newOwner = null;
-                if (!removedPlayers.isEmpty()) {
-                    newOwner = removedPlayers.get(0);
-                } else if (!allPlayers.isEmpty()) {
-                    newOwner = allPlayers.keySet().iterator().next();
-                } else {
-                    newOwner = createSystemOwner();
-                    permissions.addPlayer(newOwner, "[AUTO_OWNER]", permissions.getRankOwner());
-                    LOGGER.warn("No players found in colony {} during abandonment - created system owner placeholder", colony.getName());
+                LOGGER.warn("Null owner detected during abandonment of colony {} - attempting to promote a real online manager (no placeholder will be injected)", colony.getName());
+                fixNullOwnerColony(colony);
+                colonyOwner = permissions.getOwner(); // re-read; may still be null if no manager was online
+                if (colonyOwner == null && TaxConfig.isDebugLogging()) {
+                    LOGGER.debug("Colony {} remains owner-less after abandonment (no online manager to promote); not injecting a placeholder", colony.getName());
                 }
-                safeSetPlayerRank(colony, permissions, newOwner, permissions.getRankOwner());
-                if (TaxConfig.isDebugLogging()) LOGGER.debug("Assigned {} as owner placeholder for abandoned colony {}", newOwner, colony.getName());
-                colonyOwner = newOwner;
             } else {
                 if (TaxConfig.isDebugLogging()) LOGGER.debug("Keeping existing owner {} to prevent GUI crashes in colony {}", colonyOwner, colony.getName());
             }

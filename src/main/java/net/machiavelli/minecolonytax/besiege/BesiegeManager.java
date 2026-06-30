@@ -1137,6 +1137,23 @@ public class BesiegeManager {
     }
 
     /**
+     * True if the player is a legitimate besiege combatant on this colony — the besieging
+     * player or a registered ally of any ACTIVE besiege raid targeting it.
+     *
+     * Used by PermissionSnapshot / PermissionsHealthCheck so that a live besiege's Hostile-rank
+     * grant is not mistaken for stale leftover state and cleared (which would silently neuter an
+     * in-progress siege when a co-located war/raid ends or an admin runs /wnt permcheck).
+     */
+    public static boolean isBesiegeCombatant(UUID playerUUID, int colonyId) {
+        if (playerUUID == null) return false;
+        for (BesiegeRaidData raid : getRaidsForColony(colonyId)) {
+            if (playerUUID.equals(raid.besiegingPlayerUUID)) return true;
+            if (raid.alliedPlayers.contains(playerUUID)) return true;
+        }
+        return false;
+    }
+
+    /**
      * Called from RaidKillTracker to register an allied player to ALL raids
      * targeting this colony. With multi-besieger, several besiegers may target
      * the same colony — registering the ally on each gives them combat rights

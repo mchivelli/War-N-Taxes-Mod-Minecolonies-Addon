@@ -1557,6 +1557,14 @@ public class WarSystem {
                 warData.bossEvent.removeAllPlayers();
                 warData.bossEvent.setVisible(false);
             }
+            // Also tear down the allies boss bar. It is normally removed when the join phase
+            // finalizes, but a war cancelled DURING the join phase (too few participants,
+            // unbalanced teams, peace, or /wnt war end) routes straight here and would otherwise
+            // leave ally players with a phantom boss bar until they relog.
+            if (warData.alliesBossEvent != null) {
+                warData.alliesBossEvent.removeAllPlayers();
+                warData.alliesBossEvent.setVisible(false);
+            }
             if (colony.getWorld() != null && colony.getWorld().getServer() != null) {
                 colony.getPermissions().getPlayers().forEach((uuid, pdata) -> {
                     ServerPlayer p = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);

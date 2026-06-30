@@ -180,6 +180,12 @@ public class PermissionSnapshot {
             if (raid == null) continue;
             if (raid.getColony() != null && raid.getColony().getID() == colonyId) return true;
         }
+        // Check active besieges (colony is besieged). Besiege shares the Hostile-rank machinery,
+        // so without this an ending war/raid on the same colony would restore (clear) the
+        // besiege's Hostile nodes and consume its snapshot, silently neutering the live siege.
+        if (net.machiavelli.minecolonytax.besiege.BesiegeManager.isActiveRaidOnColony(colonyId)) {
+            return true;
+        }
         return false;
     }
 

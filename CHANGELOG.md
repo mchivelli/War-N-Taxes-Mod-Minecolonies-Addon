@@ -7,7 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed - Ownership / Officer & conflict-end safety pass
+
+A targeted audit of every code path that writes colony ownership or permissions, and of every
+war/raid/besiege/occupation end path, found and fixed the following:
+
+- **Abandonment no longer injects a synthetic owner.** `abandonColony` still contained the old
+  `[AUTO_OWNER]` placeholder injection (the exact pattern that historically bricked worlds) and
+  assigned ownership via `setPlayerRank`, which never updates the cached owner. It now promotes a
+  real online colony manager via `setOwner` (or leaves the colony genuinely owner-less, the same
+  state MineColonies itself uses for abandoned colonies) and never writes a placeholder. A
+  defensive master-switch guard was added so the safety invariant is local to the method.
+- **Claiming an abandoned colony no longer leaves two owners.** Abandonment intentionally keeps
+  the former owner at Owner rank; the claim path only removed the system placeholder, so a claimed
+  colony could end up with both the old owner and the claimer at Owner rank. The claim now demotes
+  any other manager-ranked player after handing ownership to the claimer.
+- **Failed ownership assignment during a claim is now handled.** `setOwner` is checked for
+  failure; on failure the claim is cleanly reverted (combat permissions revoked, claimer rank
+  rolled back) instead of leaving the colony rank-owner-set but cached-owner stale.
+- **Claiming combat permissions can no longer be stranded.** Disabling the claiming feature while
+  a raid was active used to skip the permission revoke, leaving the colony permanently attackable.
+  The revoke path now always runs (only the grant path is gated by the feature toggle).
+- **Claiming raids no longer wipe citizen AI.** Cleanup removed *all* target goals from converted
+  citizens; it now removes only the targeting goal the raid injected, and the failure path cleans
+  it up too (citizens previously kept hunting the claimer until a chunk reload).
+- **A live besiege is no longer broken by an unrelated war/raid end or `/wnt permcheck`.** The
+  permission-healing systems (`PermissionSnapshot`, `PermissionsHealthCheck`) did not recognize
+  besiege, so a co-located conflict ending — or a manual permission check — could clear a besiege's
+  Hostile-rank grant or demote the active besieger. Both systems now treat an active besiege as a
+  legitimate conflict.
+- **War-cancel during the join phase no longer leaves a phantom boss bar.** `endWar` now tears down
+  the allies boss bar in addition to the main one.
+- **Crash-safe officer-visit saves.** `officerVisitData.json` now uses the same atomic
+  write-then-move as the other persistence files, so a crash mid-write cannot truncate it.
+
+Verified: war, raid and occupation end paths are idempotent and fully heal permissions on every
+end path including server restart (via `PermissionSnapshot` + `PermissionsHealthCheck`). Known
+minor residual: besiege live-raid state is not persisted, so a server restart mid-besiege can
+briefly orphan spawned mercenaries (they self-despawn) — permissions self-heal. `gradlew build`
+green (API guard + shim tests pass).
 
 ## [5.0.0] - 2026-06-05
 
