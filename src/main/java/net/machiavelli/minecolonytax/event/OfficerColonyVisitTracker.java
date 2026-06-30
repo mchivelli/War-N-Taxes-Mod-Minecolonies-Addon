@@ -283,8 +283,19 @@ public class OfficerColonyVisitTracker {
             File file = new File(DATA_FILE);
             file.getParentFile().mkdirs();
 
-            try (FileWriter writer = new FileWriter(file)) {
+            // Atomic write: serialize to a temp file then move it into place, so a crash mid-write
+            // cannot truncate officerVisitData.json (which would lose every colony's visit timestamp).
+            File tmp = new File(file.getParentFile(), file.getName() + ".tmp");
+            try (FileWriter writer = new FileWriter(tmp)) {
                 GSON.toJson(lastOfficerVisit, writer);
+            }
+            try {
+                java.nio.file.Files.move(tmp.toPath(), file.toPath(),
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException amnse) {
+                java.nio.file.Files.move(tmp.toPath(), file.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
 
             LOGGER.debug("Saved {} officer visit records to {}", lastOfficerVisit.size(), DATA_FILE);

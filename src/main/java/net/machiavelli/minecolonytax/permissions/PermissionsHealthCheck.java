@@ -233,6 +233,12 @@ public class PermissionsHealthCheck {
             }
         }
 
+        // Active besiege: the besieging player and their registered allies are assigned Hostile on
+        // the besieged colony. Without this they'd be demoted to Neutral mid-siege.
+        if (net.machiavelli.minecolonytax.besiege.BesiegeManager.isBesiegeCombatant(playerUUID, colonyId)) {
+            return true;
+        }
+
         // Claiming raids do not assign Hostile rank — they use Neutral rank attack nodes instead.
         return false;
     }
@@ -262,7 +268,8 @@ public class PermissionsHealthCheck {
         // Only WNT-managed actions are checked — other bits on the Hostile rank may have been
         // intentionally configured by the server admin and must not be cleared.
         boolean warOrRaidActive = WarSystem.ACTIVE_WARS.containsKey(colonyId)
-                || RaidManager.getActiveRaidForColony(colonyId) != null;
+                || RaidManager.getActiveRaidForColony(colonyId) != null
+                || net.machiavelli.minecolonytax.besiege.BesiegeManager.isActiveRaidOnColony(colonyId);
 
         if (!warOrRaidActive) {
             Rank hostile = perms.getRankHostile();

@@ -222,6 +222,7 @@ public class TaxConfig {
         public static final ModConfigSpec.BooleanValue APPLY_RESISTANCE_TO_CITIZENS;
 
         // Colony Auto-Abandon Configuration
+        public static final ModConfigSpec.BooleanValue ENABLE_COLONY_ABANDONMENT_SYSTEM;
         public static final ModConfigSpec.BooleanValue ENABLE_COLONY_AUTO_ABANDON;
         public static final ModConfigSpec.IntValue COLONY_AUTO_ABANDON_DAYS;
         public static final ModConfigSpec.BooleanValue NOTIFY_OWNERS_BEFORE_ABANDON;
@@ -854,6 +855,14 @@ public class TaxConfig {
 
                 // ========== Colony Auto-Abandon Settings ==========
                 BUILDER.push("Colony Auto-Abandon");
+
+                ENABLE_COLONY_ABANDONMENT_SYSTEM = BUILDER.comment(
+                                "MASTER SWITCH for the colony abandonment system (default FALSE). When FALSE, the mod performs "
+                                                + "NO automatic writes to MineColonies owner/permission state — no auto-abandon, no "
+                                                + "debt-bankruptcy abandonment, no null-owner repair, no abandoned-entry cleanup. "
+                                                + "This is the 4.x/5.0 world-brick safeguard: leave it OFF unless you specifically want "
+                                                + "automatic colony abandonment. EnableColonyAutoAbandon below only takes effect when this is TRUE.")
+                                .define("EnableColonyAbandonmentSystem", false);
 
                 ENABLE_COLONY_AUTO_ABANDON = BUILDER.comment(
                                 "Enable automatic colony abandonment when owners/officers haven't visited for the configured time. "
@@ -2884,8 +2893,13 @@ public class TaxConfig {
         }
 
         // Colony Auto-Abandon Configuration Getters
+        public static boolean isColonyAbandonmentSystemEnabled() {
+                return ENABLE_COLONY_ABANDONMENT_SYSTEM.get();
+        }
+
         public static boolean isColonyAutoAbandonEnabled() {
-                return ENABLE_COLONY_AUTO_ABANDON.get();
+                // Master switch gates the inactivity auto-abandon sub-toggle.
+                return ENABLE_COLONY_ABANDONMENT_SYSTEM.get() && ENABLE_COLONY_AUTO_ABANDON.get();
         }
 
         public static int getColonyAutoAbandonDays() {

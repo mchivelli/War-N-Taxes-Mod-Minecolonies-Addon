@@ -120,8 +120,16 @@ public class ColonyAbandonmentManager {
      * Abandon a colony by removing all owners and officers.
      */
     private static boolean abandonColony(IColony colony, MinecraftServer server) {
+        // Defensive guard (4.x/5.0 world-brick fix): the most dangerous owner/permission writer in
+        // the mod. Callers are gated on the master switch, but guarding here keeps the safety
+        // invariant local. (Admin force-abandon uses forceAbandonColony, not this method.)
+        if (!TaxConfig.isColonyAbandonmentSystemEnabled()) {
+            LOGGER.warn("abandonColony() called for colony {} while the abandonment system is disabled — refusing.",
+                    colony != null ? colony.getName() : "null");
+            return false;
+        }
         try {
-            LOGGER.info("Abandoning colony {} ({}) due to {} hours of inactivity", 
+            LOGGER.info("Abandoning colony {} ({}) due to {} hours of inactivity",
                        colony.getName(), colony.getID(), colony.getLastContactInHours());
             
             IPermissions permissions = colony.getPermissions();
@@ -158,30 +166,18 @@ public class ColonyAbandonmentManager {
             // First, clean up any existing problematic entries
             cleanupAbandonedEntries(permissions);
             
-            // 🚨 AUTOMATIC PROTECTION: GUARANTEE valid owner exists!
+            // Keep a valid owner to prevent GUI crashes — WITHOUT injecting a synthetic placeholder.
+            // 4.x/5.0 world-brick fix: never write '[AUTO_OWNER]' and never assign ownership via
+            // setPlayerRank (which doesn't update the cached owner). Delegate to fixNullOwnerColony(),
+            // which promotes a real online manager via setOwner() or leaves the colony genuinely
+            // owner-less (the same state MineColonies uses for abandoned colonies).
             UUID colonyOwner = permissions.getOwner();
             if (colonyOwner == null) {
-                LOGGER.error("⚠️ NULL OWNER DETECTED during abandonment - AUTOMATICALLY FIXING!");
-                
-                // Find any player to make owner (prefer original removedPlayers list)
-                UUID newOwner = null;
-                if (!removedPlayers.isEmpty()) {
-                    newOwner = removedPlayers.get(0); // Use first removed player
-                } else if (!allPlayers.isEmpty()) {
-                    newOwner = allPlayers.keySet().iterator().next(); // Use any player
-                } else {
-                    // Last resort: create system owner
-                    newOwner = createSystemOwner();
-                    permissions.addPlayer(newOwner, "[AUTO_OWNER]", permissions.getRankOwner());
-                    LOGGER.error("🆘 NO PLAYERS FOUND - created automatic system owner");
-                }
-                
-                // MANDATORY: Set this player as owner rank
-                permissions.setPlayerRank(newOwner, permissions.getRankOwner(), colony.getWorld());
-                LOGGER.error("🏛️ AUTOMATIC FIX: {} is now owner to prevent GUI crashes", newOwner);
-                colonyOwner = newOwner;
+                LOGGER.warn("Null owner detected during abandonment of colony {} - promoting a real online manager (no placeholder)", colony.getName());
+                fixNullOwnerColony(colony);
+                colonyOwner = permissions.getOwner(); // may still be null if no manager online
             } else {
-                LOGGER.info("✅ Valid owner {} exists - keeping to prevent GUI crashes", colonyOwner);
+                LOGGER.info("Valid owner {} exists - keeping to prevent GUI crashes", colonyOwner);
             }
             
             // Set all NON-OWNER players to neutral rank
@@ -372,67 +368,42 @@ public class ColonyAbandonmentManager {
         if (colony == null || colony.getPermissions() == null) {
             return false;
         }
-        
-        // 🚨 AUTOMATIC PROTECTION: ALWAYS check and fix null owners on EVERY access!
-        UUID owner = colony.getPermissions().getOwner();
-        if (owner == null) {
-            LOGGER.error("🚨 AUTO-FIX: Colony {} has null owner - FIXING AUTOMATICALLY!", colony.getName());
-            fixNullOwnerColony(colony);
-            // Get the fixed owner
-            owner = colony.getPermissions().getOwner();
-            if (owner == null) {
-                LOGGER.error("💥 CRITICAL: Failed to fix null owner for colony {}!", colony.getName());
-                // Try emergency system owner as last resort
-                try {
-                    UUID systemOwner = createSystemOwner();
-                    colony.getPermissions().addPlayer(systemOwner, "[AUTO_EMERGENCY_OWNER]", colony.getPermissions().getRankOwner());
-                    colony.getPermissions().setPlayerRank(systemOwner, colony.getPermissions().getRankOwner(), colony.getWorld());
-                    LOGGER.error("🆘 EMERGENCY: Created system owner for colony {}", colony.getName());
-                } catch (Exception e) {
-                    LOGGER.error("💥 EMERGENCY SYSTEM OWNER FAILED for colony {}: {}", colony.getName(), e.getMessage());
-                }
-            }
-        }
-        
-        // Primary check: manually marked as abandoned in our tracking system
-        if (abandonedColonies.contains(colony.getID())) {
-            return true;
-        }
-        
-        // Secondary check: if colony has owner but only inactive players, consider abandoned
-        // (This handles edge cases where colony wasn't properly marked as abandoned)
-        return false; // With our new approach, we rely primarily on manual tracking
+        // Pure read (4.x/5.0 world-brick fix): this used to mutate colony state on EVERY status
+        // check — repairing null owners and even injecting an [AUTO_EMERGENCY_OWNER] placeholder —
+        // which could corrupt a colony that was only transiently owner-null mid-load. A status
+        // check must never write. Owner repair now runs only through the gated, deferred paths.
+        return abandonedColonies.contains(colony.getID());
     }
     
     /**
      * EMERGENCY FIX: Fix colonies that have null owners to prevent GUI crashes.
      */
     private static void fixNullOwnerColony(IColony colony) {
+        // 4.x/5.0 world-brick fix: the old implementation assigned ownership via setPlayerRank
+        // (which does NOT update the cached ownerUUID, so getOwner() stayed null) AND flagged the
+        // colony abandoned as a side effect — turning a transient null-owner blip into a
+        // permanently-corrupted, falsely-abandoned colony. New behavior: promote a REAL online
+        // colony-manager to owner via setOwner (the only call that actually updates the cached
+        // owner). If none is online, leave the colony untouched — never inject a placeholder,
+        // never flag abandoned. It is repaired naturally when a manager next logs in.
         try {
             IPermissions permissions = colony.getPermissions();
-            
-            // Find any player to make owner
-            UUID newOwner = null;
+            Level world = colony.getWorld();
+            if (world == null || world.getServer() == null) {
+                return; // cannot resolve online players without a server context
+            }
             for (ColonyPlayer player : permissions.getPlayers().values()) {
-                if (player.getID() != null) {
-                    newOwner = player.getID();
-                    break;
+                if (player.getID() == null || isSystemOwner(player.getID())) continue;
+                if (player.getRank() == null || !player.getRank().isColonyManager()) continue;
+                ServerPlayer online = world.getServer().getPlayerList().getPlayer(player.getID());
+                if (online != null && permissions.setOwner(online)) {
+                    LOGGER.info("Restored {} as owner of null-owner colony {}", player.getName(), colony.getName());
+                    return;
                 }
             }
-            
-            if (newOwner != null) {
-                // Set this player as owner rank
-                permissions.setPlayerRank(newOwner, permissions.getRankOwner(), colony.getWorld());
-                LOGGER.info("🏛️ EMERGENCY FIX: Set {} as emergency owner of null-owner colony {}", newOwner, colony.getName());
-                
-                // Mark colony as abandoned in our system since it had null owner
-                abandonedColonies.add(colony.getID());
-                LOGGER.info("📋 Marked colony {} as abandoned due to null owner fix", colony.getName());
-            } else {
-                LOGGER.error("❌ NO PLAYERS FOUND in null owner colony {}! Cannot fix!", colony.getName());
-            }
+            LOGGER.debug("Null-owner colony {} has no online manager to promote; leaving untouched", colony.getName());
         } catch (Exception e) {
-            LOGGER.error("💥 FAILED to fix null owner colony {}: {}", colony.getName(), e.getMessage());
+            LOGGER.error("Failed to repair null-owner colony {}: {}", colony.getName(), e.getMessage());
         }
     }
     
@@ -441,60 +412,30 @@ public class ColonyAbandonmentManager {
      * Optimized for frequent use - minimal logging unless issues found.
      */
     public static void emergencyFixAllNullOwners() {
+        // 4.x/5.0 world-brick fix: gated behind the master switch and NO LONGER injects a synthetic
+        // '[AUTO_OWNER]' placeholder or flags colonies abandoned. Repair is delegated to
+        // fixNullOwnerColony(), which only ever promotes a real online manager via setOwner().
+        if (!TaxConfig.isColonyAbandonmentSystemEnabled()) {
+            return;
+        }
         try {
             IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-            int nullOwnerColonies = 0;
-            int fixedColonies = 0;
-            
+            int repaired = 0;
+
             for (IColony colony : colonyManager.getAllColonies()) {
                 try {
-                    IPermissions permissions = colony.getPermissions();
-                    UUID owner = permissions.getOwner();
-                    
-                    if (owner == null) {
-                        nullOwnerColonies++;
-                        LOGGER.error("🚨 AUTO-FIX: Colony {} has null owner - fixing automatically!", colony.getName());
-                        
-                        // Emergency fix approach: Find ANY player and make them owner
-                        UUID emergencyOwner = null;
-                        
-                        // Try to find any player in the colony
-                        for (ColonyPlayer player : permissions.getPlayers().values()) {
-                            if (player.getID() != null) {
-                                emergencyOwner = player.getID();
-                                break;
-                            }
-                        }
-                        
-                        if (emergencyOwner == null) {
-                            // If no players, create a system owner temporarily
-                            emergencyOwner = createSystemOwner();
-                            permissions.addPlayer(emergencyOwner, "[AUTO_OWNER]", permissions.getRankOwner());
-                            LOGGER.warn("No players in colony {} - created automatic system owner", colony.getName());
-                        }
-                        
-                        // Set this player as owner rank
-                        permissions.setPlayerRank(emergencyOwner, permissions.getRankOwner(), colony.getWorld());
-                        
-                        // Mark as abandoned since it had no owner
-                        abandonedColonies.add(colony.getID());
-                        
-                        fixedColonies++;
-                        LOGGER.info("✅ AUTO-FIX: Colony {} now has owner {} (marked abandoned)", 
-                            colony.getName(), emergencyOwner);
-                    }
-                    
+                    if (colony.getPermissions().getOwner() != null) continue;
+                    fixNullOwnerColony(colony);
+                    if (colony.getPermissions().getOwner() != null) repaired++;
                 } catch (Exception e) {
-                    LOGGER.error("Auto-fix error in colony {}: {}", colony.getName(), e.getMessage());
+                    LOGGER.error("Error repairing null owner in colony {}: {}", colony.getName(), e.getMessage());
                 }
             }
-            
-            // Only log summary if issues were found and fixed
-            if (nullOwnerColonies > 0) {
-                LOGGER.error("🚨 AUTO-FIX COMPLETE: Fixed {} null owner colonies - GUI crashes prevented!", fixedColonies);
+
+            if (repaired > 0) {
+                LOGGER.info("Null-owner repair complete: {} colonies restored to a real owner", repaired);
             }
-            // Silent success when no issues found (runs every 5 seconds)
-            
+
         } catch (Exception e) {
             LOGGER.error("Auto null owner fix error: {}", e.getMessage());
         }
@@ -758,43 +699,32 @@ public class ColonyAbandonmentManager {
                 ColonyPlayer player = entry.getValue();
                 UUID playerId = entry.getKey();
                 
-                // Check for problematic entries - more comprehensive checks including system owners
+                // 4.x/5.0 world-brick fix: match ONLY the exact synthetic markers the mod itself
+                // writes. The old broad heuristics (any name lowercase-containing "abandoned",
+                // '~'/'#' prefixes, empty/odd names, UUID-length checks) could delete a REAL
+                // player and leave the colony ownerless.
                 boolean isProblematic = false;
                 String reason = "";
-                
+
                 if (playerId == null) {
                     isProblematic = true;
                     reason = "null UUID";
                 } else if (player == null) {
-                    isProblematic = true; 
+                    isProblematic = true;
                     reason = "null player object";
-                } else if (player.getName() == null) {
+                } else if (isSystemOwner(playerId)) {
                     isProblematic = true;
-                    reason = "null player name";
-                } else if (player.getName().equals("")) {
+                    reason = "system owner placeholder";
+                } else if (playerId.equals(new UUID(0L, 0L))) {
                     isProblematic = true;
-                    reason = "empty player name";
-                } else if (player.getName().contains("[abandoned]")) {
+                    reason = "zero UUID";
+                } else if (player.getName() != null
+                        && (player.getName().equals("[AUTO_OWNER]")
+                            || player.getName().equals("[AUTO_EMERGENCY_OWNER]")
+                            || player.getName().equals("[SYSTEM_ABANDONED]")
+                            || player.getName().contains("[abandoned]"))) {
                     isProblematic = true;
-                    reason = "contains [abandoned]";
-                } else if (player.getName().toLowerCase().contains("abandoned")) {
-                    isProblematic = true;
-                    reason = "contains 'abandoned'";
-                } else if (player.getName().equals("[SYSTEM_ABANDONED]") || isSystemOwner(playerId)) {
-                    isProblematic = true;
-                    reason = "old system owner entry";
-                } else if (player.getName().startsWith("~") || player.getName().startsWith("#")) {
-                    isProblematic = true;
-                    reason = "suspicious name prefix";
-                } else {
-                    // Check for invalid UUID patterns that might indicate corruption
-                    String uuidStr = playerId.toString();
-                    if (uuidStr.equals("00000000-0000-0000-0000-000000000000") || 
-                        uuidStr.contains("abandoned") || 
-                        uuidStr.length() != 36) {
-                        isProblematic = true;
-                        reason = "invalid UUID pattern";
-                    }
+                    reason = "synthetic placeholder name";
                 }
                 
                 if (isProblematic) {
@@ -981,6 +911,84 @@ public class ColonyAbandonmentManager {
      */
     public static boolean isSystemOwner(UUID uuid) {
         return uuid != null && uuid.equals(createSystemOwner());
+    }
+
+    /**
+     * One-time, REMOVAL-ONLY migration that heals colonies corrupted by older versions which
+     * injected synthetic '[AUTO_OWNER]' / '[AUTO_EMERGENCY_OWNER]' / '[SYSTEM_ABANDONED]' /
+     * system-UUID placeholder entries into MineColonies permissions.
+     *
+     * Runs regardless of the abandonment master switch because it only ever REMOVES the mod's own
+     * synthetic data — it never adds owners and never flags colonies abandoned. Safety rule: never
+     * leave a colony ownerless. If a synthetic entry is the current owner, it is removed only after
+     * a real online colony-manager is promoted to owner; if none is available, the synthetic owner
+     * is kept (an ownerless colony is worse).
+     */
+    public static void repairLegacySyntheticOwners() {
+        try {
+            IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
+            int coloniesHealed = 0;
+
+            for (IColony colony : colonyManager.getAllColonies()) {
+                try {
+                    IPermissions permissions = colony.getPermissions();
+                    UUID owner = permissions.getOwner();
+
+                    List<UUID> synthetic = new ArrayList<>();
+                    for (ColonyPlayer p : permissions.getPlayers().values()) {
+                        UUID id = p.getID();
+                        if (id == null) continue;
+                        String name = p.getName();
+                        boolean isSynthetic = isSystemOwner(id)
+                                || (name != null && (name.equals("[AUTO_OWNER]")
+                                        || name.equals("[AUTO_EMERGENCY_OWNER]")
+                                        || name.equals("[SYSTEM_ABANDONED]")
+                                        || name.contains("[abandoned]")));
+                        if (isSynthetic) synthetic.add(id);
+                    }
+                    if (synthetic.isEmpty()) continue;
+
+                    if (owner != null && synthetic.contains(owner)) {
+                        ServerPlayer replacement = findOnlineRealManager(colony, synthetic);
+                        if (replacement != null) {
+                            permissions.setOwner(replacement);
+                            LOGGER.info("Legacy repair: handed ownership of colony {} from a synthetic placeholder to {}",
+                                    colony.getName(), replacement.getName().getString());
+                        } else {
+                            // No safe online replacement — keep the synthetic owner, strip the rest.
+                            synthetic.remove(owner);
+                        }
+                    }
+
+                    int removed = 0;
+                    for (UUID id : synthetic) {
+                        try { permissions.removePlayer(id); removed++; } catch (Exception ignored) {}
+                    }
+                    if (removed > 0) coloniesHealed++;
+                } catch (Exception e) {
+                    LOGGER.error("Legacy synthetic-owner repair failed for colony {}: {}", colony.getName(), e.getMessage());
+                }
+            }
+            if (coloniesHealed > 0) {
+                LOGGER.info("Legacy synthetic-owner repair complete: {} colonies healed", coloniesHealed);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Error during legacy synthetic-owner repair: {}", e.getMessage());
+        }
+    }
+
+    /** Returns an online colony-manager player who is NOT one of the given synthetic UUIDs, or null. */
+    private static ServerPlayer findOnlineRealManager(IColony colony, java.util.Collection<UUID> exclude) {
+        Level world = colony.getWorld();
+        if (world == null || world.getServer() == null) return null;
+        for (ColonyPlayer p : colony.getPermissions().getPlayers().values()) {
+            UUID id = p.getID();
+            if (id == null || exclude.contains(id) || isSystemOwner(id)) continue;
+            if (p.getRank() == null || !p.getRank().isColonyManager()) continue;
+            ServerPlayer online = world.getServer().getPlayerList().getPlayer(id);
+            if (online != null) return online;
+        }
+        return null;
     }
     
     /**

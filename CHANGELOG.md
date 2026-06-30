@@ -5,6 +5,39 @@ All notable changes to the War N Tax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed - Ownership / Officer & conflict-end safety pass (ported from Forge)
+
+This port was still missing the entire 4.x/5.0 colony-abandonment hardening, so it was vulnerable
+to the original world-brick bug. The full safety architecture plus a follow-up ownership/officer
+audit are now applied:
+
+- **World-brick fix.** The mod no longer runs colony null-owner repair *immediately* at server
+  start (before MineColonies finished loading colonies) — that pass injected a synthetic
+  `[AUTO_OWNER]` placeholder into transiently owner-null colonies and bricked worlds. Owner repair
+  now runs only on a deferred pass, only when the new master switch is enabled.
+- **New master switch `EnableColonyAbandonmentSystem` (default FALSE).** Out of the box the mod
+  performs no automatic writes to MineColonies owner/permission state (auto-abandon,
+  debt-bankruptcy abandonment, null-owner repair, abandoned-entry cleanup all require it).
+- **No more synthetic owners.** `abandonColony` and `emergencyFixAllNullOwners` no longer inject an
+  `[AUTO_OWNER]` placeholder; they promote a real online colony manager via `setOwner` or leave the
+  colony genuinely owner-less. `isColonyAbandoned` is now a pure read (it used to mutate colony
+  state and even inject `[AUTO_EMERGENCY_OWNER]` on every status check).
+- **Safer cleanup.** Abandoned-entry cleanup now matches only the exact synthetic markers the mod
+  writes, instead of broad heuristics (any name containing "abandoned", `~`/`#` prefixes,
+  UUID-length checks) that could delete a real player and orphan a colony.
+- **Self-healing migration.** An always-on, removal-only pass repairs worlds already corrupted by
+  older versions, promoting a real manager to owner before stripping any placeholder.
+- **Claiming an abandoned colony** no longer leaves two owners (the former owner is demoted), aborts
+  cleanly if ownership assignment fails, no longer strands combat permissions when the feature is
+  toggled off mid-raid, and no longer wipes citizen AI on cleanup.
+- **A live besiege** is no longer broken by an unrelated war/raid end or `/wnt permcheck`
+  (`PermissionSnapshot` / `PermissionsHealthCheck` now recognize besiege as a real conflict).
+- **Crash-safe officer-visit saves** (atomic write-then-move for `officerVisitData.json`).
+
+Build green (checkBuildingApiUsage + shim tests pass).
+
 ## [5.0.0] - 2026-06-05
 
 Major release: full port from **Minecraft 1.20.1 / Forge** to **Minecraft 1.21.1 / NeoForge 21.1**.
