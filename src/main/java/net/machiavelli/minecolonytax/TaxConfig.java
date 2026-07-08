@@ -70,6 +70,8 @@ public class TaxConfig {
         public static final ModConfigSpec.IntValue WAR_VASSALIZATION_PLAYER_BALANCE_GRAB_PERCENT;
         // Colony tier protection (Siege SMP): protect a player's first colony from permanent transfer.
         public static final ModConfigSpec.BooleanValue ENABLE_PRIMARY_COLONY_TRANSFER;
+        // Tribune: declining a vassalization offer breaks out into war between the overlord and the colony.
+        public static final ModConfigSpec.BooleanValue ENABLE_VASSAL_DECLINE_WAR;
 
         // Colony Upgrades Configuration (invest war-chest funds into permanent colony improvements)
         public static final ModConfigSpec.BooleanValue ENABLE_COLONY_UPGRADES;
@@ -96,6 +98,13 @@ public class TaxConfig {
         public static final ModConfigSpec.DoubleValue UPGRADE_COUNTER_INTEL_DETECT_CHANCE_PER_LEVEL;
         public static final ModConfigSpec.DoubleValue UPGRADE_RAID_FORCE_MULTIPLIER_PER_LEVEL;
 
+        // Colonist wartime protection
+        public static final ModConfigSpec.BooleanValue ENABLE_COLONIST_WARTIME_SHELTER;
+        public static final ModConfigSpec.BooleanValue ENABLE_COLONIST_KILL_PROTECTION;
+
+        // Hundred Years Warfare compatibility
+        public static final ModConfigSpec.BooleanValue ENABLE_HYW_FRIENDLY_FIRE_PROTECTION;
+
         // Besiege System Configuration (Siege SMP)
         public static final ModConfigSpec.BooleanValue ENABLE_BESIEGE_SYSTEM;
         public static final ModConfigSpec.IntValue BESIEGE_DURATION_MINUTES;
@@ -115,6 +124,9 @@ public class TaxConfig {
         public static final ModConfigSpec.BooleanValue BESIEGE_SHARE_SPOILS;
         public static final ModConfigSpec.BooleanValue BESIEGE_REQUIRE_ONLINE;
         public static final ModConfigSpec.IntValue BESIEGE_OFFLINE_GRACE_MINUTES;
+        public static final ModConfigSpec.IntValue BESIEGE_PREP_MINUTES;
+        public static final ModConfigSpec.IntValue BESIEGE_BUYOFF_PERCENT;
+        public static final ModConfigSpec.IntValue BESIEGE_BUYOFF_COOLDOWN_HOURS;
 
         // Experimental Siege Victory Objectives (Siege SMP)
         public static final ModConfigSpec.BooleanValue ENABLE_EXPERIMENTAL_SIEGE_OBJECTIVES;
@@ -616,6 +628,16 @@ public class TaxConfig {
                                                 +
                                                 "EnableColonyTransfer is on. Set true for a no-mercy SMP where even home bases can be lost.")
                                 .define("EnablePrimaryColonyTransfer", false);
+
+                ENABLE_VASSAL_DECLINE_WAR = BUILDER.comment(
+                                "Tribune rule: if a colony DECLINES a vassalization offer, war automatically breaks out\n"
+                                                +
+                                                "between the offering overlord and the declining colony (the overlord becomes the\n"
+                                                +
+                                                "attacker). Requires the overlord to be online and to meet the normal war requirements;\n"
+                                                +
+                                                "otherwise the decline is peaceful. Set false to make declining always peaceful.")
+                                .define("EnableVassalDeclineWar", false);
 
                 // ========== Colony Occupation Settings ==========
                 BUILDER.push("Colony Occupation");
@@ -2409,6 +2431,31 @@ public class TaxConfig {
                 BESIEGE_SHARE_SPOILS = BUILDER.comment("[Multiplayer] Split treasury spoils among all participating besiegers on victory. Lead besieger still receives ongoing tribute.").define("BesiegeShareSpoils", true);
                 BESIEGE_REQUIRE_ONLINE = BUILDER.comment("[Online] Require besieging player(s) to stay online during a siege. Offline beyond grace = participation cancelled.").define("BesiegeRequireOnline", true);
                 BESIEGE_OFFLINE_GRACE_MINUTES = BUILDER.comment("[Online] Minutes a besieger may stay offline before cancellation (only when BesiegeRequireOnline is true).").defineInRange("BesiegeOfflineGraceMinutes", 5, 0, 120);
+                BESIEGE_PREP_MINUTES = BUILDER.comment("[Prep] Minutes the target colony has to answer a declared besiege — Defend it or Buy it off — before the siege begins automatically. Gives defenders time to rally allies.").defineInRange("BesiegePrepMinutes", 5, 1, 60);
+                BESIEGE_BUYOFF_PERCENT = BUILDER.comment("[Buy-off] Percentage of the target colony's war chest paid to the besieger to buy off (refuse) a declared besiege, cancelling it with no fight or vassalization.").defineInRange("BesiegeBuyoffPercent", 30, 1, 100);
+                BESIEGE_BUYOFF_COOLDOWN_HOURS = BUILDER.comment("[Buy-off] Hours the same besieger must wait before besieging the SAME colony again after being bought off — the shakedown breather, so the target can seek allies before they return.").defineInRange("BesiegeBuyoffCooldownHours", 24, 0, 720);
+                BUILDER.pop();
+
+                BUILDER.push("Colonist Wartime Protection");
+                ENABLE_COLONIST_WARTIME_SHELTER = BUILDER.comment(
+                                "While a colony is under a sanctioned war, besiege, raid, or claiming raid, send its "
+                                + "non-guard citizens home to shelter (reuses MineColonies' own raid-shelter behaviour, "
+                                + "spawns no raiders). Guards keep defending.")
+                                .define("EnableColonistWartimeShelter", true);
+                ENABLE_COLONIST_KILL_PROTECTION = BUILDER.comment(
+                                "Stop players from damaging colonists off the books. A player can only harm a colonist if "
+                                + "they are a member of that colony or a sanctioned war/besiege/raid is active against it. "
+                                + "Vanilla monsters and the environment are unaffected, so natural raids still work.")
+                                .define("EnableColonistKillProtection", true);
+                BUILDER.pop();
+
+                BUILDER.push("Hundred Years Warfare Compatibility");
+                ENABLE_HYW_FRIENDLY_FIRE_PROTECTION = BUILDER.comment(
+                                "If Hundred Years Warfare is installed, stop HYW troops from attacking their own commander's "
+                                + "and allied colonists (and stop those colonists from retaliating). Enemy colonists remain "
+                                + "attackable while a sanctioned War 'n Taxes war, besiege, or raid is active against their colony. "
+                                + "No effect if Hundred Years Warfare is not loaded.")
+                                .define("EnableHywFriendlyFireProtection", true);
                 BUILDER.pop();
 
                 BUILDER.push("Experimental Siege Objectives");
@@ -2611,6 +2658,10 @@ public class TaxConfig {
                 return ENABLE_PRIMARY_COLONY_TRANSFER.get();
         }
 
+        public static boolean isVassalDeclineWarEnabled() {
+                return ENABLE_VASSAL_DECLINE_WAR.get();
+        }
+
         public static boolean isUpgradesEnabled() { return ENABLE_COLONY_UPGRADES.get(); }
         public static int getUpgradeMaxLevel() { return UPGRADE_MAX_LEVEL.get(); }
         public static int getUpgradeMilitiaCostBase() { return UPGRADE_MILITIA_COST_BASE.get(); }
@@ -2635,6 +2686,13 @@ public class TaxConfig {
         public static double getUpgradeCounterIntelDetectChancePerLevel() { return UPGRADE_COUNTER_INTEL_DETECT_CHANCE_PER_LEVEL.get(); }
         public static double getUpgradeRaidForceMultiplierPerLevel() { return UPGRADE_RAID_FORCE_MULTIPLIER_PER_LEVEL.get(); }
 
+        // Colonist wartime protection accessors
+        public static boolean isColonistWartimeShelterEnabled() { return ENABLE_COLONIST_WARTIME_SHELTER.get(); }
+        public static boolean isColonistKillProtectionEnabled() { return ENABLE_COLONIST_KILL_PROTECTION.get(); }
+
+        // Hundred Years Warfare compatibility accessors
+        public static boolean isHywFriendlyFireProtectionEnabled() { return ENABLE_HYW_FRIENDLY_FIRE_PROTECTION.get(); }
+
         // Besiege System accessors
         public static boolean isBesiegeSystemEnabled() { return ENABLE_BESIEGE_SYSTEM.get(); }
         public static int getBesiegeDurationMinutes() { return BESIEGE_DURATION_MINUTES.get(); }
@@ -2654,6 +2712,9 @@ public class TaxConfig {
         public static boolean isBesiegeShareSpoilsEnabled() { return BESIEGE_SHARE_SPOILS.get(); }
         public static boolean isBesiegeRequireOnline() { return BESIEGE_REQUIRE_ONLINE.get(); }
         public static int getBesiegeOfflineGraceMinutes() { return BESIEGE_OFFLINE_GRACE_MINUTES.get(); }
+        public static int getBesiegePrepMinutes() { return BESIEGE_PREP_MINUTES.get(); }
+        public static int getBesiegeBuyoffPercent() { return BESIEGE_BUYOFF_PERCENT.get(); }
+        public static int getBesiegeBuyoffCooldownHours() { return BESIEGE_BUYOFF_COOLDOWN_HOURS.get(); }
 
         // Experimental Siege Objectives accessors
         public static boolean isExperimentalSiegeObjectivesEnabled() { return ENABLE_EXPERIMENTAL_SIEGE_OBJECTIVES.get(); }

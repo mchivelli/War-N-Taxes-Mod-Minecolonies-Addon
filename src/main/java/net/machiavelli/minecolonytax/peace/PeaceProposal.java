@@ -3,7 +3,9 @@ package net.machiavelli.minecolonytax.peace;
 import java.util.UUID;
 
 public class PeaceProposal {
-    public enum Type { WHITEPEACE, REPARATIONS }
+    // SURRENDER = full capitulation: the proposer concedes total defeat. On accept, the
+    // opposing side wins as if by total victory (conquest/vassalize of the loser's colony).
+    public enum Type { WHITEPEACE, REPARATIONS, SURRENDER }
 
     private final Type type;
     private final int amount;

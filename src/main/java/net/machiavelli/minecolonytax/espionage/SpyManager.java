@@ -543,7 +543,7 @@ public class SpyManager {
             if (player != null) {
                 List<SpyMission> missions = getActiveMissionsForPlayer(playerUuid);
                 net.machiavelli.minecolonytax.network.NetworkHandler.sendToPlayer(player,
-                        new net.machiavelli.minecolonytax.network.packets.SpyDataResponsePayload(missions));
+                        new net.machiavelli.minecolonytax.network.packets.SpyDataResponsePayload(missions, player));
             }
         } catch (Exception e) {
             LOGGER.debug("Could not push spy data to player {}: {}", playerUuid, e.getMessage());

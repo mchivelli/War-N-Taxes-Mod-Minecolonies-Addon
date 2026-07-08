@@ -25,7 +25,7 @@ import java.util.Set;
 /**
  * Server-to-client payload carrying spy mission data for the GUI.
  */
-public record SpyDataResponsePayload(String jsonPayload) implements CustomPacketPayload {
+public record SpyDataResponsePayload(String jsonPayload, String targetsJson) implements CustomPacketPayload {
 
     private static final Gson GSON = new GsonBuilder().create();
 
@@ -39,6 +39,7 @@ public record SpyDataResponsePayload(String jsonPayload) implements CustomPacket
     public static final StreamCodec<RegistryFriendlyByteBuf, SpyDataResponsePayload> STREAM_CODEC =
         StreamCodec.composite(
             ByteBufCodecs.STRING_UTF8, SpyDataResponsePayload::jsonPayload,
+            ByteBufCodecs.STRING_UTF8, SpyDataResponsePayload::targetsJson,
             SpyDataResponsePayload::new
         );
 
@@ -47,9 +48,14 @@ public record SpyDataResponsePayload(String jsonPayload) implements CustomPacket
         return TYPE;
     }
 
-    /** Construct from live mission data on the server side. */
-    public SpyDataResponsePayload(List<SpyMission> missions) {
-        this(buildJson(missions));
+    /**
+     * Construct from live mission data on the server side. Also snapshots the colonies the
+     * player may target with a spy (every colony they do not manage) so the espionage UI can
+     * offer real targets instead of only the player's own colonies.
+     */
+    public SpyDataResponsePayload(List<SpyMission> missions, net.minecraft.server.level.ServerPlayer player) {
+        this(buildJson(missions),
+             GSON.toJson(net.machiavelli.minecolonytax.server.ColonyDataCollector.collectSpyTargetColonies(player)));
     }
 
     private static String buildJson(List<SpyMission> missions) {

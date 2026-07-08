@@ -35,6 +35,15 @@ public class PeaceProposalManager {
         return handleSuePeaceProposal(ctx, PeaceProposal.Type.REPARATIONS, amount);
     }
 
+    /**
+     * Offer a full surrender — the proposer concedes total defeat. If the opposing side
+     * accepts, they win as if by total victory (their colony is conquered/vassalized when
+     * the defender surrenders, or the assault simply ends when the attacker surrenders).
+     */
+    public int suePeaceSurrender(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        return handleSuePeaceProposal(ctx, PeaceProposal.Type.SURRENDER, 0);
+    }
+
     private int handleSuePeaceProposal(CommandContext<CommandSourceStack> ctx, PeaceProposal.Type type, int amount) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         WarData war = WarSystem.getActiveWarForPlayer(player); // Assumes WarSystem provides this
@@ -290,6 +299,32 @@ public class PeaceProposalManager {
                     sendMessageToTeamFallback(war, true, winningTeamMsg); // Attacker team (won)
                 }
                 WarSystem.endWar(war.getColony());
+                break;
+            case SURRENDER:
+                boolean proposerIsAttacker = war.getAttackerLives().containsKey(proposal.getProposer());
+                if (proposerIsAttacker) {
+                    // Attacker surrenders — the assault fails, the defender holds. No colony changes hands.
+                    Component atkSurrender = Component.literal("Surrender accepted! The attackers have capitulated and withdrawn. War ends.")
+                            .withStyle(ChatFormatting.GREEN);
+                    if (proposer != null) proposer.sendSystemMessage(Component.literal(acceptedMessageToProposer).append(atkSurrender));
+                    responder.sendSystemMessage(Component.literal(acceptedMessageToResponder).append(atkSurrender));
+                    sendMessageToTeamFallback(war, true, atkSurrender);
+                    sendMessageToTeamFallback(war, false, atkSurrender);
+                    WarSystem.endWar(war.getColony());
+                } else {
+                    // Defender surrenders — the attacker achieves total victory over the defender colony
+                    // (conquest for an Nth colony, vassalize for a protected primary).
+                    boolean conquered = WarSystem.applyAttackerVictoryTakeover(war);
+                    Component defSurrender = Component.literal(conquered
+                            ? "Surrender accepted! The colony has been conquered by the victor. War ends."
+                            : "Surrender accepted! The colony has been vassalized to the victor. War ends.")
+                            .withStyle(ChatFormatting.GOLD);
+                    if (proposer != null) proposer.sendSystemMessage(Component.literal(acceptedMessageToProposer).append(defSurrender));
+                    responder.sendSystemMessage(Component.literal(acceptedMessageToResponder).append(defSurrender));
+                    sendMessageToTeamFallback(war, true, defSurrender);
+                    sendMessageToTeamFallback(war, false, defSurrender);
+                    WarSystem.endWar(war.getColony());
+                }
                 break;
         }
         war.setActiveProposal(null);

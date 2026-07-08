@@ -3,6 +3,7 @@ package net.machiavelli.minecolonytax;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import com.minecolonies.api.colony.IColony;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -245,5 +246,83 @@ public class FirstColonyTracker {
         playerColoniesMap.clear();
         saveData();
         LOGGER.info("First colony tracker cleared");
+    }
+
+    /**
+     * Reconciles the tracker against the live set of colonies. This is the population
+     * hook: MineColonies exposes no clean colony-create callback here, so instead of
+     * relying on {@link #addColony} being called at creation (it never was), we rebuild
+     * the map from the authoritative colony list on a schedule.
+     *
+     * <p>Ordering rules — a player's FIRST (lowest-index) entry is their protected primary:
+     * <ul>
+     *   <li>Colonies a player already had keep their established order (their primary stays
+     *       primary as long as they still own it).</li>
+     *   <li>If the primary was lost (deleted or conquered away), the next survivor in the
+     *       prior order is promoted automatically.</li>
+     *   <li>Newly created OR conquered colonies are appended at the END, so acquiring a
+     *       low-ID colony never demotes a player's real home base.</li>
+     * </ul>
+     * Colony IDs are assigned incrementally at creation, so ascending ID is used only to
+     * order colonies a player is seen owning for the very first time (creation-order proxy).
+     *
+     * @param colonies the current authoritative colony collection (e.g. IColonyManager.getAllColonies())
+     */
+    public static void reconcileFromColonies(java.util.Collection<? extends IColony> colonies) {
+        if (colonies == null) {
+            return;
+        }
+
+        // Group live colonies by their current permissions-owner.
+        Map<UUID, List<Integer>> live = new HashMap<>();
+        for (IColony colony : colonies) {
+            if (colony == null || colony.getPermissions() == null) {
+                continue;
+            }
+            UUID owner = colony.getPermissions().getOwner();
+            if (owner == null) {
+                continue;
+            }
+            live.computeIfAbsent(owner, k -> new ArrayList<>()).add(colony.getID());
+        }
+        // Deterministic first-seen ordering (ascending ID == creation order).
+        for (List<Integer> ids : live.values()) {
+            Collections.sort(ids);
+        }
+
+        Map<UUID, List<Integer>> rebuilt = new HashMap<>();
+        for (Map.Entry<UUID, List<Integer>> entry : live.entrySet()) {
+            UUID owner = entry.getKey();
+            List<Integer> liveIds = entry.getValue();
+            List<Integer> prior = playerColoniesMap.get(owner);
+            List<Integer> ordered = new ArrayList<>();
+
+            // 1) Preserve prior order for colonies this player still owns.
+            if (prior != null) {
+                for (Integer id : prior) {
+                    if (liveIds.contains(id) && !ordered.contains(id)) {
+                        ordered.add(id);
+                    }
+                }
+            }
+            // 2) Append newly-owned colonies (created or conquered) at the end, ascending.
+            for (Integer id : liveIds) {
+                if (!ordered.contains(id)) {
+                    ordered.add(id);
+                }
+            }
+            rebuilt.put(owner, ordered);
+        }
+
+        // Only rewrite/persist if something actually changed, to avoid churn from the
+        // periodic scheduler writing an identical file every tick window.
+        if (!rebuilt.equals(playerColoniesMap)) {
+            playerColoniesMap.clear();
+            playerColoniesMap.putAll(rebuilt);
+            saveData();
+            if (TaxConfig.isNormalLogging()) {
+                LOGGER.info("FirstColonyTracker reconciled: {} players tracked", playerColoniesMap.size());
+            }
+        }
     }
 }

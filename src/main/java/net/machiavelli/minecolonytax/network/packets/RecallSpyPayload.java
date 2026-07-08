@@ -48,7 +48,7 @@ public record RecallSpyPayload(String missionId) implements CustomPacketPayload 
                 SpyManager.recallSpy(payload.missionId);
                 // Trigger a UI refresh — include active + completed (intel preserved on recall)
                 List<SpyMission> updatedMissions = SpyManager.getMissionsForPlayer(playerId);
-                PacketDistributor.sendToPlayer(player, new SpyDataResponsePayload(updatedMissions));
+                PacketDistributor.sendToPlayer(player, new SpyDataResponsePayload(updatedMissions, player));
             }
         });
     }
