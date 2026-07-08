@@ -244,6 +244,7 @@ public class TaxConfig {
         // Abandoned Colony Claiming Configuration
         public static final ModConfigSpec.BooleanValue ENABLE_ABANDONED_COLONY_CLAIMING;
         public static final ModConfigSpec.IntValue MIN_GUARDS_FOR_CLAIMING_RAID;
+        public static final ModConfigSpec.BooleanValue ALLOW_COLONYLESS_CLAIMING_RAID;
         public static final ModConfigSpec.IntValue CLAIMING_RAID_DURATION_MINUTES;
         public static final ModConfigSpec.IntValue CLAIMING_GRACE_PERIOD_HOURS;
         public static final ModConfigSpec.BooleanValue SPAWN_MERCENARIES_IF_LOW_DEFENDERS;
@@ -930,6 +931,13 @@ public class TaxConfig {
                                 .comment("Minimum number of guards required to claim an abandoned colony. " +
                                                 "This ensures only established colonies can claim others.")
                                 .defineInRange("MinGuardsForClaimingRaid", 3, 1, 50);
+
+                ALLOW_COLONYLESS_CLAIMING_RAID = BUILDER
+                                .comment("Let a player who owns NO colony yet claim an abandoned colony as their first home, "
+                                                + "bypassing the guard and building requirements (they have no colony to meet them). "
+                                                + "Off by default; enable it if you want newcomers to be able to take over an abandoned "
+                                                + "colony they find. Players who already own a colony still need the normal requirements.")
+                                .define("AllowColonylessClaimingRaid", false);
 
                 CLAIMING_RAID_DURATION_MINUTES = BUILDER.comment(
                                 "Duration in minutes for the claiming raid when taking over an abandoned colony. " +
@@ -2972,6 +2980,10 @@ public class TaxConfig {
 
         public static int getMinGuardsForClaimingRaid() {
                 return MIN_GUARDS_FOR_CLAIMING_RAID.get();
+        }
+
+        public static boolean isColonylessClaimingRaidAllowed() {
+                return ALLOW_COLONYLESS_CLAIMING_RAID.get();
         }
 
         public static int getClaimingRaidDurationMinutes() {
