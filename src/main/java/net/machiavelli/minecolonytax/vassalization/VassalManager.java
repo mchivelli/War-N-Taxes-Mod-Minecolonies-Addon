@@ -158,6 +158,27 @@ public class VassalManager {
             queueMessage(prop.overlordUUID, Component.literal("Your vassalization proposal for colony " + colony.getName() + " was declined."));
         }
         executor.sendSystemMessage(Component.literal("You declined the vassalization proposal."));
+
+        // Tribune rule: declining a vassalization offer can break out into war between the
+        // offering overlord (attacker) and the declining colony. Requires the overlord online
+        // and able to meet the normal war requirements; otherwise the decline stays peaceful.
+        if (net.machiavelli.minecolonytax.TaxConfig.isVassalDeclineWarEnabled()) {
+            if (overlord != null) {
+                overlord.sendSystemMessage(Component.literal(
+                        "Your vassalization demand on " + colony.getName() + " was refused — you march to war!")
+                        .withStyle(ChatFormatting.RED));
+                try {
+                    net.machiavelli.minecolonytax.WarSystem.processWageWarRequest(
+                            overlord, colony, overlord.createCommandSourceStack());
+                } catch (Throwable t) {
+                    LOGGER.warn("Tribune decline-war failed to start for colony {}: {}", colony.getName(), t.toString());
+                }
+            } else {
+                executor.sendSystemMessage(Component.literal(
+                        "The would-be overlord is offline; no war breaks out (for now).")
+                        .withStyle(ChatFormatting.GRAY));
+            }
+        }
         return 1;
     }
 

@@ -6,7 +6,6 @@ import net.machiavelli.minecolonytax.commands.RandomEventsCommand;
 import net.machiavelli.minecolonytax.commands.RecipeDisableTestCommand;
 import net.machiavelli.minecolonytax.commands.TaxPolicyCommand;
 import net.machiavelli.minecolonytax.commands.WarChestCommand;
-import net.machiavelli.minecolonytax.commands.WntCommands;
 import net.machiavelli.minecolonytax.economy.WarChestManager;
 import net.machiavelli.minecolonytax.economy.WarExhaustionManager;
 import net.machiavelli.minecolonytax.economy.policy.TaxPolicyManager;
@@ -76,13 +75,15 @@ public class MineColonyTax {
         FactionCommand.register(dispatcher);
         TaxPolicyCommand.register(dispatcher);
         RandomEventsCommand.register(dispatcher);
-        WntCommands.register(dispatcher);
+        // WntCommands is registered via PvPEventHandler.onRegisterCommands (RegisterCommandsEvent),
+        // the canonical NeoForge hook — do not double-register the /wnt tree here.
 
         // Core systems
         LOGGER.info("Initializing systems (tax interval: {} min)", TaxConfig.getTaxIntervalInMinutes());
         TaxManager.initialize(event.getServer());
 
         FirstColonyTracker.loadData();
+        net.machiavelli.minecolonytax.deletion.ColonyDeletionManager.load();
 
         WarExhaustionManager.initialize(event.getServer());
         WarChestManager.initialize(event.getServer());
@@ -90,6 +91,9 @@ public class MineColonyTax {
         FactionManager.init();
         TaxPolicyManager.initialize(event.getServer());
         RandomEventManager.initialize(event.getServer());
+        // Investment/upgrade levels — MUST reload from disk on start, else every colony
+        // reverts to L0 after a restart (levels save on purchase but were never re-read).
+        net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.initialize(event.getServer());
 
         if (TaxConfig.isSpySystemEnabled()) {
             SpyManager.initialize(event.getServer());
@@ -120,6 +124,16 @@ public class MineColonyTax {
                 LOGGER.error("Error checking expired occupations: {}", t.toString());
             }
         }, 300_000, 300_000);
+
+        // Periodic pending-colony-deletion check every minute (timers are day-scale; a minute is fine)
+        final net.minecraft.server.MinecraftServer deletionServer = event.getServer();
+        net.machiavelli.minecolonytax.util.TickScheduler.scheduleRepeating(() -> {
+            try {
+                net.machiavelli.minecolonytax.deletion.ColonyDeletionManager.tick(deletionServer);
+            } catch (Throwable t) {
+                LOGGER.error("Error checking pending colony deletions: {}", t.toString());
+            }
+        }, 60_000, 60_000);
 
         // Besiege system — init + drive tick() ~every second via TickScheduler (Neo has no tick mixin)
         if (TaxConfig.isBesiegeSystemEnabled()) {
@@ -215,8 +229,10 @@ public class MineColonyTax {
         try { FactionManager.saveData(); }          catch (Throwable t) { LOGGER.warn("FactionManager save error: {}", t.toString()); }
         try { TaxPolicyManager.shutdown(); }        catch (Throwable t) { LOGGER.warn("TaxPolicyManager shutdown error: {}", t.toString()); }
         try { RandomEventManager.shutdown(); }      catch (Throwable t) { LOGGER.warn("RandomEventManager shutdown error: {}", t.toString()); }
+        try { net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.shutdown(); } catch (Throwable t) { LOGGER.warn("ColonyUpgradeManager shutdown error: {}", t.toString()); }
         try { SpyManager.shutdown(); }              catch (Throwable t) { LOGGER.warn("SpyManager shutdown error: {}", t.toString()); }
         try { OccupationManager.shutdown(); }       catch (Throwable t) { LOGGER.warn("OccupationManager shutdown error: {}", t.toString()); }
+        try { net.machiavelli.minecolonytax.deletion.ColonyDeletionManager.save(); } catch (Throwable t) { LOGGER.warn("ColonyDeletionManager save error: {}", t.toString()); }
         try { net.machiavelli.minecolonytax.besiege.BesiegeManager.shutdown(); } catch (Throwable t) { LOGGER.warn("BesiegeManager shutdown error: {}", t.toString()); }
         try { net.machiavelli.minecolonytax.siege.WarBlockLedger.flushPendingRestores(); } catch (Throwable t) { LOGGER.warn("WarBlockLedger flush error: {}", t.toString()); }
         try { net.machiavelli.minecolonytax.siege.WarBlockLedger.saveToDisk(); } catch (Throwable t) { LOGGER.warn("WarBlockLedger save error: {}", t.toString()); }

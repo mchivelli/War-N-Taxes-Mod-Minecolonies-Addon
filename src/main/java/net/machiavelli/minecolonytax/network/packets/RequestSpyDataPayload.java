@@ -38,7 +38,7 @@ public record RequestSpyDataPayload() implements CustomPacketPayload {
             String playerId = player.getUUID().toString();
             // GUI only shows active deployments; completed missions deliver intel via Written Book
             List<SpyMission> missions = SpyManager.getActiveMissionsForPlayer(playerId);
-            PacketDistributor.sendToPlayer(player, new SpyDataResponsePayload(missions));
+            PacketDistributor.sendToPlayer(player, new SpyDataResponsePayload(missions, player));
         });
     }
 }

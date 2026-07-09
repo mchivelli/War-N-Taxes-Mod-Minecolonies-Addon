@@ -41,6 +41,11 @@ public class ColonyEventListener {
     // Entity raid scan scheduler
     private static int entityScanTickCounter = 0;
 
+    // Primary-colony tracker reconcile scheduler (~30s); populates FirstColonyTracker
+    // since MineColonies gives us no clean colony-create hook here.
+    private static int primaryTrackerTickCounter = 0;
+    private static final int PRIMARY_TRACKER_INTERVAL_TICKS = 600; // 30s at 20 tps
+
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
 // Always advance entity raid lifecycle each server tick when enabled
@@ -59,6 +64,17 @@ public class ColonyEventListener {
         }
 
         List<IColony> colonies = IColonyManager.getInstance().getAllColonies();
+
+        // Periodically reconcile the primary-colony tracker from the live colony list.
+        primaryTrackerTickCounter++;
+        if (primaryTrackerTickCounter >= PRIMARY_TRACKER_INTERVAL_TICKS) {
+            primaryTrackerTickCounter = 0;
+            try {
+                net.machiavelli.minecolonytax.FirstColonyTracker.reconcileFromColonies(colonies);
+            } catch (Throwable t) {
+                LOGGER.warn("FirstColonyTracker reconcile failed: {}", t.toString());
+            }
+        }
 
         for (IColony colony : colonies) {
             int colonyId = colony.getID();

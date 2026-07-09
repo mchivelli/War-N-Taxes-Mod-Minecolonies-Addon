@@ -576,23 +576,61 @@ public class WarSystem {
                 HistoryManager.getColonyHistory(war.getAttackerColony().getID()).addWarEntry(defenderColonyName, "VICTORY", 0);
             }
             HistoryManager.saveHistory();
-            if (TaxConfig.ENABLE_COLONY_TRANSFER.get()) {
-                transferOwnership(war.getColony(), war.getAttacker());
-            } else if (TaxConfig.isWarVassalizationEnabled()) {
-                // Vassalize-only outcome: deed never moves; the loser pays tribute and a one-time
-                // "huge money" grab (war chest % + player wallet %) goes to the victor.
-                int tributePercent = TaxConfig.getWarVassalizationTributePercentage();
-                int durationHours = TaxConfig.getWarVassalizationDurationHours();
-                boolean vassalized = net.machiavelli.minecolonytax.vassalization.VassalManager.forceVassalize(
-                        war.getColony(), war.getAttacker(), tributePercent, durationHours);
-                if (vassalized) {
-                    applyWarVassalizationMoneyGrab(war);
-                    WARSYSTEM_LOGGER.info("Colony {} has been vassalized by {} at {}% tribute",
-                            war.getColony().getName(), war.getAttacker(), tributePercent);
+            // --- Phase 4: per-colony "take over colony" outcome ---
+            applyAttackerVictoryTakeover(war);
+        }
+        endWar(war.getColony());
+    }
+
+    /**
+     * Applies the attacker-wins "take over colony" outcome to the defender colony
+     * ({@code war.getColony()}):
+     * <ul>
+     *   <li>Nth (non-primary) colony → full conquest: the deed moves to the victor.</li>
+     *   <li>Protected primary colony → vassalize-only: transferOwnership() refuses (via
+     *       ColonyTierGuard) so a home base is never seized in open war, and the loser is
+     *       vassalized + pays the one-time war-chest/wallet grab instead.</li>
+     * </ul>
+     * {@code EnablePrimaryColonyTransfer} overrides the protection. Shared by war-victory
+     * resolution ({@link #checkForVictory}) and defender surrender.
+     *
+     * @return true if the deed was transferred (full conquest), false if vassalized/none.
+     */
+    public static boolean applyAttackerVictoryTakeover(WarData war) {
+        if (war == null || war.getColony() == null) return false;
+
+        boolean conquered = false;
+        if (TaxConfig.ENABLE_COLONY_TRANSFER.get()) {
+            conquered = transferOwnership(war.getColony(), war.getAttacker());
+        }
+        if (!conquered && TaxConfig.isWarVassalizationEnabled()) {
+            // Vassalize-only outcome: deed never moves; the loser pays tribute and a one-time
+            // "huge money" grab (war chest % + player wallet %) goes to the victor.
+            int tributePercent = TaxConfig.getWarVassalizationTributePercentage();
+            int durationHours = TaxConfig.getWarVassalizationDurationHours();
+            boolean vassalized = net.machiavelli.minecolonytax.vassalization.VassalManager.forceVassalize(
+                    war.getColony(), war.getAttacker(), tributePercent, durationHours);
+            if (vassalized) {
+                applyWarVassalizationMoneyGrab(war);
+                WARSYSTEM_LOGGER.info("Colony {} has been vassalized by {} at {}% tribute",
+                        war.getColony().getName(), war.getAttacker(), tributePercent);
+                // If open-war conquest was enabled but this target was a protected primary,
+                // tell the victor the deed can't be seized in open war — besiege to occupy.
+                if (TaxConfig.ENABLE_COLONY_TRANSFER.get()
+                        && war.getColony().getWorld() != null
+                        && war.getColony().getWorld().getServer() != null) {
+                    ServerPlayer victor = war.getColony().getWorld().getServer()
+                            .getPlayerList().getPlayer(war.getAttacker());
+                    if (victor != null) {
+                        victor.sendSystemMessage(Component.literal(
+                                war.getColony().getName() + " is a Primary colony — its deed cannot be seized in "
+                              + "open war. It has been vassalized instead. Lay a besiege to occupy it permanently.")
+                                .withStyle(ChatFormatting.GOLD));
+                    }
                 }
             }
         }
-        endWar(war.getColony());
+        return conquered;
     }
 
     /**
@@ -1020,18 +1058,39 @@ public class WarSystem {
         }
     }
 
-    public static void transferOwnership(IColony colony, UUID newOwnerUUID) {
-        if (colony.getWorld() == null || colony.getWorld().getServer() == null) return;
+    /**
+     * Moves a colony's deed to a new owner. This is the single chokepoint for permanent
+     * ownership transfer — the primary-colony protection lives here, so a player's first
+     * colony can never be seized in open war (only vassalized) unless
+     * {@code EnablePrimaryColonyTransfer} is set.
+     *
+     * @return true if the deed actually moved; false if blocked (primary protection,
+     *         missing world/owner, or MineColonies rejected the change). Callers should
+     *         fall back to vassalization / occupation when this returns false.
+     */
+    public static boolean transferOwnership(IColony colony, UUID newOwnerUUID) {
+        if (colony == null || colony.getWorld() == null || colony.getWorld().getServer() == null) return false;
+
+        // Central primary-colony protection: every deed-moving path routes through here.
+        if (!net.machiavelli.minecolonytax.permissions.ColonyTierGuard.canTransferOwnership(colony)) {
+            WARSYSTEM_LOGGER.info("Ownership transfer denied for colony {}: {}",
+                    colony.getID(),
+                    net.machiavelli.minecolonytax.permissions.ColonyTierGuard.getTransferDenialReason(colony));
+            return false;
+        }
+
         ServerPlayer newOwner = colony.getWorld().getServer().getPlayerList().getPlayer(newOwnerUUID);
-        if (newOwner == null) return;
+        if (newOwner == null) return false;
         if (colony.getPermissions().setOwner(newOwner)) {
             colony.markDirty();
             Component msg = Component.literal(colony.getName() + " conquered by " + newOwner.getName().getString())
                     .withStyle(Style.EMPTY.withColor(ChatFormatting.DARK_RED).withBold(true));
             WarData war = ACTIVE_WARS.get(colony.getID());
             sendNotificationToWarParticipants(colony, war != null ? war.getAttackerColony() : null, msg);
+            return true;
         } else {
             WARSYSTEM_LOGGER.error("Ownership transfer failed for colony {}", colony.getID());
+            return false;
         }
     }
 
@@ -1453,8 +1512,11 @@ public class WarSystem {
         Map<UUID, Integer> winnerLives = defendersWon ? war.getDefenderLives() : war.getAttackerLives();
         IColony loserColony = defendersWon ? war.getAttackerColony() : war.getColony();
 
-        if (TaxConfig.ENABLE_COLONY_TRANSFER.get() && !defendersWon) { // Attackers win and transfer is on
-            transferOwnership(war.getColony(), war.getAttacker());
+        // Attackers win + transfer on: try to seize the deed. A protected primary makes
+        // transferOwnership() return false, so we fall through to economic spoils instead
+        // (the dedicated vassalize handling lives in checkForVictory).
+        if (TaxConfig.ENABLE_COLONY_TRANSFER.get() && !defendersWon
+                && transferOwnership(war.getColony(), war.getAttacker())) {
             war.setPenaltyReport("TOTAL VICTORY - Colony transferred to attackers!");
         } else {
             if (loserColony == null) {

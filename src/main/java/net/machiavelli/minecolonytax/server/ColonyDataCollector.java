@@ -43,8 +43,33 @@ public class ColonyDataCollector {
                 }
             }
         }
-        
+
         return colonyDataList;
+    }
+
+    /**
+     * Collects the colonies a player can target with a spy: every colony the player does NOT
+     * manage. Only id + name are populated (the espionage UI only needs those to resolve a
+     * target); the rest are safe defaults. No relationship gate — spying is open to any rival,
+     * matching the deploy handler which already accepts any target colony id.
+     */
+    public static List<ColonyTaxData> collectSpyTargetColonies(ServerPlayer player) {
+        List<ColonyTaxData> targets = new ArrayList<>();
+        IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
+
+        for (IColony colony : colonyManager.getAllColonies()) {
+            if (colony == null || isPlayerManagerOfColony(player, colony)) {
+                continue; // skip colonies the player owns/manages — you don't spy on yourself
+            }
+            targets.add(new ColonyTaxData(
+                    colony.getID(), colony.getName(),
+                    0, 0, 0, 0, 0,
+                    false, false, false,
+                    false, 0, false, 0,
+                    0L, 0, 0, false));
+        }
+        targets.sort((a, b) -> a.getColonyName().compareToIgnoreCase(b.getColonyName()));
+        return targets;
     }
     
     /**

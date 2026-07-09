@@ -76,6 +76,12 @@ public final class MctClientNetHandlers {
         SpyJourneyMapPlugin.syncWaypoints(missions);
         if (Minecraft.getInstance().screen instanceof TaxManagementScreen screen) {
             screen.updateSpyData(missions);
+            // Rival colonies the player may spy on (deploy target list).
+            java.lang.reflect.Type targetsType =
+                new TypeToken<List<net.machiavelli.minecolonytax.gui.data.ColonyTaxData>>() {}.getType();
+            List<net.machiavelli.minecolonytax.gui.data.ColonyTaxData> targets =
+                GSON.fromJson(payload.targetsJson(), targetsType);
+            screen.updateSpyTargets(targets != null ? targets : java.util.Collections.emptyList());
         }
     }
 }

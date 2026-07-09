@@ -444,21 +444,42 @@ public class OccupationManager {
             LOGGER.info("Occupation expired for colony {} - transferring full ownership to {}",
                     colony.getName(), occupierUUID);
 
-            WarSystem.transferOwnership(colony, occupierUUID);
+            boolean transferred = WarSystem.transferOwnership(colony, occupierUUID);
 
-            // Broadcast the transfer
-            Component broadcastMsg = Component.literal(colony.getName() + " has been permanently claimed by its occupier!")
-                    .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD);
-            for (ServerPlayer p : server.getPlayerList().getPlayers()) {
-                p.sendSystemMessage(broadcastMsg);
-            }
+            if (transferred) {
+                // Broadcast the permanent claim
+                Component broadcastMsg = Component.literal(colony.getName() + " has been permanently claimed by its occupier!")
+                        .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD);
+                for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+                    p.sendSystemMessage(broadcastMsg);
+                }
 
-            // Notify original owner specifically
-            ServerPlayer originalOwner = server.getPlayerList().getPlayer(data.getOriginalOwnerUUID());
-            if (originalOwner != null) {
-                originalOwner.sendSystemMessage(
-                        Component.literal("You failed to reclaim " + colony.getName() + " within the deadline. Ownership has been permanently transferred!")
-                                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+                // Notify original owner specifically
+                ServerPlayer originalOwner = server.getPlayerList().getPlayer(data.getOriginalOwnerUUID());
+                if (originalOwner != null) {
+                    originalOwner.sendSystemMessage(
+                            Component.literal("You failed to reclaim " + colony.getName() + " within the deadline. Ownership has been permanently transferred!")
+                                    .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+                }
+            } else {
+                // Primary-colony protection (or colony transfer disabled): the deed cannot move.
+                // Keep the occupier in control via vassalization rather than a permanent seizure.
+                LOGGER.info("Occupation of colony {} could not transfer the deed (primary protected) — vassalizing the occupier in instead.",
+                        colony.getName());
+                try {
+                    int tributePercent = net.machiavelli.minecolonytax.TaxConfig.getWarVassalizationTributePercentage();
+                    int durationHours = net.machiavelli.minecolonytax.TaxConfig.getWarVassalizationDurationHours();
+                    net.machiavelli.minecolonytax.vassalization.VassalManager.forceVassalize(
+                            colony, occupierUUID, tributePercent, durationHours);
+                } catch (Throwable t) {
+                    LOGGER.warn("Vassalize fallback on occupation of {} failed: {}", colony.getName(), t.toString());
+                }
+                Component broadcastMsg = Component.literal(
+                        colony.getName() + " remains a protected Primary colony — it has been vassalized to its occupier rather than seized.")
+                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+                for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+                    p.sendSystemMessage(broadcastMsg);
+                }
             }
 
             ACTIVE_OCCUPATIONS.remove(colonyId);

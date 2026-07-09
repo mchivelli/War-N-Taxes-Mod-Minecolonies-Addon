@@ -59,7 +59,7 @@ public record DeploySpyPayload(int targetColonyId, String missionType) implement
             // Trigger a UI refresh after deploying
             String playerId = player.getUUID().toString();
             List<SpyMission> missions = SpyManager.getMissionsForPlayer(playerId);
-            PacketDistributor.sendToPlayer(player, new SpyDataResponsePayload(missions));
+            PacketDistributor.sendToPlayer(player, new SpyDataResponsePayload(missions, player));
         });
     }
 }

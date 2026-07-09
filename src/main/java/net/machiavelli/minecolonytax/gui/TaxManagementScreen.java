@@ -52,6 +52,8 @@ public class TaxManagementScreen extends Screen {
     private final java.util.Map<Integer, java.util.List<net.machiavelli.minecolonytax.events.random.EventLogEntry>> eventLogData = new java.util.HashMap<>();
     private final List<OfficerData> officerData = new ArrayList<>();
     private final List<SpyMissionData> spyMissions = new ArrayList<>();
+    // Rival colonies the player may deploy spies against (all colonies they do not manage).
+    private final List<ColonyTaxData> spyTargetColonies = new ArrayList<>();
     private ColonyTaxData selectedColony = null;
 
     /** Latest missions — readable by JourneyMap compat + network handlers. */
@@ -124,6 +126,11 @@ public class TaxManagementScreen extends Screen {
         latestSpyMissions = new ArrayList<>(missions);
     }
 
+    public void updateSpyTargets(List<ColonyTaxData> targets) {
+        this.spyTargetColonies.clear();
+        if (targets != null) this.spyTargetColonies.addAll(targets);
+    }
+
     public void updateWarChestData(int colonyId, int balance, int maxCapacity, int drainPerMinute,
                                    int taxBalance, boolean autoSurrender, double minPercentForWar) {
         if (warChestPage != null) {
@@ -169,7 +176,7 @@ public class TaxManagementScreen extends Screen {
         pages.put(BookTab.INVESTMENTS, investmentsPage);
 
         pages.put(BookTab.ESPIONAGE, new EspionagePage(this, this.font,
-                () -> spyMissions, () -> colonies,
+                () -> spyMissions, () -> spyTargetColonies,
                 eb -> this.addRenderableWidget(eb)));
 
         // Let pages create their widgets, then position every page.

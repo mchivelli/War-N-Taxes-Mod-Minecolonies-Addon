@@ -9,7 +9,6 @@ import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.WarSystem;
 import net.machiavelli.minecolonytax.data.RaidData;
 import net.machiavelli.minecolonytax.data.WarData;
-import net.machiavelli.minecolonytax.commands.WarCommands;
 import net.machiavelli.minecolonytax.raid.ActiveRaidData;
 import net.machiavelli.minecolonytax.raid.RaidManager;
 

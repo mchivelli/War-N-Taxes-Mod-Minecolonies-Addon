@@ -45,7 +45,7 @@ public record DismissSpyMissionPayload(String missionId) implements CustomPacket
 
             // Push the updated (shorter) mission list back to the client
             List<SpyMission> updated = SpyManager.getMissionsForPlayer(playerId);
-            PacketDistributor.sendToPlayer(player, new SpyDataResponsePayload(updated));
+            PacketDistributor.sendToPlayer(player, new SpyDataResponsePayload(updated, player));
         });
     }
 }
