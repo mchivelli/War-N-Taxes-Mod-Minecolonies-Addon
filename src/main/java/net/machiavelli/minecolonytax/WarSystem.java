@@ -2084,8 +2084,33 @@ public class WarSystem {
         }
     }
     
+    /**
+     * War rank gate: a colony may not declare WAR on one that OUTRANKS it militarily.
+     * Rank = guard count (the same strength yardstick used for war eligibility). This keeps war a
+     * peer-vs-peer contest; challenging a stronger power is what Besiege is for. Gated by config
+     * {@code EnableWarRankRestriction} (default true).
+     *
+     * @return true if the war may proceed; false if blocked (a failure message is sent to source).
+     */
+    private static boolean passesWarRankGate(IColony attackerColony, IColony targetColony, CommandSourceStack source) {
+        if (!TaxConfig.isWarRankRestrictionEnabled()) {
+            return true;
+        }
+        int attackerRank = countGuards(attackerColony);
+        int targetRank = countGuards(targetColony);
+        if (targetRank > attackerRank) {
+            source.sendFailure(Component.literal(
+                    "You cannot declare war on a colony that outranks you. " + targetColony.getName()
+                            + " fields " + targetRank + " guards to your " + attackerRank
+                            + ". Besiege them instead to challenge a stronger power.")
+                    .withStyle(ChatFormatting.RED));
+            return false;
+        }
+        return true;
+    }
+
     public static int processWageWarRequest(ServerPlayer attacker, IColony targetColony, CommandSourceStack source) {
-        Level level = source.getLevel(); 
+        Level level = source.getLevel();
 
         int targetGuards = countGuards(targetColony); 
         if (targetGuards < TaxConfig.MIN_GUARDS_TO_WAGE_WAR.get()) { 
@@ -2121,6 +2146,9 @@ public class WarSystem {
         }
         if (targetColony.getID() == attackerColony.getID()) {
             source.sendFailure(Component.literal("Cannot declare war on your own colony!"));
+            return 0;
+        }
+        if (!passesWarRankGate(attackerColony, targetColony, source)) {
             return 0;
         }
         ServerPlayer owner = level.getServer().getPlayerList().getPlayer(targetColony.getPermissions().getOwner());
@@ -2251,6 +2279,9 @@ public class WarSystem {
         }
         if (targetColony.getID() == attackerColony.getID()) {
             source.sendFailure(Component.literal("Cannot declare war on your own colony!"));
+            return 0;
+        }
+        if (!passesWarRankGate(attackerColony, targetColony, source)) {
             return 0;
         }
         ServerPlayer owner = level.getServer().getPlayerList().getPlayer(targetColony.getPermissions().getOwner());

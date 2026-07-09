@@ -1169,7 +1169,19 @@ public class WntCommands {
 
             // Choosing to defend COMMITS the colony to the fight: if the siege was only declared
             // (still in its prep window), launch it now against the besieger.
-            if (pending) BesiegeManager.commitDefend(target);
+            boolean siegeLive = active;
+            if (pending) siegeLive = BesiegeManager.commitDefend(target);
+            if (!siegeLive) {
+                player.sendSystemMessage(Component.literal(
+                        "The besieger has withdrawn — there is nothing to defend at " + target.getName() + ".")
+                        .withStyle(ChatFormatting.YELLOW));
+                return 0;
+            }
+
+            // Register this player as a defender: grant them a block of defender lives so their
+            // deaths now count toward the siege and their presence actually matters. The first
+            // defender to answer activates the "attackers win by exhausting defender lives" condition.
+            BesiegeManager.addDefenderLives(target.getID(), player.getUUID());
 
             // Teleport them to the colony so they can fight. Server-side teleport = no op needed.
             net.minecraft.server.level.ServerLevel level = player.getServer().getLevel(target.getDimension());
@@ -1183,6 +1195,8 @@ public class WntCommands {
                     player.getYRot(), player.getXRot());
             player.sendSystemMessage(Component.literal("You rally to the defense of " + target.getName() + "!")
                     .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+            // Plain-language rules so the defender knows exactly how to win or lose.
+            player.sendSystemMessage(BesiegeManager.besiegeRulesBriefing(target, false));
             return 1;
 
         } catch (CommandSyntaxException e) {

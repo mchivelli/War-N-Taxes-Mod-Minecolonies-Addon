@@ -257,6 +257,8 @@ public class TaxConfig {
         // War Building Requirements Configuration
         public static final ModConfigSpec.BooleanValue ENABLE_WAR_BUILDING_REQUIREMENTS;
         public static final ModConfigSpec.ConfigValue<String> WAR_BUILDING_REQUIREMENTS;
+        // A colony may not declare WAR on one that outranks it militarily (more guards).
+        public static final ModConfigSpec.BooleanValue ENABLE_WAR_RANK_RESTRICTION;
 
         // Recipe Disabling Configuration
         public static final ModConfigSpec.BooleanValue DISABLE_HUT_RECIPES;
@@ -1005,6 +1007,13 @@ public class TaxConfig {
                                                 "Leave empty to disable building requirements.")
                                 .define("WarBuildingRequirements",
                                                 "townhall:2:1,guardtower:1:3,buildershut:1:1,house:1:1");
+
+                ENABLE_WAR_RANK_RESTRICTION = BUILDER.comment(
+                                "When enabled, a colony may not declare WAR on a colony that OUTRANKS it militarily "
+                                                + "(i.e. has more guards). Rank = guard count, the same strength yardstick "
+                                                + "used for war eligibility. Attackers must use Besiege to challenge a "
+                                                + "stronger power. Set false to allow war regardless of the defender's strength.")
+                                .define("EnableWarRankRestriction", true);
 
                 BUILDER.pop();
 
@@ -3012,6 +3021,10 @@ public class TaxConfig {
 
         public static boolean isWarBuildingRequirementsEnabled() {
                 return ENABLE_WAR_BUILDING_REQUIREMENTS.get();
+        }
+
+        public static boolean isWarRankRestrictionEnabled() {
+                return ENABLE_WAR_RANK_RESTRICTION.get();
         }
 
         public static String getWarBuildingRequirements() {
