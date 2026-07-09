@@ -447,6 +447,9 @@ public class TaxConfig {
         public static final ForgeConfigSpec.BooleanValue ENABLE_COLONIST_WARTIME_SHELTER;
         public static final ForgeConfigSpec.BooleanValue ENABLE_COLONIST_KILL_PROTECTION;
 
+        // Hundred Years Warfare compatibility
+        public static final ForgeConfigSpec.BooleanValue ENABLE_HYW_FRIENDLY_FIRE_PROTECTION;
+
         // ==================== RANDOM EVENTS SYSTEM ====================
         public static final ForgeConfigSpec.BooleanValue ENABLE_RANDOM_EVENTS;
         public static final ForgeConfigSpec.IntValue RANDOM_EVENT_CHECK_FREQUENCY;
@@ -2688,6 +2691,15 @@ public class TaxConfig {
                                 .define("EnableColonistKillProtection", true);
                 BUILDER.pop();
 
+                BUILDER.push("Hundred Years Warfare Compatibility");
+                ENABLE_HYW_FRIENDLY_FIRE_PROTECTION = BUILDER.comment(
+                                "If Hundred Years Warfare is installed, stop HYW troops from attacking their own commander's "
+                                + "and allied colonists (and stop those colonists from retaliating). Enemy colonists remain "
+                                + "attackable while a sanctioned War 'n Taxes war, besiege, or raid is active against their colony. "
+                                + "No effect if Hundred Years Warfare is not loaded.")
+                                .define("EnableHywFriendlyFireProtection", true);
+                BUILDER.pop();
+
                 CONFIG = BUILDER.build();
         }
 
@@ -2891,6 +2903,9 @@ public class TaxConfig {
         // Colonist wartime protection accessors
         public static boolean isColonistWartimeShelterEnabled() { return ENABLE_COLONIST_WARTIME_SHELTER.get(); }
         public static boolean isColonistKillProtectionEnabled() { return ENABLE_COLONIST_KILL_PROTECTION.get(); }
+
+        // Hundred Years Warfare compatibility accessor
+        public static boolean isHywFriendlyFireProtectionEnabled() { return ENABLE_HYW_FRIENDLY_FIRE_PROTECTION.get(); }
 
         public static boolean isBesiegeShareSpoilsEnabled() {
                 return BESIEGE_SHARE_SPOILS.get();
