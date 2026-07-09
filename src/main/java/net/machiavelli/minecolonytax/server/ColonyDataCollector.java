@@ -9,6 +9,7 @@ import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.WarSystem;
 import net.machiavelli.minecolonytax.economy.policy.TaxPolicyManager;
+import net.machiavelli.minecolonytax.gui.data.ColonySummary;
 import net.machiavelli.minecolonytax.gui.data.ColonyTaxData;
 import net.machiavelli.minecolonytax.gui.data.VassalIncomeData;
 import net.machiavelli.minecolonytax.raid.RaidManager;
@@ -42,6 +43,28 @@ public class ColonyDataCollector {
         }
 
         return colonyDataList;
+    }
+
+    /**
+     * Collects the colonies a player can target with a spy: every colony the player does NOT
+     * manage. Only id + name are populated (the espionage UI only needs those to resolve a
+     * target). No relationship gate — spying is open to any rival, matching the deploy handler
+     * which already accepts any target colony id. Colonies the player owns/manages are excluded
+     * (you don't spy on yourself), which is the fix that makes rival colonies — rather than only
+     * the player's own — appear as spy targets.
+     */
+    public static List<ColonySummary> collectSpyTargetColonies(ServerPlayer player) {
+        List<ColonySummary> targets = new ArrayList<>();
+        IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
+
+        for (IColony colony : colonyManager.getAllColonies()) {
+            if (colony == null || isPlayerManagerOfColony(player, colony)) {
+                continue; // skip colonies the player owns/manages — you don't spy on yourself
+            }
+            targets.add(new ColonySummary(colony.getID(), colony.getName()));
+        }
+        targets.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+        return targets;
     }
 
     public static List<VassalIncomeData> collectVassalIncomeData(ServerPlayer player) {

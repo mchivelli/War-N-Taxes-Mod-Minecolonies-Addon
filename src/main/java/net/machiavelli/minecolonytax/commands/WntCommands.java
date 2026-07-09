@@ -143,11 +143,11 @@ public class WntCommands {
                                                                                                                 "raidhistory",
                                                                                                                 "warstats",
                                                                                                                 "taxgen",
-                                                                                                                "vasalize",
+                                                                                                                "vassalize",
                                                                                                                 "vassalaccept",
                                                                                                                 "vassaldecline",
                                                                                                                 "revoke",
-                                                                                                                "vasals",
+                                                                                                                "vassals",
                                                                                                                 "debug",
                                                                                                                 "permissions"),
                                                                                                 builder))
@@ -170,6 +170,38 @@ public class WntCommands {
                                                 .then(Commands.argument("colony", StringArgumentType.string())
                                                                 .suggests(COLONY_SUGGESTIONS)
                                                                 .executes(WntCommands::handleBesiegeCommand)))
+
+                                // Answer a besiege call-to-arms: rally a defender-side player (owner/officer/
+                                // friend) to their colony. Any player may run it (no op needed) — this is what
+                                // the "[Defend it]" chat button fires.
+                                .then(Commands.literal("defend")
+                                                .then(Commands.argument("colony", StringArgumentType.string())
+                                                                .suggests(COLONY_SUGGESTIONS)
+                                                                .executes(WntCommands::handleDefendCommand)))
+
+                                // Buy off (refuse) a DECLARED besiege: the owner pays a % of their war chest to
+                                // the besieger and the siege is cancelled. Fired by the "[Buy it off]" chat button.
+                                .then(Commands.literal("buyoff")
+                                                .then(Commands.argument("colony", StringArgumentType.string())
+                                                                .suggests(COLONY_SUGGESTIONS)
+                                                                .executes(WntCommands::handleBuyoffCommand)))
+
+                                // Conquered-colony deletion (owner or admin) with a construction-scaled timer.
+                                .then(Commands.literal("deletecolony")
+                                                .then(Commands.argument("colony", StringArgumentType.string())
+                                                                .suggests(PLAYER_COLONY_SUGGESTIONS)
+                                                                .executes(WntCommands::handleDeleteColony)
+                                                                .then(Commands.literal("cancel")
+                                                                                .executes(WntCommands::handleDeleteColonyCancel))
+                                                                .then(Commands.literal("status")
+                                                                                .executes(WntCommands::handleDeleteColonyStatus))))
+
+                                // Pick a side if you belong to both warring colonies (join phase only).
+                                .then(Commands.literal("choosewarside")
+                                                .then(Commands.literal("attacker")
+                                                                .executes(ctx -> chooseWarSideCommand(ctx, true)))
+                                                .then(Commands.literal("defender")
+                                                                .executes(ctx -> chooseWarSideCommand(ctx, false))))
 
                                 .then(Commands.literal("joinwar")
                                                 .executes(WntCommands::joinWarCommand))
@@ -355,7 +387,8 @@ public class WntCommands {
                                 .then(Commands.literal("warstats")
                                                 .executes(WntCommands::showWarStats))
 
-                                .then(Commands.literal("vasalize")
+                                // Vassal commands (canonical spelling)
+                                .then(Commands.literal("vassalize")
                                                 .then(Commands.argument("percent", IntegerArgumentType.integer(1, 100))
                                                                 .then(Commands.argument("colony",
                                                                                 StringArgumentType.string())
@@ -381,6 +414,31 @@ public class WntCommands {
                                                                 .executes(ctx -> handleVassalRevoke(ctx,
                                                                                 StringArgumentType.getString(ctx,
                                                                                                 "player")))))
+                                .then(Commands.literal("vassals")
+                                                .executes(WntCommands::handleVassalList))
+
+                                // Deprecated misspelled aliases (kept working, hidden from help)
+                                .then(Commands.literal("vasalize")
+                                                .then(Commands.argument("percent", IntegerArgumentType.integer(1, 100))
+                                                                .then(Commands.argument("colony",
+                                                                                StringArgumentType.string())
+                                                                                .suggests(COLONY_SUGGESTIONS)
+                                                                                .executes(ctx -> handleVassalize(ctx,
+                                                                                                IntegerArgumentType
+                                                                                                                .getInteger(ctx, "percent"),
+                                                                                                extractColonyName(
+                                                                                                                StringArgumentType
+                                                                                                                                .getString(ctx, "colony")))))))
+                                .then(Commands.literal("vasalaccept")
+                                                .then(Commands.argument("colonyId", IntegerArgumentType.integer())
+                                                                .executes(ctx -> handleVassalAccept(ctx,
+                                                                                IntegerArgumentType.getInteger(ctx,
+                                                                                                "colonyId")))))
+                                .then(Commands.literal("vasaldecline")
+                                                .then(Commands.argument("colonyId", IntegerArgumentType.integer())
+                                                                .executes(ctx -> handleVassalDecline(ctx,
+                                                                                IntegerArgumentType.getInteger(ctx,
+                                                                                                "colonyId")))))
                                 .then(Commands.literal("vasals")
                                                 .executes(WntCommands::handleVassalList))
 
@@ -638,7 +696,7 @@ public class WntCommands {
                 source.sendSuccess(() -> Component.literal("§6Vassal Commands:"), false);
                 source.sendSuccess(
                                 () -> Component.literal(
-                                                "§e/wnt vasalize <percent> <colony> §7- Offer vassalization to a colony"),
+                                                "§e/wnt vassalize <percent> <colony> §7- Offer vassalization to a colony"),
                                 false);
                 source.sendSuccess(
                                 () -> Component.literal(
@@ -652,7 +710,7 @@ public class WntCommands {
                                 () -> Component.literal(
                                                 "§e/wnt revoke <player> §7- Revoke a vassalization relationship"),
                                 false);
-                source.sendSuccess(() -> Component.literal("§e/wnt vasals §7- List your vassals"), false);
+                source.sendSuccess(() -> Component.literal("§e/wnt vassals §7- List your vassals"), false);
                 source.sendSuccess(() -> Component.literal(""), false);
 
                 source.sendSuccess(() -> Component.literal("§6Colony Claiming Commands:"), false);
@@ -971,9 +1029,10 @@ public class WntCommands {
                                 }
                                 break;
 
-                        // Vassal commands
+                        // Vassal commands (accept both canonical and deprecated spellings)
+                        case "vassalize":
                         case "vasalize":
-                                source.sendSuccess(() -> Component.literal("§6/wnt vasalize <percent> <colony>"),
+                                source.sendSuccess(() -> Component.literal("§6/wnt vassalize <percent> <colony>"),
                                                 false);
                                 source.sendSuccess(() -> Component.literal("§7Offer vassalization to a colony."),
                                                 false);
@@ -988,6 +1047,7 @@ public class WntCommands {
                                 break;
 
                         case "vassalaccept":
+                        case "vasalaccept":
                                 source.sendSuccess(() -> Component.literal("§6/wnt vassalaccept <colonyId>"), false);
                                 source.sendSuccess(
                                                 () -> Component.literal(
@@ -1000,6 +1060,7 @@ public class WntCommands {
                                 break;
 
                         case "vassaldecline":
+                        case "vasaldecline":
                                 source.sendSuccess(() -> Component.literal("§6/wnt vassaldecline <colonyId>"), false);
                                 source.sendSuccess(
                                                 () -> Component.literal(
@@ -1023,8 +1084,9 @@ public class WntCommands {
                                                 false);
                                 break;
 
+                        case "vassals":
                         case "vasals":
-                                source.sendSuccess(() -> Component.literal("§6/wnt vasals"), false);
+                                source.sendSuccess(() -> Component.literal("§6/wnt vassals"), false);
                                 source.sendSuccess(() -> Component.literal("§7List your vassals."), false);
                                 break;
 
@@ -1412,6 +1474,108 @@ public class WntCommands {
                         return 0;
                 } catch (Exception e) {
                         LOGGER.error("Error handling besiege command", e);
+                        return 0;
+                }
+        }
+
+        /**
+         * Answer a besiege call-to-arms. Rallies a defender-side player (the colony's owner, an officer,
+         * or a friend — exactly who receives the warning) to their colony so they can join the defense.
+         * Fired by the "[Defend it]" chat button as {@code /wnt defend "<colony>"}; runnable by any player
+         * (the teleport is done with server authority, so it needs no operator permission).
+         */
+        private static int handleDefendCommand(CommandContext<CommandSourceStack> ctx) {
+                try {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        String colonyArg = StringArgumentType.getString(ctx, "colony");
+
+                        IColony target = IMinecoloniesAPI.getInstance().getColonyManager().getAllColonies().stream()
+                                        .filter(c -> c.getName().equalsIgnoreCase(colonyArg))
+                                        .findFirst()
+                                        .orElse(null);
+                        if (target == null) {
+                                player.sendSystemMessage(Component.literal("Colony not found: " + colonyArg)
+                                                .withStyle(ChatFormatting.RED));
+                                return 0;
+                        }
+
+                        // Meaningful only while a besiege is DECLARED (pending its prep window) or already active.
+                        boolean pending = BesiegeManager.hasPendingBesiege(target.getID());
+                        boolean active = !BesiegeManager.getRaidsForColony(target.getID()).isEmpty();
+                        if (!pending && !active) {
+                                player.sendSystemMessage(Component.literal(target.getName() + " is not under besiege right now.")
+                                                .withStyle(ChatFormatting.YELLOW));
+                                return 0;
+                        }
+
+                        // Defender-side only: the owner, officers, and friends who received the call-to-arms.
+                        IPermissions perms = target.getPermissions();
+                        Rank rank = perms.getRank(player.getUUID());
+                        boolean defenderSide = rank != null && !rank.isHostile()
+                                        && !rank.equals(perms.getRankNeutral());
+                        if (!defenderSide) {
+                                player.sendSystemMessage(Component.literal(
+                                                "You are not a member of " + target.getName()
+                                                                + ", so you cannot rally to its defense.")
+                                                .withStyle(ChatFormatting.RED));
+                                return 0;
+                        }
+
+                        // Choosing to defend COMMITS the colony to the fight: if the siege was only declared
+                        // (still in its prep window), launch it now against the besieger.
+                        if (pending) {
+                                BesiegeManager.commitDefend(target);
+                        }
+
+                        // Teleport them to the colony so they can fight. Server-side teleport = no op needed.
+                        net.minecraft.server.level.ServerLevel level = player.getServer().getLevel(target.getDimension());
+                        if (level == null) {
+                                player.sendSystemMessage(Component.literal("Could not reach that colony's world.")
+                                                .withStyle(ChatFormatting.RED));
+                                return 0;
+                        }
+                        net.minecraft.core.BlockPos c = target.getCenter();
+                        player.teleportTo(level, c.getX() + 0.5, c.getY() + 1, c.getZ() + 0.5,
+                                        player.getYRot(), player.getXRot());
+                        player.sendSystemMessage(Component.literal("You rally to the defense of " + target.getName() + "!")
+                                        .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+                        return 1;
+
+                } catch (CommandSyntaxException e) {
+                        ctx.getSource().sendFailure(Component.literal("You must be a player to use this command."));
+                        return 0;
+                } catch (Exception e) {
+                        LOGGER.error("Error handling defend command", e);
+                        return 0;
+                }
+        }
+
+        /**
+         * Buy off (refuse) a declared besiege. Only the colony owner may run it; pays
+         * {@code BesiegeBuyoffPercent} of the colony war chest to the besieger and cancels the siege,
+         * then puts that besieger on a per-colony cooldown. Fired by the "[Buy it off]" chat button.
+         */
+        private static int handleBuyoffCommand(CommandContext<CommandSourceStack> ctx) {
+                try {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        String colonyArg = StringArgumentType.getString(ctx, "colony");
+
+                        IColony target = IMinecoloniesAPI.getInstance().getColonyManager().getAllColonies().stream()
+                                        .filter(c -> c.getName().equalsIgnoreCase(colonyArg))
+                                        .findFirst()
+                                        .orElse(null);
+                        if (target == null) {
+                                player.sendSystemMessage(Component.literal("Colony not found: " + colonyArg)
+                                                .withStyle(ChatFormatting.RED));
+                                return 0;
+                        }
+                        return BesiegeManager.buyOff(target, player) ? 1 : 0;
+
+                } catch (CommandSyntaxException e) {
+                        ctx.getSource().sendFailure(Component.literal("You must be a player to use this command."));
+                        return 0;
+                } catch (Exception e) {
+                        LOGGER.error("Error handling buyoff command", e);
                         return 0;
                 }
         }
@@ -3869,6 +4033,140 @@ public class WntCommands {
                         player.sendSystemMessage(Component.literal("Purchase failed. Check treasury balance and try again.").withStyle(ChatFormatting.RED));
                 }
                 return success ? 1 : 0;
+        }
+
+        // --- Conquered-colony deletion (construction-scaled timer) ---
+
+        private static int handleDeleteColony(CommandContext<CommandSourceStack> ctx) {
+                try {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        String colonyName = extractColonyName(StringArgumentType.getString(ctx, "colony"));
+                        IColony colony = net.machiavelli.minecolonytax.WarSystem.findColonyByName(colonyName, ctx.getSource().getLevel());
+                        if (colony == null) {
+                                ctx.getSource().sendFailure(Component.literal("Colony not found: " + colonyName));
+                                return 0;
+                        }
+                        boolean isOwner = colony.getPermissions().getOwner() != null
+                                        && colony.getPermissions().getOwner().equals(player.getUUID());
+                        if (!isOwner && !ctx.getSource().hasPermission(2)) {
+                                ctx.getSource().sendFailure(Component.literal("Only the colony owner (or an admin) can delete this colony.")
+                                                .withStyle(ChatFormatting.RED));
+                                return 0;
+                        }
+                        if (net.machiavelli.minecolonytax.deletion.ColonyDeletionManager.getPending(colony.getID()) != null) {
+                                ctx.getSource().sendFailure(Component.literal("A deletion is already scheduled for this colony. Use '/wnt deletecolony "
+                                                + colonyName + " status' or ' cancel'.").withStyle(ChatFormatting.RED));
+                                return 0;
+                        }
+                        long delay = net.machiavelli.minecolonytax.deletion.ColonyDeletionManager.schedule(colony, player);
+                        return delay >= 0 ? 1 : 0;
+                } catch (CommandSyntaxException e) {
+                        ctx.getSource().sendFailure(Component.literal("You must be a player to use this command."));
+                        return 0;
+                }
+        }
+
+        private static int handleDeleteColonyCancel(CommandContext<CommandSourceStack> ctx) {
+                try {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        String colonyName = extractColonyName(StringArgumentType.getString(ctx, "colony"));
+                        IColony colony = net.machiavelli.minecolonytax.WarSystem.findColonyByName(colonyName, ctx.getSource().getLevel());
+                        if (colony == null) {
+                                ctx.getSource().sendFailure(Component.literal("Colony not found: " + colonyName));
+                                return 0;
+                        }
+                        boolean isOwner = colony.getPermissions().getOwner() != null
+                                        && colony.getPermissions().getOwner().equals(player.getUUID());
+                        if (!isOwner && !ctx.getSource().hasPermission(2)) {
+                                ctx.getSource().sendFailure(Component.literal("Only the colony owner (or an admin) can cancel this deletion.")
+                                                .withStyle(ChatFormatting.RED));
+                                return 0;
+                        }
+                        boolean cancelled = net.machiavelli.minecolonytax.deletion.ColonyDeletionManager.cancel(colony.getID());
+                        if (cancelled) {
+                                ctx.getSource().sendSuccess(() -> Component.literal("Deletion cancelled for " + colony.getName())
+                                                .withStyle(ChatFormatting.GREEN), false);
+                                return 1;
+                        }
+                        ctx.getSource().sendFailure(Component.literal("No pending deletion for " + colony.getName()));
+                        return 0;
+                } catch (CommandSyntaxException e) {
+                        ctx.getSource().sendFailure(Component.literal("You must be a player to use this command."));
+                        return 0;
+                }
+        }
+
+        private static int handleDeleteColonyStatus(CommandContext<CommandSourceStack> ctx) {
+                String colonyName = extractColonyName(StringArgumentType.getString(ctx, "colony"));
+                IColony colony = net.machiavelli.minecolonytax.WarSystem.findColonyByName(colonyName, ctx.getSource().getLevel());
+                if (colony == null) {
+                        ctx.getSource().sendFailure(Component.literal("Colony not found: " + colonyName));
+                        return 0;
+                }
+                net.machiavelli.minecolonytax.deletion.ColonyDeletionManager.PendingDeletion pending =
+                                net.machiavelli.minecolonytax.deletion.ColonyDeletionManager.getPending(colony.getID());
+                if (pending == null) {
+                        ctx.getSource().sendSuccess(() -> Component.literal("No deletion scheduled for " + colony.getName())
+                                        .withStyle(ChatFormatting.GRAY), false);
+                        return 1;
+                }
+                long remaining = Math.max(0, pending.executeAt - System.currentTimeMillis());
+                ctx.getSource().sendSuccess(() -> Component.literal(colony.getName() + " will be deleted in "
+                                + net.machiavelli.minecolonytax.deletion.ColonyDeletionManager.formatDuration(remaining))
+                                .withStyle(ChatFormatting.GOLD), false);
+                return 1;
+        }
+
+        // Pick a side when the player belongs to both warring colonies (consolidated from legacy /choosewarside).
+        private static int chooseWarSideCommand(CommandContext<CommandSourceStack> ctx, boolean joinAttackers) {
+                try {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        WarData war = net.machiavelli.minecolonytax.WarSystem.getActiveWarForPlayer(player);
+
+                        if (war == null) {
+                                ctx.getSource().sendFailure(Component.literal("No active war to join."));
+                                return 0;
+                        }
+                        if (!war.isJoinPhaseActive()) {
+                                ctx.getSource().sendFailure(Component.literal("Join phase is over."));
+                                return 0;
+                        }
+
+                        int playerLives = TaxConfig.PLAYER_LIVES_IN_WAR.get();
+
+                        if (joinAttackers) {
+                                if (!war.getAttackerLives().containsKey(player.getUUID())) {
+                                        war.getAttackerLives().put(player.getUUID(), playerLives);
+                                        player.sendSystemMessage(Component.literal("You have chosen to join the attacking side.")
+                                                        .withStyle(ChatFormatting.GREEN));
+                                        if (war.alliesBossEvent != null && war.alliesBossEvent.isVisible()) {
+                                                war.alliesBossEvent.addPlayer(player);
+                                        } else {
+                                                war.bossEvent.addPlayer(player);
+                                        }
+                                        return 1;
+                                }
+                                ctx.getSource().sendFailure(Component.literal("You are already registered on the attacking side."));
+                                return 0;
+                        } else {
+                                if (!war.getDefenderLives().containsKey(player.getUUID())) {
+                                        war.getDefenderLives().put(player.getUUID(), playerLives);
+                                        player.sendSystemMessage(Component.literal("You have chosen to join the defending side.")
+                                                        .withStyle(ChatFormatting.GREEN));
+                                        if (war.alliesBossEvent != null && war.alliesBossEvent.isVisible()) {
+                                                war.alliesBossEvent.addPlayer(player);
+                                        } else {
+                                                war.bossEvent.addPlayer(player);
+                                        }
+                                        return 1;
+                                }
+                                ctx.getSource().sendFailure(Component.literal("You are already registered on the defending side."));
+                                return 0;
+                        }
+                } catch (CommandSyntaxException e) {
+                        ctx.getSource().sendFailure(Component.literal("You must be a player to use this command."));
+                        return 0;
+                }
         }
 
         private static IColony getPlayerColony(ServerPlayer player) {

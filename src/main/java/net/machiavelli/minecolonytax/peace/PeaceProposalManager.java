@@ -342,34 +342,43 @@ public class PeaceProposalManager {
                 WarSystem.endWar(war.getColony());
                 break;
             case SURRENDER:
-                // Surrender: proposer unconditionally surrenders, responder's side wins
+                // Surrender = full capitulation. If the DEFENDER surrenders, the attacker achieves
+                // total victory over the defender colony — an immediate takeover (conquest for an
+                // Nth colony, vassalize for a protected primary), with no occupation reclaim window.
+                // If the ATTACKER surrenders, the assault simply fails and the defender holds; no
+                // colony changes hands.
                 boolean surrendererWasAttacker = war.getAttackerLives().containsKey(proposal.getProposer());
-                
-                Component surrenderMsg = Component.literal("Surrender accepted! ").withStyle(ChatFormatting.GOLD);
-                if (proposer != null) proposer.sendSystemMessage(Component.literal(acceptedMessageToProposer).append(surrenderMsg).append(Component.literal("Your side has surrendered.")));
-                responder.sendSystemMessage(Component.literal(acceptedMessageToResponder).append(surrenderMsg).append(Component.literal("Your side has won by surrender!")));
-                
-                // Notify teams
-                Component surrenderingTeamMsg = Component.literal("Surrender accepted! Your side has surrendered and lost the war.").withStyle(ChatFormatting.RED);
-                Component victoriousTeamMsg = Component.literal("Surrender accepted! Your side has won the war!").withStyle(ChatFormatting.GREEN);
-                
+
                 if (surrendererWasAttacker) {
-                    sendMessageToTeamFallback(war, true, surrenderingTeamMsg); // Attacker team (surrendered)
-                    sendMessageToTeamFallback(war, false, victoriousTeamMsg); // Defender team (won)
+                    Component atkSurrender = Component.literal(
+                            "Surrender accepted! The attackers have capitulated and withdrawn. War ends.")
+                            .withStyle(ChatFormatting.GREEN);
+                    if (proposer != null) proposer.sendSystemMessage(Component.literal(acceptedMessageToProposer).append(atkSurrender));
+                    responder.sendSystemMessage(Component.literal(acceptedMessageToResponder).append(atkSurrender));
+                    sendMessageToTeamFallback(war, true, atkSurrender);  // Attacker team (surrendered)
+                    sendMessageToTeamFallback(war, false, atkSurrender); // Defender team (held)
                     // Record attacker's loss (they surrendered)
                     if (war.getAttackerColony() != null) {
                         net.machiavelli.minecolonytax.economy.WarExhaustionManager.recordWarLoss(war.getAttackerColony().getID());
                     }
+                    war.setPenaltyReport("Surrender: Attackers capitulated — assault failed, defenders hold");
                 } else {
-                    sendMessageToTeamFallback(war, false, surrenderingTeamMsg); // Defender team (surrendered)
-                    sendMessageToTeamFallback(war, true, victoriousTeamMsg); // Attacker team (won)
+                    // Defender surrenders — total victory for the attacker over the defender colony.
+                    boolean conquered = WarSystem.applyAttackerVictoryTakeover(war);
+                    Component defSurrender = Component.literal(conquered
+                            ? "Surrender accepted! The colony has been conquered by the victor. War ends."
+                            : "Surrender accepted! The colony has been vassalized to the victor. War ends.")
+                            .withStyle(ChatFormatting.GOLD);
+                    if (proposer != null) proposer.sendSystemMessage(Component.literal(acceptedMessageToProposer).append(defSurrender));
+                    responder.sendSystemMessage(Component.literal(acceptedMessageToResponder).append(defSurrender));
+                    sendMessageToTeamFallback(war, false, defSurrender); // Defender team (surrendered)
+                    sendMessageToTeamFallback(war, true, defSurrender);  // Attacker team (won)
                     // Record defender's loss (they surrendered)
                     net.machiavelli.minecolonytax.economy.WarExhaustionManager.recordWarLoss(war.getColony().getID());
+                    war.setPenaltyReport(conquered
+                            ? "Surrender: Defenders surrendered — colony conquered by attackers"
+                            : "Surrender: Defenders surrendered — colony vassalized to attackers");
                 }
-                
-                // Set penalty report before endWar
-                String surrenderingSide = surrendererWasAttacker ? "Attackers" : "Defenders";
-                war.setPenaltyReport("Surrender: " + surrenderingSide + " surrendered unconditionally");
                 WarSystem.endWar(war.getColony());
                 break;
         }

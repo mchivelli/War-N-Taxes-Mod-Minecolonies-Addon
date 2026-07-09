@@ -1350,6 +1350,16 @@ public class ColonyClaimingRaidManager {
         
         IColony playerColony = getPlayerColony(player);
         if (playerColony == null) {
+            // Special exception: a player who owns NO colony yet may seize an abandoned colony as their
+            // first home, bypassing the guard + building requirements (they have no colony to meet them).
+            // Off by default (Warborn Realms disallows it); other servers can enable it in config.
+            if (TaxConfig.isColonylessClaimingRaidAllowed()) {
+                LOGGER.info("CLAIMING BYPASS: colonyless player {} claiming their first colony {} - guard/building requirements waived",
+                        player.getName().getString(), targetColony != null ? targetColony.getName() : "unknown");
+                return new ClaimingRequirementResult(true,
+                        "You have no colony of your own — you may seize this abandoned one as your first home! "
+                                + "You must still defeat its defenders to take control.");
+            }
             return new ClaimingRequirementResult(false, "You must own a colony to claim abandoned colonies.");
         }
         

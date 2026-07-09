@@ -102,6 +102,17 @@ public class MineColonyTax {
         }
 
         FirstColonyTracker.loadData();
+        net.machiavelli.minecolonytax.deletion.ColonyDeletionManager.load();
+
+        // Periodic pending-colony-deletion check every minute (deletion timers are day-scale, so a minute is fine)
+        final net.minecraft.server.MinecraftServer deletionServer = event.getServer();
+        net.machiavelli.minecolonytax.util.TickScheduler.scheduleRepeating(() -> {
+            try {
+                net.machiavelli.minecolonytax.deletion.ColonyDeletionManager.tick(deletionServer);
+            } catch (Throwable t) {
+                LOGGER.error("Error checking pending colony deletions: {}", t.toString());
+            }
+        }, 60_000, 60_000);
 
         // Subscribe to colony lifecycle events so FirstColonyTracker stays accurate.
         // Guard with a static flag: DefaultEventBus is a JVM-lifetime singleton and
@@ -439,6 +450,13 @@ public class MineColonyTax {
             if (TaxConfig.isNormalLogging()) LOGGER.info("ColonyUpgradeManager shutdown complete");
         } catch (Throwable t) {
             LOGGER.warn("Error during ColonyUpgradeManager shutdown: {}", t.toString());
+        }
+
+        try {
+            net.machiavelli.minecolonytax.deletion.ColonyDeletionManager.save();
+            if (TaxConfig.isNormalLogging()) LOGGER.info("ColonyDeletionManager save complete");
+        } catch (Throwable t) {
+            LOGGER.warn("Error during ColonyDeletionManager save: {}", t.toString());
         }
 
         try {

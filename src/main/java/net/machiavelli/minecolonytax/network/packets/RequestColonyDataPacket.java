@@ -213,12 +213,11 @@ public class RequestColonyDataPacket {
                     eventLogData.put(colonyId, entries);
                 }
 
-                // Collect all colony summaries for spy target selection
-                List<ColonySummary> allColonySummaries = new ArrayList<>();
-                for (com.minecolonies.api.colony.IColony c
-                        : com.minecolonies.api.IMinecoloniesAPI.getInstance().getColonyManager().getAllColonies()) {
-                    allColonySummaries.add(new ColonySummary(c.getID(), c.getName()));
-                }
+                // Collect spy target colonies for the espionage tab: every colony this player does
+                // NOT manage. Rival colonies appear as targets; the player's own/managed colonies
+                // are excluded (you don't spy on yourself). Previously this listed ALL colonies,
+                // so the player's own colonies also showed up as valid spy targets.
+                List<ColonySummary> allColonySummaries = ColonyDataCollector.collectSpyTargetColonies(player);
 
                 // Send response back to client
                 NetworkHandler.CHANNEL.send(net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),

@@ -518,16 +518,25 @@ public class OccupationManager {
                                         .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
                     }
                 } else {
-                    // Transfer was denied (e.g. by ColonyTierGuard) or failed. Don't
-                    // broadcast a permanent-claim message that isn't true; treat as a
-                    // tax-only-style lapse and reclaim to the original owner.
-                    LOGGER.info("Transfer for colony {} was denied or failed - lapsing occupation instead", colony.getName());
-                    ServerPlayer originalOwner = server.getPlayerList().getPlayer(data.getOriginalOwnerUUID());
-                    if (originalOwner != null) {
-                        originalOwner.sendSystemMessage(
-                                Component.literal("The occupation of " + colony.getName()
-                                                + " has lapsed — the deed remains with you.")
-                                        .withStyle(ChatFormatting.GREEN));
+                    // Primary-colony protection (or colony transfer disabled): the deed cannot move.
+                    // Keep the occupier in control via vassalization rather than a permanent seizure.
+                    // forceVassalize() is idempotent (no-op if transferOwnership already vassalized on
+                    // the protection path), so a double call here is safe.
+                    LOGGER.info("Occupation of colony {} could not transfer the deed (primary protected) — vassalizing the occupier in instead.",
+                            colony.getName());
+                    try {
+                        int tributePercent = TaxConfig.getWarVassalizationTributePercentage();
+                        int durationHours = TaxConfig.getWarVassalizationDurationHours();
+                        net.machiavelli.minecolonytax.vassalization.VassalManager.forceVassalize(
+                                colony, occupierUUID, tributePercent, durationHours);
+                    } catch (Throwable t) {
+                        LOGGER.warn("Vassalize fallback on occupation of {} failed: {}", colony.getName(), t.toString());
+                    }
+                    Component broadcastMsg = Component.literal(
+                            colony.getName() + " remains a protected Primary colony — it has been vassalized to its occupier rather than seized.")
+                            .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+                    for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+                        p.sendSystemMessage(broadcastMsg);
                     }
                 }
             }

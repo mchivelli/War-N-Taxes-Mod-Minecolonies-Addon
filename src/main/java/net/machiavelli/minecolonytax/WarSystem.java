@@ -918,6 +918,49 @@ public class WarSystem {
     }
 
     /**
+     * Applies the attacker-wins "take over colony" outcome to the defender colony
+     * ({@code war.getColony()}) as an immediate, unconditional takeover. This is the
+     * <em>total-victory</em> path used when the defender fully capitulates (surrender),
+     * as opposed to a normal timed victory which routes through the occupation reclaim
+     * window in {@link #checkForVictory}:
+     * <ul>
+     *   <li>Nth (non-primary) colony -> full conquest: the deed moves to the victor via
+     *       {@link #transferOwnership}.</li>
+     *   <li>Protected primary colony -> {@code transferOwnership()} refuses (via
+     *       ColonyTierGuard) and vassalizes the loser instead, so a home base is never
+     *       seized outright.</li>
+     *   <li>Colony transfer disabled entirely -> vassalize-only outcome plus the one-time
+     *       war-chest/wallet money grab.</li>
+     * </ul>
+     * Does not call {@link #endWar}; the caller ends the war after this returns.
+     *
+     * @return true if the deed was actually transferred (full conquest), false if the
+     *         colony was vassalized / nothing changed hands.
+     */
+    public static boolean applyAttackerVictoryTakeover(WarData war) {
+        if (war == null || war.getColony() == null) return false;
+
+        boolean conquered = false;
+        if (TaxConfig.ENABLE_COLONY_TRANSFER.get()) {
+            // transferOwnership() enforces primary-colony protection itself and will
+            // vassalize the loser (returning false) when the deed cannot legally move.
+            conquered = transferOwnership(war.getColony(), war.getAttacker());
+        } else if (TaxConfig.isWarVassalizationEnabled()) {
+            // Colony transfer disabled: vassalize-only outcome + one-time war-spoils grab.
+            int tributePercent = TaxConfig.getWarVassalizationTributePercentage();
+            int durationHours = TaxConfig.getWarVassalizationDurationHours();
+            boolean vassalized = net.machiavelli.minecolonytax.vassalization.VassalManager.forceVassalize(
+                    war.getColony(), war.getAttacker(), tributePercent, durationHours);
+            if (vassalized) {
+                applyWarVassalizationMoneyGrab(war);
+                WARSYSTEM_LOGGER.info("Colony {} has been vassalized by {} at {}% tribute (surrender)",
+                        war.getColony().getName(), war.getAttacker(), tributePercent);
+            }
+        }
+        return conquered;
+    }
+
+    /**
      * One-time "huge money" grab applied when a war victory results in vassalization
      * (the vassalize-only path, used when colony deed transfer is disabled). Moves a
      * configurable percentage of the losing colony's treasury and the losing player's

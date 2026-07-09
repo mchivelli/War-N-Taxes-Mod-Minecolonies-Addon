@@ -90,6 +90,34 @@ public class BesiegeManager {
     /** Per-player cooldown map (playerUUID -> timestamp when cooldown expires). */
     private static final Map<UUID, Long> PLAYER_COOLDOWNS = new ConcurrentHashMap<>();
 
+    /**
+     * A besiege that has been DECLARED but not yet begun: the target has a short window
+     * ({@code BesiegePrepMinutes}) to answer it — Defend it, or Buy it off — before the
+     * siege launches automatically. Keyed by colonyId (one live offer per colony).
+     */
+    public static final class PendingBesiege {
+        public final int colonyId;
+        public final UUID besiegerUUID;
+        public final long deadlineMs;
+        PendingBesiege(int colonyId, UUID besiegerUUID, long deadlineMs) {
+            this.colonyId = colonyId;
+            this.besiegerUUID = besiegerUUID;
+            this.deadlineMs = deadlineMs;
+        }
+    }
+
+    /** Declared-but-not-started besieges awaiting the defender's answer (colonyId -> offer). */
+    private static final Map<Integer, PendingBesiege> PENDING_BESIEGES = new ConcurrentHashMap<>();
+
+    /**
+     * Buy-off breather: after a target buys off a besieger, that besieger cannot besiege the
+     * SAME colony again until this expires. Key = besiegerUUID + ":" + colonyId -> expiry ms.
+     * In-memory like {@link #PLAYER_COOLDOWNS}; a restart clears it.
+     */
+    private static final Map<String, Long> BUYOFF_COOLDOWNS = new ConcurrentHashMap<>();
+
+    private static String buyoffKey(UUID besieger, int colonyId) { return besieger + ":" + colonyId; }
+
     private static MinecraftServer SERVER;
 
     public static void initialize(MinecraftServer server) {
@@ -109,6 +137,8 @@ public class BesiegeManager {
     }
 
     public static void tick() {
+        // Declared-but-not-started besieges resolve on their own timer, independent of active raids.
+        processPendingBesieges();
         if (ACTIVE_RAIDS.isEmpty()) return;
 
         for (Iterator<Map.Entry<UUID, BesiegeRaidData>> it = ACTIVE_RAIDS.entrySet().iterator(); it.hasNext(); ) {
@@ -316,6 +346,17 @@ public class BesiegeManager {
             return false;
         }
 
+        // 2b. The target's owner must be ONLINE. A besiege is meant to be a fight the defender can
+        // answer (see the call-to-arms below), not a smash-and-grab on a sleeping player. If the owner
+        // is offline, the besiege is simply unavailable.
+        UUID targetOwner = colony.getPermissions().getOwner();
+        if (targetOwner == null || SERVER == null || SERVER.getPlayerList().getPlayer(targetOwner) == null) {
+            besieger.sendSystemMessage(Component.literal(
+                    "You can only besiege a colony whose owner is online — give them a chance to defend.")
+                    .withStyle(ChatFormatting.RED));
+            return false;
+        }
+
         // 3. Primary colonies CAN now be besieged. Outcome routes through
         // OccupationManager in TAX_ONLY mode (deed never moves; auto-reclaim after
         // PrimaryColonyTaxOccupationDays). Secondaries continue to use the legacy
@@ -367,7 +408,193 @@ public class BesiegeManager {
             return false;
         }
 
+        // 9. Buy-off breather: this colony recently bought THIS besieger off — they must wait
+        // before shaking it down again (gives the target time to find allies and fight back).
+        Long buyoffExpiry = BUYOFF_COOLDOWNS.get(buyoffKey(besiegerUUID, colonyId));
+        if (buyoffExpiry != null && System.currentTimeMillis() < buyoffExpiry) {
+            long remaining = (buyoffExpiry - System.currentTimeMillis()) / 60000;
+            besieger.sendSystemMessage(Component.literal(
+                    colony.getName() + " bought you off recently — you must wait " + remaining
+                            + " more minute(s) before besieging them again.")
+                    .withStyle(ChatFormatting.RED));
+            return false;
+        }
+
+        // If a siege is ALREADY raging on this colony, join it directly (shared defender pool);
+        // the prep / buy-off phase only applies to the first, not-yet-started declaration.
+        if (!getRaidsForColony(colonyId).isEmpty()) {
+            return launchRaid(colony, besieger, false);
+        }
+
+        // Otherwise DECLARE the besiege and give the target a window to Defend it or Buy it off.
+        if (PENDING_BESIEGES.containsKey(colonyId)) {
+            besieger.sendSystemMessage(Component.literal(
+                    colony.getName() + " already has a besiege declared against it right now.")
+                    .withStyle(ChatFormatting.RED));
+            return false;
+        }
+        return declareBesiege(colony, besieger);
+    }
+
+    /**
+     * Declare a besiege WITHOUT starting the fight. Registers a pending offer and gives the target
+     * colony a window ({@code BesiegePrepMinutes}) to answer — Defend it (via {@code /wnt defend}) or
+     * Buy it off (via {@code /wnt buyoff}). If the window elapses with no answer, {@link #tick()}
+     * launches the siege automatically. This is what gives defenders time to rally allies.
+     */
+    private static boolean declareBesiege(IColony colony, ServerPlayer besieger) {
+        int colonyId = colony.getID();
+        int prepMin = TaxConfig.getBesiegePrepMinutes();
+        int buyoffPct = TaxConfig.getBesiegeBuyoffPercent();
+        long deadline = System.currentTimeMillis() + Math.max(1, prepMin) * 60_000L;
+        PENDING_BESIEGES.put(colonyId, new PendingBesiege(colonyId, besieger.getUUID(), deadline));
+
+        besieger.sendSystemMessage(Component.literal(
+                "You have declared a besiege on " + colony.getName() + ". They have " + prepMin
+                        + " minute(s) to defend or buy you off, then the siege begins.")
+                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+
+        // Call-to-arms with BOTH answers. Buttons RUN player-safe commands (no op needed); the colony
+        // name is quoted so names with spaces still parse.
+        Component msg = Component.literal("WARNING: ")
+                .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
+                .append(Component.literal(besieger.getName().getString())
+                        .withStyle(ChatFormatting.RED, ChatFormatting.BOLD))
+                .append(Component.literal(" has declared a besiege on ")
+                        .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD))
+                .append(Component.literal(colony.getName())
+                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
+                .append(Component.literal("! You have " + prepMin + " min. ")
+                        .withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal("[Defend it]")
+                        .withStyle(s -> s.withColor(ChatFormatting.GREEN).withBold(true)
+                                .withClickEvent(new net.minecraft.network.chat.ClickEvent(
+                                        net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND,
+                                        "/wnt defend \"" + colony.getName() + "\""))
+                                .withHoverEvent(new net.minecraft.network.chat.HoverEvent(
+                                        net.minecraft.network.chat.HoverEvent.Action.SHOW_TEXT,
+                                        Component.literal("Stand and fight — teleport in and rally your defenders")))))
+                .append(Component.literal(" "))
+                .append(Component.literal("[Buy it off — " + buyoffPct + "%]")
+                        .withStyle(s -> s.withColor(ChatFormatting.AQUA).withBold(true)
+                                .withClickEvent(new net.minecraft.network.chat.ClickEvent(
+                                        net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND,
+                                        "/wnt buyoff \"" + colony.getName() + "\""))
+                                .withHoverEvent(new net.minecraft.network.chat.HoverEvent(
+                                        net.minecraft.network.chat.HoverEvent.Action.SHOW_TEXT,
+                                        Component.literal("Pay " + buyoffPct
+                                                + "% of your treasury to call off the siege (owner only)")))));
+        notifyColonyDefenders(colony, msg);
+        return true;
+    }
+
+    /** True while a besiege has been declared on this colony but has not yet started. */
+    public static boolean hasPendingBesiege(int colonyId) {
+        return PENDING_BESIEGES.containsKey(colonyId);
+    }
+
+    /**
+     * A defender chose to FIGHT: if a besiege is pending on this colony, launch the real siege now
+     * against the declared besieger. Returns true when a siege is active afterwards (just launched
+     * or already ongoing). Safe to call with nothing pending.
+     */
+    public static boolean commitDefend(IColony colony) {
+        PendingBesiege pending = PENDING_BESIEGES.remove(colony.getID());
+        if (pending == null) {
+            return !getRaidsForColony(colony.getID()).isEmpty();   // already active, or nothing to commit
+        }
+        ServerPlayer besieger = SERVER != null ? SERVER.getPlayerList().getPlayer(pending.besiegerUUID) : null;
+        if (besieger == null) {
+            notifyColonyDefenders(colony, Component.literal(
+                    "The besieger has left; the assault on " + colony.getName() + " is called off.")
+                    .withStyle(ChatFormatting.GREEN));
+            return false;
+        }
         return launchRaid(colony, besieger, false);
+    }
+
+    /**
+     * The target's OWNER buys off a declared besiege: pay {@code BesiegeBuyoffPercent} of the colony's
+     * treasury to the besieger's primary colony, cancel the pending siege, and put that besieger on a
+     * per-colony cooldown so they cannot immediately shake the colony down again. No-ops (with a chat
+     * note) when nothing is pending or the caller is not the owner.
+     */
+    public static boolean buyOff(IColony colony, ServerPlayer caller) {
+        int colonyId = colony.getID();
+        PendingBesiege pending = PENDING_BESIEGES.get(colonyId);
+        if (pending == null) {
+            caller.sendSystemMessage(Component.literal(
+                    "There is no declared besiege to buy off on " + colony.getName() + ".")
+                    .withStyle(ChatFormatting.YELLOW));
+            return false;
+        }
+        UUID owner = colony.getPermissions().getOwner();
+        if (owner == null || !owner.equals(caller.getUUID())) {
+            caller.sendSystemMessage(Component.literal(
+                    "Only the owner of " + colony.getName() + " can buy off its besiege.")
+                    .withStyle(ChatFormatting.RED));
+            return false;
+        }
+
+        int percent = TaxConfig.getBesiegeBuyoffPercent();
+        IColony besiegerColony = getPrimaryColonyOfPlayer(pending.besiegerUUID);
+        int paid = 0;
+        if (percent > 0 && besiegerColony != null) {
+            int chest = net.machiavelli.minecolonytax.economy.TreasuryManager.getTreasuryBalance(colonyId);
+            int requested = (int) Math.floor(chest * (percent / 100.0));
+            if (requested > 0) {
+                // Cap-safe (same pattern as siege spoils): credit the besieger first, then deduct
+                // exactly what actually landed so coins are never created or lost.
+                int before = net.machiavelli.minecolonytax.economy.TreasuryManager.getTreasuryBalance(besiegerColony.getID());
+                int after = net.machiavelli.minecolonytax.economy.TreasuryManager.addToTreasury(besiegerColony.getID(), requested);
+                paid = after - before;
+                if (paid > 0) net.machiavelli.minecolonytax.economy.TreasuryManager.deductFromTreasury(colonyId, paid);
+            }
+        }
+
+        // Cancel the offer and start the shakedown breather for this besieger-colony pair.
+        PENDING_BESIEGES.remove(colonyId);
+        long cd = Math.max(0L, (long) TaxConfig.getBesiegeBuyoffCooldownHours()) * 3_600_000L;
+        if (cd > 0) BUYOFF_COOLDOWNS.put(buyoffKey(pending.besiegerUUID, colonyId), System.currentTimeMillis() + cd);
+
+        final int paidFinal = paid;
+        caller.sendSystemMessage(Component.literal(
+                "You bought off " + getPlayerName(pending.besiegerUUID) + "'s besiege of " + colony.getName()
+                        + " for " + paidFinal + " coins. They cannot besiege you again for a while.")
+                .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        sendToPlayer(pending.besiegerUUID, Component.literal(
+                colony.getName() + " bought off your besiege — you extorted " + paidFinal + " coins and withdraw. "
+                        + "You must wait before you can march on them again.")
+                .withStyle(ChatFormatting.GOLD));
+        if (TaxConfig.isNormalLogging())
+            LOGGER.info("Besiege of colony {} bought off by owner for {} coins (besieger {})",
+                    colony.getName(), paidFinal, pending.besiegerUUID);
+        return true;
+    }
+
+    /** Launch declared besieges whose prep window has elapsed with no answer (or drop the offer if the
+     *  besieger has since gone offline). Driven from {@link #tick()}. */
+    private static void processPendingBesieges() {
+        if (PENDING_BESIEGES.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        for (Iterator<Map.Entry<Integer, PendingBesiege>> it = PENDING_BESIEGES.entrySet().iterator(); it.hasNext(); ) {
+            PendingBesiege p = it.next().getValue();
+            if (now < p.deadlineMs) continue;
+            it.remove();
+            IColony colony = getColonyById(p.colonyId);
+            if (colony == null) continue;
+            ServerPlayer besieger = SERVER != null ? SERVER.getPlayerList().getPlayer(p.besiegerUUID) : null;
+            if (besieger == null) {
+                notifyColonyDefenders(colony, Component.literal(
+                        "The besieger never pressed the attack; " + colony.getName() + " is left in peace.")
+                        .withStyle(ChatFormatting.GREEN));
+                continue;
+            }
+            notifyColonyDefenders(colony, Component.literal(
+                    "Time is up — the siege of " + colony.getName() + " begins!")
+                    .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
+            launchRaid(colony, besieger, false);
+        }
     }
 
     /**
@@ -507,7 +734,10 @@ public class BesiegeManager {
             // Notify owner + officers + friends — the defender's call-to-arms.
             // Friends are included per the Siege SMP defender-ally rule: defenders may
             // mobilize allies even when the attacker must stand alone.
-            BlockPos colonyCenter = colony.getCenter();
+            // The "[Defend it]" button RUNS a player-safe command (/wnt defend) that teleports the
+            // defender to their colony. It used to SUGGEST an op-only "/tp ...", which normal players
+            // could neither run nor even fire on click — the reason defenders couldn't answer the call.
+            // The colony name is quoted so names with spaces still parse.
             net.minecraft.network.chat.Component callToArms = Component.literal("WARNING: ")
                     .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
                     .append(Component.literal(besieger.getName().getString())
@@ -521,11 +751,11 @@ public class BesiegeManager {
                     .append(Component.literal("[Defend it]")
                             .withStyle(s -> s.withColor(ChatFormatting.GREEN).withBold(true)
                                     .withClickEvent(new net.minecraft.network.chat.ClickEvent(
-                                            net.minecraft.network.chat.ClickEvent.Action.SUGGEST_COMMAND,
-                                            "/tp " + colonyCenter.getX() + " " + colonyCenter.getY() + " " + colonyCenter.getZ()))
+                                            net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND,
+                                            "/wnt defend \"" + colony.getName() + "\""))
                                     .withHoverEvent(new net.minecraft.network.chat.HoverEvent(
                                             net.minecraft.network.chat.HoverEvent.Action.SHOW_TEXT,
-                                            Component.literal("Teleport near the colony center to join the defense")))));
+                                            Component.literal("Teleport to your colony and join the defense")))));
             notifyColonyDefenders(colony, callToArms);
 
             if (TaxConfig.isNormalLogging())

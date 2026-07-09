@@ -78,6 +78,8 @@ public class TaxConfig {
 
         // Colony Tier Protection (Siege SMP ruleset)
         public static final ForgeConfigSpec.BooleanValue ENABLE_PRIMARY_COLONY_TRANSFER;
+        // Tribune: declining a vassalization offer breaks out into war between the overlord and the colony.
+        public static final ForgeConfigSpec.BooleanValue ENABLE_VASSAL_DECLINE_WAR;
         public static final ForgeConfigSpec.IntValue PRIMARY_COLONY_TAX_OCCUPATION_DAYS;
         public static final ForgeConfigSpec.IntValue BESIEGE_SPOIL_PERCENT_OF_LOSER_TREASURY;
 
@@ -202,6 +204,7 @@ public class TaxConfig {
         // Abandoned Colony Claiming Configuration
         public static final ForgeConfigSpec.BooleanValue ENABLE_ABANDONED_COLONY_CLAIMING;
         public static final ForgeConfigSpec.IntValue MIN_GUARDS_FOR_CLAIMING_RAID;
+        public static final ForgeConfigSpec.BooleanValue ALLOW_COLONYLESS_CLAIMING_RAID;
         public static final ForgeConfigSpec.IntValue CLAIMING_RAID_DURATION_MINUTES;
         public static final ForgeConfigSpec.IntValue CLAIMING_GRACE_PERIOD_HOURS;
         public static final ForgeConfigSpec.BooleanValue SPAWN_MERCENARIES_IF_LOW_DEFENDERS;
@@ -435,6 +438,14 @@ public class TaxConfig {
         public static final ForgeConfigSpec.BooleanValue BESIEGE_SHARE_SPOILS;
         public static final ForgeConfigSpec.BooleanValue BESIEGE_REQUIRE_ONLINE;
         public static final ForgeConfigSpec.IntValue BESIEGE_OFFLINE_GRACE_MINUTES;
+        // Siege SMP follow-up — declared-besiege prep window + buy-off
+        public static final ForgeConfigSpec.IntValue BESIEGE_PREP_MINUTES;
+        public static final ForgeConfigSpec.IntValue BESIEGE_BUYOFF_PERCENT;
+        public static final ForgeConfigSpec.IntValue BESIEGE_BUYOFF_COOLDOWN_HOURS;
+
+        // Colonist wartime protection
+        public static final ForgeConfigSpec.BooleanValue ENABLE_COLONIST_WARTIME_SHELTER;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_COLONIST_KILL_PROTECTION;
 
         // ==================== RANDOM EVENTS SYSTEM ====================
         public static final ForgeConfigSpec.BooleanValue ENABLE_RANDOM_EVENTS;
@@ -675,6 +686,16 @@ public class TaxConfig {
                                                 +
                                                 "where even home bases can be permanently lost.")
                                 .define("EnablePrimaryColonyTransfer", false);
+
+                ENABLE_VASSAL_DECLINE_WAR = BUILDER.comment(
+                                "Tribune rule: if a colony DECLINES a vassalization offer, war automatically breaks out\n"
+                                                +
+                                                "between the offering overlord and the declining colony (the overlord becomes the\n"
+                                                +
+                                                "attacker). Requires the overlord to be online and to meet the normal war requirements;\n"
+                                                +
+                                                "otherwise the decline is peaceful. Set false to make declining always peaceful.")
+                                .define("EnableVassalDeclineWar", false);
 
                 PRIMARY_COLONY_TAX_OCCUPATION_DAYS = BUILDER.comment(
                                 "Duration (real-time days) a Primary colony stays tax-occupied after a successful besiege.\n"
@@ -1088,6 +1109,13 @@ public class TaxConfig {
                                 .comment("Minimum number of guards required to claim an abandoned colony. " +
                                                 "This ensures only established colonies can claim others.")
                                 .defineInRange("MinGuardsForClaimingRaid", 3, 1, 50);
+
+                ALLOW_COLONYLESS_CLAIMING_RAID = BUILDER
+                                .comment("Let a player who owns NO colony yet claim an abandoned colony as their first home, "
+                                                + "bypassing the guard and building requirements (they have no colony to meet them). "
+                                                + "Off by default; enable it if you want newcomers to be able to take over an abandoned "
+                                                + "colony they find. Players who already own a colony still need the normal requirements.")
+                                .define("AllowColonylessClaimingRaid", false);
 
                 CLAIMING_RAID_DURATION_MINUTES = BUILDER.comment(
                                 "Duration in minutes for the claiming raid when taking over an abandoned colony. " +
@@ -2641,7 +2669,24 @@ public class TaxConfig {
                                                 "(only applies when BesiegeRequireOnline is true).")
                                 .defineInRange("BesiegeOfflineGraceMinutes", 5, 0, 120);
 
+                BESIEGE_PREP_MINUTES = BUILDER.comment("[Prep] Minutes the target colony has to answer a declared besiege — Defend it or Buy it off — before the siege begins automatically. Gives defenders time to rally allies.").defineInRange("BesiegePrepMinutes", 5, 1, 60);
+                BESIEGE_BUYOFF_PERCENT = BUILDER.comment("[Buy-off] Percentage of the target colony's war chest paid to the besieger to buy off (refuse) a declared besiege, cancelling it with no fight or vassalization.").defineInRange("BesiegeBuyoffPercent", 30, 1, 100);
+                BESIEGE_BUYOFF_COOLDOWN_HOURS = BUILDER.comment("[Buy-off] Hours the same besieger must wait before besieging the SAME colony again after being bought off — the shakedown breather, so the target can seek allies before they return.").defineInRange("BesiegeBuyoffCooldownHours", 24, 0, 720);
+
                 BUILDER.pop(); // End Besiege System
+
+                BUILDER.push("Colonist Wartime Protection");
+                ENABLE_COLONIST_WARTIME_SHELTER = BUILDER.comment(
+                                "While a colony is under a sanctioned war, besiege, raid, or claiming raid, send its "
+                                + "non-guard citizens home to shelter (reuses MineColonies' own raid-shelter behaviour, "
+                                + "spawns no raiders). Guards keep defending.")
+                                .define("EnableColonistWartimeShelter", true);
+                ENABLE_COLONIST_KILL_PROTECTION = BUILDER.comment(
+                                "Stop players from damaging colonists off the books. A player can only harm a colonist if "
+                                + "they are a member of that colony or a sanctioned war/besiege/raid is active against it. "
+                                + "Vanilla monsters and the environment are unaffected, so natural raids still work.")
+                                .define("EnableColonistKillProtection", true);
+                BUILDER.pop();
 
                 CONFIG = BUILDER.build();
         }
@@ -2811,6 +2856,10 @@ public class TaxConfig {
                 return ENABLE_PRIMARY_COLONY_TRANSFER.get();
         }
 
+        public static boolean isVassalDeclineWarEnabled() {
+                return ENABLE_VASSAL_DECLINE_WAR.get();
+        }
+
         public static int getPrimaryColonyTaxOccupationDays() {
                 return PRIMARY_COLONY_TAX_OCCUPATION_DAYS.get();
         }
@@ -2834,6 +2883,14 @@ public class TaxConfig {
         public static int getBesiegeOfflineGraceMinutes() {
                 return BESIEGE_OFFLINE_GRACE_MINUTES.get();
         }
+
+        public static int getBesiegePrepMinutes() { return BESIEGE_PREP_MINUTES.get(); }
+        public static int getBesiegeBuyoffPercent() { return BESIEGE_BUYOFF_PERCENT.get(); }
+        public static int getBesiegeBuyoffCooldownHours() { return BESIEGE_BUYOFF_COOLDOWN_HOURS.get(); }
+
+        // Colonist wartime protection accessors
+        public static boolean isColonistWartimeShelterEnabled() { return ENABLE_COLONIST_WARTIME_SHELTER.get(); }
+        public static boolean isColonistKillProtectionEnabled() { return ENABLE_COLONIST_KILL_PROTECTION.get(); }
 
         public static boolean isBesiegeShareSpoilsEnabled() {
                 return BESIEGE_SHARE_SPOILS.get();
@@ -3149,6 +3206,10 @@ public class TaxConfig {
 
         public static int getMinGuardsForClaimingRaid() {
                 return MIN_GUARDS_FOR_CLAIMING_RAID.get();
+        }
+
+        public static boolean isColonylessClaimingRaidAllowed() {
+                return ALLOW_COLONYLESS_CLAIMING_RAID.get();
         }
 
         public static int getClaimingRaidDurationMinutes() {

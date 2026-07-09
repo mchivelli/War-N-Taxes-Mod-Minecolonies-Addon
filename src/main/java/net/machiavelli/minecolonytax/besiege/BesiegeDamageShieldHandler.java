@@ -5,6 +5,7 @@ import com.minecolonies.api.colony.permissions.Rank;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
 import net.machiavelli.minecolonytax.MineColonyTax;
 import net.machiavelli.minecolonytax.TaxConfig;
+import net.machiavelli.minecolonytax.compat.CombatSanction;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -53,6 +54,16 @@ public class BesiegeDamageShieldHandler {
         LivingEntity target = event.getEntity();
         UUID sourceUUID = source.getUUID();
 
+        // A source who is themselves an authorized belligerent against the TARGET citizen's own
+        // colony (their own besiege/war/raid granted them the attack permission) is not a mere
+        // helper — the solo-besiege shield must never block them, or two colony-mates co-besieging
+        // the same colony would cancel each other's hits. A bystander colony-mate who never
+        // declared has no such permission and still falls through to the solo-shield check below.
+        if (target instanceof AbstractEntityCitizen citizen) {
+            IColony targetColony = citizenColony(citizen);
+            if (targetColony != null && CombatSanction.mayHarmColonists(targetColony, source)) return;
+        }
+
         // For EACH active besiege, ask "is this source helping someone else's besiege?"
         // We do NOT short-circuit on the source being a besieger themselves — that was
         // the bug. An active besieger can still be a colony-mate of ANOTHER besieger,
@@ -72,6 +83,16 @@ public class BesiegeDamageShieldHandler {
             event.setAmount(0f);
             sendBlockedMessage(source);
             return;
+        }
+    }
+
+    /** The colony a citizen belongs to, or {@code null} if unavailable. */
+    private static IColony citizenColony(AbstractEntityCitizen citizen) {
+        try {
+            var data = citizen.getCitizenData();
+            return data != null ? data.getColony() : null;
+        } catch (Exception ignored) {
+            return null;
         }
     }
 
