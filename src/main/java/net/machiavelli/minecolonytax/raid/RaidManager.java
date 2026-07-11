@@ -234,6 +234,27 @@ public class RaidManager {
             // Send styled raid alert to all colony members
             sendColonyMessage(colony, Component.translatable("raid.alert.colony", colony.getName(), raider.getName().getString())
                     .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+
+            // Role briefings: tell each side plainly what they are and how it's won.
+            int raidSeconds = RaidManager.getMaxRaidDurationSeconds();
+            raider.sendSystemMessage(Component.literal("")
+                .append(Component.literal("⚔ You are RAIDING " + colony.getName() + " — how it's won:\n")
+                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
+                .append(Component.literal("• Hold the colony for " + raidSeconds + "s to steal a cut of its tax; kill its defenders to raise your take.\n")
+                        .withStyle(ChatFormatting.GREEN))
+                .append(Component.literal("• You LOSE if a defender kills you, or if you retreat far from the colony past the countdown.\n")
+                        .withStyle(ChatFormatting.RED))
+                .append(Component.literal("Wandering out no longer instantly ends the raid — you get a few seconds to return first.")
+                        .withStyle(ChatFormatting.GRAY)));
+            sendColonyMessage(colony, Component.literal("")
+                .append(Component.literal("🛡 " + colony.getName() + " is being RAIDED by " + raider.getName().getString() + " — how it's won:\n")
+                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
+                .append(Component.literal("• Kill the raider (they glow) to end the raid and save your tax.\n")
+                        .withStyle(ChatFormatting.GREEN))
+                .append(Component.literal("• If they hold out for " + raidSeconds + "s, they steal a cut of your stored tax.\n")
+                        .withStyle(ChatFormatting.RED))
+                .append(Component.literal("Rally your guards and cut them down!")
+                        .withStyle(ChatFormatting.GRAY)));
             return 1;
 
         } catch (Exception e) {
@@ -703,50 +724,71 @@ public class RaidManager {
                     return;
                 }
                 
-                // Check if raider is still in colony boundaries
-                boolean isInColony = isRaiderInColony(raiderPlayer, raidData.getColony());
-                if (!isInColony && !raidData.hasLeftBoundaries()) {
-                    // First time leaving boundaries - mark it and notify
-                    raidData.markLeftBoundaries();
-                    
-                    // Calculate what they would have earned up to this point
-                    double currentStealPercentage = CitizenMilitiaManager.getInstance().calculateTaxPercentage(raidData.getColony().getID());
-                    int colonyBalance = TaxManager.getStoredTaxForColony(raidData.getColony());
-                    int potentialStolen = (int) (colonyBalance * currentStealPercentage);
-                    raidData.setPotentialStolenAmount(potentialStolen);
-                    
-                    // Notify raider they've lost their rewards
-                    Component penaltyMessage = Component.literal("⚠ RAID DISQUALIFIED! ⚠")
-                        .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
-                        .append(Component.literal("\n"))
-                        .append(Component.literal("You left the colony boundaries!").withStyle(ChatFormatting.YELLOW))
-                        .append(Component.literal("\n").withStyle(ChatFormatting.YELLOW))
-                        .append(Component.literal("Potential earnings forfeited: ").withStyle(ChatFormatting.GOLD))
-                        .append(Component.literal(String.valueOf(potentialStolen)).withStyle(ChatFormatting.RED, ChatFormatting.BOLD))
-                        .append(Component.literal("\n").withStyle(ChatFormatting.GOLD))
-                        .append(Component.literal("RAID ENDING - You gain nothing!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
-                    
-                    raiderPlayer.sendSystemMessage(penaltyMessage);
-                    
-                    // Notify colony defenders
-                    Component defenseMessage = Component.literal("🎉 RAIDER FLED! 🎉")
-                        .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)
-                        .append(Component.literal("\n"))
-                        .append(Component.literal("The raider ").withStyle(ChatFormatting.GOLD))
-                        .append(Component.literal(raiderPlayer.getName().getString()).withStyle(ChatFormatting.YELLOW))
-                        .append(Component.literal(" left the colony boundaries and was disqualified!").withStyle(ChatFormatting.GOLD))
-                        .append(Component.literal("\n").withStyle(ChatFormatting.GOLD))
-                        .append(Component.literal("Raid ended - Colony successfully defended!").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
-                    
-                    sendColonyMessage(raidData.getColony(), defenseMessage);
-                    
-                    LOGGER.info("Raider {} left colony {} boundaries. Raid ended immediately. Potential earnings of {} forfeited.", 
-                        raiderPlayer.getName().getString(), raidData.getColony().getName(), potentialStolen);
-                    
-                    // End the raid immediately - raider gains nothing
-                    endRaid(raidData, "Raider left colony boundaries and was disqualified");
-                    net.machiavelli.minecolonytax.util.TickScheduler.cancel(raidData.getTimerTaskId());
-                    return;
+                // Retreat check. A raider must press the raid at the colony, but a brief, accidental
+                // step-out no longer INSTANTLY ends it (that was the old behaviour). Leaving the
+                // (large, border-based) boundary starts a grace countdown with an on-screen warning;
+                // returning cancels it, and only staying out for the whole grace forfeits the raid.
+                boolean inRange = net.machiavelli.minecolonytax.util.ColonyGeometry.isWithinBattleRange(
+                        raidData.getColony(), raiderPlayer,
+                        net.machiavelli.minecolonytax.TaxConfig.getBesiegePlayerStayRadius());
+
+                if (!inRange) {
+                    if (raidData.getRetreatingSinceMs() == 0L) {
+                        raidData.setRetreatingSinceMs(System.currentTimeMillis());
+                    }
+                    long graceMs = net.machiavelli.minecolonytax.TaxConfig.getBesiegeRetreatGraceSeconds() * 1000L;
+                    long retreatElapsed = System.currentTimeMillis() - raidData.getRetreatingSinceMs();
+
+                    if (retreatElapsed >= graceMs) {
+                        // Grace expired while still away — disqualify (the original "raider fled" outcome).
+                        raidData.markLeftBoundaries();
+
+                        double currentStealPercentage = CitizenMilitiaManager.getInstance().calculateTaxPercentage(raidData.getColony().getID());
+                        int colonyBalance = TaxManager.getStoredTaxForColony(raidData.getColony());
+                        int potentialStolen = (int) (colonyBalance * currentStealPercentage);
+                        raidData.setPotentialStolenAmount(potentialStolen);
+
+                        Component penaltyMessage = Component.literal("⚠ RAID DISQUALIFIED! ⚠")
+                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                            .append(Component.literal("\n"))
+                            .append(Component.literal("You retreated from the colony!").withStyle(ChatFormatting.YELLOW))
+                            .append(Component.literal("\n").withStyle(ChatFormatting.YELLOW))
+                            .append(Component.literal("Potential earnings forfeited: ").withStyle(ChatFormatting.GOLD))
+                            .append(Component.literal(String.valueOf(potentialStolen)).withStyle(ChatFormatting.RED, ChatFormatting.BOLD))
+                            .append(Component.literal("\n").withStyle(ChatFormatting.GOLD))
+                            .append(Component.literal("RAID ENDING - You gain nothing!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+                        raiderPlayer.sendSystemMessage(penaltyMessage);
+
+                        Component defenseMessage = Component.literal("🎉 RAIDER FLED! 🎉")
+                            .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)
+                            .append(Component.literal("\n"))
+                            .append(Component.literal("The raider ").withStyle(ChatFormatting.GOLD))
+                            .append(Component.literal(raiderPlayer.getName().getString()).withStyle(ChatFormatting.YELLOW))
+                            .append(Component.literal(" retreated from the colony and was disqualified!").withStyle(ChatFormatting.GOLD))
+                            .append(Component.literal("\n").withStyle(ChatFormatting.GOLD))
+                            .append(Component.literal("Raid ended - Colony successfully defended!").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+                        sendColonyMessage(raidData.getColony(), defenseMessage);
+
+                        LOGGER.info("Raider {} retreated from colony {} past the grace window. Raid ended. Potential earnings of {} forfeited.",
+                            raiderPlayer.getName().getString(), raidData.getColony().getName(), potentialStolen);
+
+                        endRaid(raidData, "Raider retreated from the colony and was disqualified");
+                        net.machiavelli.minecolonytax.util.TickScheduler.cancel(raidData.getTimerTaskId());
+                        return;
+                    }
+
+                    // Still within grace — show a live countdown on the action bar (bottom of screen).
+                    long remainingSec = Math.max(1, (graceMs - retreatElapsed + 999) / 1000);
+                    raiderPlayer.displayClientMessage(Component.literal(
+                            "⚠ You left " + raidData.getColony().getName() + "! Return to the raid in "
+                                    + remainingSec + "s or you forfeit it.")
+                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
+                } else if (raidData.getRetreatingSinceMs() != 0L) {
+                    // Returned to the colony in time — cancel the retreat countdown.
+                    raidData.setRetreatingSinceMs(0L);
+                    raiderPlayer.displayClientMessage(Component.literal(
+                            "You returned to the raid on " + raidData.getColony().getName() + ".")
+                            .withStyle(ChatFormatting.GREEN), true);
                 }
                 
                 // Increment elapsed time FIRST before checking duration

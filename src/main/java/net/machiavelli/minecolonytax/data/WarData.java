@@ -31,6 +31,23 @@ public class WarData {
 
     /** TickScheduler task id for the per-second war countdown (-1 = none). */
     public long warTimerTaskId = -1L;
+
+    /**
+     * Wall-clock millis when the attacking side was first seen with NO player inside the retreat
+     * boundary of the target colony, or 0 while at least one attacker is present. Drives the
+     * conquest-war retreat grace countdown (same rule as a besiege): straying away too long forfeits
+     * the war to the defenders. Reset to 0 the moment an attacker returns to the field.
+     */
+    public long retreatingSinceMs = 0L;
+
+    /**
+     * True once at least one attacker has been seen INSIDE the retreat boundary of the target colony.
+     * The retreat countdown only applies after the attacking side has actually engaged — a war whose
+     * attackers are still marching to the target is never instantly forfeited (the war timer resolves
+     * a no-show instead).
+     */
+    public boolean hasEngagedTarget = false;
+
     public ServerBossEvent bossEvent;
     public ServerBossEvent alliesBossEvent;
     private String penaltyReport = "";

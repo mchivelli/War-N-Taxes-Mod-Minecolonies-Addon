@@ -109,6 +109,26 @@ public class MineColonyTax {
             LOGGER.error("Failed to load/resume active wars: {}", t.toString());
         }
 
+        // Permission cleanup: demote players left stuck in the Hostile rank after a war/raid/besiege
+        // ended. War-end only disables the Hostile action nodes — it never moves the participant out
+        // of Hostile rank — so without this an ex-combatant stays a permanent "hostile" member of
+        // every colony they ever fought (and the owner can't cleanly manage them). Runs once now
+        // (after wars are restored, so genuine current combatants are protected by isLegitimatelyHostile)
+        // and then every 60s, so stray hostiles are cleared within a minute of any conflict ending.
+        final net.minecraft.server.MinecraftServer permServer = event.getServer();
+        try {
+            net.machiavelli.minecolonytax.permissions.PermissionsHealthCheck.run(permServer);
+        } catch (Throwable t) {
+            LOGGER.error("Initial permissions health check failed: {}", t.toString());
+        }
+        net.machiavelli.minecolonytax.util.TickScheduler.scheduleRepeating(() -> {
+            try {
+                net.machiavelli.minecolonytax.permissions.PermissionsHealthCheck.run(permServer);
+            } catch (Throwable t) {
+                LOGGER.error("Periodic permissions health check failed: {}", t.toString());
+            }
+        }, 60_000, 60_000);
+
         // Occupation
         try {
             OccupationManager.initialize(event.getServer());

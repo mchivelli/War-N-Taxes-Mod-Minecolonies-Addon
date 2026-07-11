@@ -233,6 +233,13 @@ public class PermissionsHealthCheck {
             }
         }
 
+        // Besiege: the lead besieger and granted allies are assigned Hostile on the target colony.
+        // Without this a periodic cleanup would demote an active besieger mid-siege, stripping their
+        // combat permissions and breaking the siege.
+        if (net.machiavelli.minecolonytax.besiege.BesiegeManager.isPlayerBesiegingColony(playerUUID, colonyId)) {
+            return true;
+        }
+
         // Claiming raids do not assign Hostile rank — they use Neutral rank attack nodes instead.
         return false;
     }

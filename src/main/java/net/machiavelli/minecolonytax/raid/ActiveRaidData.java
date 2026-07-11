@@ -42,6 +42,10 @@ public class ActiveRaidData {
     private boolean hasLeftBoundaries = false;
     private long timeLeftBoundaries = 0;
     private int potentialStolenAmount = 0;
+    /** Wall-clock millis when the raider was first seen beyond the retreat boundary, or 0 while in
+     *  range. Drives the retreat grace countdown so an accidental step-out no longer instantly ends
+     *  the raid; only staying out past the grace forfeits it. Reset to 0 the moment they return. */
+    private long retreatingSinceMs = 0;
 
     public ActiveRaidData(UUID raider, IColony colony, ServerBossEvent bossEvent, TimerTask timerTask) {
         this.raider     = raider;
@@ -245,6 +249,14 @@ public class ActiveRaidData {
     
     public long getTimeLeftBoundaries() {
         return timeLeftBoundaries;
+    }
+
+    public long getRetreatingSinceMs() {
+        return retreatingSinceMs;
+    }
+
+    public void setRetreatingSinceMs(long ms) {
+        this.retreatingSinceMs = ms;
     }
     
     public boolean isEligibleForRewards() {

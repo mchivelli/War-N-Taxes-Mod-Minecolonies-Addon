@@ -385,6 +385,46 @@ public class WarSystem {
         }
     }
 
+    /**
+     * Send every participant a plain-language briefing of their role (attacker or defender) and how
+     * the war is won, so the boss bar's shared numbers are backed by a clear "what am I and what do I
+     * do" for each side. Called once when the war goes live.
+     */
+    private static void sendWarRoleBriefings(WarData war) {
+        if (war.getColony() == null || war.getColony().getWorld() == null
+                || war.getColony().getWorld().getServer() == null) return;
+        MinecraftServer server = war.getColony().getWorld().getServer();
+        String name = war.getColony().getName();
+
+        Component attackerBrief = Component.literal("")
+            .append(Component.literal("⚔ You are ATTACKING " + name + " — how it's won:\n")
+                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
+            .append(Component.literal("• You WIN by killing the colony's citizens or draining the defenders' lives before time runs out.\n")
+                    .withStyle(ChatFormatting.GREEN))
+            .append(Component.literal("• You LOSE if the timer runs out or your side's lives are spent.\n")
+                    .withStyle(ChatFormatting.RED))
+            .append(Component.literal("Press the assault AT the colony — retreating far past its border forfeits the war.")
+                    .withStyle(ChatFormatting.GRAY));
+        Component defenderBrief = Component.literal("")
+            .append(Component.literal("🛡 You are DEFENDING " + name + " — how it's won:\n")
+                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
+            .append(Component.literal("• You WIN by outlasting the timer or draining the attackers' lives.\n")
+                    .withStyle(ChatFormatting.GREEN))
+            .append(Component.literal("• You LOSE if your citizens fall or your side's lives are spent.\n")
+                    .withStyle(ChatFormatting.RED))
+            .append(Component.literal("Hold your ground and cut the attackers down!")
+                    .withStyle(ChatFormatting.GRAY));
+
+        for (UUID uuid : war.getAttackerLives().keySet()) {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p != null) p.sendSystemMessage(attackerBrief);
+        }
+        for (UUID uuid : war.getDefenderLives().keySet()) {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p != null) p.sendSystemMessage(defenderBrief);
+        }
+    }
+
     public static void finalizeWarStart(WarData war) {
         int attackerPlayerCount = war.getAttackerLives().size();
         int defenderPlayerCount = war.getDefenderLives().size();
@@ -444,6 +484,8 @@ public class WarSystem {
         war.warStartTime = System.currentTimeMillis();
         war.setStatus(WarData.WarStatus.INWAR);
         updateBossBar(war);
+        // Role briefings: tell each participant plainly which side they are and how the war is won.
+        sendWarRoleBriefings(war);
         // Apply glow to both defender and attacker guards for clear visibility
         applyGuardGlow(war.getColony());
         if (war.getAttackerColony() != null) {
@@ -2022,6 +2064,112 @@ public class WarSystem {
         }
     }
 
+    /**
+     * Conquest-war retreat check, run once a second from the war countdown. Mirrors the besiege
+     * retreat rule so the same "you must show up and fight" pressure applies to wars that claim an
+     * Nth colony. The attacking side (primary attacker + allies) must keep at least one player within
+     * {@code BesiegePlayerStayRadius} of the target colony's nearest claimed border. If NO attacker is inside the
+     * boundary, a grace countdown ({@code BesiegeRetreatGraceSeconds}) starts with an on-screen
+     * warning; returning inside cancels it. If the grace elapses, the war is forfeited to the
+     * defenders. Offline-only attacking sides do not trip this (that is handled separately on expiry).
+     *
+     * @return true if the war was ended by this retreat (caller must stop ticking it).
+     */
+    private static boolean checkAttackerRetreat(WarData war) {
+        IColony target = war.getColony();
+        if (target == null || target.getWorld() == null) return false;
+        MinecraftServer server = target.getWorld().getServer();
+        if (server == null) return false;
+
+        // Distance is measured from the target colony's nearest claimed BORDER (claims are irregular
+        // polygons, not rectangles), not from the center — see ColonyGeometry.
+        int maxRadius = TaxConfig.getBesiegePlayerStayRadius();
+
+        // The attacking side: primary attacker + declared allies + anyone still holding attacker lives.
+        Set<UUID> attackers = new HashSet<>();
+        if (war.getAttacker() != null) attackers.add(war.getAttacker());
+        attackers.addAll(war.getAttackerAllies());
+        attackers.addAll(war.getAttackerLives().keySet());
+
+        boolean anyPresent = false;
+        boolean anyOnline = false;
+        for (UUID uuid : attackers) {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p == null || p.level() != target.getWorld()) continue;
+            anyOnline = true;
+            if (net.machiavelli.minecolonytax.util.ColonyGeometry.isWithinBattleRange(target, p, maxRadius)) {
+                anyPresent = true;
+                break;
+            }
+        }
+
+        // Someone is holding the line — mark engaged and clear any retreat in progress.
+        if (anyPresent) {
+            war.hasEngagedTarget = true;
+            war.retreatingSinceMs = 0L;
+            return false;
+        }
+        // Nobody online on the attacking side: don't run the retreat timer (offline is resolved on
+        // expiry via disconnected-lives handling), just clear any partial countdown.
+        if (!anyOnline) {
+            war.retreatingSinceMs = 0L;
+            return false;
+        }
+        // Attackers are online but away, and have not yet reached the target: no retreat until they
+        // have engaged at least once (a no-show is resolved by the war timer, not a forfeit).
+        if (!war.hasEngagedTarget) {
+            war.retreatingSinceMs = 0L;
+            return false;
+        }
+
+        if (war.retreatingSinceMs == 0L) war.retreatingSinceMs = System.currentTimeMillis();
+        long graceMs = TaxConfig.getBesiegeRetreatGraceSeconds() * 1000L;
+        long elapsed = System.currentTimeMillis() - war.retreatingSinceMs;
+
+        if (elapsed >= graceMs) {
+            handleAttackerRetreat(war, attackers, server);
+            return true;
+        }
+
+        // Live countdown on the action bar (bottom of screen) for every online attacker.
+        long remainingSec = Math.max(1, (graceMs - elapsed + 999) / 1000);
+        Component warn = Component.literal("⚠ Your assault on " + target.getName()
+                + " is faltering! Return to the battle in " + remainingSec + "s or forfeit the war.")
+                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD);
+        for (UUID uuid : attackers) {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p != null) p.displayClientMessage(warn, true);
+        }
+        return false;
+    }
+
+    /** Forfeit a war because the attacking side retreated: tell both sides ("enemy retreated"), award
+     *  the defenders the victory, and end the war. */
+    private static void handleAttackerRetreat(WarData war, Set<UUID> attackers, MinecraftServer server) {
+        String defenderColonyName = war.getColony().getName();
+        Component attackerMsg = Component.literal("You retreated from " + defenderColonyName
+                + " — your war is abandoned and the defenders hold the field.")
+                .withStyle(ChatFormatting.RED);
+        Component defenderMsg = Component.literal("The enemy retreated — " + defenderColonyName
+                + " has repelled the assault!")
+                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
+
+        for (UUID uuid : attackers) {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p != null) p.sendSystemMessage(attackerMsg);
+        }
+        sendColonyMessage(war.getColony(), defenderMsg);
+        for (UUID defUUID : war.getDefenderLives().keySet()) {
+            ServerPlayer p = server.getPlayerList().getPlayer(defUUID);
+            if (p != null) PlayerWarDataManager.incrementWarsWon(p);
+        }
+        if (TaxConfig.isNormalLogging())
+            WARSYSTEM_LOGGER.info("Attacker side retreated from colony {} — war forfeited, defenders win",
+                    war.getColony().getName());
+        handleVictoryRewards(war, true); // true = defender victory
+        endWar(war.getColony());
+    }
+
     private static void startWarCountdown(WarData warData) {
         if (warData.getColony().getWorld() == null) {
             WARSYSTEM_LOGGER.error("Cannot start war countdown, world is null for colony {}", warData.getColony().getID());
@@ -2053,6 +2201,13 @@ public class WarSystem {
             warData.bossEvent.setName(Component.literal(bossText));
             warData.bossEvent.setProgress((float) remaining / warDurationSeconds);
             warData.bossEvent.setVisible(true);
+            // Conquest-war retreat: the aggressor must press the assault at the target colony, just
+            // like a besiege. If the whole attacking side strays past the retreat boundary for the
+            // grace period, the war is forfeited to the defenders ("enemy retreated").
+            if (checkAttackerRetreat(warData)) {
+                net.machiavelli.minecolonytax.util.TickScheduler.cancel(warData.warTimerTaskId);
+                return;
+            }
             if (remaining <= 0) {
                 handleTimeExpiry(warData);
                 net.machiavelli.minecolonytax.util.TickScheduler.cancel(warData.warTimerTaskId);

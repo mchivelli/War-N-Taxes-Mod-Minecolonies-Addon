@@ -217,8 +217,8 @@ public class BesiegeManager {
                 .append(Component.literal("• You LOSE if the timer runs out, OR your side runs out of lives.\n")
                         .withStyle(ChatFormatting.RED))
                 .append(Component.literal("Each fighter has " + lives + " lives — every death spends one. The boss "
-                        + "bar shows lives left for both sides. Stay within " + radius
-                        + " blocks or the siege is called off.")
+                        + "bar shows lives left for both sides. Roam freely to lay your siege; only retreating a "
+                        + "great distance (about " + (radius / 16) + " chunks from the colony) abandons the assault.")
                         .withStyle(ChatFormatting.GRAY));
         }
         return Component.literal("")
@@ -342,23 +342,61 @@ public class BesiegeManager {
                     continue;
                 }
 
-                // --- Besieger left the area ---
+                // --- Besieger retreated (abandoned the field) ---
+                // A besiege is NOT a raid: the attacker is meant to roam — place siege gear outside
+                // the walls, chase fleeing defenders, regroup. So there is no tight geofence, just a
+                // VERY large outer boundary (BesiegePlayerStayRadius, many chunks). Straying past it
+                // does NOT instantly end the siege: it starts a grace countdown
+                // (BesiegeRetreatGraceSeconds) with an on-screen warning so a player who wandered or
+                // got knocked back can return. Only if they stay out for the whole grace is the siege
+                // forfeited, and BOTH sides are told why ("enemy retreated") — the defenders are
+                // credited with driving them off. Returning inside the boundary cancels the countdown.
                 if (besieger != null) {
-                    BlockPos center = colony.getCenter();
-                    double dist = besieger.distanceToSqr(center.getX(), center.getY(), center.getZ());
+                    // Distance is measured from the colony's nearest claimed BORDER (claims are
+                    // irregular polygons, not rectangles), not from the center — see ColonyGeometry.
                     int maxRadius = TaxConfig.getBesiegePlayerStayRadius();
-                    if (dist > (double) maxRadius * maxRadius) {
-                        besieger.sendSystemMessage(Component.literal(
-                                "You left the besiege area — the raid has been cancelled!")
-                                .withStyle(ChatFormatting.RED));
-                        cleanupRaid(raid, false);
-                        applyCooldown(raid.besiegingPlayerUUID);
-                        it.remove();
-                        continue;
-                    }
+                    boolean insideBoundary = net.machiavelli.minecolonytax.util.ColonyGeometry
+                            .isWithinBattleRange(colony, besieger, maxRadius);
 
-                    // Track allies: anyone who recently damaged a defender
-                    // (ally tracking is done in the kill/hurt event — see RaidKillTracker integration)
+                    if (insideBoundary) {
+                        // On the field. Mark engaged, and cancel any retreat countdown in progress.
+                        raid.engagedField = true;
+                        if (raid.retreatingSinceMs != 0L) {
+                            raid.retreatingSinceMs = 0L;
+                            besieger.displayClientMessage(Component.literal(
+                                    "You returned to the siege of " + colony.getName() + ".")
+                                    .withStyle(ChatFormatting.GREEN), true);
+                        }
+                    } else if (raid.engagedField) {
+                        // Only a besieger who has actually reached the colony can "retreat" from it.
+                        if (raid.retreatingSinceMs == 0L) raid.retreatingSinceMs = System.currentTimeMillis();
+                        long graceMs = TaxConfig.getBesiegeRetreatGraceSeconds() * 1000L;
+                        long elapsed = System.currentTimeMillis() - raid.retreatingSinceMs;
+
+                        if (elapsed >= graceMs) {
+                            // Grace expired while still away — forfeit the siege.
+                            besieger.sendSystemMessage(Component.literal(
+                                    "You retreated from " + colony.getName() + " — your siege is abandoned.")
+                                    .withStyle(ChatFormatting.RED));
+                            notifyColonyDefenders(colony, Component.literal(
+                                    "The enemy retreated — the siege of " + colony.getName() + " is lifted!")
+                                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+                            if (TaxConfig.isNormalLogging())
+                                LOGGER.info("Besieger {} retreated beyond {} blocks past grace — siege of colony {} lifted",
+                                        raid.besiegingPlayerUUID, maxRadius, colony.getName());
+                            cleanupRaid(raid, false);
+                            applyCooldown(raid.besiegingPlayerUUID);
+                            it.remove();
+                            continue;
+                        }
+
+                        // Still within grace — show a live countdown on the action bar (bottom of screen).
+                        long remainingSec = Math.max(1, (graceMs - elapsed + 999) / 1000);
+                        besieger.displayClientMessage(Component.literal(
+                                "⚠ Retreating from " + colony.getName() + "! Return to the siege in "
+                                        + remainingSec + "s or you forfeit the battle.")
+                                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
+                    }
                 }
 
                 // --- Victory: all colonists dead, OR the defenders' lives are exhausted ---
@@ -1455,8 +1493,47 @@ public class BesiegeManager {
         }
     }
 
+    /**
+     * Add a player to every active besiege boss bar on this colony. Used when a defender rallies in
+     * via {@code /wnt defend}: they are teleported to the colony AFTER the siege (and its boss bar)
+     * was created, so createBossBar's "nearby at creation" scan never caught them — without this they
+     * would fight with no siege bar on screen. Safe to call repeatedly (addPlayer is idempotent).
+     */
+    public static void showBossBarsToPlayer(int colonyId, ServerPlayer player) {
+        for (BesiegeRaidData raid : getRaidsForColony(colonyId)) {
+            if (raid.bossEvent != null) {
+                try { raid.bossEvent.addPlayer(player); } catch (Exception ignored) {}
+            }
+        }
+    }
+
+    /** Add any players now within range of the colony to this raid's boss bar (idempotent), so the
+     *  bar self-heals each tick — anyone who walks up, respawns, or teleports in starts seeing it
+     *  within ~1s even if they weren't nearby when the siege was first created. */
+    private static void refreshNearbyBossBarPlayers(BesiegeRaidData raid, IColony colony) {
+        if (raid.bossEvent == null) return;
+        try {
+            Level world = colony.getWorld();
+            if (!(world instanceof ServerLevel serverLevel)) return;
+            BlockPos center = colony.getCenter();
+            java.util.Collection<ServerPlayer> current = raid.bossEvent.getPlayers();
+            for (ServerPlayer player : serverLevel.getServer().getPlayerList().getPlayers()) {
+                if (player.level() != world || current.contains(player)) continue;
+                double dist = player.distanceToSqr(center.getX(), center.getY(), center.getZ());
+                if (dist <= 200.0 * 200.0) {
+                    try { raid.bossEvent.addPlayer(player); } catch (Exception ignored) {}
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Failed to refresh nearby besiege boss bar players", e);
+        }
+    }
+
     private static void updateBossBar(BesiegeRaidData raid, IColony colony) {
         if (raid.bossEvent == null) return;
+
+        // Pick up anyone who has since entered the area (defenders who rallied, onlookers, respawns).
+        refreshNearbyBossBarPlayers(raid, colony);
 
         try {
             long remaining = Math.max(0, raid.endTime - System.currentTimeMillis());
@@ -1516,6 +1593,20 @@ public class BesiegeManager {
     }
 
     /**
+     * True if this player is an ACTIVE besieger of this colony — the lead besieger or a granted ally.
+     * Such a player legitimately holds the colony's Hostile rank right now, so permission-cleanup
+     * passes must NOT demote them mid-siege. O(besiegers on the colony).
+     */
+    public static boolean isPlayerBesiegingColony(UUID playerUUID, int colonyId) {
+        if (playerUUID == null) return false;
+        for (BesiegeRaidData raid : getRaidsForColony(colonyId)) {
+            if (playerUUID.equals(raid.besiegingPlayerUUID)) return true;
+            if (raid.alliedPlayers != null && raid.alliedPlayers.contains(playerUUID)) return true;
+        }
+        return false;
+    }
+
+    /**
      * Returns true if the player is locked out of the colony due to besiege occupation.
      * The former owner is locked out; the besieging player is the new effective controller.
      */
@@ -1557,6 +1648,30 @@ public class BesiegeManager {
     public static boolean isOnCooldown(UUID playerUUID) {
         Long expiry = PLAYER_COOLDOWNS.get(playerUUID);
         return expiry != null && System.currentTimeMillis() < expiry;
+    }
+
+    /**
+     * Clear a single player's besiege cooldowns — both the general besiege/reclaim cooldown and any
+     * per-colony buy-off cooldowns keyed to them. Returns how many cooldown entries were removed.
+     * Primarily an alpha-testing aid (via {@code /wnt resetcooldown}) so testers can re-run sieges
+     * back to back without waiting out a real cooldown.
+     */
+    public static int clearCooldownsFor(UUID playerUUID) {
+        int cleared = 0;
+        if (PLAYER_COOLDOWNS.remove(playerUUID) != null) cleared++;
+        String prefix = playerUUID + ":";
+        for (Iterator<String> it = BUYOFF_COOLDOWNS.keySet().iterator(); it.hasNext(); ) {
+            if (it.next().startsWith(prefix)) { it.remove(); cleared++; }
+        }
+        return cleared;
+    }
+
+    /** Clear EVERY besiege + buy-off cooldown for all players. Returns the number of entries removed. */
+    public static int clearAllCooldowns() {
+        int cleared = PLAYER_COOLDOWNS.size() + BUYOFF_COOLDOWNS.size();
+        PLAYER_COOLDOWNS.clear();
+        BUYOFF_COOLDOWNS.clear();
+        return cleared;
     }
 
     public static BesiegeOccupationData getOccupation(int colonyId) {
@@ -1891,6 +2006,23 @@ public class BesiegeManager {
          * Reset to 0 the moment they come back online.
          */
         public long offlineSinceMs = 0;
+
+        /**
+         * Wall-clock millis when the besieging player was first seen straying beyond
+         * BesiegePlayerStayRadius (a possible retreat), or 0 while they are within range.
+         * Drives the retreat grace countdown: only if they stay out past
+         * BesiegeRetreatGraceSeconds is the siege forfeited ("enemy retreated"). Reset to 0
+         * the moment they return inside the boundary.
+         */
+        public long retreatingSinceMs = 0;
+
+        /**
+         * True once the besieger has been seen INSIDE the retreat boundary at least once. The retreat
+         * countdown only applies after they have actually engaged — you cannot "retreat" from a siege
+         * you never joined, so a besieger who launches from far away is never instantly forfeited
+         * (the siege timer resolves that case instead).
+         */
+        public boolean engagedField = false;
 
         /**
          * Short-TTL cache of "is this player a colony-mate of the besieger?" keyed

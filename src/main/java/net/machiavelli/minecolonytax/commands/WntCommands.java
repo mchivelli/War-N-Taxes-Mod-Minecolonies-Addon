@@ -173,6 +173,27 @@ public class WntCommands {
                         )
                 )
 
+                // Alpha-testing aid: clear besiege cooldowns so testers can re-run sieges back to back.
+                // No arg = clear everyone's; with a player name = clear just that player's. Op only.
+                .then(Commands.literal("resetcooldown")
+                        .requires(src -> src.hasPermission(2))
+                        .executes(WntCommands::resetAllCooldownsCommand)
+                        .then(Commands.argument("player", StringArgumentType.string())
+                                .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
+                                        ctx.getSource().getServer().getPlayerList().getPlayers().stream()
+                                                .map(p -> p.getGameProfile().getName()),
+                                        builder))
+                                .executes(WntCommands::resetPlayerCooldownCommand)
+                        )
+                )
+
+                // Admin: force the permission health check now — demote players left stuck in the
+                // Hostile rank after a war/raid/besiege ended (also runs automatically every 60s).
+                .then(Commands.literal("permcheck")
+                        .requires(src -> src.hasPermission(2))
+                        .executes(WntCommands::permCheckCommand)
+                )
+
                 .then(Commands.literal("joinwar")
                         .executes(WntCommands::joinWarCommand)
                 )
@@ -1193,6 +1214,10 @@ public class WntCommands {
             net.minecraft.core.BlockPos c = target.getCenter();
             player.teleportTo(level, c.getX() + 0.5, c.getY() + 1, c.getZ() + 0.5,
                     player.getYRot(), player.getXRot());
+            // Show them the siege boss bar now that they are in position. The bar was created when the
+            // siege launched (before this teleport), so the "nearby at creation" scan missed them —
+            // add them explicitly so the event is visible on screen the moment they arrive.
+            BesiegeManager.showBossBarsToPlayer(target.getID(), player);
             player.sendSystemMessage(Component.literal("You rally to the defense of " + target.getName() + "!")
                     .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
             // Plain-language rules so the defender knows exactly how to win or lose.
@@ -1236,6 +1261,40 @@ public class WntCommands {
             LOGGER.error("Error handling buyoff command", e);
             return 0;
         }
+    }
+
+    /** Op-only alpha aid: wipe EVERY besiege + buy-off cooldown so testers can re-run sieges freely. */
+    private static int resetAllCooldownsCommand(CommandContext<CommandSourceStack> ctx) {
+        int cleared = BesiegeManager.clearAllCooldowns();
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "Cleared all besiege cooldowns (" + cleared + " entr" + (cleared == 1 ? "y" : "ies") + ").")
+                .withStyle(ChatFormatting.GREEN), true);
+        return 1;
+    }
+
+    /** Op-only alpha aid: clear one named player's besiege + buy-off cooldowns. */
+    private static int resetPlayerCooldownCommand(CommandContext<CommandSourceStack> ctx) {
+        String name = StringArgumentType.getString(ctx, "player");
+        ServerPlayer targetPlayer = ctx.getSource().getServer().getPlayerList().getPlayerByName(name);
+        if (targetPlayer == null) {
+            ctx.getSource().sendFailure(Component.literal("Player not found online: " + name)
+                    .withStyle(ChatFormatting.RED));
+            return 0;
+        }
+        int cleared = BesiegeManager.clearCooldownsFor(targetPlayer.getUUID());
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "Cleared " + cleared + " besiege cooldown" + (cleared == 1 ? "" : "s") + " for " + name + ".")
+                .withStyle(ChatFormatting.GREEN), true);
+        return 1;
+    }
+
+    /** Op-only: run the permission health check on demand and report what it cleaned up. */
+    private static int permCheckCommand(CommandContext<CommandSourceStack> ctx) {
+        net.machiavelli.minecolonytax.permissions.PermissionsHealthCheck.Result r =
+                net.machiavelli.minecolonytax.permissions.PermissionsHealthCheck.run(ctx.getSource().getServer());
+        ctx.getSource().sendSuccess(() -> Component.literal(r.summary())
+                .withStyle(r.hasIssues() ? ChatFormatting.YELLOW : ChatFormatting.GREEN), true);
+        return 1;
     }
 
     private static int joinWarCommand(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
