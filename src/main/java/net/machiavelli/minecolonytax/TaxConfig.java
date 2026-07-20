@@ -124,6 +124,7 @@ public class TaxConfig {
         public static final ModConfigSpec.BooleanValue BESIEGE_SHARE_SPOILS;
         public static final ModConfigSpec.BooleanValue BESIEGE_REQUIRE_ONLINE;
         public static final ModConfigSpec.IntValue BESIEGE_OFFLINE_GRACE_MINUTES;
+        public static final ModConfigSpec.IntValue BESIEGE_RETREAT_GRACE_SECONDS;
         public static final ModConfigSpec.IntValue BESIEGE_PREP_MINUTES;
         public static final ModConfigSpec.IntValue BESIEGE_BUYOFF_PERCENT;
         public static final ModConfigSpec.IntValue BESIEGE_BUYOFF_COOLDOWN_HOURS;
@@ -258,6 +259,8 @@ public class TaxConfig {
         // War Building Requirements Configuration
         public static final ModConfigSpec.BooleanValue ENABLE_WAR_BUILDING_REQUIREMENTS;
         public static final ModConfigSpec.ConfigValue<String> WAR_BUILDING_REQUIREMENTS;
+        // A colony may not declare WAR on one that outranks it militarily (more guards).
+        public static final ModConfigSpec.BooleanValue ENABLE_WAR_RANK_RESTRICTION;
 
         // Recipe Disabling Configuration
         public static final ModConfigSpec.BooleanValue DISABLE_HUT_RECIPES;
@@ -1014,6 +1017,13 @@ public class TaxConfig {
                                                 "Leave empty to disable building requirements.")
                                 .define("WarBuildingRequirements",
                                                 "townhall:2:1,guardtower:1:3,buildershut:1:1,house:1:1");
+
+                ENABLE_WAR_RANK_RESTRICTION = BUILDER.comment(
+                                "When enabled, a colony may not declare WAR on a colony that OUTRANKS it militarily "
+                                                + "(i.e. has more guards). Rank = guard count, the same strength yardstick "
+                                                + "used for war eligibility. Attackers must use Besiege to challenge a "
+                                                + "stronger power. Set false to allow war regardless of the defender's strength.")
+                                .define("EnableWarRankRestriction", true);
 
                 BUILDER.pop();
 
@@ -2440,7 +2450,8 @@ public class TaxConfig {
                 BESIEGE_ALLIES_ENABLED = BUILDER.comment("Allow other players to assist the besieger by attacking defenders. They are tracked as allies.").define("BesiegeAlliesEnabled", true);
                 BESIEGE_EXTRA_MERCENARIES_PER_BUILDING = BUILDER.comment("Mercenaries spawned per colony building. E.g. 0.33 = 1 mercenary per 3 buildings.").defineInRange("BesiegeExtraMercenariesPerBuilding", 0.33, 0.0, 5.0);
                 BESIEGE_MAX_MERCENARIES = BUILDER.comment("Maximum number of mercenaries that can be spawned during a single besiege raid.").defineInRange("BesiegeMaxMercenaries", 10, 0, 50);
-                BESIEGE_PLAYER_STAY_RADIUS = BUILDER.comment("Maximum distance (blocks) the besieging player may stray from the colony center. Exceeding this cancels the raid.").defineInRange("BesiegePlayerStayRadius", 100, 20, 500);
+                BESIEGE_PLAYER_STAY_RADIUS = BUILDER.comment("How far (blocks, from the colony's nearest claimed BORDER — not its center, so irregular polygon claims are handled fairly) the besieging player may roam before it counts as a possible retreat. A besiege is NOT a raid — the attacker is meant to place siege gear outside the walls and chase defenders — so this is deliberately VERY large; only a genuine retreat many chunks out should ever trip it. Straying past this starts the BesiegeRetreatGraceSeconds countdown; returning inside cancels it. Default 1024 = 64 chunks. Also used by conquest wars.").defineInRange("BesiegePlayerStayRadius", 1024, 128, 16384);
+                BESIEGE_RETREAT_GRACE_SECONDS = BUILDER.comment("Grace period (seconds) a besieger may spend beyond BesiegePlayerStayRadius before the siege is forfeited as an 'enemy retreated'. During the countdown they get an on-screen warning to return; coming back inside the boundary cancels it, so an accidental step-out never instantly ends the siege. Default 30.").defineInRange("BesiegeRetreatGraceSeconds", 30, 5, 600);
                 BESIEGE_SPOIL_PERCENT_OF_LOSER_TREASURY = BUILDER.comment("One-shot percentage of the loser's war chest transferred to the winner on besiege resolution. 0 disables siege spoils entirely.").defineInRange("BesiegeSpoilPercentOfLoserTreasury", 25, 0, 100);
                 BESIEGE_ALLOW_CHEST_ACCESS = BUILDER.comment("[Access] Allow besiegers to open chests/containers in the colony during an ACTIVE siege. false (default): combat-only, no looting.").define("BesiegeAllowChestAccess", false);
                 VASSAL_LOCK_OUT_FORMER_OWNER = BUILDER.comment("[Access] After a siege ends and the colony is vassalized, lock the ORIGINAL OWNER out until they reclaim it? false (default): owner keeps access and only pays tribute.").define("VassalLockOutFormerOwner", false);
@@ -2729,6 +2740,7 @@ public class TaxConfig {
         public static boolean isBesiegeShareSpoilsEnabled() { return BESIEGE_SHARE_SPOILS.get(); }
         public static boolean isBesiegeRequireOnline() { return BESIEGE_REQUIRE_ONLINE.get(); }
         public static int getBesiegeOfflineGraceMinutes() { return BESIEGE_OFFLINE_GRACE_MINUTES.get(); }
+        public static int getBesiegeRetreatGraceSeconds() { return BESIEGE_RETREAT_GRACE_SECONDS.get(); }
         public static int getBesiegePrepMinutes() { return BESIEGE_PREP_MINUTES.get(); }
         public static int getBesiegeBuyoffPercent() { return BESIEGE_BUYOFF_PERCENT.get(); }
         public static int getBesiegeBuyoffCooldownHours() { return BESIEGE_BUYOFF_COOLDOWN_HOURS.get(); }
@@ -3026,6 +3038,10 @@ public class TaxConfig {
 
         public static boolean isWarBuildingRequirementsEnabled() {
                 return ENABLE_WAR_BUILDING_REQUIREMENTS.get();
+        }
+
+        public static boolean isWarRankRestrictionEnabled() {
+                return ENABLE_WAR_RANK_RESTRICTION.get();
         }
 
         public static String getWarBuildingRequirements() {

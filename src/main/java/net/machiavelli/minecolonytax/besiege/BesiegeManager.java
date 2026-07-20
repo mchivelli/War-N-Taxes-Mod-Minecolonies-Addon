@@ -115,6 +115,135 @@ public class BesiegeManager {
 
     private static String buyoffKey(UUID besieger, int colonyId) { return besieger + ":" + colonyId; }
 
+    /**
+     * Per-colony besiege LIFE pools (ticket model). One pool per besieged colony, shared by every
+     * co-besieger and every defending player on that colony. Seeded from {@code PlayerLivesInWar}:
+     * each besieger who joins the attack grants a block of attacker lives; each player who answers
+     * the call to defend grants a block of defender lives. A besieging player's death drains the
+     * attacker pool; a defending player's death drains the defender pool.
+     *
+     * The two lives-based win conditions (evaluated in {@link #tick()}):
+     *   attacker pool hits 0  -> DEFENDERS win (their siege force is spent)
+     *   defender pool hits 0  -> ATTACKERS win (the defenders are broken)
+     * These sit alongside the two pre-existing conditions: all colonists dead -> attackers win,
+     * and the duration timer -> defenders win. In-memory like {@link #PLAYER_COOLDOWNS}; cleared on
+     * restart and when a colony's siege fully ends.
+     */
+    private static final Map<Integer, SiegeLives> SIEGE_LIVES = new ConcurrentHashMap<>();
+
+    /** Mutable per-colony life pools + participant rosters for one besiege. */
+    static final class SiegeLives {
+        int attackerLives = 0;
+        int defenderLives = 0;
+        final Set<UUID> attackers = ConcurrentHashMap.newKeySet();
+        final Set<UUID> defenders = ConcurrentHashMap.newKeySet();
+        /** True once at least one player has answered the defense — activates the defender-lives win. */
+        boolean anyDefenderJoined = false;
+    }
+
+    private static int livesPerPlayer() {
+        try { return Math.max(1, TaxConfig.PLAYER_LIVES_IN_WAR.get()); }
+        catch (Exception e) { return 5; }
+    }
+
+    /** Register a besieging participant and grant their side a fresh block of attacker lives (once). */
+    private static void addBesiegerLives(int colonyId, UUID attacker) {
+        SiegeLives pool = SIEGE_LIVES.computeIfAbsent(colonyId, k -> new SiegeLives());
+        if (pool.attackers.add(attacker)) {
+            pool.attackerLives += livesPerPlayer();
+        }
+    }
+
+    /**
+     * Register a defending player and grant their side a fresh block of defender lives (once).
+     * The first defender to join activates the "exhaust defender lives" attacker win condition.
+     */
+    public static void addDefenderLives(int colonyId, UUID defender) {
+        SiegeLives pool = SIEGE_LIVES.computeIfAbsent(colonyId, k -> new SiegeLives());
+        if (pool.defenders.add(defender)) {
+            pool.defenderLives += livesPerPlayer();
+            pool.anyDefenderJoined = true;
+        }
+    }
+
+    /** True once the attackers have run out of lives — the defenders have won. */
+    private static boolean attackerLivesExhausted(int colonyId) {
+        SiegeLives pool = SIEGE_LIVES.get(colonyId);
+        return pool != null && !pool.attackers.isEmpty() && pool.attackerLives <= 0;
+    }
+
+    /** True once the defenders have run out of lives — the attackers have won. */
+    private static boolean defenderLivesExhausted(int colonyId) {
+        SiegeLives pool = SIEGE_LIVES.get(colonyId);
+        return pool != null && pool.anyDefenderJoined && pool.defenderLives <= 0;
+    }
+
+    /**
+     * A player died during a besiege. If they were a besieger, drain the attacker pool; if a
+     * defender, drain the defender pool. Win resolution happens in {@link #tick()} so all victory
+     * routing (spoils, cleanup, co-besieger handling) stays on a single path. Called from
+     * {@code BesiegeLivesHandler} on every player death.
+     */
+    public static void onBesiegeCombatantDeath(UUID deadPlayer) {
+        if (deadPlayer == null) return;
+        for (Map.Entry<Integer, SiegeLives> e : SIEGE_LIVES.entrySet()) {
+            SiegeLives pool = e.getValue();
+            if (pool.attackers.contains(deadPlayer)) {
+                pool.attackerLives = Math.max(0, pool.attackerLives - 1);
+                notifySiegeLives(e.getKey(), pool);
+            } else if (pool.defenders.contains(deadPlayer)) {
+                pool.defenderLives = Math.max(0, pool.defenderLives - 1);
+                notifySiegeLives(e.getKey(), pool);
+            }
+        }
+    }
+
+    /**
+     * A short, plain-language briefing of how the siege is decided, sent to each participant so
+     * players understand the win/lose rules right when they enter the fight. {@code forAttacker}
+     * picks the besieger's or the defender's perspective. Kept deliberately simple — this is the
+     * primary way players learn the four win conditions.
+     */
+    public static Component besiegeRulesBriefing(IColony colony, boolean forAttacker) {
+        int lives = livesPerPlayer();
+        int radius = TaxConfig.getBesiegePlayerStayRadius();
+        String name = colony != null ? colony.getName() : "the colony";
+        if (forAttacker) {
+            return Component.literal("")
+                .append(Component.literal("⚔ Besieging " + name + " — how it's won:\n")
+                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
+                .append(Component.literal("• You WIN if you kill every colonist, OR run the defenders out of lives.\n")
+                        .withStyle(ChatFormatting.GREEN))
+                .append(Component.literal("• You LOSE if the timer runs out, OR your side runs out of lives.\n")
+                        .withStyle(ChatFormatting.RED))
+                .append(Component.literal("Each fighter has " + lives + " lives — every death spends one. The boss "
+                        + "bar shows lives left for both sides. Roam freely to lay your siege; only retreating a "
+                        + "great distance (about " + (radius / 16) + " chunks from the colony) abandons the assault.")
+                        .withStyle(ChatFormatting.GRAY));
+        }
+        return Component.literal("")
+            .append(Component.literal("🛡 Defending " + name + " — how it's won:\n")
+                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
+            .append(Component.literal("• You WIN if you outlast the timer, OR run the attackers out of lives.\n")
+                    .withStyle(ChatFormatting.GREEN))
+            .append(Component.literal("• You LOSE if all your colonists die, OR your side runs out of lives.\n")
+                    .withStyle(ChatFormatting.RED))
+            .append(Component.literal("You have " + lives + " lives — every death spends one. The boss bar shows "
+                    + "lives left for both sides. Cut the besiegers down!")
+                    .withStyle(ChatFormatting.GRAY));
+    }
+
+    /** Announce the current life tallies to everyone taking part in the siege. */
+    private static void notifySiegeLives(int colonyId, SiegeLives pool) {
+        IColony colony = getColonyById(colonyId);
+        String name = colony != null ? colony.getName() : ("colony " + colonyId);
+        Component msg = Component.literal("Siege of " + name + " — attacker lives: "
+                + pool.attackerLives + " | defender lives: " + pool.defenderLives)
+                .withStyle(ChatFormatting.GRAY);
+        for (UUID a : pool.attackers) sendToPlayer(a, msg);
+        for (UUID d : pool.defenders) sendToPlayer(d, msg);
+    }
+
     private static MinecraftServer SERVER;
 
     public static void initialize(MinecraftServer server) {
@@ -195,29 +324,88 @@ public class BesiegeManager {
                     continue;
                 }
 
-                // --- Besieger left the area ---
-                if (besieger != null) {
-                    BlockPos center = colony.getCenter();
-                    double dist = besieger.distanceToSqr(center.getX(), center.getY(), center.getZ());
-                    int maxRadius = TaxConfig.getBesiegePlayerStayRadius();
-                    if (dist > (double) maxRadius * maxRadius) {
-                        besieger.sendSystemMessage(Component.literal(
-                                "You left the besiege area — the raid has been cancelled!")
-                                .withStyle(ChatFormatting.RED));
-                        cleanupRaid(raid, false);
-                        applyCooldown(raid.besiegingPlayerUUID);
-                        it.remove();
-                        continue;
-                    }
-
-                    // Track allies: anyone who recently damaged a defender
-                    // (ally tracking is done in the kill/hurt event — see RaidKillTracker integration)
+                // --- Attacker lives exhausted: defenders win ---
+                // The besieging players ran out of respawn tickets — the siege force is spent.
+                if (attackerLivesExhausted(raid.colonyId)) {
+                    if (TaxConfig.isNormalLogging())
+                        LOGGER.info("Besiege on colony {} — attackers out of lives, defenders win", colony.getName());
+                    sendToPlayer(raid.besiegingPlayerUUID,
+                            Component.literal("Your assault on " + colony.getName()
+                                    + " has been broken — your forces are spent!")
+                                    .withStyle(ChatFormatting.RED));
+                    broadcastToNearbyPlayers(colony,
+                            Component.literal(colony.getName() + " has repelled the besiegers!")
+                                    .withStyle(ChatFormatting.GREEN), 200);
+                    completeBesiege(raid, false, colony,
+                            java.util.Collections.singletonList(raid.besiegingPlayerUUID));
+                    it.remove();
+                    continue;
                 }
 
-                // --- Victory: all defenders dead ---
-                if (allDefendersDead(raid, colony)) {
+                // --- Besieger retreated (abandoned the field) ---
+                // A besiege is NOT a raid: the attacker is meant to roam — place siege gear outside
+                // the walls, chase fleeing defenders, regroup. So there is no tight geofence, just a
+                // VERY large outer boundary (BesiegePlayerStayRadius, many chunks). Straying past it
+                // does NOT instantly end the siege: it starts a grace countdown
+                // (BesiegeRetreatGraceSeconds) with an on-screen warning so a player who wandered or
+                // got knocked back can return. Only if they stay out for the whole grace is the siege
+                // forfeited, and BOTH sides are told why ("enemy retreated") — the defenders are
+                // credited with driving them off. Returning inside the boundary cancels the countdown.
+                if (besieger != null) {
+                    // Distance is measured from the colony's nearest claimed BORDER (claims are
+                    // irregular polygons, not rectangles), not from the center — see ColonyGeometry.
+                    int maxRadius = TaxConfig.getBesiegePlayerStayRadius();
+                    boolean insideBoundary = net.machiavelli.minecolonytax.util.ColonyGeometry
+                            .isWithinBattleRange(colony, besieger, maxRadius);
+
+                    if (insideBoundary) {
+                        // On the field. Mark engaged, and cancel any retreat countdown in progress.
+                        raid.engagedField = true;
+                        if (raid.retreatingSinceMs != 0L) {
+                            raid.retreatingSinceMs = 0L;
+                            besieger.displayClientMessage(Component.literal(
+                                    "You returned to the siege of " + colony.getName() + ".")
+                                    .withStyle(ChatFormatting.GREEN), true);
+                        }
+                    } else if (raid.engagedField) {
+                        // Only a besieger who has actually reached the colony can "retreat" from it.
+                        if (raid.retreatingSinceMs == 0L) raid.retreatingSinceMs = System.currentTimeMillis();
+                        long graceMs = TaxConfig.getBesiegeRetreatGraceSeconds() * 1000L;
+                        long elapsed = System.currentTimeMillis() - raid.retreatingSinceMs;
+
+                        if (elapsed >= graceMs) {
+                            // Grace expired while still away — forfeit the siege.
+                            besieger.sendSystemMessage(Component.literal(
+                                    "You retreated from " + colony.getName() + " — your siege is abandoned.")
+                                    .withStyle(ChatFormatting.RED));
+                            notifyColonyDefenders(colony, Component.literal(
+                                    "The enemy retreated — the siege of " + colony.getName() + " is lifted!")
+                                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+                            if (TaxConfig.isNormalLogging())
+                                LOGGER.info("Besieger {} retreated beyond {} blocks past grace — siege of colony {} lifted",
+                                        raid.besiegingPlayerUUID, maxRadius, colony.getName());
+                            cleanupRaid(raid, false);
+                            applyCooldown(raid.besiegingPlayerUUID);
+                            it.remove();
+                            continue;
+                        }
+
+                        // Still within grace — show a live countdown on the action bar (bottom of screen).
+                        long remainingSec = Math.max(1, (graceMs - elapsed + 999) / 1000);
+                        besieger.displayClientMessage(Component.literal(
+                                "⚠ Retreating from " + colony.getName() + "! Return to the siege in "
+                                        + remainingSec + "s or you forfeit the battle.")
+                                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
+                    }
+                }
+
+                // --- Victory: all colonists dead, OR the defenders' lives are exhausted ---
+                // Either the tracked NPC defenders are wiped out, or the defending players ran out of
+                // respawn tickets. Both route through the same capture path below.
+                if (allDefendersDead(raid, colony) || defenderLivesExhausted(raid.colonyId)) {
                     if (TaxConfig.isNormalLogging())
-                        LOGGER.info("Besiege raid on colony {} resolved this tick — defenders are down", colony.getName());
+                        LOGGER.info("Besiege raid on colony {} resolved this tick — defenders are down (allDead={}, livesOut={})",
+                                colony.getName(), allDefendersDead(raid, colony), defenderLivesExhausted(raid.colonyId));
 
                     // Gather EVERY besieger currently participating on this colony. The one
                     // this tick happened to resolve first is the "lead" (receives the
@@ -674,6 +862,10 @@ public class BesiegeManager {
             ACTIVE_RAIDS.put(besiegerUUID, raid);
             COLONY_RAID_INDEX.computeIfAbsent(colonyId, k -> ConcurrentHashMap.newKeySet()).add(besiegerUUID);
 
+            // Seed this besieger's block of ATTACKER lives into the colony's shared pool. Co-besiegers
+            // each add their own block (5 x participants); when the pool hits 0 the defenders win.
+            addBesiegerLives(colonyId, besiegerUUID);
+
             // Grant the besieger hostile rank + combat permissions on the colony
             // so MineColonies allows the player to attack citizens.
             grantBesiegeCombatPermissions(colony, besiegerUUID);
@@ -718,6 +910,8 @@ public class BesiegeManager {
                             + " | Defenders: " + totalDefenders
                             + " | Time: " + TaxConfig.getBesiegeDurationMinutes() + "m")
                     .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+            // Plain-language rules so the attacker knows exactly how to win or lose.
+            besieger.sendSystemMessage(besiegeRulesBriefing(colony, true));
 
             broadcastToNearbyPlayers(colony,
                     Component.literal("Nearby colony " + colony.getName()
@@ -1261,6 +1455,11 @@ public class BesiegeManager {
         if (removeFromMap) {
             ACTIVE_RAIDS.remove(raid.besiegingPlayerUUID);
         }
+
+        // If that was the last besieger on the colony, the siege is over — drop its life pool.
+        if (!COLONY_RAID_INDEX.containsKey(raid.colonyId)) {
+            SIEGE_LIVES.remove(raid.colonyId);
+        }
     }
 
 
@@ -1294,8 +1493,47 @@ public class BesiegeManager {
         }
     }
 
+    /**
+     * Add a player to every active besiege boss bar on this colony. Used when a defender rallies in
+     * via {@code /wnt defend}: they are teleported to the colony AFTER the siege (and its boss bar)
+     * was created, so createBossBar's "nearby at creation" scan never caught them — without this they
+     * would fight with no siege bar on screen. Safe to call repeatedly (addPlayer is idempotent).
+     */
+    public static void showBossBarsToPlayer(int colonyId, ServerPlayer player) {
+        for (BesiegeRaidData raid : getRaidsForColony(colonyId)) {
+            if (raid.bossEvent != null) {
+                try { raid.bossEvent.addPlayer(player); } catch (Exception ignored) {}
+            }
+        }
+    }
+
+    /** Add any players now within range of the colony to this raid's boss bar (idempotent), so the
+     *  bar self-heals each tick — anyone who walks up, respawns, or teleports in starts seeing it
+     *  within ~1s even if they weren't nearby when the siege was first created. */
+    private static void refreshNearbyBossBarPlayers(BesiegeRaidData raid, IColony colony) {
+        if (raid.bossEvent == null) return;
+        try {
+            Level world = colony.getWorld();
+            if (!(world instanceof ServerLevel serverLevel)) return;
+            BlockPos center = colony.getCenter();
+            java.util.Collection<ServerPlayer> current = raid.bossEvent.getPlayers();
+            for (ServerPlayer player : serverLevel.getServer().getPlayerList().getPlayers()) {
+                if (player.level() != world || current.contains(player)) continue;
+                double dist = player.distanceToSqr(center.getX(), center.getY(), center.getZ());
+                if (dist <= 200.0 * 200.0) {
+                    try { raid.bossEvent.addPlayer(player); } catch (Exception ignored) {}
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Failed to refresh nearby besiege boss bar players", e);
+        }
+    }
+
     private static void updateBossBar(BesiegeRaidData raid, IColony colony) {
         if (raid.bossEvent == null) return;
+
+        // Pick up anyone who has since entered the area (defenders who rallied, onlookers, respawns).
+        refreshNearbyBossBarPlayers(raid, colony);
 
         try {
             long remaining = Math.max(0, raid.endTime - System.currentTimeMillis());
@@ -1312,11 +1550,20 @@ public class BesiegeManager {
                     : progress > 0.3f ? BossEvent.BossBarColor.YELLOW
                     : BossEvent.BossBarColor.RED;
 
+            SiegeLives pool = SIEGE_LIVES.get(raid.colonyId);
+            String livesPart = "";
+            if (pool != null) {
+                // Defender lives show as "—" until a player actually joins the defense, so an
+                // undefended colony doesn't look like the defenders have already been wiped out.
+                String defLives = pool.anyDefenderJoined ? String.valueOf(pool.defenderLives) : "—";
+                livesPart = String.format(" | Atk lives: %d | Def lives: %s", pool.attackerLives, defLives);
+            }
+
             raid.bossEvent.setColor(color);
             raid.bossEvent.setProgress(progress);
             raid.bossEvent.setName(Component.literal(
-                    String.format("Besiege: %s | Defenders: %d | %02d:%02d",
-                            colony.getName(), aliveDefenders, mm, ss)));
+                    String.format("Besiege: %s | Colonists left: %d | %02d:%02d",
+                            colony.getName(), aliveDefenders, mm, ss) + livesPart));
         } catch (Exception e) {
             LOGGER.warn("Failed to update besiege boss bar", e);
         }
@@ -1402,6 +1649,30 @@ public class BesiegeManager {
     public static boolean isOnCooldown(UUID playerUUID) {
         Long expiry = PLAYER_COOLDOWNS.get(playerUUID);
         return expiry != null && System.currentTimeMillis() < expiry;
+    }
+
+    /**
+     * Clear a single player's besiege cooldowns — both the general besiege/reclaim cooldown and any
+     * per-colony buy-off cooldowns keyed to them. Returns how many cooldown entries were removed.
+     * Primarily an alpha-testing aid (via {@code /wnt resetcooldown}) so testers can re-run sieges
+     * back to back without waiting out a real cooldown.
+     */
+    public static int clearCooldownsFor(UUID playerUUID) {
+        int cleared = 0;
+        if (PLAYER_COOLDOWNS.remove(playerUUID) != null) cleared++;
+        String prefix = playerUUID + ":";
+        for (Iterator<String> it = BUYOFF_COOLDOWNS.keySet().iterator(); it.hasNext(); ) {
+            if (it.next().startsWith(prefix)) { it.remove(); cleared++; }
+        }
+        return cleared;
+    }
+
+    /** Clear EVERY besiege + buy-off cooldown for all players. Returns the number of entries removed. */
+    public static int clearAllCooldowns() {
+        int cleared = PLAYER_COOLDOWNS.size() + BUYOFF_COOLDOWNS.size();
+        PLAYER_COOLDOWNS.clear();
+        BUYOFF_COOLDOWNS.clear();
+        return cleared;
     }
 
     public static BesiegeOccupationData getOccupation(int colonyId) {
@@ -1736,6 +2007,23 @@ public class BesiegeManager {
          * Reset to 0 the moment they come back online.
          */
         public long offlineSinceMs = 0;
+
+        /**
+         * Wall-clock millis when the besieging player was first seen straying beyond
+         * BesiegePlayerStayRadius (a possible retreat), or 0 while they are within range.
+         * Drives the retreat grace countdown: only if they stay out past
+         * BesiegeRetreatGraceSeconds is the siege forfeited ("enemy retreated"). Reset to 0
+         * the moment they return inside the boundary.
+         */
+        public long retreatingSinceMs = 0;
+
+        /**
+         * True once the besieger has been seen INSIDE the retreat boundary at least once. The retreat
+         * countdown only applies after they have actually engaged — you cannot "retreat" from a siege
+         * you never joined, so a besieger who launches from far away is never instantly forfeited
+         * (the siege timer resolves that case instead).
+         */
+        public boolean engagedField = false;
 
         /**
          * Short-TTL cache of "is this player a colony-mate of the besieger?" keyed

@@ -233,8 +233,9 @@ public class PermissionsHealthCheck {
             }
         }
 
-        // Active besiege: the besieging player and their registered allies are assigned Hostile on
-        // the besieged colony. Without this they'd be demoted to Neutral mid-siege.
+        // Active besiege: the lead besieger and their registered allies are assigned Hostile on the
+        // besieged colony. Without this a periodic cleanup would demote them mid-siege, stripping
+        // their combat permissions and breaking the siege.
         if (net.machiavelli.minecolonytax.besiege.BesiegeManager.isBesiegeCombatant(playerUUID, colonyId)) {
             return true;
         }

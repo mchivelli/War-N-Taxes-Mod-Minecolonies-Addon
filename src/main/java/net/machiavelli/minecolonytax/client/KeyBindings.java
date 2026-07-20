@@ -18,10 +18,12 @@ public class KeyBindings {
     public static final String KEY_CATEGORY_MINECOLONYTAX = "key.category.minecolonytax";
     public static final String KEY_OPEN_TAX_GUI = "key.minecolonytax.open_tax_gui";
     
+    // Default is G. (T is vanilla's chat-open key, so it was a poor default — players opening
+    // the Tax Book kept popping the chat box instead.) Rebindable in Controls like any key.
     public static final KeyMapping OPEN_TAX_GUI_KEY = new KeyMapping(
-            KEY_OPEN_TAX_GUI, 
-            InputConstants.Type.KEYSYM, 
-            GLFW.GLFW_KEY_T, 
+            KEY_OPEN_TAX_GUI,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_G,
             KEY_CATEGORY_MINECOLONYTAX
     );
     
