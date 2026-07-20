@@ -244,6 +244,46 @@ public class PermissionsHealthCheck {
         return false;
     }
 
+    /**
+     * True if this colony is a participant in ANY active conflict — on EITHER side.
+     *
+     * War and raid enable the WNT-managed Hostile nodes on BOTH colonies (the defender/target so the
+     * attackers can fight, and the attacker/raider colony so the defenders can strike back — see
+     * WarSystem.setWarInteractionPermissions and RaidManager.setRaidInteractionPermissions, both of
+     * which are called for attacker and defender). ACTIVE_WARS is keyed by DEFENDER colony id and
+     * getActiveRaidForColony() matches only the TARGET colony, so a containsKey/lookup alone sees
+     * just one side. Without the attacker-side terms below, the cleanup pass would strip the war
+     * nodes off the attacking colony ~60s into every war, leaving defenders unable to fight back
+     * there. This mirrors the attacker-side handling isLegitimatelyHostile() already does for ranks.
+     */
+    private static boolean isConflictActiveOnColony(int colonyId) {
+        // Defender / target side
+        if (WarSystem.ACTIVE_WARS.containsKey(colonyId)) return true;
+        if (RaidManager.getActiveRaidForColony(colonyId) != null) return true;
+        if (net.machiavelli.minecolonytax.besiege.BesiegeManager.isActiveRaidOnColony(colonyId)) return true;
+
+        // Attacker side: this colony declared the war
+        for (WarData activeWar : WarSystem.ACTIVE_WARS.values()) {
+            if (activeWar != null
+                    && activeWar.getAttackerColony() != null
+                    && activeWar.getAttackerColony().getID() == colonyId) {
+                return true;
+            }
+        }
+
+        // Raider side: this colony's member launched the raid
+        for (ActiveRaidData raid : RaidManager.getActiveRaids().values()) {
+            if (raid != null
+                    && raid.isActive()
+                    && raid.getRaiderColony() != null
+                    && raid.getRaiderColony().getID() == colonyId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // Unexpected permission node cleanup
     // ──────────────────────────────────────────────────────────────────────────
@@ -268,9 +308,7 @@ public class PermissionsHealthCheck {
         // --- Hostile rank: WNT-managed nodes must be off when no war or player-raid is active ---
         // Only WNT-managed actions are checked — other bits on the Hostile rank may have been
         // intentionally configured by the server admin and must not be cleared.
-        boolean warOrRaidActive = WarSystem.ACTIVE_WARS.containsKey(colonyId)
-                || RaidManager.getActiveRaidForColony(colonyId) != null
-                || net.machiavelli.minecolonytax.besiege.BesiegeManager.isActiveRaidOnColony(colonyId);
+        boolean warOrRaidActive = isConflictActiveOnColony(colonyId);
 
         if (!warOrRaidActive) {
             Rank hostile = perms.getRankHostile();

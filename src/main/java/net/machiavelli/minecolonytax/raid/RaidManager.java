@@ -724,13 +724,19 @@ public class RaidManager {
                     return;
                 }
                 
-                // Retreat check. A raider must press the raid at the colony, but a brief, accidental
-                // step-out no longer INSTANTLY ends it (that was the old behaviour). Leaving the
-                // (large, border-based) boundary starts a grace countdown with an on-screen warning;
-                // returning cancels it, and only staying out for the whole grace forfeits the raid.
-                boolean inRange = net.machiavelli.minecolonytax.util.ColonyGeometry.isWithinBattleRange(
-                        raidData.getColony(), raiderPlayer,
-                        net.machiavelli.minecolonytax.TaxConfig.getBesiegePlayerStayRadius());
+                // Retreat check. A raider must press the raid INSIDE the colony claim, but a brief,
+                // accidental step-out no longer INSTANTLY ends it (that was the old behaviour):
+                // leaving starts a grace countdown with an on-screen warning, returning cancels it,
+                // and only staying out for the whole grace forfeits the raid.
+                //
+                // Deliberately the tight in-claim test, NOT the besiege battle radius. A raid is a
+                // smash-and-grab on the colony itself, and "Raid completed successfully" (the
+                // timer-expiry outcome) pays out UNCONDITIONALLY in endRaid(). Using the besiege
+                // radius here (1024 blocks from the border) would let a raider start a raid, walk a
+                // few hundred blocks away, sit out the timer in complete safety and still collect
+                // the full tax steal. Besiege gets the wide radius because a besieger is meant to
+                // operate outside the walls; a raider is not.
+                boolean inRange = isRaiderInColony(raiderPlayer, raidData.getColony());
 
                 if (!inRange) {
                     if (raidData.getRetreatingSinceMs() == 0L) {

@@ -184,18 +184,55 @@ public class BesiegeManager {
      * routing (spoils, cleanup, co-besieger handling) stays on a single path. Called from
      * {@code BesiegeLivesHandler} on every player death.
      */
-    public static void onBesiegeCombatantDeath(UUID deadPlayer) {
+    public static void onBesiegeCombatantDeath(net.minecraft.server.level.ServerPlayer deadPlayer) {
         if (deadPlayer == null) return;
+        UUID uuid = deadPlayer.getUUID();
+
         for (Map.Entry<Integer, SiegeLives> e : SIEGE_LIVES.entrySet()) {
+            int colonyId = e.getKey();
             SiegeLives pool = e.getValue();
-            if (pool.attackers.contains(deadPlayer)) {
+
+            boolean isAttacker = pool.attackers.contains(uuid);
+            boolean isDefender = !isAttacker && pool.defenders.contains(uuid);
+            if (!isAttacker && !isDefender) continue;
+
+            // Roster membership alone is not enough: a player stays in the pool for the whole siege,
+            // so an unfiltered handler would drain lives for deaths that have nothing to do with the
+            // battle — a defender falling in lava on the other side of the world would hand their
+            // colony to the besieger. Only deaths at the contested colony count.
+            if (!isBattleRelatedDeath(colonyId, deadPlayer)) continue;
+
+            if (isAttacker) {
                 pool.attackerLives = Math.max(0, pool.attackerLives - 1);
-                notifySiegeLives(e.getKey(), pool);
-            } else if (pool.defenders.contains(deadPlayer)) {
+            } else {
                 pool.defenderLives = Math.max(0, pool.defenderLives - 1);
-                notifySiegeLives(e.getKey(), pool);
+            }
+            notifySiegeLives(colonyId, pool);
+
+            // Hold the retreat countdown while they walk back from their respawn point.
+            int windowSec = TaxConfig.getBesiegeRespawnReturnSeconds();
+            if (windowSec > 0) {
+                long until = System.currentTimeMillis() + windowSec * 1000L;
+                for (BesiegeRaidData raid : getRaidsForColony(colonyId)) {
+                    raid.respawnGraceUntilMs = until;
+                    raid.retreatingSinceMs = 0L;
+                }
             }
         }
+    }
+
+    /**
+     * True if this death should count against a siege life pool — i.e. the player died at the
+     * contested colony rather than somewhere unrelated. Uses the same battle radius the retreat rule
+     * uses, so "close enough to still be besieging" and "close enough for your death to matter" are
+     * one and the same boundary.
+     */
+    private static boolean isBattleRelatedDeath(int colonyId, net.minecraft.server.level.ServerPlayer player) {
+        IColony colony = getColonyById(colonyId);
+        if (colony == null || colony.getWorld() == null) return false;
+        if (player.level() != colony.getWorld()) return false;
+        return net.machiavelli.minecolonytax.util.ColonyGeometry
+                .isWithinBattleRange(colony, player, TaxConfig.getBesiegePlayerStayRadius());
     }
 
     /**
@@ -367,8 +404,10 @@ public class BesiegeManager {
                                     "You returned to the siege of " + colony.getName() + ".")
                                     .withStyle(ChatFormatting.GREEN), true);
                         }
-                    } else if (raid.engagedField) {
-                        // Only a besieger who has actually reached the colony can "retreat" from it.
+                    } else if (raid.engagedField && System.currentTimeMillis() >= raid.respawnGraceUntilMs) {
+                        // Only a besieger who has actually reached the colony can "retreat" from it,
+                        // and never while they are walking back from a death respawn (that would end
+                        // the siege on the first death and make their remaining lives unreachable).
                         if (raid.retreatingSinceMs == 0L) raid.retreatingSinceMs = System.currentTimeMillis();
                         long graceMs = TaxConfig.getBesiegeRetreatGraceSeconds() * 1000L;
                         long elapsed = System.currentTimeMillis() - raid.retreatingSinceMs;
@@ -422,11 +461,13 @@ public class BesiegeManager {
                         if (other != null) { coBesiegers.add(other); participants.add(otherUUID); }
                     }
 
-                    // Drop ALL concurrent raids on this colony from the index first, so the
-                    // winner's cleanup path is deterministic (defenders are already dead, so
-                    // there is nothing live left to despawn either way).
-                    Set<UUID> indexEntry = COLONY_RAID_INDEX.remove(raid.colonyId);
-                    if (indexEntry != null) indexEntry.clear();
+                    // NOTE: do NOT wipe COLONY_RAID_INDEX here. Every cleanupRaid() below removes its
+                    // own entry, and cleanupRaid decides whether it is the LAST raid on the colony by
+                    // asking that same index. Clearing it up front makes the check see an empty set,
+                    // so no cleanup ever counts as the last one — the shared defender entities are
+                    // then never torn down and the spawned mercenaries/militia are left standing in
+                    // the world as hostile mobs after a WON siege, with citizen AI never restored.
+                    // "The defenders are already dead" only covers the colonists, not those spawns.
 
                     // 'Not solo' rule: the attacking force must meet BesiegeMinAttackers to
                     // actually claim the colony. If too few took part, the defenders fell but
@@ -1456,6 +1497,15 @@ public class BesiegeManager {
             ACTIVE_RAIDS.remove(raid.besiegingPlayerUUID);
         }
 
+        // This besieger is out of the fight, so take them off the attacker roster of the life pool.
+        // Without this they stay a pool member for the rest of the siege: every later death of
+        // theirs — anywhere, in any context — would keep draining attacker lives and could lose the
+        // siege for the co-besiegers who are still fighting.
+        SiegeLives pool = SIEGE_LIVES.get(raid.colonyId);
+        if (pool != null) {
+            pool.attackers.remove(raid.besiegingPlayerUUID);
+        }
+
         // If that was the last besieger on the colony, the siege is over — drop its life pool.
         if (!COLONY_RAID_INDEX.containsKey(raid.colonyId)) {
             SIEGE_LIVES.remove(raid.colonyId);
@@ -1507,20 +1557,39 @@ public class BesiegeManager {
         }
     }
 
-    /** Add any players now within range of the colony to this raid's boss bar (idempotent), so the
-     *  bar self-heals each tick — anyone who walks up, respawns, or teleports in starts seeing it
-     *  within ~1s even if they weren't nearby when the siege was first created. */
+    /** Reconcile this raid's boss bar audience with who is actually near the colony, so the bar
+     *  self-heals each tick — anyone who walks up, respawns, or teleports in starts seeing it within
+     *  ~1s even if they weren't nearby when the siege was created, and anyone who walked off or
+     *  logged out stops seeing it.
+     *
+     *  <p>The removal half matters as much as the addition half: a ServerBossEvent does NOT drop its
+     *  audience on disconnect (only CustomBossEvents does), and membership is by object identity, so
+     *  an add-only refresh would keep a stale ServerPlayer for every relog and hold the bar on screen
+     *  for players who left the area entirely.</p> */
     private static void refreshNearbyBossBarPlayers(BesiegeRaidData raid, IColony colony) {
         if (raid.bossEvent == null) return;
         try {
             Level world = colony.getWorld();
             if (!(world instanceof ServerLevel serverLevel)) return;
+            net.minecraft.server.players.PlayerList playerList = serverLevel.getServer().getPlayerList();
             BlockPos center = colony.getCenter();
+            final double rangeSqr = 200.0 * 200.0;
+
+            // Copy first — removing while iterating the live audience view would be a CME.
+            for (ServerPlayer viewer : new java.util.ArrayList<>(raid.bossEvent.getPlayers())) {
+                boolean stillConnected = playerList.getPlayer(viewer.getUUID()) == viewer;
+                boolean stillNearby = stillConnected
+                        && viewer.level() == world
+                        && viewer.distanceToSqr(center.getX(), center.getY(), center.getZ()) <= rangeSqr;
+                if (!stillNearby) {
+                    try { raid.bossEvent.removePlayer(viewer); } catch (Exception ignored) {}
+                }
+            }
+
             java.util.Collection<ServerPlayer> current = raid.bossEvent.getPlayers();
-            for (ServerPlayer player : serverLevel.getServer().getPlayerList().getPlayers()) {
+            for (ServerPlayer player : playerList.getPlayers()) {
                 if (player.level() != world || current.contains(player)) continue;
-                double dist = player.distanceToSqr(center.getX(), center.getY(), center.getZ());
-                if (dist <= 200.0 * 200.0) {
+                if (player.distanceToSqr(center.getX(), center.getY(), center.getZ()) <= rangeSqr) {
                     try { raid.bossEvent.addPlayer(player); } catch (Exception ignored) {}
                 }
             }
@@ -2024,6 +2093,15 @@ public class BesiegeManager {
          * (the siege timer resolves that case instead).
          */
         public boolean engagedField = false;
+
+        /**
+         * Wall-clock millis until which the retreat countdown is suspended because the besieger
+         * DIED and is travelling back from their respawn point. Respawning drops them at their bed
+         * or world spawn, normally far outside the boundary, so without this exemption the first
+         * death would forfeit the siege and the besieger's remaining lives could never be spent.
+         * Length is BesiegeRespawnReturnSeconds; 0 disables the exemption.
+         */
+        public long respawnGraceUntilMs = 0L;
 
         /**
          * Short-TTL cache of "is this player a colony-mate of the besieger?" keyed

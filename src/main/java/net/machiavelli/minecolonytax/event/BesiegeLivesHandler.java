@@ -27,6 +27,10 @@ public final class BesiegeLivesHandler {
     @SubscribeEvent(priority = EventPriority.LOW)
     public static void onPlayerDeath(LivingDeathEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
-        BesiegeManager.onBesiegeCombatantDeath(player.getUUID());
+        BesiegeManager.onBesiegeCombatantDeath(player);
+        // A death respawns the player far from the fight, so the conquest-war retreat countdown has
+        // to be suspended while they travel back — otherwise the first death forfeits the war and
+        // the multi-life rule never comes into play.
+        net.machiavelli.minecolonytax.WarSystem.notifyCombatantDeath(player.getUUID());
     }
 }

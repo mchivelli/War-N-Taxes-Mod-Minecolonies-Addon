@@ -125,6 +125,7 @@ public class TaxConfig {
         public static final ModConfigSpec.BooleanValue BESIEGE_REQUIRE_ONLINE;
         public static final ModConfigSpec.IntValue BESIEGE_OFFLINE_GRACE_MINUTES;
         public static final ModConfigSpec.IntValue BESIEGE_RETREAT_GRACE_SECONDS;
+        public static final ModConfigSpec.IntValue BESIEGE_RESPAWN_RETURN_SECONDS;
         public static final ModConfigSpec.IntValue BESIEGE_PREP_MINUTES;
         public static final ModConfigSpec.IntValue BESIEGE_BUYOFF_PERCENT;
         public static final ModConfigSpec.IntValue BESIEGE_BUYOFF_COOLDOWN_HOURS;
@@ -2452,6 +2453,7 @@ public class TaxConfig {
                 BESIEGE_MAX_MERCENARIES = BUILDER.comment("Maximum number of mercenaries that can be spawned during a single besiege raid.").defineInRange("BesiegeMaxMercenaries", 10, 0, 50);
                 BESIEGE_PLAYER_STAY_RADIUS = BUILDER.comment("How far (blocks, from the colony's nearest claimed BORDER — not its center, so irregular polygon claims are handled fairly) the besieging player may roam before it counts as a possible retreat. A besiege is NOT a raid — the attacker is meant to place siege gear outside the walls and chase defenders — so this is deliberately VERY large; only a genuine retreat many chunks out should ever trip it. Straying past this starts the BesiegeRetreatGraceSeconds countdown; returning inside cancels it. Default 1024 = 64 chunks. Also used by conquest wars.").defineInRange("BesiegePlayerStayRadius", 1024, 128, 16384);
                 BESIEGE_RETREAT_GRACE_SECONDS = BUILDER.comment("Grace period (seconds) a besieger may spend beyond BesiegePlayerStayRadius before the siege is forfeited as an 'enemy retreated'. During the countdown they get an on-screen warning to return; coming back inside the boundary cancels it, so an accidental step-out never instantly ends the siege. Default 30.").defineInRange("BesiegeRetreatGraceSeconds", 30, 5, 600);
+                BESIEGE_RESPAWN_RETURN_SECONDS = BUILDER.comment("Extra time (seconds) a combatant gets to travel back to the battle after DYING, before the retreat countdown may run again. A death respawns you at your bed or world spawn — usually far outside the battle boundary — so without this the normal BesiegeRetreatGraceSeconds would forfeit the war/siege on your FIRST death and the multi-life system (WarAttackerLives / besiege lives) could never play out. Set to 0 to disable the post-death exemption. Default 180.").defineInRange("BesiegeRespawnReturnSeconds", 180, 0, 3600);
                 BESIEGE_SPOIL_PERCENT_OF_LOSER_TREASURY = BUILDER.comment("One-shot percentage of the loser's war chest transferred to the winner on besiege resolution. 0 disables siege spoils entirely.").defineInRange("BesiegeSpoilPercentOfLoserTreasury", 25, 0, 100);
                 BESIEGE_ALLOW_CHEST_ACCESS = BUILDER.comment("[Access] Allow besiegers to open chests/containers in the colony during an ACTIVE siege. false (default): combat-only, no looting.").define("BesiegeAllowChestAccess", false);
                 VASSAL_LOCK_OUT_FORMER_OWNER = BUILDER.comment("[Access] After a siege ends and the colony is vassalized, lock the ORIGINAL OWNER out until they reclaim it? false (default): owner keeps access and only pays tribute.").define("VassalLockOutFormerOwner", false);
@@ -2741,6 +2743,7 @@ public class TaxConfig {
         public static boolean isBesiegeRequireOnline() { return BESIEGE_REQUIRE_ONLINE.get(); }
         public static int getBesiegeOfflineGraceMinutes() { return BESIEGE_OFFLINE_GRACE_MINUTES.get(); }
         public static int getBesiegeRetreatGraceSeconds() { return BESIEGE_RETREAT_GRACE_SECONDS.get(); }
+        public static int getBesiegeRespawnReturnSeconds() { return BESIEGE_RESPAWN_RETURN_SECONDS.get(); }
         public static int getBesiegePrepMinutes() { return BESIEGE_PREP_MINUTES.get(); }
         public static int getBesiegeBuyoffPercent() { return BESIEGE_BUYOFF_PERCENT.get(); }
         public static int getBesiegeBuyoffCooldownHours() { return BESIEGE_BUYOFF_COOLDOWN_HOURS.get(); }

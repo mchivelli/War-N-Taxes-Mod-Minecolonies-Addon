@@ -48,6 +48,15 @@ public class WarData {
      */
     public boolean hasEngagedTarget = false;
 
+    /**
+     * Wall-clock millis until which the retreat countdown is suspended because an attacker DIED and
+     * is travelling back from their respawn point. A death drops the player at their bed or world
+     * spawn, normally far outside the retreat boundary; without this exemption the very first death
+     * would forfeit the war long before the attacker's remaining lives could ever be spent. Set on
+     * death (see WarSystem#notifyCombatantDeath), length is BesiegeRespawnReturnSeconds.
+     */
+    public long respawnGraceUntilMs = 0L;
+
     public ServerBossEvent bossEvent;
     public ServerBossEvent alliesBossEvent;
     private String penaltyReport = "";

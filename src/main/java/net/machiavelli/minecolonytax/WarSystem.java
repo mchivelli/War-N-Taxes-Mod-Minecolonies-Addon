@@ -2075,6 +2075,35 @@ public class WarSystem {
      *
      * @return true if the war was ended by this retreat (caller must stop ticking it).
      */
+    /**
+     * Suspend the retreat countdown of every war this player attacks in, because they just died and
+     * have to walk back from their respawn point.
+     *
+     * <p>Called from the death handler. Without it the retreat rule and the multi-life rule
+     * contradict each other: dying teleports the attacker to their bed or world spawn — normally
+     * far beyond {@code BesiegePlayerStayRadius} — so the ordinary
+     * {@code BesiegeRetreatGraceSeconds} window (30s by default, nowhere near enough to cross a
+     * thousand blocks) would forfeit the war on the first death, and lives 2..N could never be
+     * spent. Length of the exemption is {@code BesiegeRespawnReturnSeconds}; 0 disables it.</p>
+     */
+    public static void notifyCombatantDeath(UUID playerUUID) {
+        if (playerUUID == null) return;
+        int windowSec = TaxConfig.getBesiegeRespawnReturnSeconds();
+        if (windowSec <= 0) return;
+        long until = System.currentTimeMillis() + windowSec * 1000L;
+
+        for (WarData war : ACTIVE_WARS.values()) {
+            if (war == null) continue;
+            boolean onAttackingSide = playerUUID.equals(war.getAttacker())
+                    || war.getAttackerAllies().contains(playerUUID)
+                    || war.getAttackerLives().containsKey(playerUUID);
+            if (onAttackingSide) {
+                war.respawnGraceUntilMs = until;
+                war.retreatingSinceMs = 0L;
+            }
+        }
+    }
+
     private static boolean checkAttackerRetreat(WarData war) {
         IColony target = war.getColony();
         if (target == null || target.getWorld() == null) return false;
@@ -2118,6 +2147,14 @@ public class WarSystem {
         // Attackers are online but away, and have not yet reached the target: no retreat until they
         // have engaged at least once (a no-show is resolved by the war timer, not a forfeit).
         if (!war.hasEngagedTarget) {
+            war.retreatingSinceMs = 0L;
+            return false;
+        }
+        // An attacker died recently and is walking back from their respawn point. Respawning puts a
+        // player at their bed or world spawn — practically always outside the boundary — so counting
+        // that as a retreat would forfeit the war on the FIRST death and make the remaining attacker
+        // lives unreachable. Hold the countdown until the return window expires.
+        if (System.currentTimeMillis() < war.respawnGraceUntilMs) {
             war.retreatingSinceMs = 0L;
             return false;
         }
@@ -3204,6 +3241,9 @@ public class WarSystem {
         String status;
         boolean accepted;
         boolean stalemateTriggered;
+        /** Whether the attacking side ever reached the target. Durable fact about the war, so it is
+         *  persisted; the retreat timers themselves deliberately are NOT (see restore). */
+        boolean hasEngagedTarget;
         Map<String, Integer> attackerLives;
         Map<String, Integer> defenderLives;
         List<Integer> guardIDs;
@@ -3267,6 +3307,7 @@ public class WarSystem {
                 e.status = war.getStatus().name();
                 e.accepted = war.isAccepted();
                 e.stalemateTriggered = war.isStalemateTriggered();
+                e.hasEngagedTarget = war.hasEngagedTarget;
                 e.penaltyReport = war.getPenaltyReport();
                 e.initialAttackerGuards = war.initialAttackerGuards;
                 e.remainingAttackerGuards = war.remainingAttackerGuards;
@@ -3510,6 +3551,17 @@ public class WarSystem {
                 restoredHostilePerms, restoredHostilePermsAtk,
                 acceptedAlliesSet, declinedAlliesSet,
                 restoredProposal);
+
+        // Retreat state. hasEngagedTarget is a durable fact — an attacking side that already reached
+        // the target before the restart is still "engaged", and dropping it would silently disable
+        // the retreat rule for the rest of the war.
+        warData.hasEngagedTarget = e.hasEngagedTarget;
+        // The two wall-clock timers are deliberately NOT restored. They measure "how long has this
+        // player been away RIGHT NOW", and the server was down in between: reinstating a stale
+        // retreatingSinceMs would make the very first tick after startup see an elapsed grace and
+        // forfeit the war before anyone could log in and return. Both restart from zero.
+        warData.retreatingSinceMs = 0L;
+        warData.respawnGraceUntilMs = 0L;
 
         ACTIVE_WARS.put(e.defenderColonyId, warData);
 
