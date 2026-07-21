@@ -73,7 +73,7 @@ public record RequestInvestmentDataPayload(int colonyId) implements CustomPacket
             costs.put(type.name(), cost);
         }
         int treasuryBalance = WarChestManager.getWarChestBalance(colonyId);
-        int maxCapacity = TaxConfig.getWarChestMaxCapacity();
+        int maxCapacity = WarChestManager.getEffectiveMaxCapacity(colonyId);
         return new InvestmentDataResponsePayload(colonyId, levels, costs, treasuryBalance, maxCapacity, maxLevel);
     }
 }

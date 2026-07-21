@@ -48,7 +48,7 @@ public record RequestWarChestDataPayload(int colonyId) implements CustomPacketPa
             if (!hasAccess) return;
 
             int balance = WarChestManager.getWarChestBalance(payload.colonyId);
-            int maxCapacity = TaxConfig.getWarChestMaxCapacity();
+            int maxCapacity = WarChestManager.getEffectiveMaxCapacity(payload.colonyId);
             int drainPerMinute = TaxConfig.getWarChestDrainPerMinute();
             int taxBalance = TaxManager.getStoredTaxForColony(colony);
             boolean autoSurrender = TaxConfig.isWarChestAutoSurrenderEnabled();

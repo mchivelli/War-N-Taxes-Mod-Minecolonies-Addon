@@ -122,7 +122,7 @@ public class WarChestManager {
         }
 
         int currentChest = getWarChestBalance(colonyId);
-        int maxCapacity = TaxConfig.getWarChestMaxCapacity();
+        int maxCapacity = getEffectiveMaxCapacity(colonyId);
 
         if (currentChest >= maxCapacity) {
             player.sendSystemMessage(Component.literal("War chest is at maximum capacity (" + maxCapacity + ").")
@@ -203,7 +203,7 @@ public class WarChestManager {
         }
 
         int balance = getWarChestBalance(colonyId);
-        int maxCapacity = TaxConfig.getWarChestMaxCapacity();
+        int maxCapacity = getEffectiveMaxCapacity(colonyId);
         int effectiveDrain = computeEffectiveDrain(colonyId);
 
         player.sendSystemMessage(Component.literal("=== War Chest Status ===").withStyle(ChatFormatting.GOLD));
@@ -355,11 +355,24 @@ public class WarChestManager {
     }
 
     /**
+     * Effective war-chest ceiling for a colony: the configured base capacity plus any
+     * TREASURY_CAP investment bonus (Treasury Vault, flat per level). Used at every site
+     * that enforces or displays the cap so the boosted ceiling stays consistent across the
+     * deposit path, automated funding, and the GUIs. Returns the base cap when the upgrade
+     * system is disabled or the colony has no levels.
+     */
+    public static int getEffectiveMaxCapacity(int colonyId) {
+        int base = TaxConfig.getWarChestMaxCapacity();
+        if (!TaxConfig.isUpgradesEnabled()) return base;
+        return base + net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getTreasuryCapBonus(colonyId);
+    }
+
+    /**
      * Add a specific amount to the war chest.
      */
     public static int addToWarChest(int colonyId, int amount) {
         int currentBalance = getWarChestBalance(colonyId);
-        int maxCapacity = TaxConfig.getWarChestMaxCapacity();
+        int maxCapacity = getEffectiveMaxCapacity(colonyId);
         int newBalance = Math.min(maxCapacity, currentBalance + amount);
 
         WAR_CHESTS.put(colonyId, newBalance);
