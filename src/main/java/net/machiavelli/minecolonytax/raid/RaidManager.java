@@ -1203,6 +1203,27 @@ public class RaidManager {
                 guardKillPercentage * 100, totalBasePercentage * 100, finalPercentage * 100);
         }
         
+        // ── Raid Force investment ─────────────────────────────────────────────
+        // The raider's colony can invest in RAID_FORCE (Investments book) to extract
+        // more from a successful raid. Scales the stolen-tax percentage by
+        // 1.0 + level * UpgradeRaidForceMultiplierPerLevel (see
+        // ColonyUpgradeManager.getRaidForceMultiplier). Keyed off the RAIDER's colony,
+        // never the target. No-op at level 0 or when the upgrade system is disabled.
+        // The debt-colony branch below is intentionally NOT scaled — you cannot squeeze
+        // extra loot from a colony that has nothing left to steal.
+        if (TaxConfig.isUpgradesEnabled() && raidData.getRaiderColony() != null) {
+            double raidForce = net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager
+                    .getRaidForceMultiplier(raidData.getRaiderColony().getID());
+            if (raidForce != 1.0) {
+                double boosted = finalPercentage * raidForce;
+                LOGGER.info("Raid Force x{} applied for raider colony {}: {}% -> {}%",
+                        String.format(java.util.Locale.ROOT, "%.2f", raidForce),
+                        raidData.getRaiderColony().getName(),
+                        finalPercentage * 100, boosted * 100);
+                finalPercentage = boosted;
+            }
+        }
+
         // Calculate colony balance to take based on their stored tax
         int colonyBalance = TaxManager.getStoredTaxForColony(raidData.getColony());
         
@@ -1214,7 +1235,10 @@ public class RaidManager {
         // Can only steal from colonies with positive balance!
         if (colonyBalance > 0) {
             amountToDeduct = (int) (colonyBalance * finalPercentage);
-            LOGGER.info("💰 POSITIVE BALANCE: Stealing {} from colony {} ({}% of {})", 
+            // Raid Force can push finalPercentage past the normal MAX_RAID_TAX_PERCENTAGE
+            // cap; never steal more than the colony actually holds.
+            if (amountToDeduct > colonyBalance) amountToDeduct = colonyBalance;
+            LOGGER.info("💰 POSITIVE BALANCE: Stealing {} from colony {} ({}% of {})",
                 amountToDeduct, raidData.getColony().getName(), finalPercentage * 100, colonyBalance);
         } else if (colonyBalance <= 0) {
             // Colony is in debt - use TaxStealPerGuard system if debt is enabled
