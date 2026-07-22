@@ -1484,13 +1484,18 @@ public class RaidManager {
             }
         }
 
-        // Apply RAID_FORCE investment multiplier from the attacker's colony
+        // Apply RAID_FORCE investment multiplier from the attacker's colony.
+        // Only scales the positive-balance steal, and is capped at the colony's balance: a boosted
+        // percentage can never steal more than the colony actually holds. The debt-colony branch
+        // (colonyBalance <= 0) is deliberately left unscaled — there is nothing extra to extract from
+        // an empty treasury, and scaling it would let RAID_FORCE push debt past the configured limit.
         if (net.machiavelli.minecolonytax.TaxConfig.isUpgradesEnabled()
-                && amountToDeduct > 0 && raidData.getRaiderColony() != null) {
+                && amountToDeduct > 0 && colonyBalance > 0 && raidData.getRaiderColony() != null) {
             double raidForceMultiplier = net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager
                     .getRaidForceMultiplier(raidData.getRaiderColony().getID());
             if (raidForceMultiplier > 1.0) {
                 amountToDeduct = (int) (amountToDeduct * raidForceMultiplier);
+                if (amountToDeduct > colonyBalance) amountToDeduct = colonyBalance;
                 if (net.machiavelli.minecolonytax.TaxConfig.isDebugLogging())
                     LOGGER.debug("RAID_FORCE multiplier {} applied; adjusted steal amount to {}",
                             raidForceMultiplier, amountToDeduct);

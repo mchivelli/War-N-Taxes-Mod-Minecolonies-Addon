@@ -123,8 +123,14 @@ public class ColonyUpgradeManager {
         return getLevel(colonyId, UpgradeType.DEFENSE) * TaxConfig.getUpgradeDefenseBonusPerLevel();
     }
 
-    public static int getTreasuryCapBonus(int colonyId) {
-        return getLevel(colonyId, UpgradeType.TREASURY_CAP) * TaxConfig.getUpgradeTreasuryCapFlatPerLevel();
+    /**
+     * Flat treasury capacity bonus from the TREASURY_CAP investment. Returns {@code long}: the
+     * per-level flat amount is admin-configurable up to Integer.MAX_VALUE, so {@code level * flat}
+     * can exceed the int range. Computing in long keeps the value exact for the single caller
+     * (TreasuryManager.getEffectiveMaxCapacity), which does its own [0, Integer.MAX_VALUE] clamp.
+     */
+    public static long getTreasuryCapBonus(int colonyId) {
+        return (long) getLevel(colonyId, UpgradeType.TREASURY_CAP) * TaxConfig.getUpgradeTreasuryCapFlatPerLevel();
     }
 
     public static double getTaxEfficiencyBonus(int colonyId) {

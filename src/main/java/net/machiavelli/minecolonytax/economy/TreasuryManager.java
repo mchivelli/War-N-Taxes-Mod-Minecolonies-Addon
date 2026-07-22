@@ -586,7 +586,13 @@ public class TreasuryManager {
     public static int getEffectiveMaxCapacity(int colonyId) {
         int base = TaxConfig.getTreasuryMaxCapacity();
         if (!TaxConfig.isUpgradesEnabled()) return base;
-        return base + net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getTreasuryCapBonus(colonyId);
+        // Saturating add in long, then clamp to [0, Integer.MAX_VALUE]. Both base (TreasuryMaxCapacity)
+        // and the per-level flat bonus are admin-configurable up to Integer.MAX_VALUE, so int math
+        // could overflow into a NEGATIVE effective cap — which would make deposits reject everything
+        // and cap-headroom math go haywire. getTreasuryCapBonus already returns long; doing the sum in
+        // long keeps the ceiling monotonic so the upgrade only ever grows the cap.
+        long effective = (long) base + net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getTreasuryCapBonus(colonyId);
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, effective));
     }
 
     public static IColony getColony(int colonyId) {

@@ -41,7 +41,7 @@ public class TaxConfig {
         public static final ForgeConfigSpec.IntValue RAID_GRACE_PERIOD_MINUTES;
         public static final ForgeConfigSpec.IntValue MAX_RAID_DURATION_MINUTES;
         public static final ForgeConfigSpec.IntValue RAID_TAX_INTERVAL_SECONDS;
-        public static final ForgeConfigSpec.ConfigValue<List<Double>> RAID_TAX_PERCENTAGES;
+        public static final ForgeConfigSpec.ConfigValue<List<? extends Double>> RAID_TAX_PERCENTAGES;
         public static final ForgeConfigSpec.IntValue WAR_DURATION_MINUTES;
         public static final ForgeConfigSpec.IntValue PEACE_PROPOSAL_TIMEOUT_SECONDS;
         public static final ForgeConfigSpec.IntValue MIN_GUARDS_TO_WAGE_WAR;
@@ -854,7 +854,16 @@ public class TaxConfig {
                                 .comment("Tax transfer percentages during raids (comma-separated decimals). " +
                                                 "Each tier applies at the RaidTaxIntervalSeconds interval. " +
                                                 "Keep values consistent with MaxRaidTaxPercentage.")
-                                .define("RaidTaxPercentages", List.of(0.05, 0.10, 0.15, 0.25));
+                                // defineList (per-element validator), NOT the scalar define(path, value):
+                                // that overload validates with defaultValue.getClass().isAssignableFrom(loaded),
+                                // and List.of(...) is an ImmutableCollections.ListN while NightConfig parses the
+                                // TOML array back as an ArrayList — the identity check fails on EVERY load, so the
+                                // value is judged invalid, "corrected" to an identical default, rewritten to disk,
+                                // the file-watcher reloads, and it fails again: an infinite ~2 Hz rewrite/reload
+                                // loop that floods the log. defineList validates element-by-element instead.
+                                .defineList("RaidTaxPercentages",
+                                                List.of(0.05, 0.10, 0.15, 0.25),
+                                                obj -> obj instanceof Double);
 
                 // ========== Entity Raid Settings ==========
                 BUILDER.push("Entity Raid Settings");
