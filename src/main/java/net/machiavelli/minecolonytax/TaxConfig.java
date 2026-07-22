@@ -34,7 +34,7 @@ public class TaxConfig {
         public static final ModConfigSpec.IntValue RAID_GRACE_PERIOD_MINUTES;
         public static final ModConfigSpec.IntValue MAX_RAID_DURATION_MINUTES;
         public static final ModConfigSpec.IntValue RAID_TAX_INTERVAL_SECONDS;
-        public static final ModConfigSpec.ConfigValue<List<Double>> RAID_TAX_PERCENTAGES;
+        public static final ModConfigSpec.ConfigValue<List<? extends Double>> RAID_TAX_PERCENTAGES;
         public static final ModConfigSpec.IntValue WAR_DURATION_MINUTES;
         public static final ModConfigSpec.IntValue PEACE_PROPOSAL_TIMEOUT_SECONDS;
         public static final ModConfigSpec.IntValue MIN_GUARDS_TO_WAGE_WAR;
@@ -711,7 +711,9 @@ public class TaxConfig {
                                 .comment("Tax transfer percentages during raids (comma-separated decimals). " +
                                                 "Each tier applies at the RaidTaxIntervalSeconds interval. " +
                                                 "Keep values consistent with MaxRaidTaxPercentage.")
-                                .define("RaidTaxPercentages", List.of(0.05, 0.10, 0.15, 0.25));
+                                .defineList("RaidTaxPercentages",
+                                                List.of(0.05, 0.10, 0.15, 0.25),
+                                                obj -> obj instanceof Double);
 
                 // ========== Entity Raid Settings ==========
                 BUILDER.push("Entity Raid Settings");
