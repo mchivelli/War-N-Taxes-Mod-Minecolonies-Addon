@@ -368,10 +368,12 @@ public class WarChestManager {
     public static int getEffectiveMaxCapacity(int colonyId) {
         int base = TaxConfig.getWarChestMaxCapacity();
         if (!TaxConfig.isUpgradesEnabled()) return base;
-        // Saturating add: WarChestMaxCapacity may be configured up to Integer.MAX_VALUE, so a
-        // positive TREASURY_CAP bonus could overflow int into a NEGATIVE effective cap — which would
-        // make deposits reject everything and Math.min in addToWarChest return the negative cap.
-        // Widen to long and clamp back into int range so the ceiling only ever grows.
+        // Saturating add in long, then clamp to [0, Integer.MAX_VALUE]. Both base (WarChestMaxCapacity)
+        // and the per-level flat bonus are admin-configurable up to Integer.MAX_VALUE, so int math
+        // could overflow into a NEGATIVE effective cap — which would make deposits reject everything
+        // and Math.min in addToWarChest return the negative cap. getTreasuryCapBonus already returns
+        // long (its own level*flat can exceed int range); doing the sum in long keeps the ceiling
+        // monotonic so the upgrade only ever grows the cap.
         long effective = (long) base + net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getTreasuryCapBonus(colonyId);
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, effective));
     }
