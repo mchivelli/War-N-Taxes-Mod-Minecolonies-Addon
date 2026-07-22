@@ -217,11 +217,17 @@ public class GuardResistanceHandler {
      * @param colony The colony involved in war
      */
     public static void applyResistanceToGuardsForWar(IColony colony) {
-        if (!TaxConfig.isGuardResistanceDuringRaidsEnabled()) {
-            return;
-        }
-        
-        int resistanceLevel = TaxConfig.getGuardResistanceLevel();
+        // Base guard resistance is server-configurable and may be disabled. The DEFENSE
+        // investment (Fortified Walls) adds resistance amplifiers on top — each defense
+        // level maps to +1 amplifier. DEFENSE applies even when the base feature is off,
+        // so a colony that paid for it still benefits during wars.
+        int baseResistance = TaxConfig.isGuardResistanceDuringRaidsEnabled()
+                ? TaxConfig.getGuardResistanceLevel() : 0;
+        int defenseBonus = TaxConfig.isUpgradesEnabled()
+                ? net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getDefenseLevelBonus(colony.getID())
+                : 0;
+        // final so the per-citizen forEach lambdas below can capture it.
+        final int resistanceLevel = baseResistance + defenseBonus;
         if (resistanceLevel <= 0) {
             return;
         }
@@ -330,11 +336,18 @@ public class GuardResistanceHandler {
      * @param colony The colony under raid
      */
     public static void applyResistanceToGuardsForRaid(IColony colony) {
-        if (!TaxConfig.isGuardResistanceDuringRaidsEnabled()) {
-            return;
-        }
-        
-        int resistanceLevel = TaxConfig.getGuardResistanceLevel();
+        // Base guard resistance is server-configurable and may be disabled. The DEFENSE
+        // investment (Fortified Walls) adds resistance amplifiers on top — each defense
+        // level maps to +1 amplifier (UpgradeDefenseBonusPerLevel is titled "Additional
+        // guard resistance level per defense upgrade level"). DEFENSE applies even when the
+        // base feature is off, so a colony that paid for it still benefits during raids.
+        int baseResistance = TaxConfig.isGuardResistanceDuringRaidsEnabled()
+                ? TaxConfig.getGuardResistanceLevel() : 0;
+        int defenseBonus = TaxConfig.isUpgradesEnabled()
+                ? net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getDefenseLevelBonus(colony.getID())
+                : 0;
+        // final so the per-citizen forEach lambdas below can capture it.
+        final int resistanceLevel = baseResistance + defenseBonus;
         if (resistanceLevel <= 0) {
             return;
         }

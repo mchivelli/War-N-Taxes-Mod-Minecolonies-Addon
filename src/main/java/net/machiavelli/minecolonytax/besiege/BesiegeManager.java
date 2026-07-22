@@ -937,7 +937,7 @@ public class BesiegeManager {
                 militiaCount = convertCitizensToMilitia(colony, besieger, raid);
                 mercCount = spawnMercenaries(colony, besieger, raid);
                 spawnMilitiaUpgradeReinforcements(colony, besieger, raid, guardCount);
-                applyFortificationBonus(colony, raid);
+                applyDefensiveInvestmentBonuses(colony, raid);
             }
 
             int totalDefenders = guardCount + militiaCount + mercCount;
@@ -1102,33 +1102,43 @@ public class BesiegeManager {
      * are spawned in launchRaid().
      * Each 20% damage reduction from the investment adds +1 resistance amplifier.
      */
-    private static void applyFortificationBonus(IColony colony, BesiegeRaidData raid) {
+    private static void applyDefensiveInvestmentBonuses(IColony colony, BesiegeRaidData raid) {
         if (!TaxConfig.isUpgradesEnabled()) return;
+        // FORTIFICATION (Battlements) and DEFENSE (Fortified Walls) both harden the same
+        // defenders through vanilla DAMAGE_RESISTANCE. Re-adding that effect keeps only the
+        // HIGHEST amplifier — the two do NOT sum — so combine them into one amplifier and
+        // apply it once. FORTIFICATION contributes +1 per 20% damage reduction; DEFENSE
+        // contributes +1 per defense level. Defenders already carry base Resistance
+        // amplifier 1 (applyDefenderEffects), so the final amplifier is 1 + the combined
+        // bonus, clamped to the vanilla ceiling of 4 (=100% mitigation).
         double dmgReduction = net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager
                 .getFortificationDamageReduction(colony.getID());
-        if (dmgReduction <= 0) return;
-        int extraAmplifier = (int) (dmgReduction / 0.20);
-        if (extraAmplifier <= 0) return;
+        int fortAmp = (int) (dmgReduction / 0.20);
+        int defenseAmp = net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager
+                .getDefenseLevelBonus(colony.getID());
+        int bonusAmp = fortAmp + defenseAmp;
+        if (bonusAmp <= 0) return;
 
-        int durationTicks = TaxConfig.getBesiegeDurationMinutes() * 60 * 20;
-        // Re-apply DAMAGE_RESISTANCE to citizens with the boosted amplifier
+        final int amplifier = Math.min(4, 1 + bonusAmp);
+        final int durationTicks = TaxConfig.getBesiegeDurationMinutes() * 60 * 20;
+        // Re-apply DAMAGE_RESISTANCE to guards + militia with the combined amplifier.
         for (int citizenId : raid.hostileCitizenIds) {
             colony.getCitizenManager().getCitizens().stream()
                     .filter(c -> c.getId() == citizenId)
                     .findFirst()
                     .flatMap(ICitizenData::getEntity)
                     .ifPresent(entity -> entity.addEffect(
-                            new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, durationTicks, 1 + extraAmplifier)));
+                            new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, durationTicks, amplifier)));
         }
-        // Also boost mercenaries
+        // Also boost mercenaries.
         for (Entity merc : raid.spawnedMercenaries) {
             if (merc instanceof net.minecraft.world.entity.LivingEntity living && living.isAlive()) {
-                living.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, durationTicks, 1 + extraAmplifier));
+                living.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, durationTicks, amplifier));
             }
         }
         if (TaxConfig.isDebugLogging())
-            LOGGER.debug("FORTIFICATION bonus applied to colony {} defenders (extra resistance amplifier: {})",
-                    colony.getName(), extraAmplifier);
+            LOGGER.debug("Defensive investment bonus applied to colony {} defenders (fortAmp={}, defenseAmp={}, final amplifier={})",
+                    colony.getName(), fortAmp, defenseAmp, amplifier);
     }
 
     private static int spawnMercenaries(IColony colony, ServerPlayer besieger, BesiegeRaidData raid) {

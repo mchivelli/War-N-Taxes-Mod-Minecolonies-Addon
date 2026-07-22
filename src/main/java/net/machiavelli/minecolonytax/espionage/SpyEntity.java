@@ -185,6 +185,19 @@ public class SpyEntity extends PathfinderMob {
         };
         double totalChance = baseChance + modifier;
 
+        // SPY_EVASION investment (Spy Evasion): the spying player's colony lowers the chance
+        // its spy is detected. This entity only knows its mission id, so resolve the spying
+        // colony through SpyManager. Reduction is 0 when unpurchased/disabled, and clamped to
+        // 0.95 so a spy is never perfectly undetectable.
+        if (TaxConfig.isUpgradesEnabled() && !missionId.isEmpty()) {
+            int attackerColonyId = SpyManager.getMissionAttackerColonyId(missionId);
+            if (attackerColonyId != -1) {
+                double evasion = Math.min(0.95, net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager
+                        .getDetectionReductionChance(attackerColonyId));
+                totalChance *= (1.0 - evasion);
+            }
+        }
+
         java.util.List<com.minecolonies.api.entity.citizen.AbstractEntityCitizen> nearbyEntities = level()
                 .getEntitiesOfClass(
                         com.minecolonies.api.entity.citizen.AbstractEntityCitizen.class,

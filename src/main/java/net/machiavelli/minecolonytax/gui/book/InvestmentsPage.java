@@ -263,7 +263,7 @@ public class InvestmentsPage extends BookPage {
             case SPY_EVASION ->
                 String.format("-%.0f%% detection", level * TaxConfig.getUpgradeDetectionReductionPerLevel() * 100);
             case RAID_FORCE ->
-                String.format("+%.0f%% raid force", level * TaxConfig.getUpgradeRaidForceMultiplierPerLevel() * 100);
+                String.format("+%.0f%% raid loot", level * TaxConfig.getUpgradeRaidForceMultiplierPerLevel() * 100);
             case DEFENSE ->
                 "+" + (level * TaxConfig.getUpgradeDefenseBonusPerLevel()) + " def levels";
             case TREASURY_CAP ->
@@ -291,7 +291,7 @@ public class InvestmentsPage extends BookPage {
             case SPY_EVASION ->
                 String.format("-%.0f%% detection", TaxConfig.getUpgradeDetectionReductionPerLevel() * 100);
             case RAID_FORCE ->
-                String.format("+%.0f%% raid force", TaxConfig.getUpgradeRaidForceMultiplierPerLevel() * 100);
+                String.format("+%.0f%% raid loot", TaxConfig.getUpgradeRaidForceMultiplierPerLevel() * 100);
             case DEFENSE ->
                 "+" + TaxConfig.getUpgradeDefenseBonusPerLevel() + " def levels";
             case TREASURY_CAP ->
@@ -317,7 +317,7 @@ public class InvestmentsPage extends BookPage {
             case SPY_EVASION ->
                 new String[]{"Lowers the chance that", "your spies are caught", "when they arrive."};
             case RAID_FORCE ->
-                new String[]{"Sends more raiders and", "boosts their strength", "when attacking colonies."};
+                new String[]{"Your raids extract more", "tax from the enemy", "treasury on victory."};
             case DEFENSE ->
                 new String[]{"Raises the effective", "guard defense level,", "reducing damage taken."};
             case TREASURY_CAP ->

@@ -158,10 +158,14 @@ public class SpyManager {
         long activeCount = ACTIVE_MISSIONS.values().stream()
                 .filter(m -> m.getAttackerPlayerId().equals(playerId))
                 .count();
-        if (activeCount >= TaxConfig.getSpyMaxActivePerPlayer()) {
+        // SPY_CAPACITY investment (Spy Network) raises the concurrent-mission ceiling for
+        // the spying player's colony. getSpyCapacityBonus is 0 when unpurchased/disabled.
+        int maxActive = TaxConfig.getSpyMaxActivePerPlayer()
+                + net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getSpyCapacityBonus(attackerColonyId);
+        if (activeCount >= maxActive) {
             player.sendSystemMessage(
                     Component.literal("You have reached the maximum number of active spy missions ("
-                            + TaxConfig.getSpyMaxActivePerPlayer() + ").")
+                            + maxActive + ").")
                             .withStyle(ChatFormatting.RED));
             return;
         }
@@ -256,6 +260,18 @@ public class SpyManager {
         mission.setSourceZ(srcZ);
         mission.setDestX(dstX);
         mission.setDestZ(dstZ);
+        // SPY_SPEED investment (Courier Routes) shortens travel time for the spying colony.
+        // getSpySpeedMultiplier is the fraction to trim off (0 when unpurchased); clamped to
+        // 0.9 so at least 10% of the trip remains. Applied after the min/max clamp above so
+        // the courier bonus can dip below the normal minimum travel time. This single value
+        // governs BOTH the outbound and return legs (see tick()).
+        if (TaxConfig.isUpgradesEnabled()) {
+            double speedup = Math.min(0.9, net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager
+                    .getSpySpeedMultiplier(attackerColonyId));
+            if (speedup > 0) {
+                travelDurationMs = Math.max(1L, (long) (travelDurationMs * (1.0 - speedup)));
+            }
+        }
         mission.setTravelDurationMs(travelDurationMs);
 
         // Add pending cost to tax
@@ -684,6 +700,17 @@ public class SpyManager {
                 // Handle travel phase completion: DEPLOYING → ACTIVE
                 if ("DEPLOYING".equals(mission.getStatus())) {
                     if (now - mission.getStartTime() >= mission.getTravelDurationMs()) {
+                        // COUNTER_INTEL investment (Counter-Intel): the TARGET colony gets a
+                        // passive chance to catch the spy the moment it arrives, before it can
+                        // begin its mission. getCounterIntelDetectChance is 0 when unpurchased,
+                        // so this roll can never fire without the investment.
+                        if (TaxConfig.isUpgradesEnabled()
+                                && Math.random() < net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager
+                                        .getCounterIntelDetectChance(mission.getTargetColonyId())) {
+                            onSpyKilled(missionId);
+                            anyProcessed = true;
+                            continue;
+                        }
                         spawnSpyEntityForMission(mission);
                         mission.setStatus("ACTIVE");
                         String colonyName = getColonyName(mission.getTargetColonyId());
@@ -911,6 +938,16 @@ public class SpyManager {
     }
 
     // ======================== MISSION QUERY ========================
+
+    /**
+     * The attacking (spying) colony id for an active mission, or -1 if unknown. Used by
+     * SpyEntity to apply the SPY_EVASION investment: the entity tracks only its target
+     * colony and mission id, not the spying colony, so it resolves it back through here.
+     */
+    public static int getMissionAttackerColonyId(String missionId) {
+        SpyMission mission = ACTIVE_MISSIONS.get(missionId);
+        return mission != null ? mission.getAttackerColonyId() : -1;
+    }
 
     public static boolean isMissionActive(String missionId) {
         return ACTIVE_MISSIONS.containsKey(missionId);

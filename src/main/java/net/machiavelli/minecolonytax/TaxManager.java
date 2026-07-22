@@ -431,8 +431,12 @@ public class TaxManager {
                             double upgradeTax = TaxConfig.getUpgradeTaxForBuilding(buildingType) * buildingLevel;
                             double rawTax = baseTax + upgradeTax;
                             
-                            // Apply happiness modifier to tax generation
-                            int generatedTax = (int) (rawTax * happinessMultiplier);
+                            // Apply happiness modifier + TAX_EFFICIENCY investment (Tax Office).
+                            // colonyId is in scope; getTaxEfficiencyBonus returns a fraction
+                            // (e.g. 0.05 = +5%), and 0 when unpurchased or upgrades are disabled.
+                            double efficiency = 1.0 + net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager
+                                    .getTaxEfficiencyBonus(colonyId);
+                            int generatedTax = (int) (rawTax * happinessMultiplier * efficiency);
                             totalBaseTax += (int) rawTax; // Track base tax before happiness modifier
                             totalGeneratedTax += generatedTax; // Track actual modified tax for reporting
                             
