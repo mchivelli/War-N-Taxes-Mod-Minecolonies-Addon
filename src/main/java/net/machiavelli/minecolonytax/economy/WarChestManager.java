@@ -210,8 +210,12 @@ public class WarChestManager {
         player.sendSystemMessage(
                 Component.literal("Balance: " + balance + " / " + maxCapacity).withStyle(ChatFormatting.WHITE));
 
+        // "% of base capacity", not "% of capacity": the drain percent is applied to the configured
+        // base cap (see computeEffectiveDrain), NOT the effective cap shown on the Balance line above.
+        // A TREASURY_CAP vault upgrade deliberately does not speed up the drain, so labelling it plain
+        // "% of capacity" next to the larger effective figure would misstate the actual drain.
         String drainDesc = TaxConfig.isWarChestDrainUsePercent()
-                ? String.format("%d/min (%.0f%% of capacity)", effectiveDrain, TaxConfig.getWarChestDrainPercent() * 100)
+                ? String.format("%d/min (%.0f%% of base capacity)", effectiveDrain, TaxConfig.getWarChestDrainPercent() * 100)
                 : effectiveDrain + "/min (flat)";
         player.sendSystemMessage(
                 Component.literal("Drain Rate (during war): " + drainDesc).withStyle(ChatFormatting.GRAY));
@@ -364,7 +368,12 @@ public class WarChestManager {
     public static int getEffectiveMaxCapacity(int colonyId) {
         int base = TaxConfig.getWarChestMaxCapacity();
         if (!TaxConfig.isUpgradesEnabled()) return base;
-        return base + net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getTreasuryCapBonus(colonyId);
+        // Saturating add: WarChestMaxCapacity may be configured up to Integer.MAX_VALUE, so a
+        // positive TREASURY_CAP bonus could overflow int into a NEGATIVE effective cap — which would
+        // make deposits reject everything and Math.min in addToWarChest return the negative cap.
+        // Widen to long and clamp back into int range so the ceiling only ever grows.
+        long effective = (long) base + net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getTreasuryCapBonus(colonyId);
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, effective));
     }
 
     /**

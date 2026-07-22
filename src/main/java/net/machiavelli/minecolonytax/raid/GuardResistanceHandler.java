@@ -217,6 +217,7 @@ public class GuardResistanceHandler {
      * @param colony The colony involved in war
      */
     public static void applyResistanceToGuardsForWar(IColony colony) {
+        if (colony == null) return;
         // Base guard resistance is server-configurable and may be disabled. The DEFENSE
         // investment (Fortified Walls) adds resistance amplifiers on top — each defense
         // level maps to +1 amplifier. DEFENSE applies even when the base feature is off,
@@ -336,6 +337,7 @@ public class GuardResistanceHandler {
      * @param colony The colony under raid
      */
     public static void applyResistanceToGuardsForRaid(IColony colony) {
+        if (colony == null) return;
         // Base guard resistance is server-configurable and may be disabled. The DEFENSE
         // investment (Fortified Walls) adds resistance amplifiers on top — each defense
         // level maps to +1 amplifier (UpgradeDefenseBonusPerLevel is titled "Additional
