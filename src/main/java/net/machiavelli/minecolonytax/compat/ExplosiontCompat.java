@@ -48,22 +48,19 @@ public final class ExplosiontCompat {
     }
 
     /**
-     * Whether the WarBlockLedger should step aside and let Explosion't handle
-     * restoration. True whenever Explosion't is present — the mixin ensures
-     * its tick is war-aware.
+     * Whether the WarBlockLedger should step aside and let Explosion't handle restoration.
      *
-     * <p><b>NeoForge port note:</b> the Forge original consults
-     * {@code TaxConfig.isDeferRestorationToExplosiont()} as an explicit OFF switch.
-     * That config key is NOT yet present in the NeoForge {@code TaxConfig}; see
-     * INTEGRATION NOTES. Until it is added, this returns true whenever the mixin
-     * integration is active (i.e. Explosion't is loaded), which matches the
-     * Forge default behaviour (legacy flag defaults FALSE, and the OR with the
-     * mixin check makes the result TRUE when the mod is present anyway).
+     * <p>Driven by the EXPLICIT admin config {@code DeferRestorationToExplosiont} (default false),
+     * which does now exist in {@code TaxConfig}. It deliberately does NOT auto-defer merely because
+     * Explosion't is loaded: the war-aware {@code WorldTickHandlerMixin} the old note assumed is not
+     * present in this NeoForge port, so auto-deferring would leave NEITHER system restoring war damage
+     * (WarBlockLedger steps aside while Explosion't heals ungated). Default (false) therefore keeps the
+     * WarBlockLedger snapshot/restore path — the one that actually works — and an admin who has wired
+     * Explosion't up themselves can opt out via the config.
      */
     public static boolean shouldDeferToExplosiont() {
         if (!isPresent()) return false;
-        return net.machiavelli.minecolonytax.TaxConfig.isDeferRestorationToExplosiont()
-                || isMixinIntegrationActive();
+        return net.machiavelli.minecolonytax.TaxConfig.isDeferRestorationToExplosiont();
     }
 
     /**

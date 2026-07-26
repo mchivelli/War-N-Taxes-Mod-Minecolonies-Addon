@@ -425,7 +425,14 @@ public class WarSystem {
         }
     }
 
-    public static void finalizeWarStart(WarData war) {
+    /**
+     * @return true if the war actually proceeded into INWAR; false if it was aborted here (no
+     *         participants / unbalanced teams). The caller MUST NOT enable war permissions or start
+     *         the countdown when this returns false — otherwise a war that failed its start checks
+     *         keeps running as a half-initialized INWAR (no militia, no glow, no briefings) with a
+     *         live countdown, corrupting guard-kill detection.
+     */
+    public static boolean finalizeWarStart(WarData war) {
         int attackerPlayerCount = war.getAttackerLives().size();
         int defenderPlayerCount = war.getDefenderLives().size();
 
@@ -436,7 +443,7 @@ public class WarSystem {
                 broadcastToServer(cancelMsg);
             }
             endWar(war.getColony());
-            return;
+            return false;
         }
 
         if (Math.abs(attackerPlayerCount - defenderPlayerCount) > 1) {
@@ -446,7 +453,9 @@ public class WarSystem {
                         .withStyle(style -> style.withColor(ChatFormatting.RED).withBold(true));
                 broadcastToServer(ratioMsg);
             }
-            return;
+            // End the war cleanly rather than returning into a half-initialized INWAR state.
+            endWar(war.getColony());
+            return false;
         }
 
         war.bossEvent.removeAllPlayers();
@@ -471,7 +480,15 @@ public class WarSystem {
         war.getAttackerLives().keySet().forEach(uuid -> {
             if (war.getColony().getWorld() != null && war.getColony().getWorld().getServer() != null) {
                 ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(uuid);
-                if (p != null) assignWarGroup(p);
+                if (p != null) {
+                    assignWarGroup(p);
+                    // Hand out the Siege Banner to online attackers now that the war has actually
+                    // started. This was previously wired only to login/reconnect, so an attacker
+                    // online at war start (the normal case) never got one without relogging, making
+                    // the Plant-the-Banner objective unplayable. No-op unless experimental objectives
+                    // are enabled (the handout method self-gates).
+                    net.machiavelli.minecolonytax.siege.PlantTheBannerObjective.giveSiegeBannerIfNeeded(p, war);
+                }
             }
         });
         war.getDefenderLives().keySet().forEach(uuid -> {
@@ -517,6 +534,7 @@ public class WarSystem {
         }
         long warDurationMillis = TaxConfig.WAR_DURATION_MINUTES.get() * 60 * 1000L;
         scheduleTimerWarnings(war, warDurationMillis);
+        return true;
     }
 
     private static void assignWarGroup(ServerPlayer player) {
@@ -1182,6 +1200,14 @@ public class WarSystem {
                 warData.bossEvent.removeAllPlayers();
                 warData.bossEvent.setVisible(false);
             }
+            // Also tear down the allies boss bar. During a normal war it is hidden at the JOINING→INWAR
+            // transition, but a war that ends DURING the join phase (0-participant abort, /wnt stopwar,
+            // or a restored JOINING war) never reaches that transition, so without this the yellow
+            // "Joining War" bar stays stuck on clients until they relog.
+            if (warData.alliesBossEvent != null) {
+                warData.alliesBossEvent.removeAllPlayers();
+                warData.alliesBossEvent.setVisible(false);
+            }
             if (colony.getWorld() != null && colony.getWorld().getServer() != null) {
                 colony.getPermissions().getPlayers().forEach((uuid, pdata) -> {
                     ServerPlayer p = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
@@ -1235,6 +1261,20 @@ public class WarSystem {
                                 Component.translatable("war.end.inventory.restored")
                                         .withStyle(style -> style.withColor(ChatFormatting.GREEN).withBold(true)));
                     }
+                }
+            }
+
+            // Reconcile permission ranks NOW rather than waiting up to 60s for the periodic health
+            // check. endWar only cleared the Hostile-rank action NODES above (setWarInteractionPermissions
+            // false); it never demoted the participants OUT of the Hostile rank, so they'd otherwise
+            // linger as "hostile" members of the opposing colony until a restart or manual /wnt permcheck.
+            // PermissionsHealthCheck.run demotes stray hostiles while keeping anyone still legitimately
+            // hostile via a concurrent war/raid/besiege (this war is already removed from ACTIVE_WARS above).
+            if (colony.getWorld() != null && colony.getWorld().getServer() != null) {
+                try {
+                    net.machiavelli.minecolonytax.permissions.PermissionsHealthCheck.run(colony.getWorld().getServer());
+                } catch (Throwable t) {
+                    WARSYSTEM_LOGGER.warn("Post-endWar permission reconciliation failed: {}", t.toString());
                 }
             }
 
@@ -1961,7 +2001,9 @@ public class WarSystem {
             if (war == null || war.getColony() == null) return;
             war.setStatus(WarData.WarStatus.INWAR);
             war.warStartTime = System.currentTimeMillis();
-            finalizeWarStart(war);
+            // If the start checks fail, finalizeWarStart already ended the war — do NOT enable
+            // permissions or start the countdown, which would resurrect it as a half-init INWAR.
+            if (!finalizeWarStart(war)) return;
             // Enable war actions for both sides
             setWarInteractionPermissions(war.getColony(), true);
             if (war.getAttackerColony() != null) {
@@ -3631,7 +3673,8 @@ public class WarSystem {
                     if (w == null || w.getStatus() != WarData.WarStatus.JOINING) return;
                     w.setStatus(WarData.WarStatus.INWAR);
                     w.warStartTime = System.currentTimeMillis();
-                    finalizeWarStart(w);
+                    // Abort the resume too if the start checks fail (finalizeWarStart ended the war).
+                    if (!finalizeWarStart(w)) return;
                     setWarInteractionPermissions(w.getColony(), true);
                     if (w.getAttackerColony() != null) setWarInteractionPermissions(w.getAttackerColony(), true);
                     startWarCountdown(w);

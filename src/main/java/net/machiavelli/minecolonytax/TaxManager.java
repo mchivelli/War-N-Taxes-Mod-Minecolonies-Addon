@@ -335,6 +335,29 @@ public class TaxManager {
     }
 
     /**
+     * Deduct up to {@code amount} from a colony's tax balance WITHOUT driving it past the configured
+     * debt limit, and return how much was actually taken.
+     *
+     * <p>The raid-steal path already respects {@code DebtLimit} (never dropping a balance below
+     * {@code -DebtLimit}, or below 0 when the limit is 0 = debt disabled). The raid penalty and
+     * defense-reward deductions used raw {@link #adjustTax}, which had no floor — so repeated raider
+     * deaths could drive the raider colony arbitrarily negative, past the limit the steal path
+     * carefully enforces. Callers should credit downstream rewards with the RETURNED amount so the
+     * transfer conserves currency instead of minting the shortfall.</p>
+     */
+    public static int deductRespectingDebtLimit(IColony colony, int amount) {
+        if (colony == null || amount <= 0) return 0;
+        int id = colony.getID();
+        int current = colonyTaxMap.getOrDefault(id, 0);
+        int debtLimit = TaxConfig.getDebtLimit();
+        int floor = debtLimit > 0 ? -debtLimit : 0; // lowest balance allowed
+        int deductible = Math.max(0, current - floor);
+        int actual = Math.min(amount, deductible);
+        colonyTaxMap.put(id, current - actual);
+        return actual;
+    }
+
+    /**
      * Restore tax that {@link #claimTax} already deducted and persisted, when the downstream payout to
      * the player failed (e.g. the SDM economy was unavailable). Adds the amount back AND persists
      * immediately, so a claim that could not actually pay out never destroys the colony's tax.

@@ -114,6 +114,9 @@ public final class WarBlockLedger {
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onExplosionDetonate(ExplosionEvent.Detonate event) {
         if (WarSystem.ACTIVE_WARS.isEmpty()) return;
+        // Explicit admin opt-out: when configured to defer to Explosion't, don't snapshot at all
+        // (otherwise both systems would track and restore the same blocks). Off by default.
+        if (net.machiavelli.minecolonytax.compat.ExplosiontCompat.shouldDeferToExplosiont()) return;
 
         Level level = event.getLevel();
         if (level.isClientSide()) return;
@@ -215,6 +218,12 @@ public final class WarBlockLedger {
      *    pruned rather than re-applied.
      */
     public static void restoreWarDamage(UUID warId, Level level) {
+        // If deferring to Explosion't, we never snapshotted, so there's nothing to restore. Drop any
+        // stale ledger entry and let Explosion't own restoration.
+        if (net.machiavelli.minecolonytax.compat.ExplosiontCompat.shouldDeferToExplosiont()) {
+            LEDGERS.remove(warId);
+            return;
+        }
         Map<BlockPos, BlockInfo> ledgerMap = LEDGERS.remove(warId);
         if (ledgerMap == null || ledgerMap.isEmpty()) return;
         if (!(level instanceof ServerLevel serverLevel)) return;

@@ -209,13 +209,21 @@ public class BesiegeManager {
             }
             notifySiegeLives(colonyId, pool);
 
-            // Hold the retreat countdown while they walk back from their respawn point.
-            int windowSec = TaxConfig.getBesiegeRespawnReturnSeconds();
-            if (windowSec > 0) {
-                long until = System.currentTimeMillis() + windowSec * 1000L;
-                for (BesiegeRaidData raid : getRaidsForColony(colonyId)) {
-                    raid.respawnGraceUntilMs = until;
-                    raid.retreatingSinceMs = 0L;
+            // Hold the retreat countdown while the dead LEAD BESIEGER walks back from their respawn
+            // point — and ONLY for their own raid. The retreat timer is driven by the lead besieger's
+            // position (see tick()), so a defender's death, or a co-besieger's/ally's death, must not
+            // reset it: otherwise a besieger who is fleeing the colony would never forfeit as long as
+            // anyone occasionally dies at the siege.
+            if (isAttacker) {
+                int windowSec = TaxConfig.getBesiegeRespawnReturnSeconds();
+                if (windowSec > 0) {
+                    long until = System.currentTimeMillis() + windowSec * 1000L;
+                    for (BesiegeRaidData raid : getRaidsForColony(colonyId)) {
+                        if (uuid.equals(raid.besiegingPlayerUUID)) {
+                            raid.respawnGraceUntilMs = until;
+                            raid.retreatingSinceMs = 0L;
+                        }
+                    }
                 }
             }
         }

@@ -422,6 +422,15 @@ public class RaidManager {
 
     public static void handleRaiderKilled(ActiveRaidData raidData, ServerPlayer killer) {
         LOGGER.debug("handleRaiderKilled called for raider {}", raidData.getRaider());
+        // Guard the colony→world→server chain (the colony's dimension may be unloaded, or the colony
+        // resolved/disbanded). endActiveRaid/endRaid/transferTaxRevenue all null-check this; this
+        // handler, invoked straight from LivingDeathEvent, did not and would NPE on the event thread.
+        if (raidData.getColony() == null || raidData.getColony().getWorld() == null
+                || raidData.getColony().getWorld().getServer() == null) {
+            LOGGER.debug("Colony/world unloaded during raider death — ending raid without payout");
+            RaidManager.endActiveRaid(raidData, "Raider killed while colony unloaded");
+            return;
+        }
         ServerPlayer raider = raidData.getColony().getWorld().getServer().getPlayerList().getPlayer(raidData.getRaider());
         if (raider == null) {
             LOGGER.debug("Raider is offline, ending raid");
@@ -523,18 +532,21 @@ public class RaidManager {
             LOGGER.debug("Using direct item. Base amount: {}, Penalty: {}", baseTaxAmount, raidPenalty);
             raidData.addToTotalTransferred(raidPenalty);
             
-            // Deduct from raider's colony tax balance
+            // Deduct from raider's colony tax balance, respecting the debt limit so repeated raider
+            // deaths can't drive the colony arbitrarily negative. The killer's bounty is then paid out
+            // of what was ACTUALLY taken (currency-conserving — no minting when the colony is at its
+            // debt floor). In the common case (colony solvent) this equals the full penalty.
             IColony raiderColony = raidData.getRaiderColony();
             if (raiderColony != null) {
-                LOGGER.debug("Deducting {} from raider's colony tax balance", raidPenalty);
-                TaxManager.adjustTax(raiderColony, -raidPenalty);
+                raidPenalty = TaxManager.deductRespectingDebtLimit(raiderColony, raidPenalty);
+                LOGGER.debug("Deducted {} from raider's colony tax balance (debt-limit aware)", raidPenalty);
             } else {
                 LOGGER.error("Could not deduct raid penalty: raider's colony is null");
             }
-            
-            // Give items to the killer
+
+            // Give items to the killer (only what was actually deducted above)
             net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(TaxConfig.getCurrencyItemName()));
-            if (item != null) {
+            if (item != null && raidPenalty > 0) {
                 net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, raidPenalty);
                 boolean added = killer.getInventory().add(itemStack);
                 if (!added) {
@@ -544,7 +556,7 @@ public class RaidManager {
                 } else {
                     LOGGER.debug("Successfully gave {} items to killer", raidPenalty);
                 }
-            } else {
+            } else if (item == null && raidPenalty > 0) {
                 // Fallback to give command if item not found in registry
                 String giveCmd = String.format("give %s %s %d", killer.getName().getString(),
                         TaxConfig.getCurrencyItemName(), raidPenalty);
@@ -594,24 +606,28 @@ public class RaidManager {
                     if (raiderColonyBalance > 0) {
                         calculatedDefenseReward = (int) (raiderColonyBalance * defenseRewardPercentage);
                         calculatedDefenseReward = Math.max(50, calculatedDefenseReward); // Minimum reward
-                        
-                        // Deduct from raider's colony and add to defending colony's main tax balance
-                        TaxManager.adjustTax(raiderColony, -calculatedDefenseReward);
-                        TaxManager.incrementTaxRevenue(raidData.getColony(), calculatedDefenseReward);
-                        
-                        LOGGER.info("Transferred {} defense reward from raider's colony {} to defending colony {} main tax balance", 
-                                   calculatedDefenseReward, raiderColony.getName(), raidData.getColony().getName());
+
+                        // Deduct from raider's colony (debt-limit aware) and credit the defending colony
+                        // ONLY with what was actually taken, so this stays a currency-conserving transfer
+                        // and can't push the raider colony past -DebtLimit.
+                        int taken = TaxManager.deductRespectingDebtLimit(raiderColony, calculatedDefenseReward);
+                        TaxManager.incrementTaxRevenue(raidData.getColony(), taken);
+
+                        LOGGER.info("Transferred {} defense reward from raider's colony {} to defending colony {} main tax balance",
+                                   taken, raiderColony.getName(), raidData.getColony().getName());
                     } else {
                         // If no positive balance, create a base reward from raider colony tax debt
                         calculatedDefenseReward = (int) (250 * defenseRewardPercentage); // Base amount
                         calculatedDefenseReward = Math.max(25, calculatedDefenseReward); // Minimum reward
-                        
-                        // Add debt to raider's colony and reward to defending colony
-                        TaxManager.adjustTax(raiderColony, -calculatedDefenseReward);
-                        TaxManager.incrementTaxRevenue(raidData.getColony(), calculatedDefenseReward);
-                        
-                        LOGGER.info("Created {} defense reward debt for raider's colony {} and credited defending colony {} main tax balance", 
-                                   calculatedDefenseReward, raiderColony.getName(), raidData.getColony().getName());
+
+                        // Add debt to raider's colony (bounded by DebtLimit) and reward the defending
+                        // colony with what was actually taken. When debt is disabled (DebtLimit 0) or the
+                        // colony is already at its floor, this yields 0 — no unbounded debt, no minting.
+                        int taken = TaxManager.deductRespectingDebtLimit(raiderColony, calculatedDefenseReward);
+                        TaxManager.incrementTaxRevenue(raidData.getColony(), taken);
+
+                        LOGGER.info("Created {} defense reward debt for raider's colony {} and credited defending colony {} main tax balance",
+                                   taken, raiderColony.getName(), raidData.getColony().getName());
                     }
                 } else {
                     LOGGER.warn("Could not calculate defense reward: raider's colony is null");
@@ -791,6 +807,13 @@ public class RaidManager {
                 
                 // Check if raid time has expired AFTER incrementing (use > not >= to allow full duration)
                 if (raidData.getElapsedSeconds() > RaidManager.getMaxRaidDurationSeconds()) {
+                    // If the timer runs out while the raider is currently OUTSIDE the claim (still in
+                    // the retreat grace window, so markLeftBoundaries hasn't fired yet), they were not
+                    // present when the raid "completed" — mark them as having left so isEligibleForRewards
+                    // denies the steal instead of paying out an absent raider.
+                    if (raidData.getRetreatingSinceMs() != 0L) {
+                        raidData.markLeftBoundaries();
+                    }
                     endRaid(raidData, "Raid completed successfully");
                     net.machiavelli.minecolonytax.util.TickScheduler.cancel(raidData.getTimerTaskId());
                     return;
