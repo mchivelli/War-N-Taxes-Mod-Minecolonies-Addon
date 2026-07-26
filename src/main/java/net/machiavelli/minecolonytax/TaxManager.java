@@ -368,6 +368,26 @@ public class TaxManager {
         saveTaxData();
     }
 
+    /**
+     * Deduct up to {@code amount} from a colony's tax balance WITHOUT driving it past the configured
+     * debt limit, and return how much was actually taken. The raid-steal path already respects
+     * {@code DebtLimit} (never below {@code -DebtLimit}, or below 0 when the limit is 0 = debt
+     * disabled); the raid penalty and defense-reward deductions used raw {@link #adjustTax}, which had
+     * no floor — so repeated raider deaths could drive the raider colony arbitrarily negative. Callers
+     * should credit downstream rewards with the RETURNED amount so the transfer conserves currency.
+     */
+    public static int deductRespectingDebtLimit(IColony colony, int amount) {
+        if (colony == null || amount <= 0) return 0;
+        int id = colony.getID();
+        int current = colonyTaxMap.getOrDefault(id, 0);
+        int debtLimit = TaxConfig.getDebtLimit();
+        int floor = debtLimit > 0 ? -debtLimit : 0; // lowest balance allowed
+        int deductible = Math.max(0, current - floor);
+        int actual = Math.min(amount, deductible);
+        colonyTaxMap.put(id, current - actual);
+        return actual;
+    }
+
     public static void adjustTax(IColony colony, int delta) {
         int id = colony.getID();
         int current = colonyTaxMap.getOrDefault(id, 0);

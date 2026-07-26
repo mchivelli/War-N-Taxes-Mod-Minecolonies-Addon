@@ -152,7 +152,10 @@ public class EntityRaidManager {
             // On natural expiry the periodic deduction already ran; only apply final penalty for early end.
             if (!"Expired".equals(reason)) {
                 try {
-                    double pct = TaxConfig.RAID_PENALTY_PERCENTAGE.get() / 100.0;
+                    // RAID_PENALTY_PERCENTAGE is ALREADY a 0..1 decimal (default 0.25), consumed
+                    // directly by deductRevenue()/deductColonyTax. The old "/ 100.0" turned the
+                    // intended 25% (capped at 20%) end penalty into 0.25%, making it nil.
+                    double pct = TaxConfig.RAID_PENALTY_PERCENTAGE.get();
                     if (pct > 0) {
                         pct = Math.min(pct, 0.20d);
                         TaxManager.deductColonyTax(raid.getColony(), pct);

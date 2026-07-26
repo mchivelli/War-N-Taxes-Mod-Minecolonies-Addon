@@ -1781,6 +1781,19 @@ public class WarSystem {
                         .addWarEntry(colony.getName(), attackerOutcome, amountTransferred, _atkBefore, _atkAfter);
             }
             HistoryManager.saveHistory();
+
+            // Reconcile permission ranks now instead of waiting for the next startup / manual health
+            // check. endWar cleared the Hostile-rank action nodes but never demoted the participants
+            // OUT of the Hostile rank, so they'd linger as "hostile" members of the opposing colony.
+            // run() demotes stray hostiles while keeping anyone still legitimately hostile via another
+            // active conflict (this war is already removed from ACTIVE_WARS).
+            if (colony.getWorld() != null && colony.getWorld().getServer() != null) {
+                try {
+                    net.machiavelli.minecolonytax.permissions.PermissionsHealthCheck.run(colony.getWorld().getServer());
+                } catch (Throwable t) {
+                    WARSYSTEM_LOGGER.warn("Post-endWar permission reconciliation failed: {}", t.toString());
+                }
+            }
             WARSYSTEM_LOGGER.info("War ended for colony {}", colony.getName());
         }
     }
