@@ -5,24 +5,19 @@ import net.neoforged.fml.ModList;
 /**
  * Integration with Harmonised's "Explosion't" mod (CurseForge: explosiont).
  *
- * When Explosion't is loaded, our mixin
- * {@link net.machiavelli.minecolonytax.mixin.WorldTickHandlerMixin}
- * pauses Explosion't's per-tick heal countdown while any active war involves
- * the level — making it war-aware. Snapshots accumulate during the fight,
- * healing resumes after the war ends.
+ * <p>By default (config {@code DeferRestorationToExplosiont} = false) our own {@link
+ * net.machiavelli.minecolonytax.siege.WarBlockLedger} is the canonical war-damage restoration
+ * path: it snapshots blocks broken during a war and restores them when the war ends, standalone,
+ * whether or not Explosion't is installed.
  *
- * In that mode, our own WarBlockLedger steps aside (Explosion't is now the
- * canonical restoration path). When Explosion't is absent, WarBlockLedger
- * is the fallback and continues to work standalone.
+ * <p><b>NeoForge port note:</b> the Forge original relied on a {@code WorldTickHandlerMixin} to make
+ * Explosion't's per-tick heal war-aware and hand restoration off to it. That mixin is NOT present in
+ * this NeoForge port, so there is no automatic hand-off — WarBlockLedger stays authoritative. Only
+ * when an admin explicitly sets {@code DeferRestorationToExplosiont} = true (having wired Explosion't
+ * up themselves) does WarBlockLedger step aside; see {@link #shouldDeferToExplosiont()}.
  *
- * <p><b>NeoForge port note:</b> the only adaptation from the Forge original is
- * the ModList package ({@code net.neoforged.fml.ModList}). This class is purely
- * {@link ModList}-guarded with no compile-time reference to Explosion't, so it
- * compiles and degrades gracefully whether or not the mod is present.
- *
- * The legacy {@code DeferRestorationToExplosiont} config flag is honored
- * for back-compat but is no longer required — the mixin makes the
- * integration automatic.
+ * <p>This class is purely {@link ModList}-guarded with no compile-time reference to Explosion't, so
+ * it compiles and degrades gracefully whether or not the mod is present.
  */
 public final class ExplosiontCompat {
 

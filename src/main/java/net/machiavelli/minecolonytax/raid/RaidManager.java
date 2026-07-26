@@ -530,8 +530,7 @@ public class RaidManager {
             raidPenalty = (int)(baseTaxAmount * penaltyPercentage);
             raidPenalty = Math.max(100, raidPenalty);
             LOGGER.debug("Using direct item. Base amount: {}, Penalty: {}", baseTaxAmount, raidPenalty);
-            raidData.addToTotalTransferred(raidPenalty);
-            
+
             // Deduct from raider's colony tax balance, respecting the debt limit so repeated raider
             // deaths can't drive the colony arbitrarily negative. The killer's bounty is then paid out
             // of what was ACTUALLY taken (currency-conserving — no minting when the colony is at its
@@ -543,6 +542,9 @@ public class RaidManager {
             } else {
                 LOGGER.error("Could not deduct raid penalty: raider's colony is null");
             }
+            // Record the ACTUAL transferred amount (after the debt-limit clamp) so the history stat
+            // matches the items handed out below.
+            raidData.addToTotalTransferred(raidPenalty);
 
             // Give items to the killer (only what was actually deducted above)
             net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(TaxConfig.getCurrencyItemName()));
