@@ -568,6 +568,16 @@ public class BesiegeManager {
             return false;
         }
 
+        // 2a. Ransom immunity — the colony bought itself out of a conflict recently
+        if (net.machiavelli.minecolonytax.ransom.RansomManager.hasRansomImmunity(colonyId)) {
+            long hoursLeft = Math.max(1,
+                    net.machiavelli.minecolonytax.ransom.RansomManager.getImmunityRemainingMs(colonyId) / 3_600_000L);
+            besieger.sendSystemMessage(Component.literal(
+                    "This colony paid a ransom and is protected from sieges! (~" + hoursLeft + "h remaining)")
+                    .withStyle(ChatFormatting.RED));
+            return false;
+        }
+
         // 2b. The target's owner must be ONLINE. A besiege is meant to be a fight the defender can
         // answer (see the call-to-arms below), not a smash-and-grab on a sleeping player. If the owner
         // is offline, the besiege is simply unavailable. (Patreon request, 2026-07-09.)
@@ -816,6 +826,16 @@ public class BesiegeManager {
                         .withStyle(ChatFormatting.GREEN));
                 continue;
             }
+            // Ransom immunity granted AFTER this siege was declared — it must not launch into it.
+            if (net.machiavelli.minecolonytax.ransom.RansomManager.hasRansomImmunity(p.colonyId)) {
+                besieger.sendSystemMessage(Component.literal(
+                        colony.getName() + " paid a ransom while your siege was pending — the attack is called off.")
+                        .withStyle(ChatFormatting.RED));
+                notifyColonyDefenders(colony, Component.literal(
+                        "The ransom protection holds — the declared siege of " + colony.getName() + " is called off!")
+                        .withStyle(ChatFormatting.GREEN));
+                continue;
+            }
             notifyColonyDefenders(colony, Component.literal(
                     "Time is up — the siege of " + colony.getName() + " begins!")
                     .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
@@ -851,6 +871,14 @@ public class BesiegeManager {
         if (!occ.formerOwnerUUID.equals(playerUUID)) {
             reclaimingPlayer.sendSystemMessage(Component.literal(
                     "Only the former owner can reclaim this colony via besiege.")
+                    .withStyle(ChatFormatting.RED));
+            return false;
+        }
+
+        // Ransom immunity — no new sieges (including reclaims) while the colony is bought out
+        if (net.machiavelli.minecolonytax.ransom.RansomManager.hasRansomImmunity(colonyId)) {
+            reclaimingPlayer.sendSystemMessage(Component.literal(
+                    "This colony paid a ransom and is protected from sieges — the reclaim must wait.")
                     .withStyle(ChatFormatting.RED));
             return false;
         }
@@ -1683,6 +1711,76 @@ public class BesiegeManager {
             if (raid != null) matches.add(raid);
         }
         return matches;
+    }
+
+    /**
+     * The colony this player is actively besieging as the PRIMARY besieger, or -1.
+     * O(1) — used by the ransom kill hook; registered allies deliberately do not count
+     * (only the primary besieger can trigger and be paid a ransom).
+     */
+    public static int getBesiegedColonyIdFor(UUID besiegerUUID) {
+        if (besiegerUUID == null) return -1;
+        BesiegeRaidData raid = ACTIVE_RAIDS.get(besiegerUUID);
+        return raid != null ? raid.colonyId : -1;
+    }
+
+    /**
+     * Remaining defender lives in this colony's siege life pool, or -1 if no pool exists
+     * (no active siege, or no defender has joined yet). The ransom system uses this to
+     * skip offer creation when the pool is already exhausted — victory resolution is
+     * imminent in {@link #tick()} and an offer would race it.
+     */
+    public static int getDefenderLivesRemaining(int colonyId) {
+        SiegeLives pool = SIEGE_LIVES.get(colonyId);
+        return pool != null ? pool.defenderLives : -1;
+    }
+
+    /**
+     * Ends every active siege on this colony because the defenders paid a ransom.
+     * Outcome "ransomed": NO victory, NO spoils, NO occupation — mirrors the retreat
+     * branch in {@link #tick()} (cleanup + normal besiege cooldown for every besieger).
+     * Only the besieger who triggered the ransom was paid; co-besiegers walk away empty
+     * (same result as if their target had successfully driven them off).
+     *
+     * <p>All sieges end together deliberately: every raid on a colony shares one defender
+     * life pool, so ending only the payer's raid would leave the colony simultaneously
+     * "besieged" and "ransom-immune", which the immunity gate could not answer coherently.
+     *
+     * @return true if at least one siege was ended
+     */
+    public static boolean endBesiegeByRansom(int colonyId, UUID paidBesiegerUUID, int amountPaid) {
+        List<BesiegeRaidData> raids = getRaidsForColony(colonyId); // snapshot — we mutate below
+        if (raids.isEmpty()) return false;
+        IColony colony = getColonyById(colonyId);
+        String colonyName = colony != null ? colony.getName() : ("#" + colonyId);
+
+        for (BesiegeRaidData raid : raids) {
+            boolean isPaidBesieger = raid.besiegingPlayerUUID.equals(paidBesiegerUUID);
+            if (isPaidBesieger) {
+                sendToPlayer(raid.besiegingPlayerUUID, Component.literal(
+                        "✓ Ransom accepted — you extorted " + amountPaid + " from " + colonyName
+                                + " and withdraw your siege.")
+                        .withStyle(ChatFormatting.GOLD));
+            } else {
+                sendToPlayer(raid.besiegingPlayerUUID, Component.literal(
+                        colonyName + " ransomed its leaders — the siege is lifted. You receive nothing.")
+                        .withStyle(ChatFormatting.YELLOW));
+            }
+            // Same teardown pair as the retreat branch, but removeFromMap=true because we
+            // are outside the tick() iterator (which uses it.remove() instead).
+            cleanupRaid(raid, true);
+            applyCooldown(raid.besiegingPlayerUUID);
+        }
+
+        if (colony != null) {
+            notifyColonyDefenders(colony, Component.literal(
+                    "The ransom was paid — every siege of " + colonyName + " is lifted!")
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+        }
+        if (TaxConfig.isNormalLogging())
+            LOGGER.info("Ransom of {} paid to {} — ended {} siege(s) on colony {}",
+                    amountPaid, paidBesiegerUUID, raids.size(), colonyId);
+        return true;
     }
 
     /**

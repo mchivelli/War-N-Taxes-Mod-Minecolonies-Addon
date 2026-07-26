@@ -171,6 +171,22 @@ public class MineColonyTax {
             }
         }
 
+        // Ransom system — init + drive tick() ~every second (offer expiry, conflict validation)
+        if (TaxConfig.isRansomSystemEnabled()) {
+            try {
+                net.machiavelli.minecolonytax.ransom.RansomManager.initialize(event.getServer());
+                net.machiavelli.minecolonytax.util.TickScheduler.scheduleRepeating(() -> {
+                    try {
+                        net.machiavelli.minecolonytax.ransom.RansomManager.tick();
+                    } catch (Throwable t) {
+                        LOGGER.error("Error in RansomManager tick: {}", t.toString());
+                    }
+                }, 1000, 1000);
+            } catch (Throwable t) {
+                LOGGER.error("Failed to initialize RansomManager: {}", t.toString());
+            }
+        }
+
         // War block ledger (persistent siege damage) — load + prune orphans for ended wars
         try {
             net.machiavelli.minecolonytax.siege.WarBlockLedger.loadFromDisk();
@@ -254,6 +270,7 @@ public class MineColonyTax {
         try { OccupationManager.shutdown(); }       catch (Throwable t) { LOGGER.warn("OccupationManager shutdown error: {}", t.toString()); }
         try { net.machiavelli.minecolonytax.deletion.ColonyDeletionManager.save(); } catch (Throwable t) { LOGGER.warn("ColonyDeletionManager save error: {}", t.toString()); }
         try { net.machiavelli.minecolonytax.besiege.BesiegeManager.shutdown(); } catch (Throwable t) { LOGGER.warn("BesiegeManager shutdown error: {}", t.toString()); }
+        try { net.machiavelli.minecolonytax.ransom.RansomManager.shutdown(); } catch (Throwable t) { LOGGER.warn("RansomManager shutdown error: {}", t.toString()); }
         try { net.machiavelli.minecolonytax.siege.WarBlockLedger.flushPendingRestores(); } catch (Throwable t) { LOGGER.warn("WarBlockLedger flush error: {}", t.toString()); }
         try { net.machiavelli.minecolonytax.siege.WarBlockLedger.saveToDisk(); } catch (Throwable t) { LOGGER.warn("WarBlockLedger save error: {}", t.toString()); }
         // Flush async file writes (besiege uses AsyncSaveExecutor) before the scheduler stops.

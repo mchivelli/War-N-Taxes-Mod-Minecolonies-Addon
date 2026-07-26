@@ -173,6 +173,16 @@ public class RaidManager {
                 return 0;
             }
 
+            // Ransom immunity — the colony bought itself out of a conflict recently
+            if (net.machiavelli.minecolonytax.ransom.RansomManager.hasRansomImmunity(colony.getID())) {
+                long hoursLeft = Math.max(1,
+                        net.machiavelli.minecolonytax.ransom.RansomManager.getImmunityRemainingMs(colony.getID()) / 3_600_000L);
+                context.getSource().sendFailure(Component.literal(
+                        "This colony paid a ransom and is protected from raids! (~" + hoursLeft + "h remaining)")
+                        .withStyle(ChatFormatting.RED));
+                return 0;
+            }
+
             // Send comprehensive raid instructions to the raider
             sendRaidInstructions(raider, colony, targetGuards);
 

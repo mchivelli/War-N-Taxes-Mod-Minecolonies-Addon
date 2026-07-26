@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Ransom System v2 (raids + sieges)
+
+A rebuilt, balance-fixed version of the never-shipped Phase-9 ransom feature:
+
+- **Automatic offer with attacker veto.** When the active raider or PRIMARY besieger kills the
+  defending colony's owner or an officer, the victim automatically receives a clickable
+  **[ACCEPT] / [DENY]** ransom demand — and the attacker gets a **[WITHDRAW]** button
+  (`/wnt ransom cancel`) to call it off and fight for the full spoils instead.
+- **Accept** pays the attacker from the colony tax balance (payout chain: SDMShop wallet →
+  attacker's colony tax → raider-colony war chest, cap-safe) and ends the conflict in the same
+  action: raids end with **no loot transfer**, sieges end for **all** besiegers with **no victory,
+  no spoils, no occupation** — only the killer is paid. The colony then gains conflict immunity
+  (default 24 h, `RansomImmunityAfterPaymentHours`) enforced on raid start, claiming raids,
+  new sieges, reclaims AND already-declared pending sieges.
+- **Transactional money flow.** Credit-first, debit-exactly-what-landed; a failed payout leaves
+  the offer open with nothing moved (v1 could destroy the payment when SDMShop was enabled but
+  unavailable).
+- **Poor colonies are skipped** — no offer is created when the balance is below `RansomMinAmount`
+  (v1 created demands the victim could never pay, and consumed them on the failed accept).
+- **Server-tick lifecycle.** Offers expire via the main-thread tick loop (no `java.util.Timer`
+  threads), are voided when their conflict ends by other means, and deliberately do not survive
+  restarts; immunities and cooldowns persist in `config/warntax/ransom_data.json`.
+- **Config** (`Tax Expansion - War Mechanics » Ransom System`): existing options plus new
+  `RansomBesiegeEnabled` and `RansomBesiegePercent`; immunity default raised 4 h → 24 h to make
+  paying a real strategic choice (server owners can lower it again).
+- **A ransomed kill still costs its besiege life** — dying to spawn offers is never a free life.
+- Commands: `/wnt ransom accept|deny|cancel|status` (accept/deny only work for the offer's victim,
+  cancel only for its attacker).
+
 ### Fixed - Ownership / Officer & conflict-end safety pass (ported from Forge)
 
 This port was still missing the entire 4.x/5.0 colony-abandonment hardening, so it was vulnerable

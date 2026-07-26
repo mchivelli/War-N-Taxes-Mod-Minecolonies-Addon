@@ -122,9 +122,9 @@ public class WntCommands {
                         .executes(WntCommands::showHelp)
                         .then(Commands.argument("command", StringArgumentType.word())
                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(
-                                        List.of("wagewar", "raid", "claimtax", "checktax", "taxdebt", "joinwar", "leavewar", 
-                                               "war", "peace", "warinfo", "wardebug", "warstop", "warstopall", "raidstop", 
-                                               "warhistory", "raidhistory", "warstats", "taxgen", "vassalize", "vassalaccept", "vassaldecline", "revoke", "vassals", "entityraid", "permissions"), builder))
+                                        List.of("wagewar", "raid", "claimtax", "checktax", "taxdebt", "joinwar", "leavewar",
+                                               "war", "peace", "warinfo", "wardebug", "warstop", "warstopall", "raidstop",
+                                               "warhistory", "raidhistory", "warstats", "taxgen", "vassalize", "vassalaccept", "vassaldecline", "revoke", "vassals", "entityraid", "permissions", "ransom"), builder))
                                 .executes(WntCommands::showSpecificHelp)
                         )
                 )
@@ -171,6 +171,16 @@ public class WntCommands {
                                 .suggests(COLONY_SUGGESTIONS)
                                 .executes(WntCommands::handleBuyoffCommand)
                         )
+                )
+
+                // Ransom System v2: victim answers the demand (accept/deny), attacker may
+                // withdraw it (cancel). Identity checks live in RansomManager — accept/deny
+                // only work for the offer's victim, cancel only for its attacker.
+                .then(Commands.literal("ransom")
+                        .then(Commands.literal("accept").executes(WntCommands::handleRansomAcceptCommand))
+                        .then(Commands.literal("deny").executes(WntCommands::handleRansomDenyCommand))
+                        .then(Commands.literal("cancel").executes(WntCommands::handleRansomCancelCommand))
+                        .then(Commands.literal("status").executes(WntCommands::handleRansomStatusCommand))
                 )
 
                 // Alpha-testing aid: clear besiege cooldowns so testers can re-run sieges back to back.
@@ -837,6 +847,15 @@ public class WntCommands {
                 }
                 break;
                 
+            case "ransom":
+                source.sendSuccess(() -> Component.literal("§6/wnt ransom accept|deny|cancel|status"), false);
+                source.sendSuccess(() -> Component.literal("§7Ransom offers fire automatically when a raider/besieger kills the defending colony's owner or an officer."), false);
+                source.sendSuccess(() -> Component.literal("§7- accept: pay the demand from your colony tax — the conflict ends, your colony gains immunity"), false);
+                source.sendSuccess(() -> Component.literal("§7- deny: reject the demand — the fight continues"), false);
+                source.sendSuccess(() -> Component.literal("§7- cancel: (attacker) withdraw your demand and fight for the full spoils"), false);
+                source.sendSuccess(() -> Component.literal("§7- status: show pending offers or remaining immunity"), false);
+                break;
+
             // Vassal commands (accept both canonical and deprecated spellings)
             case "vassalize":
             case "vasalize":
@@ -1259,6 +1278,63 @@ public class WntCommands {
             return 0;
         } catch (Exception e) {
             LOGGER.error("Error handling buyoff command", e);
+            return 0;
+        }
+    }
+
+    // ==================== Ransom System v2 ====================
+    // Thin delegates — all validation (pending offer, caller identity, conflict alive)
+    // lives in RansomManager so the chat buttons and typed commands behave identically.
+
+    private static int handleRansomAcceptCommand(CommandContext<CommandSourceStack> ctx) {
+        try {
+            ServerPlayer player = ctx.getSource().getPlayerOrException();
+            return net.machiavelli.minecolonytax.ransom.RansomManager.acceptOffer(player) ? 1 : 0;
+        } catch (CommandSyntaxException e) {
+            ctx.getSource().sendFailure(Component.literal("You must be a player to use this command."));
+            return 0;
+        } catch (Exception e) {
+            LOGGER.error("Error handling ransom accept command", e);
+            return 0;
+        }
+    }
+
+    private static int handleRansomDenyCommand(CommandContext<CommandSourceStack> ctx) {
+        try {
+            ServerPlayer player = ctx.getSource().getPlayerOrException();
+            return net.machiavelli.minecolonytax.ransom.RansomManager.denyOffer(player) ? 1 : 0;
+        } catch (CommandSyntaxException e) {
+            ctx.getSource().sendFailure(Component.literal("You must be a player to use this command."));
+            return 0;
+        } catch (Exception e) {
+            LOGGER.error("Error handling ransom deny command", e);
+            return 0;
+        }
+    }
+
+    private static int handleRansomCancelCommand(CommandContext<CommandSourceStack> ctx) {
+        try {
+            ServerPlayer player = ctx.getSource().getPlayerOrException();
+            return net.machiavelli.minecolonytax.ransom.RansomManager.cancelOffer(player) ? 1 : 0;
+        } catch (CommandSyntaxException e) {
+            ctx.getSource().sendFailure(Component.literal("You must be a player to use this command."));
+            return 0;
+        } catch (Exception e) {
+            LOGGER.error("Error handling ransom cancel command", e);
+            return 0;
+        }
+    }
+
+    private static int handleRansomStatusCommand(CommandContext<CommandSourceStack> ctx) {
+        try {
+            ServerPlayer player = ctx.getSource().getPlayerOrException();
+            net.machiavelli.minecolonytax.ransom.RansomManager.showStatus(player);
+            return 1;
+        } catch (CommandSyntaxException e) {
+            ctx.getSource().sendFailure(Component.literal("You must be a player to use this command."));
+            return 0;
+        } catch (Exception e) {
+            LOGGER.error("Error handling ransom status command", e);
             return 0;
         }
     }

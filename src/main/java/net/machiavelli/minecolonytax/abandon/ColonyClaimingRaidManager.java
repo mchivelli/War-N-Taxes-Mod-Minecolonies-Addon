@@ -102,7 +102,15 @@ public class ColonyClaimingRaidManager {
                     .withStyle(ChatFormatting.RED));
             return false;
         }
-        
+
+        // Ransom immunity — the colony bought itself out of a conflict recently
+        if (net.machiavelli.minecolonytax.ransom.RansomManager.hasRansomImmunity(colony.getID())) {
+            claimingPlayer.sendSystemMessage(Component.literal(
+                    "This colony paid a ransom and is protected from claiming raids!")
+                    .withStyle(ChatFormatting.RED));
+            return false;
+        }
+
         // Check claiming requirements (includes former owner/officer bypass)
         ClaimingRequirementResult requirementResult = checkClaimingRequirements(claimingPlayer, colony);
         if (!requirementResult.canClaim) {

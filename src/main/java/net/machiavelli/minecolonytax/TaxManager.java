@@ -335,6 +335,16 @@ public class TaxManager {
     }
 
     /**
+     * {@link #adjustTax} plus an immediate persist. Use for money movements that must not
+     * be lost to a crash between the adjustment and the next incidental save (e.g. ransom
+     * debit/credit) — plain {@code adjustTax} does NOT write to disk.
+     */
+    public static void adjustTaxAndSave(IColony colony, int delta) {
+        adjustTax(colony, delta);
+        saveTaxData(true);
+    }
+
+    /**
      * Restore tax that {@link #claimTax} already deducted and persisted, when the downstream payout to
      * the player failed (e.g. the SDM economy was unavailable). Adds the amount back AND persists
      * immediately, so a claim that could not actually pay out never destroys the colony's tax.

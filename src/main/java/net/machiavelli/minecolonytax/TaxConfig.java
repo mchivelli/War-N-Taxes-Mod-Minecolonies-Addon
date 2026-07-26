@@ -412,6 +412,8 @@ public class TaxConfig {
         public static final ModConfigSpec.IntValue RANSOM_TIMEOUT_SECONDS;
         public static final ModConfigSpec.IntValue RANSOM_COOLDOWN_MINUTES;
         public static final ModConfigSpec.IntValue RANSOM_IMMUNITY_AFTER_PAYMENT_HOURS;
+        public static final ModConfigSpec.BooleanValue RANSOM_BESIEGE_ENABLED;
+        public static final ModConfigSpec.DoubleValue RANSOM_BESIEGE_PERCENT;
 
         // ========== TAX EXPANSION: Money Sinks / Investments ==========
         public static final ModConfigSpec.BooleanValue ENABLE_INVESTMENTS;
@@ -1580,7 +1582,10 @@ public class TaxConfig {
                 // --- Ransom System ---
                 BUILDER.push("Ransom System");
                 ENABLE_RANSOM_SYSTEM = BUILDER.comment(
-                                "Enable ransom system. When colony owner dies during raid, attacker can demand ransom to end raid.")
+                                "Enable ransom system. When the colony owner or an officer is killed by the attacker during a raid "
+                                                + "(or besiege, see RansomBesiegeEnabled), a ransom offer is sent to the victim automatically. "
+                                                + "The victim can accept (pay to end the conflict + gain immunity) or deny; "
+                                                + "the attacker may withdraw the offer before it is answered.")
                                 .define("EnableRansomSystem", true);
 
                 RANSOM_DEFAULT_PERCENT = BUILDER.comment(
@@ -1605,9 +1610,20 @@ public class TaxConfig {
                                 .defineInRange("RansomCooldownMinutes", 30, 1, 1440);
 
                 RANSOM_IMMUNITY_AFTER_PAYMENT_HOURS = BUILDER.comment(
-                                "Hours of immunity from raids after paying a ransom. " +
-                                                "Reduced from 24h to prevent ransom as a cheap 'invulnerability shield'.")
-                                .defineInRange("RansomImmunityAfterPaymentHours", 4, 0, 168);
+                                "Hours of conflict immunity (raids, claiming raids, besieges) after paying a ransom. "
+                                                + "Default 24 makes paying a meaningful strategic choice; "
+                                                + "lower it (e.g. 4) if ransom becomes a cheap 'invulnerability shield' on your server.")
+                                .defineInRange("RansomImmunityAfterPaymentHours", 24, 0, 168);
+
+                RANSOM_BESIEGE_ENABLED = BUILDER.comment(
+                                "Also trigger ransom offers during besieges (owner/officer killed by the primary besieger). "
+                                                + "Accepting ends ALL sieges on the colony with no victory and no spoils; only the killer is paid.")
+                                .define("RansomBesiegeEnabled", true);
+
+                RANSOM_BESIEGE_PERCENT = BUILDER.comment(
+                                "Ransom percentage of the victim colony's tax balance used for besiege ransoms (0.0-1.0). "
+                                                + "Raid ransoms use RansomDefaultPercent.")
+                                .defineInRange("RansomBesiegePercent", 0.15, 0.0, 1.0);
                 BUILDER.pop();
 
                 BUILDER.pop(); // End Tax Expansion - War Mechanics
@@ -3493,6 +3509,14 @@ public class TaxConfig {
 
         public static int getRansomImmunityAfterPaymentHours() {
                 return RANSOM_IMMUNITY_AFTER_PAYMENT_HOURS.get();
+        }
+
+        public static boolean isRansomBesiegeEnabled() {
+                return RANSOM_BESIEGE_ENABLED.get();
+        }
+
+        public static double getRansomBesiegePercent() {
+                return RANSOM_BESIEGE_PERCENT.get();
         }
 
         // --- Investment System ---
