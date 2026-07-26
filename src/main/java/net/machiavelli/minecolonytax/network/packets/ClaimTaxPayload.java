@@ -123,7 +123,17 @@ public record ClaimTaxPayload(int colonyId, int amount) implements CustomPacketP
                 if (paymentSuccessful) {
                     player.sendSystemMessage(Component.translatable("command.claimtax.success", claimedAmount, colony.getName()));
                 } else {
-                    player.sendSystemMessage(Component.literal("\u00a7c\u2717 Failed to claim tax - payment system error!"));
+                    // Payout failed AFTER claimTax already deducted + persisted the tax \u2014 refund it so
+                    // the colony's tax is not silently destroyed (same fix as /wnt claimtax and
+                    // /claimtax). This is the GUI-button path, the most likely one a player uses.
+                    // The vassal-tribute branch (payload.amount == -2) drew its amount from
+                    // VassalManager, NOT the tax pool, so it must NOT be refunded into the tax here.
+                    if (payload.amount != -2) {
+                        TaxManager.refundClaimedTax(colony, claimedAmount);
+                        player.sendSystemMessage(Component.literal("\u00a7c\u2717 Failed to claim tax - payment system error! Tax returned to colony."));
+                    } else {
+                        player.sendSystemMessage(Component.literal("\u00a7c\u2717 Failed to pay out vassal tribute - payment system error!"));
+                    }
                 }
             } else {
                 player.sendSystemMessage(Component.translatable("command.claimtax.no_tax", colony.getName()));
