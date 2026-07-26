@@ -1495,11 +1495,19 @@ public class RaidManager {
                     .getRaidForceMultiplier(raidData.getRaiderColony().getID());
             if (raidForceMultiplier > 1.0) {
                 amountToDeduct = (int) (amountToDeduct * raidForceMultiplier);
-                if (amountToDeduct > colonyBalance) amountToDeduct = colonyBalance;
                 if (net.machiavelli.minecolonytax.TaxConfig.isDebugLogging())
                     LOGGER.debug("RAID_FORCE multiplier {} applied; adjusted steal amount to {}",
                             raidForceMultiplier, amountToDeduct);
             }
+        }
+
+        // Never steal more than a solvent colony actually holds. Guards against BOTH the RAID_FORCE
+        // multiplier above AND a misconfigured RaidTaxPercentages whose tiers sum to > 1 (which would
+        // otherwise let the base percentage alone over-draw the balance into debt). Only the
+        // positive-balance case is capped — the debt branch has its own availableDebt limit and is
+        // deliberately left unscaled.
+        if (colonyBalance > 0 && amountToDeduct > colonyBalance) {
+            amountToDeduct = colonyBalance;
         }
 
         if (net.machiavelli.minecolonytax.TaxConfig.isDebugLogging()) {

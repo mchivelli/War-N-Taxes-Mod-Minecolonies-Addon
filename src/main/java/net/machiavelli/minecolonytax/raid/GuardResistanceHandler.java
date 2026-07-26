@@ -31,12 +31,17 @@ public class GuardResistanceHandler {
      */
     @Deprecated
     public static void applyResistanceToGuards(IColony colony) {
-        if (!TaxConfig.isGuardResistanceDuringRaidsEnabled()) {
-            return;
-        }
+        if (colony == null) return;
 
-        int baseResistanceLevel = TaxConfig.getGuardResistanceLevel();
-        int upgradeBonus = net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getDefenseLevelBonus(colony.getID());
+        // Base guard resistance is server-configurable and may be disabled. The DEFENSE investment
+        // (Fortified Walls) adds resistance amplifiers on top and applies EVEN WHEN the base feature
+        // is off, so a colony that paid for it still benefits (parity with the 1.21.1 line). Removing
+        // the old early-return exposes colony.getID() unconditionally, hence the null-guard above.
+        int baseResistanceLevel = TaxConfig.isGuardResistanceDuringRaidsEnabled()
+                ? TaxConfig.getGuardResistanceLevel() : 0;
+        int upgradeBonus = TaxConfig.isUpgradesEnabled()
+                ? net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getDefenseLevelBonus(colony.getID())
+                : 0;
         int resistanceLevel = baseResistanceLevel + upgradeBonus;
         if (resistanceLevel <= 0) {
             return;
@@ -212,12 +217,17 @@ public class GuardResistanceHandler {
      * @param colony The colony involved in war
      */
     public static void applyResistanceToGuardsForWar(IColony colony) {
-        if (!TaxConfig.isGuardResistanceDuringRaidsEnabled()) {
-            return;
-        }
+        if (colony == null) return;
 
-        int baseResistanceLevel = TaxConfig.getGuardResistanceLevel();
-        int upgradeBonus = net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getDefenseLevelBonus(colony.getID());
+        // Base guard resistance is server-configurable and may be disabled. The DEFENSE investment
+        // (Fortified Walls) adds resistance amplifiers on top and applies EVEN WHEN the base feature
+        // is off, so a colony that paid for it still benefits (parity with the 1.21.1 line). Removing
+        // the old early-return exposes colony.getID() unconditionally, hence the null-guard above.
+        int baseResistanceLevel = TaxConfig.isGuardResistanceDuringRaidsEnabled()
+                ? TaxConfig.getGuardResistanceLevel() : 0;
+        int upgradeBonus = TaxConfig.isUpgradesEnabled()
+                ? net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getDefenseLevelBonus(colony.getID())
+                : 0;
         int resistanceLevel = baseResistanceLevel + upgradeBonus;
         if (resistanceLevel <= 0) {
             return;
@@ -324,12 +334,17 @@ public class GuardResistanceHandler {
      * @param colony The colony under raid
      */
     public static void applyResistanceToGuardsForRaid(IColony colony) {
-        if (!TaxConfig.isGuardResistanceDuringRaidsEnabled()) {
-            return;
-        }
+        if (colony == null) return;
 
-        int baseResistanceLevel = TaxConfig.getGuardResistanceLevel();
-        int upgradeBonus = net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getDefenseLevelBonus(colony.getID());
+        // Base guard resistance is server-configurable and may be disabled. The DEFENSE investment
+        // (Fortified Walls) adds resistance amplifiers on top and applies EVEN WHEN the base feature
+        // is off, so a colony that paid for it still benefits (parity with the 1.21.1 line). Removing
+        // the old early-return exposes colony.getID() unconditionally, hence the null-guard above.
+        int baseResistanceLevel = TaxConfig.isGuardResistanceDuringRaidsEnabled()
+                ? TaxConfig.getGuardResistanceLevel() : 0;
+        int upgradeBonus = TaxConfig.isUpgradesEnabled()
+                ? net.machiavelli.minecolonytax.upgrade.ColonyUpgradeManager.getDefenseLevelBonus(colony.getID())
+                : 0;
         int resistanceLevel = baseResistanceLevel + upgradeBonus;
         if (resistanceLevel <= 0) {
             return;
