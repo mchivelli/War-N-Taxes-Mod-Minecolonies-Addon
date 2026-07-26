@@ -145,6 +145,15 @@ public class BesiegeManager {
             Map.Entry<UUID, BesiegeRaidData> entry = it.next();
             BesiegeRaidData raid = entry.getValue();
 
+            // ConcurrentHashMap's iterator prefetches the NEXT entry inside next(), so a co-besieger
+            // that a victory/collapse branch removed via cleanupRaid() earlier THIS tick can still be
+            // handed back here. Without this guard it would run the resolution branch a second time —
+            // double-paying shared spoils and force-vassalizing twice. Skip any entry that is no
+            // longer the live mapping for its key.
+            if (ACTIVE_RAIDS.get(entry.getKey()) != raid) {
+                continue;
+            }
+
             try {
                 IColony colony = getColonyById(raid.colonyId);
                 if (colony == null) {
@@ -1185,10 +1194,21 @@ public class BesiegeManager {
     private static void cleanupRaid(BesiegeRaidData raid, boolean removeFromMap) {
         IColony colony = getColonyById(raid.colonyId);
         if (colony != null) {
-            // Revoke combat permissions from the besieger (and any allies)
-            revokeBesiegeCombatPermissions(colony, raid.besiegingPlayerUUID);
+            // Is this the LAST besieger on this colony? Computed from ACTIVE_RAIDS (the source of
+            // truth), NOT COLONY_RAID_INDEX — the victory branch wipes that index up front, so an
+            // index-based check would read "not last" for every cleanup and leave the rank set. The
+            // shared hostile-rank action bits may only be cleared when NO OTHER besieger is still
+            // active on the colony; clearing them while a co-besieger remains would strip the attack
+            // permission off the rank they stand on and silently neuter their in-progress siege.
+            boolean lastBesiegerOnColony = ACTIVE_RAIDS.values().stream()
+                    .noneMatch(r -> r != raid && r.colonyId == raid.colonyId);
+
+            // Revoke combat permissions from the besieger (and any allies). The per-player demotion to
+            // Neutral always happens (it only affects the leaving player); the SHARED rank clear is
+            // gated on being the last besieger.
+            revokeBesiegeCombatPermissions(colony, raid.besiegingPlayerUUID, lastBesiegerOnColony);
             for (UUID ally : raid.alliedPlayers) {
-                revokeBesiegeCombatPermissions(colony, ally);
+                revokeBesiegeCombatPermissions(colony, ally, lastBesiegerOnColony);
             }
 
             // Step 3 Phase 2: only despawn shared defender entities + restore
@@ -1636,15 +1656,22 @@ public class BesiegeManager {
      * Revokes combat permissions and demotes the player from hostile back to neutral.
      * Called during raid cleanup.
      */
-    private static void revokeBesiegeCombatPermissions(IColony colony, UUID playerUUID) {
+    private static void revokeBesiegeCombatPermissions(IColony colony, UUID playerUUID, boolean clearSharedRank) {
         if (!TaxConfig.ENABLE_WAR_ACTIONS.get()) return;
         try {
             IPermissions perms = colony.getPermissions();
 
-            // Disable combat actions on hostile rank
-            Rank hostile = perms.getRankHostile();
-            for (Action a : TaxConfig.getWarActions()) {
-                perms.setPermission(hostile, a, false);
+            // Disable combat actions on the SHARED hostile rank — only when the last besieger leaves.
+            // The hostile rank is per-colony, not per-player, so clearing it while other besiegers are
+            // still on it would neuter their siege (see caller). getRankHostile() can be null on
+            // corrupted permission data; guard it.
+            if (clearSharedRank) {
+                Rank hostile = perms.getRankHostile();
+                if (hostile != null) {
+                    for (Action a : TaxConfig.getWarActions()) {
+                        perms.setPermission(hostile, a, false);
+                    }
+                }
             }
 
             // Demote player back to neutral (skip if they are the colony owner)

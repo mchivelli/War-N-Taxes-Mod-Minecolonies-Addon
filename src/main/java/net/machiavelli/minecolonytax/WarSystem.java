@@ -2074,14 +2074,18 @@ public class WarSystem {
         broadcastToServer(message);
     }
 
+    // NOTE: guard-kill counting is owned by WarEventHandler.onCitizenDeath (deduped via guardIDs).
+    // This method is retained as reusable API; the previous RaidKillTracker caller was removed
+    // because it double-counted. Math.max(0, ...) guards against ever driving the counter negative
+    // if this is wired up again.
     public static void handleGuardKilled(WarData war, boolean isDefenderGuard) {
         if (isDefenderGuard) {
-            war.remainingDefenderGuards--;
+            war.remainingDefenderGuards = Math.max(0, war.remainingDefenderGuards - 1);
             Component message = Component.translatable("war.guard.killed.defender", war.getRemainingDefenderGuards())
                     .withStyle(style -> style.withColor(ChatFormatting.RED));
             notifyWarParticipants(war, message);
         } else {
-            war.remainingAttackerGuards--;
+            war.remainingAttackerGuards = Math.max(0, war.remainingAttackerGuards - 1);
             Component message = Component.translatable("war.guard.killed.attacker", war.getRemainingAttackerGuards())
                     .withStyle(style -> style.withColor(ChatFormatting.BLUE));
             notifyWarParticipants(war, message);
