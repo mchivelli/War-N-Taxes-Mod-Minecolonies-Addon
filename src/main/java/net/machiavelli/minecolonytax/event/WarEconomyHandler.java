@@ -33,6 +33,40 @@ public class WarEconomyHandler {
     private static final Logger LOGGER = LogManager.getLogger(WarEconomyHandler.class);
 
     /**
+     * Resolves the member UUIDs of a war "team" WITHOUT assuming FTB Teams is installed.
+     *
+     * <p>FTB Teams is an optional dependency (see neoforge.mods.toml), so {@code FTB_TEAM_MANAGER}
+     * is {@code null} on servers without it. The old team-economy methods dereferenced it directly
+     * via {@code getTeamByID(id).orElseThrow()}, which NPE'd on the war-timeout ("Strategic Victory")
+     * and reparations paths — the war then never ended and the failing tick task re-threw the NPE
+     * every second. This mirrors {@link #deductTeamBalanceWithReport}'s resolution: FTB team members
+     * when available, otherwise the war's own attacker/defender roster keyed by team id, otherwise the
+     * id treated as a lone player (single-player wars store the player UUID as the team id).</p>
+     */
+    private static List<UUID> resolveTeamMembers(UUID teamID) {
+        List<UUID> members = new ArrayList<>();
+        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
+            Team team = FTB_TEAM_MANAGER.getTeamByID(teamID).orElse(null);
+            if (team != null) {
+                members.addAll(team.getMembers());
+                return members;
+            }
+            // FTB present but no matching team → fall through to war-roster / lone-player resolution.
+        }
+        for (WarData war : WarSystem.ACTIVE_WARS.values()) {
+            if (teamID != null && teamID.equals(war.getAttackerTeamID())) {
+                members.addAll(war.getAttackerLives().keySet());
+            } else if (teamID != null && teamID.equals(war.getDefenderTeamID())) {
+                members.addAll(war.getDefenderLives().keySet());
+            }
+        }
+        if (members.isEmpty() && teamID != null) {
+            members.add(teamID);
+        }
+        return members;
+    }
+
+    /**
      * Deducts a percentage from each member of a team and reports the total deducted.
      * If SDMShop conversion is enabled, player funds are modified via SDMShopCompat.
      * Otherwise, the coin item specified in the config is deducted from the player's inventory.
@@ -101,8 +135,7 @@ public class WarEconomyHandler {
         ServerPlayer winnerPlayer = ServerLifecycleHooks.getCurrentServer()
                 .getPlayerList().getPlayer(winnerUUID);
         if (TaxConfig.isSDMShopConversionEnabled()) {
-            Team losingTeam = FTB_TEAM_MANAGER.getTeamByID(losingTeamID).orElseThrow();
-            for (UUID loserUUID : losingTeam.getMembers()) {
+            for (UUID loserUUID : resolveTeamMembers(losingTeamID)) {
                 ServerPlayer loserPlayer = ServerLifecycleHooks.getCurrentServer()
                         .getPlayerList().getPlayer(loserUUID);
                 if (loserPlayer != null) {
@@ -127,8 +160,7 @@ public class WarEconomyHandler {
             }
         } else {
             // Fallback: Use inventory-based deduction.
-            Team losingTeam = FTB_TEAM_MANAGER.getTeamByID(losingTeamID).orElseThrow();
-            for (UUID loserUUID : losingTeam.getMembers()) {
+            for (UUID loserUUID : resolveTeamMembers(losingTeamID)) {
                 ServerPlayer loserPlayer = ServerLifecycleHooks.getCurrentServer()
                         .getPlayerList().getPlayer(loserUUID);
                 if (loserPlayer != null) {
@@ -210,16 +242,14 @@ public class WarEconomyHandler {
     public static long getTeamTotalBalance(UUID teamID) {
         long sum = 0;
         if (TaxConfig.isSDMShopConversionEnabled()) {
-            Team team = FTB_TEAM_MANAGER.getTeamByID(teamID).orElseThrow();
-            for (UUID member : team.getMembers()) {
+            for (UUID member : resolveTeamMembers(teamID)) {
                 ServerPlayer player = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(member);
                 if (player != null) {
                     sum += SDMShopCompat.getMoney(player);
                 }
             }
         } else {
-            Team team = FTB_TEAM_MANAGER.getTeamByID(teamID).orElseThrow();
-            for (UUID member : team.getMembers()) {
+            for (UUID member : resolveTeamMembers(teamID)) {
                 ServerPlayer player = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(member);
                 if (player != null) {
                     sum += getInventoryCurrencyBalance(player);
@@ -237,11 +267,10 @@ public class WarEconomyHandler {
     public static boolean payReparationsProportionally(UUID losingTeamID, UUID winnerUUID, long demandedAmount) {
         if (TaxConfig.isSDMShopConversionEnabled()) {
             // --- SDMShop-only path (unchanged) ---
-            Team losingTeam = FTB_TEAM_MANAGER.getTeamByID(losingTeamID).orElseThrow();
             long totalTransferred = 0L;
             ServerPlayer winner = ServerLifecycleHooks.getCurrentServer()
                     .getPlayerList().getPlayer(winnerUUID);
-            for (UUID member : losingTeam.getMembers()) {
+            for (UUID member : resolveTeamMembers(losingTeamID)) {
                 ServerPlayer loser = ServerLifecycleHooks.getCurrentServer()
                         .getPlayerList().getPlayer(member);
                 if (loser != null) {

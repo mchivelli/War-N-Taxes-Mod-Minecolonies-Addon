@@ -1687,8 +1687,17 @@ public class WntCommands {
 
                     // Update player's funds using SDMShop API if enabled
                     if (TaxConfig.isSDMShopConversionEnabled()) {
-                        long currentBalance = net.machiavelli.minecolonytax.integration.SDMShopCompat.getMoney(player);
-                        net.machiavelli.minecolonytax.integration.SDMShopCompat.setMoney(player, currentBalance + claimedAmount);
+                        // Atomic addMoney, NOT getMoney+setMoney: the read-modify-write OVERWROTE the
+                        // player's whole balance whenever getMoney fell back to 0 on an SDM error. Also
+                        // CHECK the result — claimTax already deducted+persisted the tax, so if the SDM
+                        // credit fails (economy mod absent/unavailable), refund it rather than silently
+                        // eating the player's money while still printing "success".
+                        if (!net.machiavelli.minecolonytax.integration.SDMShopCompat.addMoney(player, claimedAmount)) {
+                            net.machiavelli.minecolonytax.TaxManager.refundClaimedTax(colony, claimedAmount);
+                            player.sendSystemMessage(Component.literal(
+                                    "⚠ Payout failed: the SDM economy is unavailable. The tax was returned to "
+                                    + colony.getName() + " and NOT paid out.").withStyle(net.minecraft.ChatFormatting.RED));
+                        }
                     } else {
                         // Use direct inventory manipulation instead of give command for modded items
                         net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(TaxConfig.getCurrencyItemName()));

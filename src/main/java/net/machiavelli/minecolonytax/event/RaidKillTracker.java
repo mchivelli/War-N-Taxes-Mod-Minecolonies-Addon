@@ -333,11 +333,11 @@ public class RaidKillTracker {
                 net.machiavelli.minecolonytax.raid.RaidManager.updateRaidBossBar(raidData);
             }
         } else if ("war".equals(combatType)) {
-            // Update war progress
-            if (warData != null) {
-                boolean isDefenderGuard = warData.getColony().getID() == colony.getID();
-                net.machiavelli.minecolonytax.WarSystem.handleGuardKilled(warData, isDefenderGuard);
-            }
+            // War guard counting is handled SOLELY by WarEventHandler.onCitizenDeath, which fires on
+            // the same LivingDeathEvent and dedups via the war's guardIDs set (each guard counted
+            // exactly once, with Math.max(0) and side detection). Calling WarSystem.handleGuardKilled
+            // here as well decremented remainingDefenderGuards a SECOND time for the same death, so
+            // wars resolved as an attacker victory at ~half the real guard losses. Left as a no-op.
         }
         
         // Get guard-specific progress for victory condition

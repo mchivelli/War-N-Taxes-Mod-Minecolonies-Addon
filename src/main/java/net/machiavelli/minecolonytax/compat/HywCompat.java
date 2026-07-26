@@ -145,6 +145,17 @@ public final class HywCompat {
 
     /** Permanently disable the bridge only on structural drift; ignore transient runtime blips. */
     private static void disableOnDrift(Throwable t) {
+        // InvocationTargetException means the correctly-resolved HYW method threw INTERNALLY at
+        // runtime (e.g. a momentary null in HYW's own AI state) — a transient blip, NOT an API/shape
+        // change. It is itself a ReflectiveOperationException, so it must be handled BEFORE the check
+        // below; otherwise one such throw would flip the bridge to ABSENT for the whole JVM session
+        // and silently kill all friendly-fire protection (the exact disaster this class exists to
+        // prevent). Log and keep the bridge live.
+        if (t instanceof java.lang.reflect.InvocationTargetException) {
+            LOGGER.warn("HYW call threw internally (transient — bridge stays active): {}", t.toString());
+            return;
+        }
+        // Genuine structural drift: method renamed/removed, illegal access, or class-version mismatch.
         if (t instanceof ReflectiveOperationException || t instanceof LinkageError) {
             LOGGER.warn("HYW API shape no longer matches; compatibility disabled: {}", t.toString());
             state = State.ABSENT;

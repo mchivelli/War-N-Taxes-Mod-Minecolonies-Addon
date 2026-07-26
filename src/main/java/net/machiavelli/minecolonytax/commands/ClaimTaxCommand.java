@@ -140,8 +140,17 @@ public class ClaimTaxCommand {
 
                     // Update player's funds using SDMShop API if enabled
                     if (TaxConfig.isSDMShopConversionEnabled()) {
-                        long currentBalance = SDMShopCompat.getMoney(player);
-                        SDMShopCompat.setMoney(player, currentBalance + totalClaimed);
+                        // Atomic addMoney, NOT getMoney+setMoney: the read-modify-write OVERWROTE the
+                        // player's whole balance whenever getMoney fell back to 0 on an SDM error. Also
+                        // CHECK the result — claimTax already deducted+persisted the tax, so if the SDM
+                        // credit fails (economy mod absent/unavailable), refund it rather than silently
+                        // eating the player's money while still printing "success".
+                        if (!SDMShopCompat.addMoney(player, totalClaimed)) {
+                            TaxManager.refundClaimedTax(colony, totalClaimed);
+                            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                                    "⚠ Payout failed: the SDM economy is unavailable. The tax was returned to "
+                                    + colony.getName() + " and NOT paid out.").withStyle(net.minecraft.ChatFormatting.RED));
+                        }
                     } else {
                         // Use direct inventory manipulation instead of give command for modded items
                         Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(TaxConfig.getCurrencyItemName()));

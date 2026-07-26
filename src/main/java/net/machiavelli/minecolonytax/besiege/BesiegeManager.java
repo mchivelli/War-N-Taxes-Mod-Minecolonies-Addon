@@ -308,6 +308,15 @@ public class BesiegeManager {
             Map.Entry<UUID, BesiegeRaidData> entry = it.next();
             BesiegeRaidData raid = entry.getValue();
 
+            // ConcurrentHashMap's iterator prefetches the NEXT entry inside next(), so a co-besieger
+            // that a victory/collapse branch removed via cleanupRaid() earlier THIS tick can still be
+            // handed back here. Without this guard it would run the resolution branch a second time —
+            // double-paying shared spoils and force-vassalizing twice. Skip any entry that is no
+            // longer the live mapping for its key.
+            if (ACTIVE_RAIDS.get(entry.getKey()) != raid) {
+                continue;
+            }
+
             try {
                 IColony colony = getColonyById(raid.colonyId);
                 if (colony == null) {
@@ -1425,10 +1434,23 @@ public class BesiegeManager {
     private static void cleanupRaid(BesiegeRaidData raid, boolean removeFromMap) {
         IColony colony = getColonyById(raid.colonyId);
         if (colony != null) {
-            // Revoke combat permissions from the besieger (and any allies)
-            revokeBesiegeCombatPermissions(colony, raid.besiegingPlayerUUID);
+            // Are we the LAST besieger on this colony? Computed BEFORE removeFromColonyIndex (below),
+            // so the index still lists this raid. We're "the last" if every entry in the index points
+            // back to this raid's besieger. Drives both the shared-entity despawn AND whether the
+            // shared hostile-rank action bits may be cleared.
+            Set<UUID> siblingsOnColony = COLONY_RAID_INDEX.getOrDefault(raid.colonyId,
+                    java.util.Collections.emptySet());
+            boolean isLastRaidOnColony = siblingsOnColony.size() <= 1
+                    && siblingsOnColony.contains(raid.besiegingPlayerUUID);
+
+            // Revoke combat permissions from the besieger (and any allies). The SHARED hostile-rank
+            // action bits may only be cleared when this is the last besieger leaving — otherwise a
+            // co-besieger ending first would strip the attack permission off the rank that the
+            // remaining besiegers still stand on, silently neutering their in-progress siege. The
+            // per-player demotion to Neutral happens regardless (it only affects the leaving player).
+            revokeBesiegeCombatPermissions(colony, raid.besiegingPlayerUUID, isLastRaidOnColony);
             for (UUID ally : raid.alliedPlayers) {
-                revokeBesiegeCombatPermissions(colony, ally);
+                revokeBesiegeCombatPermissions(colony, ally, isLastRaidOnColony);
             }
 
             // Step 3 Phase 2: only despawn shared defender entities + restore
@@ -1436,14 +1458,6 @@ public class BesiegeManager {
             // raiders still reference the same hostileCitizenIds / spawnedMercenaries
             // / militiaSupport sets and rely on those entities to continue existing
             // until they too end.
-            //
-            // Count siblings BEFORE removing this raid from the index. We're "the
-            // last" if every entry in the index points back to this raid's besieger.
-            Set<UUID> siblingsOnColony = COLONY_RAID_INDEX.getOrDefault(raid.colonyId,
-                    java.util.Collections.emptySet());
-            boolean isLastRaidOnColony = siblingsOnColony.size() <= 1
-                    && siblingsOnColony.contains(raid.besiegingPlayerUUID);
-
             if (isLastRaidOnColony) {
                 // Restore citizen AI
                 for (int citizenId : raid.hostileCitizenIds) {
@@ -1979,15 +1993,22 @@ public class BesiegeManager {
      * Revokes combat permissions and demotes the player from hostile back to neutral.
      * Called during raid cleanup.
      */
-    private static void revokeBesiegeCombatPermissions(IColony colony, UUID playerUUID) {
+    private static void revokeBesiegeCombatPermissions(IColony colony, UUID playerUUID, boolean clearSharedRank) {
         if (!TaxConfig.ENABLE_WAR_ACTIONS.get()) return;
         try {
             IPermissions perms = colony.getPermissions();
 
-            // Disable combat actions on hostile rank
-            Rank hostile = perms.getRankHostile();
-            for (Action a : TaxConfig.getWarActions()) {
-                perms.setPermission(hostile, a, false);
+            // Disable combat actions on the SHARED hostile rank — only when the last besieger leaves.
+            // The hostile rank is per-colony, not per-player, so clearing it while other besiegers are
+            // still on it would neuter their siege (see caller). getRankHostile() can be null on
+            // corrupted permission data; guard it.
+            if (clearSharedRank) {
+                Rank hostile = perms.getRankHostile();
+                if (hostile != null) {
+                    for (Action a : TaxConfig.getWarActions()) {
+                        perms.setPermission(hostile, a, false);
+                    }
+                }
             }
 
             // Demote player back to neutral (skip if they are the colony owner)

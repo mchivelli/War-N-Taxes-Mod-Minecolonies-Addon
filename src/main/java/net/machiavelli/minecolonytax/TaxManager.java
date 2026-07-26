@@ -335,6 +335,17 @@ public class TaxManager {
     }
 
     /**
+     * Restore tax that {@link #claimTax} already deducted and persisted, when the downstream payout to
+     * the player failed (e.g. the SDM economy was unavailable). Adds the amount back AND persists
+     * immediately, so a claim that could not actually pay out never destroys the colony's tax.
+     */
+    public static void refundClaimedTax(IColony colony, int amount) {
+        if (amount <= 0) return;
+        adjustTax(colony, amount);
+        saveTaxData(true);
+    }
+
+    /**
      * Calculate the average happiness of adult citizens in a colony.
      * @param colony The colony to calculate happiness for
      * @return Average happiness (0.0 - 10.0), or 5.0 if no adult citizens or happiness unavailable

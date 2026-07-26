@@ -434,20 +434,13 @@ public class RaidManager {
         // Remove GLOW effect from raider immediately when killed
         removeGlowEffectFromRaider(raider);
 
-        // NEW: Handle stolen amount transfer to colony when raider dies
-        int stolenAmountToTransfer = 0;
-        double currentStealPercentage = CitizenMilitiaManager.getInstance().calculateTaxPercentage(raidData.getColony().getID());
-        if (currentStealPercentage > 0) {
-            int colonyBalance = TaxManager.getStoredTaxForColony(raidData.getColony());
-            stolenAmountToTransfer = (int) (colonyBalance * currentStealPercentage);
-            
-            if (stolenAmountToTransfer > 0) {
-                // Transfer the stolen amount back to the colony as a bonus for successful defense
-                TaxManager.incrementTaxRevenue(raidData.getColony(), stolenAmountToTransfer);
-                LOGGER.info("Raider {} was killed after earning {}. Amount transferred to colony {} as defense bonus.", 
-                    raider.getName().getString(), stolenAmountToTransfer, raidData.getColony().getName());
-            }
-        }
+        // NOTE: no "stolen amount transferred back to the colony" bonus here. Player raids no longer
+        // steal tax over time (the actual theft in transferTaxRevenue happens only on a WON/expired
+        // raid), so on a raider DEATH nothing was ever taken from the colony. Crediting it
+        // balance * stealPercentage via incrementTaxRevenue therefore minted currency out of nothing,
+        // proportional to the colony's own balance, on every repelled raid — a farmable inflation
+        // exploit. The colony's real reward for a successful defense is the separate raid penalty and
+        // defense-reward transfers below, which move currency from the raider's side.
 
         double penaltyPercentage = TaxConfig.RAID_PENALTY_PERCENTAGE.get();
         double defenseRewardPercentage = TaxConfig.RAID_DEFENSE_REWARD_PERCENTAGE.get();
@@ -646,14 +639,9 @@ public class RaidManager {
                 .append(Component.literal(raidPenalty + " " + currencyName).withStyle(style -> style.withColor(ChatFormatting.YELLOW).withBold(true)))
                 .append(Component.literal(" transferred to the killer").withStyle(ChatFormatting.GOLD));
         
-        // Add stolen amount recovery information if applicable
-        if (stolenAmountToTransfer > 0) {
-            message = message
-                    .append(Component.literal(" and ").withStyle(ChatFormatting.GOLD))
-                    .append(Component.literal(stolenAmountToTransfer + " " + currencyName).withStyle(style -> style.withColor(ChatFormatting.GREEN).withBold(true)))
-                    .append(Component.literal(" stolen tax recovered to colony").withStyle(ChatFormatting.GOLD));
-        }
-        
+        // (Removed the "stolen tax recovered to colony" line: player raids no longer mint that amount
+        // on a raider death — see the note in the deduction logic above.)
+
         // Add defense reward information to the message if there was a reward
         if (defenseReward > 0) {
             message = message
