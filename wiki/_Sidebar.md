@@ -14,5 +14,6 @@
 * [Colony Abandonment](Colony_Abandonment)
 * [Besiege System](Besiege_System)
 * [Easy Factions Integration](Easy_Factions_Integration)
+* [Hundred Years' War Integration](HYW_Integration)
 * [Commands & Permissions](Commands_&_Permissions)
 * [Configuration Guide](Configuration_Guide)

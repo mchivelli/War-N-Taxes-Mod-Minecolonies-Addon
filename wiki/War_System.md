@@ -281,6 +281,7 @@ Gated behind `EnableExperimentalSiegeObjectives` (default **off**). When this is
 - **Militia investment:** A colony can invest in extra **Militia** who spawn as additional defenders, scaled to its guard count, during wars, besieges, and raids. Militia extend a fight but **never count as a victory objective** — only guards and player lives decide a war — and they despawn when the conflict ends. See the [Colony Investments](Investments_System) page.
 - **Persistent siege damage restoration:** Explosion damage caused during a war is recorded and **fully restored when the war ends** — blocks and the contents of chests, signs, and other block entities are put back intact, so siege warfare does not permanently scar the map. This damage ledger survives server restarts. See [War Persistence](War_Persistence) for details, including the optional `DeferRestorationToExplosiont` hand-off to the Explosion't mod.
 - **Hand-breaking blocked during war:** While a war is active, blocks can no longer be broken by hand near the conflict — only **explosive damage** destroys them. Chests, doors, and combat still work as normal.
+- **Hundred Years' War troops:** If the Hundred Years' War (HYW) mod is installed, your commanded HYW armies can march to war alongside your colony without harming your own town — see the [Hundred Years' War Integration](HYW_Integration) page.
 
 ---
 

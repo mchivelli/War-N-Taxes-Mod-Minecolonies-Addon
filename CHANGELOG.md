@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - HYW troops attacking their own town
+
+Players reported that **Hundred Years' War (HYW) troops would attack the very colony they were
+meant to protect** — arrowing their commander's own colonists, which turned the colony's guards
+hostile and spiralled into a player's army fighting its own townsfolk. The HYW friendly-fire
+integration prevents this while preserving siege warfare:
+
+- An HYW troop can no longer damage or target a colonist (guards included) of its own commander,
+  that commander's allied colonies, or any neutral colony; protection is symmetric, so friendly
+  colonists won't start the fight either. The protection lifts only for colonies you are actually
+  at war with — an active War 'N Taxes war, besiege, raid, or abandoned-colony claiming raid.
+- **Owner attribution is now offline-safe.** On a multiplayer server the 1.20.1 build identified a
+  troop's commander only through the *online* player, so a logged-out player's standing army lost
+  all friendly-fire protection and could shoot its own colonists. Troop owners are now read from
+  the synced owner data directly, so protection holds while the commander is offline. Ownerless HYW
+  units (bandits) are unaffected and stay hostile.
+- Verified — by decompiling the actual HYW jars (0.3.8r through 0.5.4r) — to cover the entire HYW
+  roster: foot troops, workers, all cavalry, and every siege engine. See the **Hundred Years' War
+  Integration** wiki page. Toggle with `EnableHywFriendlyFireProtection` (default on).
+
 ### Fixed - Ownership / Officer & conflict-end safety pass
 
 A targeted audit of every code path that writes colony ownership or permissions, and of every
