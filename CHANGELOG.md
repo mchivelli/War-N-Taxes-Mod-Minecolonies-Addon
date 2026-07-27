@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.3] - 2026-07-27
+
+> ⚠️ **This release is still being actively hardened and may still have bugs.** If you hit a crash
+> or anything misbehaving — war/siege/tax logic, HYW troops, raids — please help the mod out and
+> **report it on the [GitHub issue tracker](https://github.com/mchivelli/War-N-Taxes-Mod-Minecolonies-Addon/issues)**
+> (or drop a note in the CurseForge comments). Every report genuinely speeds up the next fix —
+> thanks for testing and supporting the mod! 🙏
+
 ### Fixed - HYW troops attacking their own town
 
 Players reported that **Hundred Years' War (HYW) troops would attack the very colony they were
@@ -33,6 +41,18 @@ three claim routes (the claim GUI packet, `/claimtax`, and `/wnt claimtax`) dedu
 the colony ledger *before* delivering it and never refunded on a failed deposit, so the tax could
 be wiped without the player receiving the coins. Delivery now credits atomically and refunds the
 colony ledger on any failure — taxes are never silently lost.
+
+### Fixed - Claiming taxes with SDM Economy now actually pays out
+
+Players reported that **claiming taxes did nothing when SDM Economy was installed** — the coins
+never reached the wallet. The economy bridge reflected the 1.20.1 Forge class name
+(`net.sixik.sdm_economy.…`), which does not exist in the 1.21.1 NeoForge economy (`net.sixik.sdmeconomy.…`,
+confirmed by decompiling the deployed sdmeconomy 2.4.0 jar), so it never resolved and every claim
+silently refunded the colony instead of paying the player. The bridge now targets the real 2.x API
+(`EconomyAPI` → `CurrencyPlayerData.Server.addCurrencyValue`, with the result checked and the client
+re-synced) and pays into the currency named by the new **`SDMCurrencyName`** config (default
+`sdm_coin`). If SDM rejects the currency id the claim still safely refunds the colony (never lost)
+and logs the server's valid currency ids so you can correct the config.
 
 ### Fixed - Ownership / Officer & conflict-end safety pass (ported from Forge)
 

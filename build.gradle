@@ -31,7 +31,7 @@ base {
     archivesName = "WarNTaxes-NeoForge"
 }
 
-// Produce the distributable jar as WarNTaxes-NeoForge-5.0.1.jar.
+// Produce the distributable jar as WarNTaxes-NeoForge-<mod_version>.jar.
 tasks.named('jar', Jar).configure {
     archiveVersion = mod_version
 }

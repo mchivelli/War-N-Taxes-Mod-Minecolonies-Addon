@@ -13,6 +13,7 @@ public class TaxConfig {
         public static ModConfigSpec CONFIG;
 
         public static final ModConfigSpec.BooleanValue ENABLE_SDM_SHOP_CONVERSION;
+        public static final ModConfigSpec.ConfigValue<String> SDM_CURRENCY_NAME;
         public static final ModConfigSpec.ConfigValue<String> CURRENCY_ITEM_NAME;
         public static final ModConfigSpec.IntValue DEBT_LIMIT;
         public static final ModConfigSpec.IntValue TAX_STEAL_PER_GUARD;
@@ -479,6 +480,12 @@ public class TaxConfig {
                 ENABLE_SDM_SHOP_CONVERSION = BUILDER
                                 .comment("Enable SDMShop conversion (true = enable, false = disable).")
                                 .define("EnableSDMShopConversion", true);
+
+                SDM_CURRENCY_NAME = BUILDER
+                                .comment("SDM-Economy currency id that claimed taxes are paid into. Must match a "
+                                                + "currency configured on your server (see your SDM-Economy setup). "
+                                                + "If claims report the currency was not found, set this to a valid id.")
+                                .define("SDMCurrencyName", "sdm_coin");
 
                 CURRENCY_ITEM_NAME = BUILDER
                                 .comment("The item name for the custom currency (e.g., 'minecraft:emerald').")
@@ -2539,6 +2546,10 @@ public class TaxConfig {
 
         public static boolean isSDMShopConversionEnabled() {
                 return ENABLE_SDM_SHOP_CONVERSION.get();
+        }
+
+        public static String getSDMCurrencyName() {
+                return SDM_CURRENCY_NAME.get();
         }
 
         public static String getCurrencyItemName() {
