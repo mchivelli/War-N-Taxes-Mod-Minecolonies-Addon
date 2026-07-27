@@ -22,17 +22,31 @@ import java.util.UUID;
  * instead of crashing or spamming logs.
  *
  * <p>Modelled on {@link EasyFactionsBridge} (the mod's existing reflection-only compat
- * pattern). The HYW soldier type and its owner/target API were captured from
- * {@code HundredYearsWar-0.6.4r-1.21.1-neoforge.jar}:
+ * pattern). The HYW soldier type and its target API (verified by decompiling the actual
+ * {@code HundredYearsWar-0.3.8r/0.3.9r/0.5.4r-1.20.1-forge} jars):
  * <pre>
- *   ydmsama.hundred_years_war.main.entity.entities.BaseCombatEntity
- *     UUID        getOwnerUUID()
+ *   ydmsama.hundred_years_war.main.entity.entities.BaseCombatEntity extends PathfinderMob
  *     LivingEntity getHywTarget()
  *     void        setHywTarget(LivingEntity)
  *     void        setStartAttacking(boolean)
  *     void        setHasTarget(boolean)
  * </pre>
- * If HYW moves these, the bridge disables itself and colonists simply lose the extra
+ * <b>Owner attribution differs by loader.</b> The 0.6.x NeoForge (1.21.1) build adds a
+ * source-named {@code UUID getOwnerUUID()}, but the 1.20.1 Forge builds do <i>not</i>: there
+ * the owner UUID is only reachable as {@code OwnableEntity.getOwnerUUID()}, whose SRG runtime
+ * name is {@code m_21805_()} — it reads the synched {@code OWNER_UUID} data directly, so it
+ * resolves even while the commanding player is OFFLINE. {@code getOwner():ServerPlayer} exists
+ * on every version but goes through the {@code PlayerList}, so it returns {@code null} for an
+ * offline owner and is used only as a last resort. We therefore resolve a prioritized chain
+ * (offline-safe UUID getter first) rather than binding a single method name.
+ *
+ * <p>Every commandable HYW unit — foot troops, workers, all cavalry riders, every siege engine
+ * (cannon/bombard/mangonel/trebuchet/battering-ram/siege-tower), undead, puppets and bandits —
+ * decompiles to a subclass of {@code BaseCombatEntity}, so the single {@code isInstance} check
+ * covers the whole roster (the rideable horse/{@code NpcHorse} is the only non-combat exception
+ * and never attacks on its own; its rider is a {@code BaseCombatEntity}).
+ *
+ * <p>If HYW moves these, the bridge disables itself and colonists simply lose the extra
  * protection layer (vanilla behaviour resumes) rather than breaking the mod.
  */
 public final class HywCompat {
@@ -46,9 +60,10 @@ public final class HywCompat {
     private static volatile State state = State.UNRESOLVED;
     // All handles volatile so a reader observing state==READY also sees fully-published refs.
     private static volatile Class<?> soldierClass;
-    // HYW 0.6.4r (1.20.1 Forge) exposes getOwner():ServerPlayer, not getOwnerUUID():UUID — we
-    // resolve getOwner() and read the UUID off it. See getSoldierOwner().
-    private static volatile Method getOwner;
+    // Owner attribution: offline-safe UUID getter preferred, online-only getOwner() as fallback.
+    // See the class javadoc and getSoldierOwner().
+    private static volatile Method getOwnerUuid;   // no-arg, returns UUID (offline-safe); may be null
+    private static volatile Method getOwner;        // no-arg, returns the owning Player; may be null
     private static volatile Method getHywTarget;
     private static volatile Method setHywTarget;
     private static volatile Method setStartAttacking;
@@ -74,11 +89,18 @@ public final class HywCompat {
 
         try {
             Class<?> c = Class.forName(SOLDIER_CLASS);
-            getOwner = c.getMethod("getOwner");
             getHywTarget = c.getMethod("getHywTarget");
             setHywTarget = c.getMethod("setHywTarget", LivingEntity.class);
             setStartAttacking = c.getMethod("setStartAttacking", boolean.class);
             setHasTarget = c.getMethod("setHasTarget", boolean.class);
+            // Owner accessor chain: source-named getOwnerUUID() (0.6.x/NeoForge parity) →
+            // SRG m_21805_() (1.20.1 Forge, offline-safe) → getOwner() (online-only last resort).
+            getOwnerUuid = firstNoArgMethod(c, "getOwnerUUID", "m_21805_");
+            getOwner = firstNoArgMethod(c, "getOwner");
+            if (getOwnerUuid == null && getOwner == null) {
+                throw new NoSuchMethodException(
+                        "HYW BaseCombatEntity exposes no owner accessor (getOwnerUUID/m_21805_/getOwner)");
+            }
             soldierClass = c;
             state = State.READY;
             if (TaxConfig.isNormalLogging()) {
@@ -100,13 +122,22 @@ public final class HywCompat {
         return c != null && c.isInstance(e);
     }
 
-    /** The UUID of the player commanding this HYW soldier, or {@code null}. */
+    /** The UUID of the player commanding this HYW soldier, or {@code null} if unowned. */
     public static UUID getSoldierOwner(Entity soldier) {
         if (!isHywSoldier(soldier)) return null;
         try {
-            // HYW 0.6.4r returns the commanding ServerPlayer; read its UUID (null if unowned).
-            Object v = getOwner.invoke(soldier);
-            return (v instanceof net.minecraft.world.entity.player.Player p) ? p.getUUID() : null;
+            // Offline-safe path: read the synched owner UUID directly (resolves even while the
+            // owner is logged out). An empty owner yields null (e.g. bandits) → not attributable.
+            if (getOwnerUuid != null) {
+                Object v = getOwnerUuid.invoke(soldier);
+                if (v instanceof UUID u) return u;
+            }
+            // Fallback: resolve via the owning player entity (null when that player is offline).
+            if (getOwner != null) {
+                Object v = getOwner.invoke(soldier);
+                if (v instanceof net.minecraft.world.entity.player.Player p) return p.getUUID();
+            }
+            return null;
         } catch (Throwable t) {
             disableOnDrift(t);
             return null;
@@ -144,6 +175,18 @@ public final class HywCompat {
         } catch (Throwable t) {
             disableOnDrift(t);
         }
+    }
+
+    /** First resolvable no-arg method among {@code names}, or {@code null} if none exist. */
+    private static Method firstNoArgMethod(Class<?> c, String... names) {
+        for (String n : names) {
+            try {
+                return c.getMethod(n);
+            } catch (NoSuchMethodException ignored) {
+                // try the next candidate name
+            }
+        }
+        return null;
     }
 
     /** Permanently disable the bridge only on structural drift; ignore transient runtime blips. */
