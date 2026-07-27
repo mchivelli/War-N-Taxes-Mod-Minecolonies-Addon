@@ -418,6 +418,15 @@ public class MineColonyTax {
             LOGGER.warn("Error during SpyManager shutdown: {}", t.toString());
         }
 
+        // Return any war-held inventories to their (online) owners before the player list is removed
+        // and saveAll() runs, so a last-life spectator still connected at shutdown keeps their items
+        // (savedInventories is in-memory only and would otherwise be lost on restart).
+        try {
+            WarSystem.WarInventoryHandler.restoreAllOnServerStop(event.getServer());
+        } catch (Throwable t) {
+            LOGGER.warn("WarInventory restore-on-stop error: {}", t.toString());
+        }
+
         // Save active wars before TickScheduler shutdown — task IDs are still needed for cleanup
         try {
             WarSystem.saveActiveWars();

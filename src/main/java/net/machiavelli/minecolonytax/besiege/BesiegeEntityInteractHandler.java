@@ -87,6 +87,9 @@ public class BesiegeEntityInteractHandler {
         event.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
 
         long now = System.currentTimeMillis();
+        // Opportunistic cleanup so this throttle map can't grow unbounded over a long session.
+        // Entries past the cooldown window no longer throttle anything, so dropping them is a no-op.
+        LAST_DENY_MESSAGE.values().removeIf(ts -> now - ts >= DENY_MESSAGE_COOLDOWN_MS);
         Long last = LAST_DENY_MESSAGE.get(player.getUUID());
         if (last == null || now - last >= DENY_MESSAGE_COOLDOWN_MS) {
             LAST_DENY_MESSAGE.put(player.getUUID(), now);

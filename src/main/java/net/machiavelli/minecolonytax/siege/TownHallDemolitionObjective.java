@@ -83,8 +83,16 @@ public final class TownHallDemolitionObjective {
             return;
         }
 
-        // Find the war where this player is an attacker.
-        WarData war = findWarForAttacker(attacker.getUUID());
+        // Find the war where this player is an attacker. Resolve the colony at the explosion so, if the
+        // attacker fights in multiple wars, we pick the war targeting THIS colony (fallback: first).
+        // 1.20.1's Explosion has no public center()/position accessor, so anchor on the first affected
+        // block — the same representative-position pattern WarBlockLedger uses for this event. This is
+        // consistent with the hitTownHall check below, which also gates on getAffectedBlocks() being
+        // present, so the anchor resolves exactly in the cases where this handler proceeds.
+        IColony targetColony = event.getAffectedBlocks().isEmpty() ? null
+                : com.minecolonies.api.colony.IColonyManager.getInstance()
+                        .getColonyByPosFromWorld(level, event.getAffectedBlocks().get(0));
+        WarData war = findWarForAttacker(attacker.getUUID(), targetColony != null ? targetColony.getID() : -1);
         if (war == null) return;
         // Hard-reject: if the player is somehow also a defender, refuse to count
         // the hit. Prevents accidental self-sabotage AND deliberate self-victory.
@@ -254,6 +262,21 @@ public final class TownHallDemolitionObjective {
             if (war.getAttackerLives().containsKey(attackerUUID)) return war;
         }
         return null;
+    }
+
+    /**
+     * Prefer the war whose DEFENDER colony == targetColonyId (the colony the explosion landed in),
+     * falling back to the first war the player attacks in. Disambiguates when a player is an attacker
+     * in more than one active war. A negative/unmatched targetColonyId simply yields the first match.
+     */
+    private static WarData findWarForAttacker(UUID attackerUUID, int targetColonyId) {
+        WarData fallback = null;
+        for (WarData war : WarSystem.ACTIVE_WARS.values()) {
+            if (!war.getAttackerLives().containsKey(attackerUUID)) continue;
+            if (war.getColony() != null && war.getColony().getID() == targetColonyId) return war;
+            if (fallback == null) fallback = war;
+        }
+        return fallback;
     }
 
     /** Drop all state — for server shutdown or war end. */

@@ -582,6 +582,12 @@ public class RaidManager {
         RaidLoginNotifier.recordCompletedRaid(raidData);
         activeRaids.remove(raidData.getRaider());
 
+        // Timer abbrechen wie in endRaid (idempotent: schadet nicht, falls der Task bereits weg/-1 ist).
+        // endActiveRaid wird auch direkt aufgerufen (z. B. handleRaiderKilled), ohne dass der Countdown-Task
+        // zuvor gecancelt wurde — sonst tickt er bis zum naechsten isActive()-Check weiter.
+        TickScheduler.cancel(raidData.getCountdownTaskId());
+        raidData.setCountdownTaskId(-1);
+
         // Restore Hostile rank to pre-raid state now that the raid is no longer active
         net.machiavelli.minecolonytax.permissions.PermissionSnapshot.restoreIfNoConflict(raidData.getColony());
 
@@ -772,6 +778,8 @@ public class RaidManager {
         // DEFENSE REWARD CALCULATION
         // ===================================================
         int calculatedDefenseReward = 0;
+        // Tatsaechlich gutgeschriebener Betrag (nach Debt-Limit-Clamp) — fuer Anzeige == Gutschrift
+        int creditedDefenseReward = 0;
         if (defenseRewardPercentage > 0) {
             if (TaxConfig.isSDMShopConversionEnabled()) {
                 if (SDMShopIntegration.isAvailable()) {
@@ -784,6 +792,7 @@ public class RaidManager {
                         // Remove money from raider and add to defending colony's main tax balance
                         if (SDMShopIntegration.setMoney(raider, raiderBalance - calculatedDefenseReward)) {
                             TaxManager.incrementTaxRevenue(raidData.getColony(), calculatedDefenseReward);
+                            creditedDefenseReward = calculatedDefenseReward; // SDMShop: gutgeschrieben == berechnet
                             if (net.machiavelli.minecolonytax.TaxConfig.isNormalLogging()) {
                                 LOGGER.info("Transferred {} defense reward from {} to colony {} main tax balance",
                                         calculatedDefenseReward, raider.getName().getString(),
@@ -812,6 +821,7 @@ public class RaidManager {
                         // push the raider colony past -DebtLimit.
                         int taken = TaxManager.deductRespectingDebtLimit(raiderColony, calculatedDefenseReward);
                         TaxManager.incrementTaxRevenue(raidData.getColony(), taken);
+                        creditedDefenseReward = taken; // nur der geclampte, tatsaechlich transferierte Betrag
 
                         if (net.machiavelli.minecolonytax.TaxConfig.isNormalLogging()) {
                             LOGGER.info(
@@ -828,6 +838,7 @@ public class RaidManager {
                         // floor yields 0 — no unbounded debt, no minting.
                         int taken = TaxManager.deductRespectingDebtLimit(raiderColony, calculatedDefenseReward);
                         TaxManager.incrementTaxRevenue(raidData.getColony(), taken);
+                        creditedDefenseReward = taken; // nur der geclampte, tatsaechlich transferierte Betrag
 
                         if (net.machiavelli.minecolonytax.TaxConfig.isNormalLogging()) {
                             LOGGER.info(
@@ -841,8 +852,9 @@ public class RaidManager {
             }
         }
 
-        // Final values for use in lambda expressions
-        final int defenseReward = calculatedDefenseReward;
+        // Final values for use in lambda expressions.
+        // Anzeige (Broadcast + Title) nutzt den tatsaechlich gutgeschriebenen Betrag, nicht den Pre-Clamp-Wert.
+        final int defenseReward = creditedDefenseReward;
         // ===================================================
 
         // Update war statistics for the killer
@@ -1131,8 +1143,10 @@ public class RaidManager {
 
             if (shouldLog) {
                 if (net.machiavelli.minecolonytax.TaxConfig.isDebugLogging()) {
-                    LOGGER.info("RAID PROGRESS: Guards {}/{}, Victory {:.1f}%, Tax {:.1f}%, Time {}:{}",
-                            guardsKilled, originalGuardCount, victoryProgress * 100, stealPercentage * 100,
+                    // Log4j2 kennt nur {} — Prozentwerte vorformatieren, sonst blieben {:.1f} literal und die Argumente verrutschten
+                    LOGGER.info("RAID PROGRESS: Guards {}/{}, Victory {}%, Tax {}%, Time {}:{}",
+                            guardsKilled, originalGuardCount,
+                            String.format("%.1f", victoryProgress * 100), String.format("%.1f", stealPercentage * 100),
                             remainingSeconds / 60, String.format("%02d", remainingSeconds % 60));
                 }
                 lastLoggedGuardCounts.put(colonyId, guardsKilled);
@@ -1435,8 +1449,9 @@ public class RaidManager {
         int colonyBalance = TaxManager.getStoredTaxForColony(raidData.getColony());
 
         if (net.machiavelli.minecolonytax.TaxConfig.isDebugLogging()) {
-            LOGGER.info("💰 TAX CALCULATION DEBUG: Colony balance={}, Percentage={:.1f}%",
-                    colonyBalance, finalPercentage * 100);
+            // Log4j2 kennt nur {} — Prozentwert vorformatieren (sonst blieb {:.1f} literal und das Argument ungenutzt)
+            LOGGER.info("💰 TAX CALCULATION DEBUG: Colony balance={}, Percentage={}%",
+                    colonyBalance, String.format("%.1f", finalPercentage * 100));
         }
 
         int amountToDeduct = 0;
