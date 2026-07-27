@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Claiming taxes with SDM Economy now actually pays out
+
+Players reported that **claiming taxes did nothing when SDM Economy / SDMShop was installed** — the
+coins never reached the wallet. The integration gated on a mod id (`sdmshop`) that the shipped jars
+do not use: they load as `sdmshoprework` (shop) and `sdm_economy` (economy). Because that check
+never matched, the whole economy bridge stayed disabled and every claim refunded the colony instead
+of paying the player. It now recognises the real mod ids, so payouts go through the verified SDMShop
+economy API. Taxes were never lost (they were refunded) — they just couldn't reach the wallet until
+now.
+
 ### Fixed - HYW troops attacking their own town
 
 Players reported that **Hundred Years' War (HYW) troops would attack the very colony they were

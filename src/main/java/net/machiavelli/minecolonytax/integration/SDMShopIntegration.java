@@ -96,10 +96,18 @@ public class SDMShopIntegration {
             return;
         initialized = true;
 
-        // ModList.isLoaded short-circuit: skip the reflection probe entirely when
-        // SDMShop is absent so we don't spam INFO/WARN every server start.
+        // ModList.isLoaded short-circuit: skip the reflection probe entirely when neither
+        // SDMShop nor SDM-Economy is present so we don't spam INFO/WARN every server start.
+        // The shop mod ships as "sdmshoprework" and the economy as "sdm_economy" (the plain
+        // "sdmshop"/"sdmeconomy" ids exist on other loaders/versions) — gating only on "sdmshop"
+        // meant the integration was silently dead on every server running the actual jars, so
+        // tax claims never paid out. Accept any of the known ids.
         try {
-            modPresent = ModList.get() != null && ModList.get().isLoaded("sdmshop");
+            ModList ml = ModList.get();
+            modPresent = ml != null && (ml.isLoaded("sdmshoprework")
+                    || ml.isLoaded("sdm_economy")
+                    || ml.isLoaded("sdmshop")
+                    || ml.isLoaded("sdmeconomy"));
         } catch (Throwable t) {
             // ModList not ready (very early classload) — fall through to probe.
             modPresent = false;
