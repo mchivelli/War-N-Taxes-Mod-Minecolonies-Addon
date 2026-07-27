@@ -57,7 +57,8 @@ public final class CombatSanction {
         if (BesiegeManager.isBesiegingPlayer(attackerOwner, victimColonyId)) return true;
         for (BesiegeManager.BesiegeRaidData raid : BesiegeManager.getRaidsForColony(victimColonyId)) {
             if (attackerOwner.equals(raid.besiegingPlayerUUID)) return true;
-            if (raid.alliedPlayers != null && raid.alliedPlayers.contains(attackerOwner)) return true;
+            // alliedPlayers is final + initialised to ConcurrentHashMap.newKeySet() → never null; check dropped.
+            if (raid.alliedPlayers.contains(attackerOwner)) return true;
         }
 
         // 3) Active raid on the colony led by attackerOwner.

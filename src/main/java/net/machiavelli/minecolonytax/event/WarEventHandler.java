@@ -399,7 +399,8 @@ public class WarEventHandler {
                 war.remainingDefenderGuards = Math.max(0, war.remainingDefenderGuards - 1);
                 // Announce only to defenders
                 for (UUID uuid : war.getDefenderLives().keySet()) {
-                    if (war.getColony().getWorld().getServer() != null) {
+                    // Guard getWorld() too — the colony's dimension may be unloaded, otherwise this NPEs.
+                    if (war.getColony().getWorld() != null && war.getColony().getWorld().getServer() != null) {
                         ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(uuid);
                         if (p != null) {
                         p.sendSystemMessage(Component.literal("Your guard has been killed!")
@@ -411,7 +412,8 @@ public class WarEventHandler {
                 war.remainingAttackerGuards = Math.max(0, war.remainingAttackerGuards - 1);
                 // Announce only to attackers
                 for (UUID uuid : war.getAttackerLives().keySet()) {
-                    if (war.getColony().getWorld().getServer() != null) {
+                    // Guard getWorld() too — the colony's dimension may be unloaded, otherwise this NPEs.
+                    if (war.getColony().getWorld() != null && war.getColony().getWorld().getServer() != null) {
                         ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(uuid);
                         if (p != null) {
                         p.sendSystemMessage(Component.literal("Your guard has been killed!")

@@ -1377,6 +1377,29 @@ public class WarSystem {
             }
             player.containerMenu.broadcastChanges();
         }
+
+        /**
+         * On server stop, hand every stored inventory back to its (online) owner. savedInventories is
+         * only in-memory, so without this a player still connected as a last-life spectator when the
+         * server stops would lose their war-held items. ServerStoppingEvent fires before the player list
+         * is removed and before saveAll(), so the restored inventory is persisted with the player's data.
+         * Offline players have no live inventory to write into — those entries are simply dropped.
+         */
+        public static void restoreAllOnServerStop(MinecraftServer server) {
+            if (server == null) return;
+            for (UUID uuid : new ArrayList<>(savedInventories.keySet())) {
+                ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+                if (player != null) {
+                    // Per-player guard: one player's restore failing (e.g. a closing connection) must not
+                    // abort the remaining players' inventory restores.
+                    try {
+                        restoreInventory(player);
+                    } catch (Exception e) {
+                        WARSYSTEM_LOGGER.warn("Failed to restore inventory for {} on server stop: {}", uuid, e.toString());
+                    }
+                }
+            }
+        }
     }
 
     public static void handleTimeExpiry(WarData war) {
@@ -3678,7 +3701,8 @@ public class WarSystem {
                     setWarInteractionPermissions(w.getColony(), true);
                     if (w.getAttackerColony() != null) setWarInteractionPermissions(w.getAttackerColony(), true);
                     startWarCountdown(w);
-                    scheduleTimerWarnings(w, TaxConfig.WAR_DURATION_MINUTES.get() * 60L * 1000L);
+                    // finalizeWarStart already scheduled the timer warnings on success (full WAR_DURATION),
+                    // and the main start path doesn't re-call it either — drop the duplicate schedule here.
                 }, remainingJoinMs);
             }
             updateBossBar(warData);

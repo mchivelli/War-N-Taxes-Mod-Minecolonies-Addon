@@ -182,6 +182,9 @@ public class BesiegeDamageShieldHandler {
 
     private static void sendBlockedMessage(ServerPlayer source) {
         long now = System.currentTimeMillis();
+        // Opportunistic cleanup so this throttle map can't grow unbounded over a long session.
+        // Entries past the cooldown window no longer throttle anything, so dropping them is a no-op.
+        LAST_BLOCK_MESSAGE.values().removeIf(ts -> now - ts >= BLOCK_MESSAGE_COOLDOWN_MS);
         Long last = LAST_BLOCK_MESSAGE.get(source.getUUID());
         if (last != null && now - last < BLOCK_MESSAGE_COOLDOWN_MS) return;
         LAST_BLOCK_MESSAGE.put(source.getUUID(), now);

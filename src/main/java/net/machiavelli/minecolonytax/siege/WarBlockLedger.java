@@ -133,12 +133,22 @@ public final class WarBlockLedger {
         ResourceLocation dimResLoc = level.dimension().location();
         Map<BlockPos, BlockInfo> ledger = LEDGERS.computeIfAbsent(war.getWarID(), k -> new ConcurrentHashMap<>());
 
-        // Snapshot only — we do NOT clear blocks. Vanilla explosion handling
-        // clears the affected blocks; we simply rewrite them later from the snapshot.
-        // First snapshot per pos wins so repeat explosions on the same spot don't
-        // overwrite the pre-war state.
+        // For every block we snapshot we ALSO destroy it DROP-FREE ourselves and pull it out of the
+        // vanilla explosion list. Previously we snapshotted but let vanilla blow the block up: vanilla
+        // dropped the block's items AND our endWar restore rewrote the block from the snapshot — that is
+        // an item dupe. Destroying it drop-free keeps the war damage visual (the block is gone until
+        // restore) while suppressing the drops; the snapshot restore later brings the block back intact.
+        //
+        // The Detonate event fires in Explosion#explode BEFORE finalizeExplosion iterates toBlow and calls
+        // onExplosionHit (destroy + collect drops), so removing a pos from getAffectedBlocks() (== the
+        // mutable Explosion#getToBlow list) fully suppresses vanilla's destroy+drop for it.
+        //
+        // CME-safe: getAffectedBlocks() IS the live event list, so we iterate a COPY, collect the taken-over
+        // positions, and mutate the event list only AFTER the loop via removeAll.
+        // First snapshot per pos wins so repeat explosions on the same spot don't overwrite the pre-war state.
         boolean capWarningEmitted = false;
-        for (BlockPos pos : affected) {
+        List<BlockPos> suppressed = new ArrayList<>();
+        for (BlockPos pos : new ArrayList<>(affected)) {
             try {
                 BlockState state = level.getBlockState(pos);
                 Block block = state.getBlock();
@@ -166,9 +176,31 @@ public final class WarBlockLedger {
                     try { nbt = be.saveWithFullMetadata(level.registryAccess()); } catch (Exception ignored) {}
                 }
                 ledger.put(immutable, new BlockInfo(immutable, state, nbt, dimResLoc));
+
+                // Mark suppressed BEFORE destroying: even if destroyBlock below were to throw, the block
+                // is still pulled off vanilla's list (no vanilla drop), so a ledgered block is never
+                // double-processed. If destroy failed, the block just stays intact and restore is a no-op.
+                suppressed.add(immutable);
+
+                // Container contents are NOT covered by dropBlock=false: destroyBlock still runs the block's
+                // onRemove, and ChestBlock/BaseContainerBlock.onRemove spills the inventory via
+                // Containers.dropContents regardless of the flag. The snapshot NBT already captured those
+                // contents, so restore would re-create them → a content dupe. Clear the container first so
+                // nothing spills; restore brings the contents back.
+                if (be instanceof net.minecraft.world.Container container) {
+                    try { container.clearContent(); } catch (Exception ignored) {}
+                }
+
+                // Destroy drop-free (dropBlock=false) so no block item spawns; restore re-creates it at endWar.
+                level.destroyBlock(immutable, false);
             } catch (Exception e) {
                 LOGGER.warn("WarBlockLedger snapshot failed at {}: {}", pos, e.getMessage());
             }
+        }
+
+        // Take the snapshotted blocks off vanilla's destruction list so it doesn't re-process them WITH drops.
+        if (!suppressed.isEmpty()) {
+            event.getAffectedBlocks().removeAll(suppressed);
         }
 
         if (TaxConfig.isDebugLogging()) {

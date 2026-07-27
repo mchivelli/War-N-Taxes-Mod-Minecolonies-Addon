@@ -136,7 +136,10 @@ public final class PlantTheBannerObjective {
             return;
         }
 
-        WarData war = findWarForAttacker(attacker.getUUID());
+        // Banner pos → target colony, so if the attacker fights in multiple wars we pick the one
+        // targeting THIS colony (fallback: first match).
+        IColony targetColony = com.minecolonies.api.colony.IColonyManager.getInstance().getColonyByPosFromWorld(level, pos);
+        WarData war = findWarForAttacker(attacker.getUUID(), targetColony != null ? targetColony.getID() : -1);
         if (war == null) return; // already validated above; guard for static analysis
         startCapture(war, pos, attacker);
     }
@@ -155,7 +158,10 @@ public final class PlantTheBannerObjective {
      * Returns the deny reason (player-facing) when invalid.
      */
     private static PlacementResult validatePlacement(Level level, BlockPos pos, ServerPlayer attacker) {
-        WarData war = findWarForAttacker(attacker.getUUID());
+        // Resolve the colony at the banner position so, when the attacker is in multiple wars, we pick
+        // the war whose defender colony is THIS one (fallback: first match).
+        IColony targetColony = com.minecolonies.api.colony.IColonyManager.getInstance().getColonyByPosFromWorld(level, pos);
+        WarData war = findWarForAttacker(attacker.getUUID(), targetColony != null ? targetColony.getID() : -1);
         if (war == null) {
             return PlacementResult.deny(
                     "You're not an attacker in any active war — the Siege Banner does nothing here.");
@@ -383,6 +389,21 @@ public final class PlantTheBannerObjective {
             if (war.getAttackerLives().containsKey(attackerUUID)) return war;
         }
         return null;
+    }
+
+    /**
+     * Prefer the war whose DEFENDER colony == targetColonyId (the colony the banner is planted in),
+     * falling back to the first war the player attacks in. Disambiguates when a player is an attacker
+     * in more than one active war. A negative/unmatched targetColonyId simply yields the first match.
+     */
+    private static WarData findWarForAttacker(UUID attackerUUID, int targetColonyId) {
+        WarData fallback = null;
+        for (WarData war : WarSystem.ACTIVE_WARS.values()) {
+            if (!war.getAttackerLives().containsKey(attackerUUID)) continue;
+            if (war.getColony() != null && war.getColony().getID() == targetColonyId) return war;
+            if (fallback == null) fallback = war;
+        }
+        return fallback;
     }
 
     private static WarData warById(UUID warId) {

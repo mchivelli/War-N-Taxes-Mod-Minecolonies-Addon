@@ -240,6 +240,11 @@ public class MineColonyTax {
             try { webAPIServer.stop(); } catch (Throwable t) { LOGGER.warn("WebAPI stop error: {}", t.toString()); }
         }
 
+        // Return any war-held inventories to their (online) owners before the player list is removed
+        // and saveAll() runs, so a last-life spectator still connected at shutdown keeps their items
+        // (savedInventories is in-memory only and would otherwise be lost on restart).
+        try { WarSystem.WarInventoryHandler.restoreAllOnServerStop(event.getServer()); } catch (Throwable t) { LOGGER.warn("WarInventory restore-on-stop error: {}", t.toString()); }
+
         // Persist in-progress wars before anything else shuts down, while ACTIVE_WARS is intact.
         try { WarSystem.saveActiveWars(); }         catch (Throwable t) { LOGGER.warn("WarSystem saveActiveWars error: {}", t.toString()); }
 

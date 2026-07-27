@@ -453,7 +453,9 @@ public class EntityRaidManager {
             Object diplomacyStatus = getRecruitsDiplomaticRelation(entityTeamName, colonyTeamName);
             if (diplomacyStatus != null) {
                 String statusName = diplomacyStatus.toString();
-                boolean isAlly = "ALLY".equals(statusName);
+                // Robust gegen Enum-Umbenennung anderer Recruits-Versionen: case-insensitiv + Praefix-Match
+                String normalized = String.valueOf(diplomacyStatus).toUpperCase();
+                boolean isAlly = normalized.contains("ALL") || normalized.contains("FRIEND");
                 
                 if (TaxConfig.isEntityRaidDebugEnabled()) {
                     LOGGER.info("[EntityRaid-RECRUITS] Diplomatic relation: {} -> {} = {} (isAlly: {})", 

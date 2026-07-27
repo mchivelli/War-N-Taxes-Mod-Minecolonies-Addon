@@ -91,8 +91,11 @@ public final class TownHallDemolitionObjective {
             return;
         }
 
-        // Find the war where this player is an attacker.
-        WarData war = findWarForAttacker(attacker.getUUID());
+        // Find the war where this player is an attacker. Resolve the colony at the explosion center so,
+        // if the attacker fights in multiple wars, we pick the war targeting THIS colony (fallback: first).
+        IColony targetColony = com.minecolonies.api.colony.IColonyManager.getInstance()
+                .getColonyByPosFromWorld(level, BlockPos.containing(event.getExplosion().center()));
+        WarData war = findWarForAttacker(attacker.getUUID(), targetColony != null ? targetColony.getID() : -1);
         if (war == null) return;
         // Hard-reject: if the player is somehow also a defender, refuse to count
         // the hit. Prevents accidental self-sabotage AND deliberate self-victory.
@@ -262,6 +265,21 @@ public final class TownHallDemolitionObjective {
             if (war.getAttackerLives().containsKey(attackerUUID)) return war;
         }
         return null;
+    }
+
+    /**
+     * Prefer the war whose DEFENDER colony == targetColonyId (the colony the explosion landed in),
+     * falling back to the first war the player attacks in. Disambiguates when a player is an attacker
+     * in more than one active war. A negative/unmatched targetColonyId simply yields the first match.
+     */
+    private static WarData findWarForAttacker(UUID attackerUUID, int targetColonyId) {
+        WarData fallback = null;
+        for (WarData war : WarSystem.ACTIVE_WARS.values()) {
+            if (!war.getAttackerLives().containsKey(attackerUUID)) continue;
+            if (war.getColony() != null && war.getColony().getID() == targetColonyId) return war;
+            if (fallback == null) fallback = war;
+        }
+        return fallback;
     }
 
     /** Drop all state — for server shutdown or war end. */

@@ -33,12 +33,14 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.arguments.StringArgumentType;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 public class RaidManager {
 
     private static final Logger LOGGER = LogManager.getLogger(RaidManager.class);
-    private static final Map<UUID, ActiveRaidData> activeRaids = new HashMap<>();
+    // ConcurrentHashMap statt HashMap: entfernt latentes CME-/Korruptionsrisiko (keine null-Keys/Values eingefuegt)
+    private static final Map<UUID, ActiveRaidData> activeRaids = new ConcurrentHashMap<>();
     private static final Map<UUID, Long> RAID_GRACE_PERIODS = new HashMap<>();
     private static final Map<Integer, Integer> lastLoggedGuardCounts = new HashMap<>(); // Track logging per colony
 
@@ -412,7 +414,10 @@ public class RaidManager {
         RAID_GRACE_PERIODS.put(raidData.getRaider(), System.currentTimeMillis() + getRaidGraceDurationMs());
         RaidLoginNotifier.recordCompletedRaid(raidData);
         activeRaids.remove(raidData.getRaider());
-        
+
+        // Timer abbrechen wie in endRaid (idempotent: schadet nicht, falls der Timer bereits weg ist)
+        net.machiavelli.minecolonytax.util.TickScheduler.cancel(raidData.getTimerTaskId());
+
         LOGGER.info("Raid ended: {}", reason);
     }
 
@@ -579,6 +584,8 @@ public class RaidManager {
         // DEFENSE REWARD CALCULATION
         // ===================================================
         int calculatedDefenseReward = 0;
+        // Tatsaechlich gutgeschriebener Betrag (nach Debt-Limit-Clamp) — fuer Anzeige == Gutschrift
+        int creditedDefenseReward = 0;
         if (defenseRewardPercentage > 0) {
             if (TaxConfig.isSDMShopConversionEnabled()) {
                 if (SDMShopIntegration.isAvailable()) {
@@ -590,7 +597,8 @@ public class RaidManager {
                         // Remove money from raider and add to defending colony's main tax balance
                         if (SDMShopIntegration.setMoney(raider, raiderBalance - calculatedDefenseReward)) {
                             TaxManager.incrementTaxRevenue(raidData.getColony(), calculatedDefenseReward);
-                            LOGGER.info("Transferred {} defense reward from {} to colony {} main tax balance", 
+                            creditedDefenseReward = calculatedDefenseReward; // SDMShop: gutgeschrieben == berechnet
+                            LOGGER.info("Transferred {} defense reward from {} to colony {} main tax balance",
                                        calculatedDefenseReward, raider.getName().getString(), raidData.getColony().getName());
                         } else {
                             LOGGER.error("Failed to deduct defense reward from raider's balance");
@@ -614,6 +622,7 @@ public class RaidManager {
                         // and can't push the raider colony past -DebtLimit.
                         int taken = TaxManager.deductRespectingDebtLimit(raiderColony, calculatedDefenseReward);
                         TaxManager.incrementTaxRevenue(raidData.getColony(), taken);
+                        creditedDefenseReward = taken; // nur der geclampte, tatsaechlich transferierte Betrag
 
                         LOGGER.info("Transferred {} defense reward from raider's colony {} to defending colony {} main tax balance",
                                    taken, raiderColony.getName(), raidData.getColony().getName());
@@ -627,6 +636,7 @@ public class RaidManager {
                         // colony is already at its floor, this yields 0 — no unbounded debt, no minting.
                         int taken = TaxManager.deductRespectingDebtLimit(raiderColony, calculatedDefenseReward);
                         TaxManager.incrementTaxRevenue(raidData.getColony(), taken);
+                        creditedDefenseReward = taken; // nur der geclampte, tatsaechlich transferierte Betrag
 
                         LOGGER.info("Created {} defense reward debt for raider's colony {} and credited defending colony {} main tax balance",
                                    taken, raiderColony.getName(), raidData.getColony().getName());
@@ -637,8 +647,9 @@ public class RaidManager {
             }
         }
         
-        // Final values for use in lambda expressions
-        final int defenseReward = calculatedDefenseReward;
+        // Final values for use in lambda expressions.
+        // Anzeige (Broadcast + Title) nutzt den tatsaechlich gutgeschriebenen Betrag, nicht den Pre-Clamp-Wert.
+        final int defenseReward = creditedDefenseReward;
         // ===================================================
 
         // Update war statistics for the killer
@@ -913,8 +924,10 @@ public class RaidManager {
             boolean shouldLog = (remainingSeconds % 30 == 0) || (guardsKilled != lastLogged);
             
             if (shouldLog) {
-                LOGGER.info("RAID PROGRESS: Guards {}/{}, Victory {:.1f}%, Tax {:.1f}%, Time {}:{}",
-                    guardsKilled, originalGuardCount, victoryProgress * 100, stealPercentage * 100, 
+                // Log4j2 kennt nur {} — Prozentwerte vorformatieren, sonst blieben {:.1f} literal und die Argumente verrutschten
+                LOGGER.info("RAID PROGRESS: Guards {}/{}, Victory {}%, Tax {}%, Time {}:{}",
+                    guardsKilled, originalGuardCount,
+                    String.format("%.1f", victoryProgress * 100), String.format("%.1f", stealPercentage * 100),
                     remainingSeconds / 60, String.format("%02d", remainingSeconds % 60));
                 lastLoggedGuardCounts.put(colonyId, guardsKilled);
             }
@@ -1240,8 +1253,9 @@ public class RaidManager {
         // Calculate colony balance to take based on their stored tax
         int colonyBalance = TaxManager.getStoredTaxForColony(raidData.getColony());
         
-        LOGGER.info("💰 TAX CALCULATION DEBUG: Colony balance={}, Percentage={:.1f}%", 
-            colonyBalance, finalPercentage * 100);
+        // Log4j2 kennt nur {} — Prozentwert vorformatieren (sonst blieb {:.1f} literal und das Argument ungenutzt)
+        LOGGER.info("💰 TAX CALCULATION DEBUG: Colony balance={}, Percentage={}%",
+            colonyBalance, String.format("%.1f", finalPercentage * 100));
             
         int amountToDeduct = 0;
         
