@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - HYW troops attacking their own town
+
+Players reported that **Hundred Years' War (HYW) troops would attack the very colony they were
+meant to protect** — arrowing their commander's own colonists, which turned the colony's guards
+hostile and spiralled into a player's army fighting its own townsfolk. The HYW friendly-fire
+integration prevents this while preserving siege warfare:
+
+- An HYW troop can no longer damage or target a colonist (guards included) of its own commander,
+  that commander's allied colonies, or any neutral colony; protection is symmetric, so friendly
+  colonists won't start the fight either. The protection lifts only for colonies you are actually
+  at war with — an active War 'N Taxes war, besiege, raid, or abandoned-colony claiming raid.
+- Owner attribution is offline-safe (a troop's commander is read from synced owner data, so a
+  logged-out player's standing army keeps respecting its town), and now resolves through a
+  version-tolerant chain so a future HYW API rename degrades gracefully instead of silently
+  disabling all protection. Ownerless HYW units (bandits) stay hostile.
+- Verified — by decompiling the actual HYW 0.6.4r jar — to cover the entire HYW roster: foot
+  troops, workers, all cavalry, and every siege engine. See the **Hundred Years' War Integration**
+  wiki page. Toggle with `EnableHywFriendlyFireProtection` (default on).
+
+### Fixed - Withdrawing tax was broken
+
+Players reported that **claiming/withdrawing collected taxes silently failed or lost money**. All
+three claim routes (the claim GUI packet, `/claimtax`, and `/wnt claimtax`) deducted the tax from
+the colony ledger *before* delivering it and never refunded on a failed deposit, so the tax could
+be wiped without the player receiving the coins. Delivery now credits atomically and refunds the
+colony ledger on any failure — taxes are never silently lost.
+
 ### Fixed - Ownership / Officer & conflict-end safety pass (ported from Forge)
 
 This port was still missing the entire 4.x/5.0 colony-abandonment hardening, so it was vulnerable
