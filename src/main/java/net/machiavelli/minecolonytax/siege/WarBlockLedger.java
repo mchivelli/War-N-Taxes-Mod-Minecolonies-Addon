@@ -133,21 +133,19 @@ public final class WarBlockLedger {
         ResourceLocation dimResLoc = level.dimension().location();
         Map<BlockPos, BlockInfo> ledger = LEDGERS.computeIfAbsent(war.getWarID(), k -> new ConcurrentHashMap<>());
 
-        // For every block we snapshot we ALSO destroy it DROP-FREE ourselves and pull it out of the
-        // vanilla explosion list. Previously we snapshotted but let vanilla blow the block up: vanilla
-        // dropped the block's items AND our endWar restore rewrote the block from the snapshot — that is
-        // an item dupe. Destroying it drop-free keeps the war damage visual (the block is gone until
-        // restore) while suppressing the drops; the snapshot restore later brings the block back intact.
+        // For every block we snapshot we ALSO destroy it DROP-FREE ourselves. Previously we snapshotted but
+        // let vanilla blow the block up: vanilla dropped the block's items AND our endWar restore rewrote the
+        // block from the snapshot — an item dupe. Destroying it drop-free (after clearing any container
+        // contents, which the snapshot already holds) keeps the war-damage visual while suppressing ALL drops;
+        // restore later brings the block (and its contents) back intact.
         //
-        // The Detonate event fires in Explosion#explode BEFORE finalizeExplosion iterates toBlow and calls
-        // onExplosionHit (destroy + collect drops), so removing a pos from getAffectedBlocks() (== the
-        // mutable Explosion#getToBlow list) fully suppresses vanilla's destroy+drop for it.
-        //
-        // CME-safe: getAffectedBlocks() IS the live event list, so we iterate a COPY, collect the taken-over
-        // positions, and mutate the event list only AFTER the loop via removeAll.
+        // We do NOT remove the pos from getAffectedBlocks(): once we've set it to AIR, vanilla's
+        // finalizeExplosion sees air at that pos and does nothing (no drops, no double-destroy), so there is
+        // nothing to gain by editing the list — and leaving it intact means other read-only Detonate listeners
+        // (e.g. TownHallDemolition, which scans the affected blocks for a town-hall hit) still work.
+        // We iterate a COPY of the list only because destroyBlock mutates world state during the loop.
         // First snapshot per pos wins so repeat explosions on the same spot don't overwrite the pre-war state.
         boolean capWarningEmitted = false;
-        List<BlockPos> suppressed = new ArrayList<>();
         for (BlockPos pos : new ArrayList<>(affected)) {
             try {
                 BlockState state = level.getBlockState(pos);
@@ -175,32 +173,27 @@ public final class WarBlockLedger {
                 if (be != null) {
                     try { nbt = be.saveWithFullMetadata(level.registryAccess()); } catch (Exception ignored) {}
                 }
-                ledger.put(immutable, new BlockInfo(immutable, state, nbt, dimResLoc));
-
-                // Mark suppressed BEFORE destroying: even if destroyBlock below were to throw, the block
-                // is still pulled off vanilla's list (no vanilla drop), so a ledgered block is never
-                // double-processed. If destroy failed, the block just stays intact and restore is a no-op.
-                suppressed.add(immutable);
-
-                // Container contents are NOT covered by dropBlock=false: destroyBlock still runs the block's
-                // onRemove, and ChestBlock/BaseContainerBlock.onRemove spills the inventory via
-                // Containers.dropContents regardless of the flag. The snapshot NBT already captured those
-                // contents, so restore would re-create them → a content dupe. Clear the container first so
-                // nothing spills; restore brings the contents back.
+                // Clear container contents FIRST: destroyBlock still runs the block's onRemove, and
+                // ChestBlock/BaseContainerBlock.onRemove spills the inventory via Containers.dropContents
+                // regardless of dropBlock=false. The snapshot NBT already captured the contents, so restore
+                // would re-create them → a content dupe. Clearing here means nothing spills; restore brings
+                // the contents back.
                 if (be instanceof net.minecraft.world.Container container) {
                     try { container.clearContent(); } catch (Exception ignored) {}
                 }
 
-                // Destroy drop-free (dropBlock=false) so no block item spawns; restore re-creates it at endWar.
+                // Destroy drop-free (dropBlock=false): no block item spawns; restore re-creates it at endWar.
+                // We deliberately do NOT remove the pos from getAffectedBlocks(): the block is now AIR, so
+                // vanilla's finalizeExplosion sees air and does nothing (no drops, no double-destroy), while
+                // other read-only Detonate listeners (e.g. TownHallDemolition) still see the FULL affected list.
                 level.destroyBlock(immutable, false);
+
+                // Ledger the block only AFTER a successful drop-free destroy, so a throwing destroy can't
+                // leave a to-be-restored block that vanilla would then destroy WITH drops (a dupe).
+                ledger.put(immutable, new BlockInfo(immutable, state, nbt, dimResLoc));
             } catch (Exception e) {
                 LOGGER.warn("WarBlockLedger snapshot failed at {}: {}", pos, e.getMessage());
             }
-        }
-
-        // Take the snapshotted blocks off vanilla's destruction list so it doesn't re-process them WITH drops.
-        if (!suppressed.isEmpty()) {
-            event.getAffectedBlocks().removeAll(suppressed);
         }
 
         if (TaxConfig.isDebugLogging()) {
