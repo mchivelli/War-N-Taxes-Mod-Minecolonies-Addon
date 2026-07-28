@@ -91,7 +91,7 @@ public final class SDMShopCompat {
         return available;
     }
 
-    /** The configured currency id claimed taxes are paid into (falls back to {@code sdm_coin}). */
+    /** The configured currency id claimed taxes are paid into (falls back to {@code sdmcoin}). */
     private static String currencyId() {
         try {
             String c = TaxConfig.getSDMCurrencyName();
@@ -99,7 +99,7 @@ public final class SDMShopCompat {
         } catch (Throwable ignored) {
             // config not loaded yet (e.g. during early init logging) — use the default below
         }
-        return "sdm_coin";
+        return "sdmcoin";
     }
 
     private static boolean isSuccess(Object errorCode) {

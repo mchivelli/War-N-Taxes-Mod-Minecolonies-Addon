@@ -485,7 +485,7 @@ public class TaxConfig {
                                 .comment("SDM-Economy currency id that claimed taxes are paid into. Must match a "
                                                 + "currency configured on your server (see your SDM-Economy setup). "
                                                 + "If claims report the currency was not found, set this to a valid id.")
-                                .define("SDMCurrencyName", "sdm_coin");
+                                .define("SDMCurrencyName", "sdmcoin");
 
                 CURRENCY_ITEM_NAME = BUILDER
                                 .comment("The item name for the custom currency (e.g., 'minecraft:emerald').")

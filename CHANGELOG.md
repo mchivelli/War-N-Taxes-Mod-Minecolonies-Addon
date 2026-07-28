@@ -51,7 +51,8 @@ confirmed by decompiling the deployed sdmeconomy 2.4.0 jar), so it never resolve
 silently refunded the colony instead of paying the player. The bridge now targets the real 2.x API
 (`EconomyAPI` → `CurrencyPlayerData.Server.addCurrencyValue`, with the result checked and the client
 re-synced) and pays into the currency named by the new **`SDMCurrencyName`** config (default
-`sdm_coin`). If SDM rejects the currency id the claim still safely refunds the colony (never lost)
+`sdmcoin`, matching the currency shipped in your SDM-Economy config). If SDM rejects the currency id
+the claim still safely refunds the colony (never lost)
 and logs the server's valid currency ids so you can correct the config.
 
 ### Fixed - Ownership / Officer & conflict-end safety pass (ported from Forge)
