@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.3] - 2026-07-29
+
+> ⚠️ **This release is still being actively hardened and may still have bugs.** If you hit a crash
+> or anything misbehaving — war/siege/tax logic, HYW troops, raids — please help the mod out and
+> **report it on the [GitHub issue tracker](https://github.com/mchivelli/War-N-Taxes-Mod-Minecolonies-Addon/issues)**
+> (or drop a note in the CurseForge comments). Every report genuinely speeds up the next fix —
+> thanks for testing and supporting the mod! 🙏
+
 ### Fixed - Claiming taxes with SDM Economy now actually pays out
 
 Players reported that **claiming taxes did nothing when SDM Economy / SDMShop was installed** — the
