@@ -44,3 +44,6 @@ replay_pid*
 *.new
 *.orig
 *.disabled
+
+# Runtime logs from local test runs
+logs/
