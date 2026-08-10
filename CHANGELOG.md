@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.4] - 2026-08-07
+
+NeoForge 1.21.1 only. Three systems looked fully implemented but were never actually reachable,
+because the NeoForge port had lost the calls that drive them.
+
+### Fixed - Spies stuck forever at "Traveling... 99%"
+
+Players reported that **no spy mission ever arrived** — the espionage screen sat at 99% travelling
+indefinitely. The port had lost the once-per-second espionage tick that the Forge 1.20.1 build runs,
+so every mission stayed in its DEPLOYING state for good: the spy never landed at the target colony,
+no spy ever spawned, and the progress display (which deliberately stops at 99% until arrival) had
+nothing left to wait for. Recall journeys, the gathering of intel over time, and automatic mission
+completion all hung off that same missing tick, so in practice the entire espionage system did
+nothing beyond taking your deployment cost. The tick is wired again and respects the
+`EnableSpySystem` switch.
+
+Missions that have been stuck since before this update resolve themselves on the first tick after
+the server restarts — expect a short burst of arrival and completion messages for them.
+
+### Fixed - Random events never triggered
+
+Players reported **never seeing a single random event**. The per-colony event check that runs at the
+end of each tax cycle had no caller at all, so events could only ever be forced by hand with
+`/wnt events force`. Every individual event toggle was already switched on — the configuration was
+never at fault. The check now runs again for every colony during the tax cycle, guarded so that one
+problematic colony cannot abort the cycle for everyone else.
+
+A reminder for testing: events are deliberately paced. With a 60-minute tax interval, a two-cycle
+global cooldown and 24 hours of protection for young colonies, the first event can take a couple of
+hours to show up. Shorten `TaxIntervalMinutes` if you want to see them quickly.
+
+### Fixed - Server crash when a non-member opened the war chest
+
+Opening the war chest page as someone who is not a member of that colony threw a server-side error,
+because the permission check read the player's rank without allowing for the "no rank at all" case
+that non-members produce. The check is now safe, matching how the investments screen already did it.
+
+### Fixed - Investments showing a price of zero
+
+When the server declined an investments request, it did so without a word, and the screen filled the
+gap with "Cost: 0 $" — which reads like a broken price rather than a missing answer. Both the
+investments and war chest screens now state the actual reason in chat (feature switched off, colony
+not present in your current dimension, or missing colony-manager rank), and the price line reads
+"Cost: unavailable" instead of inventing a zero.
+
 ## [5.0.3] - 2026-07-27
 
 > ⚠️ **This release is still being actively hardened and may still have bugs.** If you hit a crash
