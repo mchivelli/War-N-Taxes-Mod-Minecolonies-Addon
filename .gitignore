@@ -68,3 +68,6 @@ crash-*.txt
 
 # Marketing assets (large binaries — kept out of git)
 marketing/
+
+# RuFlo per-project state (Codex ledger, etc.)
+.ruflo/
