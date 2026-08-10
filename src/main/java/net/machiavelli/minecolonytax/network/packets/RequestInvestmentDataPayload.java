@@ -44,16 +44,34 @@ public record RequestInvestmentDataPayload(int colonyId) implements CustomPacket
     public static void handle(RequestInvestmentDataPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (!(context.player() instanceof ServerPlayer player)) return;
-            if (!TaxConfig.isUpgradesEnabled()) return;
+            // Every bail-out below used to return silently, leaving the GUI with an empty
+            // cost map that renders as "Cost: 0" — indistinguishable from a broken feature.
+            // Tell the player which gate stopped them instead.
+            if (!TaxConfig.isUpgradesEnabled()) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component
+                        .literal("Investments are disabled (EnableColonyUpgrades = false).")
+                        .withStyle(net.minecraft.ChatFormatting.RED));
+                return;
+            }
 
             IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
             IColony colony = colonyManager.getColonyByWorld(payload.colonyId, player.level());
-            if (colony == null) return;
+            if (colony == null) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component
+                        .literal("Investments: colony not found in this dimension.")
+                        .withStyle(net.minecraft.ChatFormatting.RED));
+                return;
+            }
 
             // Null-safe rank check: getRank(uuid) returns null for non-members and
             // would NPE on the main server thread.
             Rank playerRank = colony.getPermissions().getRank(player.getUUID());
-            if (playerRank == null || !playerRank.isColonyManager()) return;
+            if (playerRank == null || !playerRank.isColonyManager()) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component
+                        .literal("Investments: you need colony-manager rank in this colony.")
+                        .withStyle(net.minecraft.ChatFormatting.RED));
+                return;
+            }
 
             PacketDistributor.sendToPlayer(player, buildResponse(payload.colonyId));
         });

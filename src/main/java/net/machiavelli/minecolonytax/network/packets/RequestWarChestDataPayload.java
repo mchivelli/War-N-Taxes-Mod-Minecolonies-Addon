@@ -42,10 +42,23 @@ public record RequestWarChestDataPayload(int colonyId) implements CustomPacketPa
 
             IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
             IColony colony = colonyManager.getColonyByWorld(payload.colonyId, player.level());
-            if (colony == null) return;
+            if (colony == null) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component
+                        .literal("War chest: colony not found in this dimension.")
+                        .withStyle(net.minecraft.ChatFormatting.RED));
+                return;
+            }
 
-            boolean hasAccess = colony.getPermissions().getRank(player.getUUID()).isColonyManager();
-            if (!hasAccess) return;
+            // Null-safe rank check: getRank(uuid) returns null for non-members and would
+            // NPE on the main server thread (parity with the investment payload).
+            com.minecolonies.api.colony.permissions.Rank playerRank =
+                    colony.getPermissions().getRank(player.getUUID());
+            if (playerRank == null || !playerRank.isColonyManager()) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component
+                        .literal("War chest: you need colony-manager rank in this colony.")
+                        .withStyle(net.minecraft.ChatFormatting.RED));
+                return;
+            }
 
             int balance = WarChestManager.getWarChestBalance(payload.colonyId);
             int maxCapacity = WarChestManager.getEffectiveMaxCapacity(payload.colonyId);
