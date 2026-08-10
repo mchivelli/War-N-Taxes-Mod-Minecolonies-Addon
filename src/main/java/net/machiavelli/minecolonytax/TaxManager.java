@@ -124,6 +124,17 @@ public class TaxManager {
                 if (tickCount >= 20) { // 20 ticks = 1 second
                     tickCount = 0;
                     checkForTaxGeneration();
+
+                    // Espionage tick — drives DEPLOYING -> ACTIVE arrival, RETURNING -> RECALLED,
+                    // intel progress and auto-completion. Without it every mission stays in
+                    // DEPLOYING forever (spy "travelling" never finishes). Parity with Forge 1.20.1.
+                    if (TaxConfig.isSpySystemEnabled()) {
+                        try {
+                            net.machiavelli.minecolonytax.espionage.SpyManager.tick();
+                        } catch (Exception e) {
+                            LOGGER.error("Error during SpyManager tick", e);
+                        }
+                    }
                 }
                 
                 // Check colony abandonment every hour (72000 ticks = 1 hour)
@@ -687,6 +698,17 @@ public class TaxManager {
                                         colony.getName(), totalMaintenance, totalGeneratedTax));
                             }
                         }
+                    }
+
+                    // Trigger random events after the tax cycle. Without this call no event
+                    // ever fires on its own (only /wnt events force worked). Caught per-colony
+                    // so one bad colony can't abort the whole forEach and skip saveTaxData().
+                    // Parity with Forge 1.20.1; onTaxCycle() guards on the config itself and
+                    // persists its own state.
+                    try {
+                        net.machiavelli.minecolonytax.events.random.RandomEventManager.onTaxCycle(colony);
+                    } catch (Exception ex) {
+                        LOGGER.error("Random event tick failed for colony {}", colony.getID(), ex);
                     }
                 });
             });
