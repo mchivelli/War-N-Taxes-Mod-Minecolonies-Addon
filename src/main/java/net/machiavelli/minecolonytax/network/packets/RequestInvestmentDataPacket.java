@@ -36,15 +36,34 @@ public class RequestInvestmentDataPacket {
     public void handle(Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
-            if (player == null || !TaxConfig.isUpgradesEnabled()) return;
+            if (player == null) return;
+            // Every bail-out below used to return silently, leaving the GUI with an empty
+            // cost map that renders as "Cost: 0" — indistinguishable from a broken feature.
+            // Tell the player which gate stopped them instead.
+            if (!TaxConfig.isUpgradesEnabled()) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component
+                        .literal("Investments are disabled (EnableColonyUpgrades = false).")
+                        .withStyle(net.minecraft.ChatFormatting.RED));
+                return;
+            }
 
             IColonyManager mgr = IMinecoloniesAPI.getInstance().getColonyManager();
             IColony colony = mgr.getColonyByWorld(colonyId, player.level());
-            if (colony == null) return;
+            if (colony == null) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component
+                        .literal("Investments: colony not found in this dimension.")
+                        .withStyle(net.minecraft.ChatFormatting.RED));
+                return;
+            }
             // Null-safe rank check: getRank(uuid) returns null for non-members and
             // would NPE on the main server thread.
             Rank playerRank = colony.getPermissions().getRank(player.getUUID());
-            if (playerRank == null || !playerRank.isColonyManager()) return;
+            if (playerRank == null || !playerRank.isColonyManager()) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component
+                        .literal("Investments: you need colony-manager rank in this colony.")
+                        .withStyle(net.minecraft.ChatFormatting.RED));
+                return;
+            }
 
             int maxLevel = TaxConfig.getUpgradeMaxLevel();
             Map<String, Integer> levels = new LinkedHashMap<>();

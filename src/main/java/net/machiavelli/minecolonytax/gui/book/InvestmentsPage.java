@@ -163,7 +163,12 @@ public class InvestmentsPage extends BookPage {
             g.drawString(font, maxLabel, rightX + (rightW - font.width(maxLabel)) / 2, y + 2, WHITE, false);
             y += LEVEL_BAR_H + 5;
         } else {
-            String costStr = String.format("Cost: %,d $", cost);
+            // An empty cost map means the server never answered (config gate, wrong
+            // dimension or missing colony-manager rank — it now says which in chat).
+            // Rendering "Cost: 0 $" there looks like a broken price, so be explicit.
+            String costStr = costs.isEmpty()
+                    ? "Cost: unavailable"
+                    : String.format("Cost: %,d $", cost);
             g.drawString(font, costStr, rightX + 3, y, canAfford ? INK : DANGER, false);
             y += 11;
 

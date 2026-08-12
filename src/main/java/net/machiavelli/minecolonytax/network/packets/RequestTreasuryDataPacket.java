@@ -39,20 +39,35 @@ public class RequestTreasuryDataPacket {
     public void handle(Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
-            if (player == null || !TaxConfig.isTreasuryEnabled())
+            if (player == null) return;
+            // These gates used to fail silently, so the war chest screen simply stayed
+            // empty with no way to tell why. State the reason instead.
+            if (!TaxConfig.isTreasuryEnabled()) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component
+                        .literal("War chest is disabled (EnableWarChest = false).")
+                        .withStyle(net.minecraft.ChatFormatting.RED));
                 return;
+            }
 
             IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
             IColony colony = colonyManager.getColonyByWorld(colonyId, player.level());
 
-            if (colony == null)
+            if (colony == null) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component
+                        .literal("War chest: colony not found in this dimension.")
+                        .withStyle(net.minecraft.ChatFormatting.RED));
                 return;
+            }
 
             // Null-safe rank check: getRank(uuid) returns null for non-members and
             // would NPE on the main server thread when sender is not in this colony.
             Rank playerRank = colony.getPermissions().getRank(player.getUUID());
-            if (playerRank == null || !playerRank.isColonyManager())
+            if (playerRank == null || !playerRank.isColonyManager()) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component
+                        .literal("War chest: you need colony-manager rank in this colony.")
+                        .withStyle(net.minecraft.ChatFormatting.RED));
                 return;
+            }
 
             int balance = TreasuryManager.getTreasuryBalance(colonyId);
             int maxCapacity = TaxConfig.getTreasuryMaxCapacity();
