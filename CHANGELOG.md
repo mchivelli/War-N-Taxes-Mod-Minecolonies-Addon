@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.4] - 2026-08-07
+
+Version-parity release with NeoForge 1.21.1. The two big NeoForge fixes in 5.0.4 (spies stuck at
+99% travelling, random events never triggering) do **not** apply here — on Forge those systems were
+always wired correctly. What this build brings to 1.20.1 is the diagnostics work from the same pass.
+
+### Fixed - Investments and war chest failing without telling you why
+
+When the server declined an investments or war chest request, it did so without a word. The
+investments screen then filled the gap with "Cost: 0 $", which reads like a broken price rather than
+a missing answer, and the war chest screen simply stayed empty — with nothing anywhere to explain it.
+
+Both screens now state the actual reason in chat: the feature being switched off in the config, the
+colony not being present in the dimension you are currently in, or your rank in that colony not
+being high enough to manage it. The price line reads "Cost: unavailable" instead of inventing a zero.
+
+Nothing about how investments or the war chest work has changed — only that a refusal now says so.
+
 ## [5.0.3] - 2026-07-29
 
 > ⚠️ **This release is still being actively hardened and may still have bugs.** If you hit a crash
