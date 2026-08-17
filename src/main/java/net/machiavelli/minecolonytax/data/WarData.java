@@ -73,6 +73,21 @@ public class WarData {
     public int initialAttackerTotalLives;
     public int initialDefenderTotalLives;
 
+    /**
+     * Coins actually moved by the war-economy settlement when this war resolved.
+     * In-memory only (set moments before endWar runs) — endWar reads it for the
+     * history/DB record instead of re-deriving an amount with a different formula.
+     */
+    public long economyTransferTotal = 0L;
+
+    /**
+     * How the war was decided, set by the code path that resolved it:
+     * "ATTACKER_VICTORY", "DEFENDER_VICTORY" or "STALEMATE". Null when the war was
+     * ended administratively (/wnt war end, peace) — endWar then falls back to its
+     * penalty-report heuristic. In-memory only, like {@link #economyTransferTotal}.
+     */
+    public String resolvedOutcome = null;
+
     public WarData(UUID attacker, UUID defender, UUID attackerTeamID, UUID defenderTeamID,
                    long joinPhaseStart, ServerBossEvent bossEvent, IColony colony, IColony attackerColony) {
         this.attacker = attacker;

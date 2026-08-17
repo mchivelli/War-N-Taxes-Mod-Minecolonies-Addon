@@ -505,16 +505,17 @@ public class TaxManager {
                     // Apply Raid Penalty Multiplier
                     double raidPenaltyMultiplier = RaidPenaltyManager.getTaxMultiplier(colonyId);
                     if (raidPenaltyMultiplier < 1.0 && TaxConfig.isDebugLogging()) {
-                        LOGGER.info("Colony {} has active raid penalty. Tax reduced by {:.0f}%",
-                                colony.getName(), (1.0 - raidPenaltyMultiplier) * 100);
+                        // Log4j2 kennt nur {} — Prozentwert vorformatieren (sonst bleibt {:.0f} literal)
+                        LOGGER.info("Colony {} has active raid penalty. Tax reduced by {}%",
+                                colony.getName(), Math.round((1.0 - raidPenaltyMultiplier) * 100));
                     }
 
                     // Apply War Exhaustion Multiplier (includes at-war, recovery, and reparations)
                     double warExhaustionMultiplier = net.machiavelli.minecolonytax.economy.WarExhaustionManager
                             .getTaxMultiplier(colonyId);
                     if (warExhaustionMultiplier < 1.0 && TaxConfig.isDebugLogging()) {
-                        LOGGER.info("Colony {} has war exhaustion/reparations. Tax reduced by {:.0f}%",
-                                colony.getName(), (1.0 - warExhaustionMultiplier) * 100);
+                        LOGGER.info("Colony {} has war exhaustion/reparations. Tax reduced by {}%",
+                                colony.getName(), Math.round((1.0 - warExhaustionMultiplier) * 100));
                     }
 
                     // Apply Tax Policy Multiplier
@@ -522,9 +523,9 @@ public class TaxManager {
                     TaxPolicy activePolicy = TaxPolicyManager.getPolicy(colonyId);
                     if (taxPolicyMultiplier != 1.0 && TaxConfig.isDebugLogging()) {
                         String policyEffect = taxPolicyMultiplier > 1.0 ? "increased" : "reduced";
-                        LOGGER.info("Colony {} has {} tax policy. Tax {} by {:.0f}%",
+                        LOGGER.info("Colony {} has {} tax policy. Tax {} by {}%",
                                 colony.getName(), activePolicy.name(), policyEffect,
-                                Math.abs(1.0 - taxPolicyMultiplier) * 100);
+                                Math.round(Math.abs(1.0 - taxPolicyMultiplier) * 100));
                     }
 
                     for (IBuilding building : ColonyBuildingUtil.getBuildings(colony)) {

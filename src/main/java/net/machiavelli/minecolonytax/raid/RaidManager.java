@@ -1583,13 +1583,18 @@ public class RaidManager {
 
         // Only proceed with transfer if we have an amount to transfer
         if (amountToDeduct > 0) {
-            // Transfer to the raider's account
+            // The colony was already debited above (payTaxDebt). Attempt the raider
+            // credit and REFUND the colony if delivery fails — previously a failed
+            // SDMShop call (or SDMShop enabled in config but not installed) logged an
+            // error and moved on, permanently destroying the stolen coins.
+            boolean credited = false;
             try {
                 if (TaxConfig.isSDMShopConversionEnabled()) {
                     if (SDMShopIntegration.isAvailable()) {
                         // Use SDMShop integration to add currency to player
                         long currentBalance = SDMShopIntegration.getMoney(raiderPlayer);
-                        if (SDMShopIntegration.setMoney(raiderPlayer, currentBalance + amountToDeduct)) {
+                        credited = SDMShopIntegration.setMoney(raiderPlayer, currentBalance + amountToDeduct);
+                        if (credited) {
                             LOGGER.info(
                                     "Raid completion: Added {} currency to player {} via SDMShop API (new balance: {})",
                                     amountToDeduct, raiderPlayer.getName().getString(),
@@ -1604,14 +1609,30 @@ public class RaidManager {
                                 raiderPlayer.getName().getString());
                     }
                 } else {
-                    // Give items using denomination-aware utility
-                    net.machiavelli.minecolonytax.util.ItemUtils.giveCurrencyToPlayer(raiderPlayer, amountToDeduct);
-                    if (net.machiavelli.minecolonytax.TaxConfig.isNormalLogging()) {
+                    // Give items using denomination-aware utility (false = misconfigured
+                    // denominations, nothing was given)
+                    credited = net.machiavelli.minecolonytax.util.ItemUtils.giveCurrencyToPlayer(raiderPlayer,
+                            amountToDeduct);
+                    if (credited && net.machiavelli.minecolonytax.TaxConfig.isNormalLogging()) {
                         LOGGER.info("Raid completion: Gave {} currency to player {}", amountToDeduct,
                                 raiderPlayer.getName().getString());
                     }
                 }
+            } catch (Exception e) {
+                LOGGER.error("Error crediting raid loot to player {}: ", raiderPlayer.getName().getString(), e);
+            }
 
+            if (!credited) {
+                TaxManager.payTaxDebt(raidData.getColony(), amountToDeduct); // refund the debit above
+                raiderPlayer.sendSystemMessage(Component
+                        .literal("⚠️ Raid loot could not be delivered (currency system unavailable) - the colony keeps its coins.")
+                        .withStyle(ChatFormatting.RED));
+                LOGGER.error("Raid loot delivery failed; refunded {} to colony {}",
+                        amountToDeduct, raidData.getColony().getName());
+                return;
+            }
+
+            try {
                 // Update total transferred amount for statistics
                 raidData.addToTotalTransferred(amountToDeduct);
 

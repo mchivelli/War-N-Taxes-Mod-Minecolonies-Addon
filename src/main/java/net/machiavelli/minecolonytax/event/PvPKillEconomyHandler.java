@@ -151,27 +151,34 @@ public class PvPKillEconomyHandler {
             long transferAmount = Math.max(1, (long) (victimBalance * percentage));
             long killerBalance = SDMShopIntegration.getMoney(killer);
 
-            if (SDMShopIntegration.setMoney(victim, victimBalance - transferAmount) &&
-                    SDMShopIntegration.setMoney(killer, killerBalance + transferAmount)) {
+            // Debit and credit as a checked pair: if the killer credit fails AFTER the
+            // victim debit succeeded, roll the debit back — otherwise the coins are
+            // destroyed and neither player has them.
+            if (!SDMShopIntegration.setMoney(victim, victimBalance - transferAmount)) {
+                LOGGER.error("Failed to debit ${} from {} via SDMShop API - transfer aborted",
+                        transferAmount, victim.getName().getString());
+                return;
+            }
+            if (!SDMShopIntegration.setMoney(killer, killerBalance + transferAmount)) {
+                SDMShopIntegration.setMoney(victim, victimBalance); // roll back the debit
+                LOGGER.error("Failed to credit ${} to {} via SDMShop API - victim refunded",
+                        transferAmount, killer.getName().getString());
+                return;
+            }
+            String deathType = isRaidRelated ? "Raid Death" : "PvP Death";
+            String killType = isRaidRelated ? "Raid Defense" : "PvP Kill";
 
-                String deathType = isRaidRelated ? "Raid Death" : "PvP Death";
-                String killType = isRaidRelated ? "Raid Defense" : "PvP Kill";
+            victim.sendSystemMessage(Component
+                    .literal(deathType + ": Lost $" + transferAmount + " to " + killer.getName().getString())
+                    .withStyle(net.minecraft.ChatFormatting.RED));
+            killer.sendSystemMessage(Component
+                    .literal(killType + ": Earned $" + transferAmount + " from " + victim.getName().getString())
+                    .withStyle(net.minecraft.ChatFormatting.GREEN));
 
-                victim.sendSystemMessage(Component
-                        .literal(deathType + ": Lost $" + transferAmount + " to " + killer.getName().getString())
-                        .withStyle(net.minecraft.ChatFormatting.RED));
-                killer.sendSystemMessage(Component
-                        .literal(killType + ": Earned $" + transferAmount + " from " + victim.getName().getString())
-                        .withStyle(net.minecraft.ChatFormatting.GREEN));
-
-                if (TaxConfig.isNormalLogging()) {
-                    LOGGER.info("{} economy: {} transferred ${} from {} to {}",
-                            isRaidRelated ? "Raid" : "PvP", percentage * 100 + "%", transferAmount,
-                            victim.getName().getString(), killer.getName().getString());
-                }
-            } else {
-                LOGGER.error("Failed to transfer ${} from {} to {} via SDMShop API",
-                        transferAmount, victim.getName().getString(), killer.getName().getString());
+            if (TaxConfig.isNormalLogging()) {
+                LOGGER.info("{} economy: {} transferred ${} from {} to {}",
+                        isRaidRelated ? "Raid" : "PvP", percentage * 100 + "%", transferAmount,
+                        victim.getName().getString(), killer.getName().getString());
             }
         } catch (Exception e) {
             LOGGER.error("Error in SDMShop PvP kill transfer: {}", e.getMessage());

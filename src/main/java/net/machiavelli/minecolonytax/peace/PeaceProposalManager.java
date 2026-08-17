@@ -292,6 +292,7 @@ public class PeaceProposalManager {
                 sendMessageToTeamFallback(war, true, whitePeaceMsg); // Attacker team
                 sendMessageToTeamFallback(war, false, whitePeaceMsg); // Defender team
                 // Set penalty report before endWar so war history logging captures peace outcome
+                war.resolvedOutcome = "STALEMATE"; // mutual peace — neither side won
                 war.setPenaltyReport("White Peace: War ended by mutual agreement, no reparations");
                 WarSystem.endWar(war.getColony()); // Assumes WarSystem provides this
                 break;
@@ -344,8 +345,12 @@ public class PeaceProposalManager {
                     sendMessageToTeamFallback(war, false, losingTeamMsg); // Defender team (lost)
                     sendMessageToTeamFallback(war, true, winningTeamMsg); // Attacker team (won)
                 }
-                // Set penalty report before endWar so war history logging captures peace outcome
+                // Set penalty report before endWar so war history logging captures peace outcome.
+                // The paying side conceded — history records the receiving side as the victor,
+                // and economyTransferTotal carries the real amount into the history entry.
                 String payerSide = proposerWasAttacker ? "Attackers" : "Defenders";
+                war.resolvedOutcome = proposerWasAttacker ? "DEFENDER_VICTORY" : "ATTACKER_VICTORY";
+                war.economyTransferTotal = demandedAmount;
                 war.setPenaltyReport("Peace via Reparations: " + payerSide + " paid " + demandedAmount + " coins");
                 WarSystem.endWar(war.getColony());
                 break;
@@ -369,6 +374,7 @@ public class PeaceProposalManager {
                     if (war.getAttackerColony() != null) {
                         net.machiavelli.minecolonytax.economy.WarExhaustionManager.recordWarLoss(war.getAttackerColony().getID());
                     }
+                    war.resolvedOutcome = "DEFENDER_VICTORY";
                     war.setPenaltyReport("Surrender: Attackers capitulated — assault failed, defenders hold");
                 } else {
                     // Defender surrenders — total victory for the attacker over the defender colony.
@@ -383,6 +389,7 @@ public class PeaceProposalManager {
                     sendMessageToTeamFallback(war, true, defSurrender);  // Attacker team (won)
                     // Record defender's loss (they surrendered)
                     net.machiavelli.minecolonytax.economy.WarExhaustionManager.recordWarLoss(war.getColony().getID());
+                    war.resolvedOutcome = "ATTACKER_VICTORY";
                     war.setPenaltyReport(conquered
                             ? "Surrender: Defenders surrendered — colony conquered by attackers"
                             : "Surrender: Defenders surrendered — colony vassalized to attackers");
