@@ -1334,27 +1334,35 @@ public class RaidManager {
         
         // Only proceed with transfer if we have an amount to transfer
         if (amountToDeduct > 0) {
-            // Transfer to the raider's account
+            // The colony was already debited above (payTaxDebt). Attempt the raider
+            // credit and REFUND the colony if delivery fails — previously a failed
+            // SDMShop call (or SDMShop enabled in config but not installed, or a
+            // currency item id missing from the registry) logged an error and moved
+            // on, permanently destroying the stolen coins.
+            boolean credited = false;
             try {
                 if (TaxConfig.isSDMShopConversionEnabled()) {
                     if (SDMShopIntegration.isAvailable()) {
                         // Use SDMShop integration to add currency to player
                         long currentBalance = SDMShopIntegration.getMoney(raiderPlayer);
-                        if (SDMShopIntegration.setMoney(raiderPlayer, currentBalance + amountToDeduct)) {
-                            LOGGER.info("Raid completion: Added {} currency to player {} via SDMShop API (new balance: {})", 
+                        credited = SDMShopIntegration.setMoney(raiderPlayer, currentBalance + amountToDeduct);
+                        if (credited) {
+                            LOGGER.info("Raid completion: Added {} currency to player {} via SDMShop API (new balance: {})",
                                     amountToDeduct, raiderPlayer.getName().getString(), currentBalance + amountToDeduct);
                         } else {
-                            LOGGER.error("Failed to transfer {} currency to player {} via SDMShop API", 
+                            LOGGER.error("Failed to transfer {} currency to player {} via SDMShop API",
                                     amountToDeduct, raiderPlayer.getName().getString());
                         }
                     } else {
-                        LOGGER.warn("SDMShop integration is enabled but SDMShop mod is not available. Currency transfer skipped for player: {}", 
+                        LOGGER.warn("SDMShop integration is enabled but SDMShop mod is not available. Currency transfer skipped for player: {}",
                                 raiderPlayer.getName().getString());
                     }
                 } else {
-                    // Fallback to giving items if SDM not enabled
+                    // Fallback to giving items if SDM not enabled. BuiltInRegistries returns
+                    // AIR for unknown ids — treat that as a failed credit (the old "/give"
+                    // command fallback used the same registry and could never succeed either).
                     net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(TaxConfig.getCurrencyItemName()));
-                    if (item != null) {
+                    if (item != null && item != net.minecraft.world.item.Items.AIR) {
                         net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, amountToDeduct);
                         boolean added = raiderPlayer.getInventory().add(itemStack);
                         if (!added) {
@@ -1362,21 +1370,31 @@ public class RaidManager {
                             raiderPlayer.drop(itemStack, false);
                             LOGGER.info("Raid completion: Raider's inventory was full, dropped {} items near them", amountToDeduct);
                         } else {
-                            LOGGER.info("Raid completion: Gave {} {} items to player {}", 
+                            LOGGER.info("Raid completion: Gave {} {} items to player {}",
                                     amountToDeduct, TaxConfig.getCurrencyItemName(), raiderPlayer.getName().getString());
                         }
+                        credited = true;
                     } else {
-                        // Fallback to give command if item not found in registry
-                        String itemName = TaxConfig.getCurrencyItemName();
-                        String command = String.format("give %s %s %d", raiderPlayer.getName().getString(), itemName, amountToDeduct);
-                        raidData.getColony().getWorld().getServer().getCommands().performPrefixedCommand(
-                                raidData.getColony().getWorld().getServer().createCommandSourceStack(),
-                                command);
-                        LOGGER.info("Raid completion: Gave {} {} items to player {} (via command)", 
-                                amountToDeduct, itemName, raiderPlayer.getName().getString());
+                        LOGGER.error("Currency item '{}' not found in the item registry - raid loot cannot be delivered.",
+                                TaxConfig.getCurrencyItemName());
                     }
                 }
-                
+            } catch (Exception e) {
+                LOGGER.error("Error crediting raid loot to player {}: ", raiderPlayer.getName().getString(), e);
+            }
+
+            if (!credited) {
+                TaxManager.payTaxDebt(raidData.getColony(), amountToDeduct); // refund the debit above
+                raiderPlayer.sendSystemMessage(Component
+                        .literal("⚠️ Raid loot could not be delivered (currency system unavailable) - the colony keeps its coins.")
+                        .withStyle(ChatFormatting.RED));
+                LOGGER.error("Raid loot delivery failed; refunded {} to colony {}",
+                        amountToDeduct, raidData.getColony().getName());
+                return;
+            }
+
+            try {
+
                 // Update total transferred amount for statistics
                 raidData.addToTotalTransferred(amountToDeduct);
                 

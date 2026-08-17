@@ -5,6 +5,57 @@ All notable changes to the War N Tax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.7] - 2026-08-17
+
+### Fixed - War victories that expired on the timer destroyed the spoils
+
+When a war ended by **time expiry with one side fully wiped out**, the economic settlement was
+broken in three ways at once: the losing colony was deducted, but the winners were never credited —
+the "You received X as war spoils!" message was a claim with no transfer behind it; the war-end
+bookkeeping then deducted the losing colony a **second** time; and the recorded amount was computed
+with a third, unrelated formula. Timer victories now settle through the same paired debit+credit
+machinery as kill-based victories (SDMShop balance, colony ledger, or inventory currency), the
+double deduction is gone, and the history records the amount that actually moved.
+
+### Fixed - Raid loot and kill rewards could vanish instead of reaching the player
+
+Three reward paths deducted the colony first and only then tried to deliver the coins. If delivery
+failed — SDMShop enabled in the config but not installed, a failed balance API call, or a currency
+item id that does not exist (the registry silently resolves unknown ids to AIR) — the coins were
+destroyed: the colony lost them and the player never got them. All three now either refund the
+colony or only deduct after a successful delivery:
+
+- **Raid completion loot** refunds the colony and tells the raider when delivery fails. The dead
+  `/give`-command fallback (which used the same registry lookup that had already failed) was removed.
+- **Claiming-raid kill rewards** credit the killer first and only then deduct the colony.
+- **PvP kill transfers** roll back the victim's debit if the killer credit fails.
+
+### Fixed - War reparations paid to an offline winner were destroyed
+
+Team wars that ended while the selected reward recipient was offline debited every losing player and
+then dropped the collected coins. The reward now falls back to any online winning participant; if
+nobody on the winning side is online, the collection is skipped entirely (nothing is debited,
+nothing is lost).
+
+### Fixed - War history often recorded the wrong winner
+
+Colony history decided "who won" by searching the report text for a marker that kill-based victories
+never wrote. Every resolution path (kill victory, timer, strategic, stalemate, surrender, peace,
+war-chest depletion) now records an explicit outcome, the kill-victory history rows carry the real
+transferred amount instead of 0, and war-chest depletion states *why* the war ended ("war chest ran
+dry") instead of logging a bare stalemate.
+
+### Fixed - Victory statistics were counted twice, or not at all
+
+Timer victories incremented wars-won once in the expiry handler and again at war end; kill-based
+defender victories counted nothing (an empty loop). Each resolution now counts exactly once.
+
+### Guarded
+
+A new source-level test suite (`WarEconomyInvariantsTest`) fails the build if this bug class returns:
+war-end bookkeeping must never move money, victory spoils must go through the paired transfer
+machinery, and the raid loot path must keep its refund.
+
 ## [5.0.6] - 2026-08-17
 
 ### Changed - The codex key can no longer default to a vanilla binding

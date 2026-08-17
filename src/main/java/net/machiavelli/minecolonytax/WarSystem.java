@@ -315,6 +315,20 @@ public class WarSystem {
             // runs on forever, re-firing this branch every minute) or end an unrelated war in
             // which that attacker happens to be the defender.
             if (defenderResult == -1 || attackerResult == -1) {
+                // Record WHY the war ended before endWar reads the report — otherwise a
+                // depleted war chest was logged as a bare "Stalemate" with no explanation.
+                if (defenderResult == -1 && attackerResult == -1) {
+                    data.resolvedOutcome = "STALEMATE";
+                    data.setPenaltyReport("Stalemate - both war chests ran dry; the war collapsed.");
+                } else if (defenderResult == -1) {
+                    data.resolvedOutcome = "ATTACKER_VICTORY";
+                    data.setPenaltyReport("Surrender - " + defenderColony.getName()
+                            + "'s war chest ran dry and the defenders capitulated.");
+                } else {
+                    data.resolvedOutcome = "DEFENDER_VICTORY";
+                    data.setPenaltyReport("Surrender - the attackers' war chest ran dry; "
+                            + defenderColony.getName() + " holds the field.");
+                }
                 endWar(defenderColony);
             }
         }, 60_000, 60_000);
@@ -645,17 +659,26 @@ public class WarSystem {
             .append(Component.literal("\n"))
             .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY));
         sendNotificationToWarParticipants(war.getColony(), war.getAttackerColony(), victoryMsg);
-        for (UUID defenderUUID : war.getDefenderLives().keySet()) {
-            ServerPlayer defender = war.getColony().getWorld().getServer().getPlayerList().getPlayer(defenderUUID);
-            if (defender != null) {
+            // Count the win/loss here — this kill-based defender victory previously
+            // counted NOTHING (the loop body below was empty), so defenders never
+            // accumulated wars-won from successful defenses.
+            for (UUID defenderUUID : war.getDefenderLives().keySet()) {
+                ServerPlayer defender = war.getColony().getWorld().getServer().getPlayerList().getPlayer(defenderUUID);
+                if (defender != null) {
+                    PlayerWarDataManager.incrementWarsWon(defender);
                 }
             }
+            // (No wars-lost stat on this branch: PlayerWarData's attachment codec does not
+            // carry a warsLost field. The 1.20.1 branch counts losses; adding the field
+            // here would be a data-format change, not a bug fix.)
+            war.resolvedOutcome = "DEFENDER_VICTORY";
             // Apply victory/defeat balance transfers - defenders win, attackers pay
             applyWarEconomyTransfers(war, false);
-            // War-history rows for the colony Events view (defender won, attacker lost)
-            HistoryManager.getColonyHistory(war.getColony().getID()).addWarEntry(attackerColonyName, "VICTORY", 0);
+            // War-history rows for the colony Events view (defender won, attacker lost);
+            // economyTransferTotal was just recorded by the settlement above.
+            HistoryManager.getColonyHistory(war.getColony().getID()).addWarEntry(attackerColonyName, "VICTORY", war.economyTransferTotal);
             if (war.getAttackerColony() != null) {
-                HistoryManager.getColonyHistory(war.getAttackerColony().getID()).addWarEntry(defenderColonyName, "DEFEAT", 0);
+                HistoryManager.getColonyHistory(war.getAttackerColony().getID()).addWarEntry(defenderColonyName, "DEFEAT", war.economyTransferTotal);
             }
             HistoryManager.saveHistory();
         } else if (attackersWin) {
@@ -670,18 +693,21 @@ public class WarSystem {
                 .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY));
             sendNotificationToWarParticipants(war.getColony(), war.getAttackerColony(), conquestMsg);
             for (UUID attackerUUID : war.getAttackerLives().keySet()) {
-                ServerPlayer attackerPlayer = war.getColony().getWorld().getServer().getPlayerList().getPlayer(attackerUUID); 
+                ServerPlayer attackerPlayer = war.getColony().getWorld().getServer().getPlayerList().getPlayer(attackerUUID);
                 if (attackerPlayer != null) {
                     PlayerWarDataManager.incrementWarsWon(attackerPlayer);
                     net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new WarVictoryEvent(attackerPlayer));
                 }
             }
+            // (No wars-lost stat on this branch — see the note in the defendersWin branch.)
+            war.resolvedOutcome = "ATTACKER_VICTORY";
             // Apply victory/defeat balance transfers - attackers win, defenders pay
             applyWarEconomyTransfers(war, true);
-            // War-history rows for the colony Events view (attacker won, defender lost)
-            HistoryManager.getColonyHistory(war.getColony().getID()).addWarEntry(attackerColonyName, "DEFEAT", 0);
+            // War-history rows for the colony Events view (attacker won, defender lost);
+            // economyTransferTotal was just recorded by the settlement above.
+            HistoryManager.getColonyHistory(war.getColony().getID()).addWarEntry(attackerColonyName, "DEFEAT", war.economyTransferTotal);
             if (war.getAttackerColony() != null) {
-                HistoryManager.getColonyHistory(war.getAttackerColony().getID()).addWarEntry(defenderColonyName, "VICTORY", 0);
+                HistoryManager.getColonyHistory(war.getAttackerColony().getID()).addWarEntry(defenderColonyName, "VICTORY", war.economyTransferTotal);
             }
             HistoryManager.saveHistory();
             // --- Phase 4: per-colony "take over colony" outcome ---
@@ -879,7 +905,11 @@ public class WarSystem {
             TaxConfig.getWarVictoryPercentage() : TaxConfig.getWarDefeatPercentage();
         
         if (transferPercentage <= 0) {
-            // No economic penalties configured
+            // No economic penalties configured. Still leave a non-empty penalty report:
+            // an empty report makes endWar() record the war as "Stalemate" (and count
+            // stalemate stats) even though one side clearly won.
+            war.economyTransferTotal = 0L;
+            war.setPenaltyReport("Victory - war reparations are disabled on this server (transfer percentage 0).");
             return;
         }
         
@@ -906,29 +936,52 @@ public class WarSystem {
                 // Select single winner (prioritizes owner > officers > participants)
                 UUID singleWinnerUUID = selectSingleWarWinner(winningColony, winningParticipants.keySet());
                 ServerPlayer singleWinner = war.getColony().getWorld().getServer().getPlayerList().getPlayer(singleWinnerUUID);
-                
+
+                // Resolve the recipient BEFORE debiting anyone. This branch has no
+                // offline-payout store, so an offline selected winner previously meant the
+                // losers were debited and the collected coins silently destroyed. Fall back
+                // to any ONLINE winning participant; with nobody online, skip the
+                // collection entirely (nothing is debited, nothing is lost).
+                if (singleWinner == null) {
+                    for (UUID candidate : winningParticipants.keySet()) {
+                        ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(candidate);
+                        if (p != null) {
+                            singleWinner = p;
+                            break;
+                        }
+                    }
+                }
+                if (singleWinner == null) {
+                    WARSYSTEM_LOGGER.info(
+                            "War reparations skipped: no winning participant online to receive them (war for colony {})",
+                            war.getColony().getName());
+                    totalTransferred = 0;
+                }
+
                 // Apply team economic penalties - transfer from ALL losers to SINGLE winner
                 long totalCollected = 0;
                 List<String> transactionDetails = new ArrayList<>();
-                
-                // Collect from all losing participants
-                for (UUID loserUUID : losingParticipants.keySet()) {
-                    ServerPlayer loser = war.getColony().getWorld().getServer().getPlayerList().getPlayer(loserUUID);
-                    if (loser != null) {
-                        long loserBalance = net.machiavelli.minecolonytax.integration.SDMShopIntegration.getMoney(loser);
-                        long transferAmount = Math.max(1, (long)(loserBalance * transferPercentage));
-                        
-                        if (transferAmount > 0 && loserBalance >= transferAmount) {
-                            net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(loser, loserBalance - transferAmount);
-                            totalCollected += transferAmount;
-                            
-                            // Notify losing participant
-                            loser.sendSystemMessage(Component.literal("⚔️ WAR DEFEAT PENALTY ⚔️")
-                                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
-                                .append(Component.literal("\nYou lost $" + transferAmount + " due to war defeat!")
-                                       .withStyle(ChatFormatting.RED)));
-                            
-                            transactionDetails.add(loser.getName().getString() + " lost $" + transferAmount);
+
+                // Collect from all losing participants (only when a recipient exists)
+                if (singleWinner != null) {
+                    for (UUID loserUUID : losingParticipants.keySet()) {
+                        ServerPlayer loser = war.getColony().getWorld().getServer().getPlayerList().getPlayer(loserUUID);
+                        if (loser != null) {
+                            long loserBalance = net.machiavelli.minecolonytax.integration.SDMShopIntegration.getMoney(loser);
+                            long transferAmount = Math.max(1, (long)(loserBalance * transferPercentage));
+
+                            if (transferAmount > 0 && loserBalance >= transferAmount) {
+                                net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(loser, loserBalance - transferAmount);
+                                totalCollected += transferAmount;
+
+                                // Notify losing participant
+                                loser.sendSystemMessage(Component.literal("⚔️ WAR DEFEAT PENALTY ⚔️")
+                                    .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                                    .append(Component.literal("\nYou lost $" + transferAmount + " due to war defeat!")
+                                           .withStyle(ChatFormatting.RED)));
+
+                                transactionDetails.add(loser.getName().getString() + " lost $" + transferAmount);
+                            }
                         }
                     }
                 }
@@ -1101,6 +1154,7 @@ public class WarSystem {
             war.getColony().getName() : 
             (war.getAttackerColony() != null ? war.getAttackerColony().getName() : "attackers");
         
+        war.economyTransferTotal = totalTransferred;
         war.setPenaltyReport("War reparations: " + totalTransferred + " transferred from " + loserColonyName + " to " + winnerColonyName);
         
         // Send economy summary to participants only (not global broadcast)
@@ -1362,31 +1416,16 @@ public class WarSystem {
                         if (player != null) PlayerWarDataManager.incrementWarStalemates(player);
                     }
                 }
-            } else if (warData.getPenaltyReport().contains("TOTAL VICTORY")) {
-                boolean isDefenderVictory = warData.getRemainingDefenderGuards() > 0;
-                Map<UUID, Integer> winnerLivesMap = isDefenderVictory ? warData.getDefenderLives() : warData.getAttackerLives();
-                if (colony.getWorld() != null && colony.getWorld().getServer() != null) {
-                    for (UUID uuid : winnerLivesMap.keySet()) {
-                        ServerPlayer player = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
-                        if (player != null) PlayerWarDataManager.incrementWarsWon(player);
-                    }
-                }
-                if (!TaxConfig.ENABLE_COLONY_TRANSFER.get()) {
-                    IColony loserColonyActual = isDefenderVictory ? warData.getAttackerColony() : warData.getColony();
-                    int colonyBalance = 0;
-                    if(loserColonyActual != null) colonyBalance = TaxManager.getStoredTaxForColony(loserColonyActual);
-
-                    long transferAmount = Math.max(1000, colonyBalance * 3 / 4);
-                    if(loserColonyActual != null) TaxManager.deductColonyTax(loserColonyActual, TaxConfig.getWarDefeatPercentage());
-                    amountTransferred = transferAmount;
-                    outcome = "Victory! Colony funds transferred: " + transferAmount;
-                    WARSYSTEM_LOGGER.info("[MineColonyTax] War victory funds transfer: {} from colony {}", transferAmount, loserColonyActual != null ? loserColonyActual.getName() : "Unknown");
-                } else {
-                    outcome = "Complete Victory! Colony ownership transferred.";
-                    WARSYSTEM_LOGGER.info("[MineColonyTax] War victory colony transfer for colony {}", colony.getName());
-                }
             } else {
+                // endWar records — it must never MOVE money. All live resolution paths
+                // (applyWarEconomyTransfers, the vassalization money grab, occupation)
+                // settle the economy BEFORE calling endWar. The previous "TOTAL VICTORY"
+                // branch here deducted the loser colony a SECOND time (the first deduct
+                // happened in handleVictoryRewards moments earlier), reported an amount
+                // computed with a third, unrelated formula (max(1000, balance*3/4)), and
+                // re-incremented wars-won that the resolution path had already counted.
                 outcome = warData.getPenaltyReport();
+                amountTransferred = warData.economyTransferTotal;
             }
 
             String attackerName = warData.getAttackerColony() != null ? warData.getAttackerColony().getName() : "Unknown Attacker";
@@ -1508,6 +1547,7 @@ public class WarSystem {
                 ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(defUUID);
                 if (p != null) PlayerWarDataManager.incrementWarsWon(p);
             }
+            war.resolvedOutcome = "DEFENDER_VICTORY";
             handleVictoryRewards(war, true); // true for defender victory
             endWar(war.getColony());
             return;
@@ -1526,6 +1566,7 @@ public class WarSystem {
                 ServerPlayer p = war.getColony().getWorld().getServer().getPlayerList().getPlayer(atkUUID);
                 if (p != null) PlayerWarDataManager.incrementWarsWon(p);
             }
+            war.resolvedOutcome = "ATTACKER_VICTORY";
             handleVictoryRewards(war, false); // false for attacker victory
             endWar(war.getColony());
             return;
@@ -1555,6 +1596,7 @@ public class WarSystem {
             war.getDefenderLives().keySet().forEach(uuid -> WarEconomyHandler.deductTeamBalanceWithReport(uuid, 0.25));
             TaxManager.deductColonyTax(war.getColony(), TaxConfig.getWarStalematePercentage()); // Defender colony
             if (war.getAttackerColony() != null) TaxManager.deductColonyTax(war.getAttackerColony(), TaxConfig.getWarStalematePercentage()); // Attacker colony
+            war.resolvedOutcome = "STALEMATE";
             war.setPenaltyReport("Stalemate (Timeout - No Losses): Both sides lose " + (TaxConfig.getWarStalematePercentage() * 100) + "% of their balances and colony revenue is reduced by " + (TaxConfig.getWarStalematePercentage() * 100) + "%.");
             endWar(war.getColony());
             return;
@@ -1568,6 +1610,7 @@ public class WarSystem {
         MutableComponent strategicMsg; // Changed to MutableComponent
 
         if (attackerNormalizedStrength + epsilon < defenderNormalizedStrength) { // Attackers lost proportionally more
+            war.resolvedOutcome = "DEFENDER_VICTORY";
             reportOutcome = "Strategic Victory: Defenders win! Attackers lost proportionally more strength.";
             strategicMsg = Component.translatable("war.time.expired.title").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                 .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY))
@@ -1590,6 +1633,7 @@ public class WarSystem {
             }
         }
         else if (defenderNormalizedStrength + epsilon < attackerNormalizedStrength) { // Defenders lost proportionally more
+            war.resolvedOutcome = "ATTACKER_VICTORY";
             reportOutcome = "Strategic Victory: Attackers win! Defenders lost proportionally more strength.";
             strategicMsg = Component.translatable("war.time.expired.title").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                 .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY))
@@ -1612,6 +1656,7 @@ public class WarSystem {
             }
         }
         else { // Proportional losses are too close - stalemate
+            war.resolvedOutcome = "STALEMATE";
             reportOutcome = "Stalemate (Timeout - Proportional Losses): Both sides fought hard but neither gained a clear advantage. Penalties apply.";
             strategicMsg = Component.translatable("war.time.expired.title").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                 .append(Component.translatable("war.time.expired.separator").withStyle(ChatFormatting.DARK_GRAY))
@@ -1678,9 +1723,6 @@ public class WarSystem {
     }
 
     private static void handleVictoryRewards(WarData war, boolean defendersWon) {
-        Map<UUID, Integer> winnerLives = defendersWon ? war.getDefenderLives() : war.getAttackerLives();
-        IColony loserColony = defendersWon ? war.getAttackerColony() : war.getColony();
-
         // Attackers win + transfer on: try to seize the deed. A protected primary makes
         // transferOwnership() return false, so we fall through to economic spoils instead
         // (the dedicated vassalize handling lives in checkForVictory).
@@ -1688,27 +1730,18 @@ public class WarSystem {
                 && transferOwnership(war.getColony(), war.getAttacker())) {
             war.setPenaltyReport("TOTAL VICTORY - Colony transferred to attackers!");
         } else {
-            if (loserColony == null) {
-                 war.setPenaltyReport("TOTAL VICTORY - Loser colony not found for economic penalties.");
-                 return;
+            // Economic spoils: route through the same paired debit+credit settlement as
+            // kill-based victories. The previous code here deducted WarDefeatPercentage
+            // from the loser colony and then only TOLD the winners they had received a
+            // share computed with a DIFFERENT percentage — no credit ever happened — and
+            // its "TOTAL VICTORY" penalty report made endWar() deduct the loser a second
+            // time. applyWarEconomyTransfers debits and credits atomically (SDMShop,
+            // colony ledger, or inventory), messages participants with the real numbers,
+            // and records the amount in war.economyTransferTotal for the history entry.
+            applyWarEconomyTransfers(war, !defendersWon);
+            if (war.getPenaltyReport().isEmpty()) {
+                war.setPenaltyReport("Victory - no war reparations were transferable.");
             }
-            int colonyBalance = TaxManager.getStoredTaxForColony(loserColony);
-            double victoryPercentage = TaxConfig.WAR_VICTORY_PERCENTAGE.get();
-            double defeatPercentage = TaxConfig.WAR_DEFEAT_PERCENTAGE.get();
-            long transferAmount = Math.max(100, (long)(colonyBalance * victoryPercentage));
-            TaxManager.deductColonyTax(loserColony, defeatPercentage);
-
-            if (!winnerLives.isEmpty() && war.getColony().getWorld() != null && war.getColony().getWorld().getServer() != null) {
-                int sharePerPlayer = winnerLives.size() > 0 ? (int) (transferAmount / winnerLives.size()) : 0; // Avoid division by zero
-                for (UUID uuid : winnerLives.keySet()) {
-                    ServerPlayer player = war.getColony().getWorld().getServer().getPlayerList().getPlayer(uuid);
-                    if (player != null) {
-                        player.sendSystemMessage(Component.literal("You received " + sharePerPlayer + " as war spoils!")
-                                .withStyle(ChatFormatting.GOLD));
-                    }
-                }
-            }
-            war.setPenaltyReport("TOTAL VICTORY - " + transferAmount + " transferred from " + loserColony.getName() + "!");
         }
     }
 
@@ -2354,6 +2387,7 @@ public class WarSystem {
         if (TaxConfig.isNormalLogging())
             WARSYSTEM_LOGGER.info("Attacker side retreated from colony {} — war forfeited, defenders win",
                     war.getColony().getName());
+        war.resolvedOutcome = "DEFENDER_VICTORY";
         handleVictoryRewards(war, true); // true = defender victory
         endWar(war.getColony());
     }

@@ -418,35 +418,40 @@ public class RaidKillTracker {
             
             if (taxAwarded > 0) {
                 try {
-                    // Deduct from colony (either from positive balance or add to debt)
-                    net.machiavelli.minecolonytax.TaxManager.payTaxDebt(colony, -taxAwarded);
-                    
-                    // Award to killer
+                    // Credit the killer FIRST and only debit the colony ledger when the
+                    // delivery actually happened. The old order (debit, then credit) lost
+                    // the coins whenever the credit path fell through: SDMShop enabled but
+                    // not installed, a failed setMoney, or a currency id the registry
+                    // resolves to AIR (unknown ids return AIR, not null).
+                    boolean credited = false;
                     if (net.machiavelli.minecolonytax.TaxConfig.isSDMShopConversionEnabled()) {
                         if (net.machiavelli.minecolonytax.integration.SDMShopIntegration.isAvailable()) {
                             long currentBalance = net.machiavelli.minecolonytax.integration.SDMShopIntegration.getMoney(killer);
-                            net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(killer, currentBalance + taxAwarded);
-                            
-                            Component taxMessage = Component.literal("💰 TAX STOLEN: ")
-                                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                                    .append(Component.literal("+" + taxAwarded + " coins")
-                                           .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
-                                    .append(Component.literal(" (added to your account)")
-                                           .withStyle(ChatFormatting.GREEN));
-                            killer.sendSystemMessage(taxMessage);
+                            credited = net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(killer, currentBalance + taxAwarded);
+
+                            if (credited) {
+                                Component taxMessage = Component.literal("💰 TAX STOLEN: ")
+                                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                                        .append(Component.literal("+" + taxAwarded + " coins")
+                                               .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
+                                        .append(Component.literal(" (added to your account)")
+                                               .withStyle(ChatFormatting.GREEN));
+                                killer.sendSystemMessage(taxMessage);
+                            }
                         }
                     } else {
                         // Give items to killer's inventory
                         net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(
                             net.minecraft.resources.ResourceLocation.parse(net.machiavelli.minecolonytax.TaxConfig.getCurrencyItemName()));
-                        if (item != null) {
+                        if (item != null && item != net.minecraft.world.item.Items.AIR) {
                             net.minecraft.world.item.ItemStack itemStack = new net.minecraft.world.item.ItemStack(item, taxAwarded);
                             boolean added = killer.getInventory().add(itemStack);
                             if (!added) {
                                 // If inventory is full, drop items near killer
                                 killer.drop(itemStack, false);
                             }
-                            
+                            credited = true;
+
                             Component taxMessage = Component.literal("💰 TAX STOLEN: ")
                                     .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                                     .append(Component.literal("+" + taxAwarded + " " + item.getDescription().getString())
@@ -456,10 +461,18 @@ public class RaidKillTracker {
                             killer.sendSystemMessage(taxMessage);
                         }
                     }
-                    
-                    LOGGER.info("CLAIMING RAID TAX: {} stole {} tax from colony {} by killing {}", 
-                        killer.getName().getString(), taxAwarded, colony.getName(), citizenData.getName());
-                    
+
+                    if (credited) {
+                        // Deduct from colony (either from positive balance or add to debt)
+                        net.machiavelli.minecolonytax.TaxManager.payTaxDebt(colony, -taxAwarded);
+                        LOGGER.info("CLAIMING RAID TAX: {} stole {} tax from colony {} by killing {}",
+                            killer.getName().getString(), taxAwarded, colony.getName(), citizenData.getName());
+                    } else {
+                        LOGGER.error(
+                            "Claiming-raid tax credit could not be delivered to {} - colony {} keeps its {} coins.",
+                            killer.getName().getString(), colony.getName(), taxAwarded);
+                    }
+
                 } catch (Exception e) {
                     LOGGER.error("Failed to award tax for claiming raid kill", e);
                 }

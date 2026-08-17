@@ -242,6 +242,9 @@ public class PeaceProposalManager {
                 // Broadcast to teams
                 sendMessageToTeamFallback(war, true, whitePeaceMsg); // Attacker team
                 sendMessageToTeamFallback(war, false, whitePeaceMsg); // Defender team
+                // Set outcome + report before endWar so war history captures the peace outcome
+                war.resolvedOutcome = "STALEMATE"; // mutual peace — neither side won
+                war.setPenaltyReport("White Peace: War ended by mutual agreement, no reparations");
                 WarSystem.endWar(war.getColony()); // Assumes WarSystem provides this
                 break;
             case REPARATIONS:
@@ -300,6 +303,12 @@ public class PeaceProposalManager {
                     sendMessageToTeamFallback(war, false, losingTeamMsg); // Defender team (lost)
                     sendMessageToTeamFallback(war, true, winningTeamMsg); // Attacker team (won)
                 }
+                // The paying side conceded — history records the receiving side as the victor,
+                // and economyTransferTotal carries the real amount into the history entry.
+                war.resolvedOutcome = proposerWasAttacker ? "DEFENDER_VICTORY" : "ATTACKER_VICTORY";
+                war.economyTransferTotal = demandedAmount;
+                war.setPenaltyReport("Peace via Reparations: " + (proposerWasAttacker ? "Attackers" : "Defenders")
+                        + " paid " + demandedAmount + " coins");
                 WarSystem.endWar(war.getColony());
                 break;
             case SURRENDER:
@@ -312,6 +321,8 @@ public class PeaceProposalManager {
                     responder.sendSystemMessage(Component.literal(acceptedMessageToResponder).append(atkSurrender));
                     sendMessageToTeamFallback(war, true, atkSurrender);
                     sendMessageToTeamFallback(war, false, atkSurrender);
+                    war.resolvedOutcome = "DEFENDER_VICTORY";
+                    war.setPenaltyReport("Surrender: Attackers capitulated — assault failed, defenders hold");
                     WarSystem.endWar(war.getColony());
                 } else {
                     // Defender surrenders — the attacker achieves total victory over the defender colony
@@ -325,6 +336,10 @@ public class PeaceProposalManager {
                     responder.sendSystemMessage(Component.literal(acceptedMessageToResponder).append(defSurrender));
                     sendMessageToTeamFallback(war, true, defSurrender);
                     sendMessageToTeamFallback(war, false, defSurrender);
+                    war.resolvedOutcome = "ATTACKER_VICTORY";
+                    war.setPenaltyReport(conquered
+                            ? "Surrender: Defenders surrendered — colony conquered by attackers"
+                            : "Surrender: Defenders surrendered — colony vassalized to attackers");
                     WarSystem.endWar(war.getColony());
                 }
                 break;
