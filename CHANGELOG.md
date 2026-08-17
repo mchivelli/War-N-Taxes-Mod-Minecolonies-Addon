@@ -5,6 +5,16 @@ All notable changes to the War N Tax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.6] - 2026-08-17
+
+### Changed - The codex key can no longer default to a vanilla binding
+
+This branch already opened the codex on **G**, so nothing changes for players here. The 1.20.1
+branch had it on **T** — vanilla's "open chat" — and that has now been fixed there.
+
+To stop it drifting back on either branch, the build refuses any default that collides with a
+vanilla binding: chat, the movement keys, inventory, drop, offhand swap, player list and the rest.
+
 ## [5.0.5] - 2026-08-17
 
 ### Fixed - The Officers tab never showed any officers
