@@ -2,8 +2,6 @@ package net.machiavelli.minecolonytax.peace;
 
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import dev.ftb.mods.ftbteams.api.Team;
-import dev.ftb.mods.ftbteams.api.TeamManager;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.WarSystem;
 import net.machiavelli.minecolonytax.data.WarData;
@@ -84,13 +82,13 @@ public class PeaceProposalManager {
                 .append(Component.literal(" "))
                 .append(declineButton);
 
-        Team userTeam = WarSystem.FTB_TEAMS_INSTALLED ?
-                WarSystem.FTB_TEAM_MANAGER.getPlayerTeamForPlayerID(player.getUUID()).orElse(null) : null;
+        UUID userTeamId = net.machiavelli.minecolonytax.compat.FtbTeamsCompat.getTeamForPlayer(player.getUUID())
+                .map(net.machiavelli.minecolonytax.compat.FtbTeamsCompat::getTeamId).orElse(null);
 
-        if (WarSystem.FTB_TEAMS_INSTALLED && userTeam != null) {
-            if (userTeam.getId().equals(war.getAttackerTeamID())) {
+        if (userTeamId != null) {
+            if (userTeamId.equals(war.getAttackerTeamID())) {
                 sendMessageToTeamFallback(war, false, msg); // Send to defender
-            } else if (userTeam.getId().equals(war.getDefenderTeamID())) {
+            } else if (userTeamId.equals(war.getDefenderTeamID())) {
                 sendMessageToTeamFallback(war, true, msg); // Send to attacker
             } else {
                 ctx.getSource().sendFailure(Component.literal("Error: Your team is not part of this war."));
@@ -131,8 +129,12 @@ public class PeaceProposalManager {
         // This implies the player accepting must be the owner of the *target* colony of the peace proposal.
         // The current player might be the one who *received* the proposal.
         // Let's assume for now the player executing /peace accept is the one who should be authorized.
-        boolean isPlayerAttackerSide = war.getAttackerLives().containsKey(player.getUUID()) || (WarSystem.FTB_TEAMS_INSTALLED && WarSystem.FTB_TEAM_MANAGER.getTeamForPlayerID(player.getUUID()).map(t -> t.getId().equals(war.getAttackerTeamID())).orElse(false));
-        boolean isPlayerDefenderSide = war.getDefenderLives().containsKey(player.getUUID()) || (WarSystem.FTB_TEAMS_INSTALLED && WarSystem.FTB_TEAM_MANAGER.getTeamForPlayerID(player.getUUID()).map(t -> t.getId().equals(war.getDefenderTeamID())).orElse(false));
+        UUID sideTeamId = net.machiavelli.minecolonytax.compat.FtbTeamsCompat.getTeamForPlayer(player.getUUID())
+                .map(net.machiavelli.minecolonytax.compat.FtbTeamsCompat::getTeamId).orElse(null);
+        boolean isPlayerAttackerSide = war.getAttackerLives().containsKey(player.getUUID())
+                || (sideTeamId != null && sideTeamId.equals(war.getAttackerTeamID()));
+        boolean isPlayerDefenderSide = war.getDefenderLives().containsKey(player.getUUID())
+                || (sideTeamId != null && sideTeamId.equals(war.getDefenderTeamID()));
 
         // The player accepting should be on the *opposite* side of the proposer.
         // And they must be an owner/authorized person of their colony.
@@ -204,10 +206,10 @@ public class PeaceProposalManager {
         }
 
         // And the responder must be an owner of their respective colony
-        if (responderIsAttacker && war.getAttackerColony() != null && war.getAttackerColony().getPermissions().getOwner().equals(responderId)) {
+        if (responderIsAttacker && war.getAttackerColony() != null && responderId.equals(war.getAttackerColony().getPermissions().getOwner())) {
             return true;
         }
-        if (responderIsDefender && war.getColony() != null && war.getColony().getPermissions().getOwner().equals(responderId)) {
+        if (responderIsDefender && war.getColony() != null && responderId.equals(war.getColony().getPermissions().getOwner())) {
             return true;
         }
         return false;
@@ -333,14 +335,11 @@ public class PeaceProposalManager {
     // Helper method from WarCommands, might need to be static in WarSystem or a utility class
     private void sendMessageToTeamFallback(WarData war, boolean sendToAttacker, Component msg) {
         if (WarSystem.FTB_TEAMS_INSTALLED) {
-            TeamManager manager = WarSystem.FTB_TEAM_MANAGER;
-            if (manager == null) return; // Should not happen if FTB_TEAMS_INSTALLED is true
-
-            Team team = sendToAttacker ?
-                    manager.getTeamByID(war.getAttackerTeamID()).orElse(null) :
-                    manager.getTeamByID(war.getDefenderTeamID()).orElse(null);
+            UUID sideId = sendToAttacker ? war.getAttackerTeamID() : war.getDefenderTeamID();
+            net.machiavelli.minecolonytax.compat.FtbTeamsCompat.TeamHandle team = sideId == null ? null
+                    : net.machiavelli.minecolonytax.compat.FtbTeamsCompat.getTeamById(sideId).orElse(null);
             if (team != null) {
-                for (UUID member : team.getMembers()) {
+                for (UUID member : net.machiavelli.minecolonytax.compat.FtbTeamsCompat.getTeamMembers(team)) {
                     ServerPlayer sp = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(member);
                     if (sp != null) {
                         sp.sendSystemMessage(msg);

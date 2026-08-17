@@ -32,6 +32,9 @@ public class WarData {
     /** TickScheduler task id for the per-second war countdown (-1 = none). */
     public long warTimerTaskId = -1L;
 
+    /** TickScheduler task id for the per-minute war chest drain (-1 = none). */
+    public long warChestDrainTaskId = -1L;
+
     /**
      * Wall-clock millis when the attacking side was first seen with NO player inside the retreat
      * boundary of the target colony, or 0 while at least one attacker is present. Drives the

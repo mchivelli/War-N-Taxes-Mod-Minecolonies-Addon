@@ -510,11 +510,9 @@ public class RandomEventManager {
      * @param colonyId The colony ID
      * @return The colony, or null if not found
      */
-    private static IColony getColony(int colonyId) {
-        if (SERVER == null) return null;
-        IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-        return colonyManager.getColonyByWorld(colonyId, SERVER.overworld());
-    }
+    // Removed: an unused getColony(int) helper that resolved ids against SERVER.overworld()
+    // only. Dead code, and a dimension-blind resolver waiting for a future caller to pick it
+    // up. Use ColonyLookup.byId(...) if id-based resolution is ever needed here.
 
     /**
      * Notify colony players about an event.

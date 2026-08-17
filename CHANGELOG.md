@@ -5,7 +5,245 @@ All notable changes to the War N Tax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [5.0.5] - 2026-08-17
+
+### Fixed - The Officers tab never showed any officers
+
+Players reported that **the Officers tab showed no officers**, sitting on "Loading..." forever. The
+server-side lookup assumed MineColonies numbers its ranks with the owner highest, when it is the
+other way round (owner is 0, officer is 1, and hostile is 4). The filter meant to drop neutral and
+hostile players therefore dropped exactly the people the tab exists to show — the owner and every
+officer — while any neutral or hostile player who was listed appeared under the wrong rank name and
+was marked as allowed to claim taxes. The tab now identifies ranks by name instead of by number,
+which also behaves correctly for custom ranks.
+
+Fixed alongside it, in the same screen:
+
+- **Every permission read "ON" on a multiplayer server.** The tab read the permission state from
+  server-only data that a connected client never has a copy of, so it always fell back to the
+  default and the first click on a switch sent the wrong value. Permission state is now sent to the
+  client with the officer list. This only ever worked correctly in single-player.
+- **Permission settings were lost on every server restart.** Nothing ever wrote them to disk. They
+  are now stored in `config/warntax/tax_permissions.json`.
+- **The tab was empty from another dimension.** Officer data and the permission switches resolved
+  the colony only within the world the player was standing in, so anyone in the Nether or the End
+  got "Colony not found". The same fault also broke treasury deposits and withdrawals from another
+  dimension.
+- **Refresh emptied the list.** Pressing Refresh while the Officers tab was open cleared it without
+  asking for new data, leaving "Loading..." until you switched tabs and back.
+- Offline officers all reported "Just now" as their last seen time. The mod has no per-player record
+  for this, so it now says "unknown" rather than inventing a value.
+- A slow reply for a colony you had already navigated away from could overwrite the list you were
+  looking at.
+
+### Added - Officers tab is now a full permission editor
+
+The colony owner can now control, per action and per officer, what officers may do — previously only
+tax claiming could be restricted. With no officer selected the right page edits the colony-wide
+defaults; selecting an officer edits their personal overrides, which take priority. Officers see the
+same page read-only so they can check their own rights.
+
+Covered actions: **Claim Taxes**, **Withdraw Funds**, **Deploy Spies** and **Declare War**. Each one
+is enforced on the server, not just hidden in the interface.
+
+All four are permitted by default, so officers keep everything they could already do and nothing
+changes on an existing server until an owner turns something off.
+
+Note that **Declare War is new ground for officers**: previously only a colony owner could declare
+war at all. It ships enabled, so from this version officers can commit the colony to a war — and to
+the treasury drain that comes with it. Owners who do not trust every officer equally should review
+that switch first.
+
+Collecting vassal tribute is deliberately not included: tribute is tied to the overlord personally,
+and offering a switch that quietly did nothing would be worse than offering none.
+
+### Fixed - Officers could not answer peace proposals
+
+The same rank mix-up behind the Officers tab was independently present in the peace system: the
+check meant to read "officer or better" was written as "rank number 2 or higher", which is the wrong
+direction. Officers were refused when accepting or declining a peace proposal, while ordinary colony
+friends and neutral members were allowed to end the colony's war. Officers could already *propose*
+peace, so the two halves disagreed with each other. Colony managers may now do both, and nobody
+below that rank can do either.
+
+### Fixed - Several screens were empty outside the overworld
+
+Colony screens looked up their colony only within the world the player was standing in, so anyone in
+the Nether or the End got an empty treasury screen, an empty investment screen, no officer list, and
+"Colony not found" when changing a setting. Dismissing an event was pinned to the overworld outright.
+Tax claiming, debt payment, vassal release and tax-policy changes had the mirror-image flaw: they
+searched every dimension by colony number alone, and colony numbers are only unique within a
+dimension — on a server with colonies outside the overworld that could act on the wrong colony,
+including moving money. All of these now share one lookup that prefers the player's own dimension and
+reports honestly when a colony number is ambiguous.
+
+### Fixed - Occupation tax could vanish instead of being collected
+
+Tax taken from an occupied colony was only paid out if the occupier still had a colony of their own
+to receive it. If they never had one, or it had since been deleted or abandoned, the tax was taken
+from the occupied colony and credited to nobody - destroyed outright, while the occupier was still
+told they had collected it. The automatic per-cycle diversion had the same hole.
+
+Both now check that there is somewhere for the money to go **before** taking it. If there is not,
+nothing is taken and the occupier is told why.
+
+### Fixed - War chests, raid penalties and spies ignored other dimensions
+
+Several systems looked up colonies in the overworld only, while tax generation has always run in
+every dimension. On a server that allows colonies outside the overworld - which MineColonies permits
+by default - a colony in the Nether or the End earned tax but could not use its war chest and could
+not be scouted.
+
+Because colony numbers are only unique within a dimension, the failure was not always a clean
+"not found": a colony elsewhere with the same number was silently used in its place. Depositing into
+the war chest could then draw from a different colony's tax, and a spy could be sent to a colony
+other than the one that was picked. Spies were also placed in the overworld at the target's
+coordinates, leaving them in the wrong world entirely.
+
+These now use the same dimension-aware lookup as the rest of the mod, and spies are placed in the
+world their target actually occupies. The build fails if this pattern is reintroduced.
+
+### Fixed - Withdrawing from a faction pool destroyed the money
+
+Withdrawing from the faction pool into the war chest debited the pool and then ran a *second*
+transfer that charged the colony's own tax balance as well, so the pool's coins vanished: the pool
+lost the amount, the colony's tax lost the amount, and the war chest only gained it once. When that
+second transfer refused outright — war chest disabled, war chest full, or too little colony tax —
+the pool was still debited, nothing was credited anywhere, and the player was told the withdrawal
+had succeeded.
+
+The pool now credits the war chest directly. Anything that does not fit stays in the pool, and the
+message reports what actually moved.
+
+### Fixed - More colony lookups could pick a colony from the wrong dimension
+
+Besieges, vassal tribute and the besiege damage shield resolved colonies by scanning every dimension
+and taking the first match on the number. Colony numbers are only unique within a dimension, so on a
+server with colonies outside the overworld these could act on a different colony than intended —
+including moving war chest funds between the wrong colonies and deciding who is allowed to damage
+whom. All now share the dimension-aware lookup, and the build fails if the pattern is reintroduced.
+
+### Added - Retrieve your own corpse inside a foreign colony (Corpse mod)
+
+Dying inside somebody else's colony is routine here - wars, raids and besieges all happen there.
+MineColonies blocks entity interaction for anyone without rights in that colony, so the corpse stood
+right in front of its owner and could not be opened: an entire inventory held hostage by a colony
+border.
+
+A player can now open **their own** corpse in a colony where they otherwise have no interaction
+rights. Enabled by default; no effect unless the Corpse mod is installed.
+
+Deliberately narrow:
+
+- **Only your own corpse.** Other players' corpses stay subject to the normal colony rules, so a
+  besieger still cannot strip the defenders. This is checked here rather than left to the Corpse
+  mod, whose own "only the owner may access" setting is **off** by default.
+- **Interaction only, never attacking.** Whether a corpse can be damaged is left entirely to the
+  Corpse mod and the colony's own rules.
+- **Nothing else becomes interactable.** The exemption only ever undoes a block that something else
+  applied, and only for a corpse.
+
+No compile-time dependency on Corpse exists - the corpse is recognised by its entity id and its
+owner read reflectively - so a server without Corpse is unaffected. Covered by tests that run
+against the real Corpse jar, which caught that the owner lookup as first written matched nothing on
+any shipping release.
+
+### Fixed - The mod required FTB Teams even though it is listed as optional
+
+FTB Teams is declared optional, but the war system did not treat it that way. `WarSystem` held the
+FTB team manager in one of its own fields and set it up as the class loaded, and the peace, war
+economy and vassal systems reached into that field directly. Java resolves those types when the
+owning class is loaded, so on a server **without** FTB Teams the central war class could fail to
+load outright — long before the "is FTB Teams installed?" check ever ran. War, peace proposals and
+vassal notifications all route through those classes.
+
+Every FTB Teams call now goes through the existing compatibility shim, which was already written for
+exactly this purpose but had been bypassed. No FTB Teams type appears anywhere outside the single
+class allowed to hold them, so the mod loads and runs normally without FTB Teams installed and picks
+up team support automatically when it is present.
+
+Two smaller things fixed on the way: one war-economy branch used the team manager without the null
+check its sibling branch had, and party-team members were read through an unnecessary cast that could
+fail on other team implementations.
+
+This is covered by tests that run with FTB Teams unavailable, asserting that every entry point
+returns a safe default rather than throwing, and that no FTB type is exposed. The build also fails
+now if an optional mod's classes are imported outside their designated compatibility class.
+
+### Added - The mod now checks it is compatible instead of assuming it
+
+War 'N Taxes declared that it worked with any MineColonies from 1.1.759 upwards. Nothing had ever
+tested that, and this branch is the proof of what that costs: 5.0.4 shipped calling two pieces of
+API that MineColonies had already deleted, loaded without complaint, and crashed in the middle of
+sessions.
+
+The quiet version is worse than the crash. Building data is read through a compatibility shim that
+returns "no buildings" whenever anything goes wrong, so a drifted MineColonies means every colony
+looks empty: tax generation produces nothing for anybody, and the colony deletion grace period
+collapses to instant. No error is raised anywhere.
+
+Two changes address that:
+
+- **A startup compatibility check.** At server start the mod verifies the MineColonies API it
+  actually calls and prints one clear report, naming anything missing at error level before the
+  systems that depend on it start. It never throws.
+- **An honest version requirement.** The declared minimum is now the oldest MineColonies whose API
+  has genuinely been verified against this build, rather than a number nobody checked.
+
+The check is covered by tests that run against whichever MineColonies jar the build uses, so a
+future dependency bump that removes something the mod calls fails the build rather than a player's
+server.
+
+### Fixed - Compatible with current MineColonies again
+
+The mod now builds against MineColonies **1.1.1368-1.21.1** (was 1.1.1164). Two pieces of the
+MineColonies API the mod still called had been deleted in between, and because they are a missing
+enum constant and a missing interface method, the previously released build did not fail at startup
+- it crashed later, the moment colony abandonment, abandoned-colony claiming or colony deletion ran.
+
+- The guard-attack permission no longer exists; hostility is controlled by the hostile rank itself,
+  so the calls were dropped. This matches what the 1.20.1 branch already does, and the mod's own
+  config comments already described this as the replacement.
+- The "does this colony have a town hall" check was removed from the colony interface. The town hall
+  is now detected from the building list that the same method already walks.
+
+MineColonies also raised its own requirements, so Structurize moves to **1.0.832** and Domum
+Ornamentum to **1.0.234**; BlockUI was already high enough. Every dependency floor in the chain was
+checked against the actual jars rather than assumed. The full test suite passes against the newer
+MineColonies, including the rank-numbering contract test, which reads its values out of whichever
+MineColonies jar is on the classpath.
+
+### Fixed - War chests never drained during war
+
+The war chest is documented and configured as something that drains while a war runs, with
+auto-surrender when it empties. That drain was never actually started on this branch, so war chest
+balances stayed untouched for the whole war and auto-surrender could not trigger. The home-field
+drain reduction was equally inert: the defender was only ever registered when a war was restored
+after a server restart, never when one was declared, and the flag was never cleared afterwards - so
+a colony that did get registered kept the reduction forever.
+
+The drain now starts when war is declared, restarts when a war is restored after a restart, and is
+cancelled when the war ends, along with the defender flag for both sides.
+
+It is wired with the fix the 1.20.1 branch needed rather than the bug it had: wars are filed under
+the colony being attacked, so the war that runs out of funds is the war that ends - passing the
+attacking colony instead would have ended an unrelated war, or none at all. A drain timer that
+outlives its war also stops itself, so it cannot drain a colony or interfere with a later war on the
+same colony.
+
+### Fixed - Spy costs could be charged twice
+
+A queued spy mission cost was removed from memory when the colony paid it, but that was never written
+to disk. After an unclean shutdown the already-paid cost came back and the colony was billed for the
+same mission again. Expired spy missions had the same problem and could linger indefinitely instead
+of being cleaned up.
+
+### Fixed - Officer permission switches did nothing at all
+
+On NeoForge both permission payloads were stubs: their handlers wrote a debug log line and
+returned. Toggling the colony-wide policy or an individual officer's tax rights changed nothing,
+and neither handler verified who sent it. Both now resolve the colony server-side, require the
+sender to be a colony manager, and actually apply the change.
 
 ## [5.0.4] - 2026-08-07
 

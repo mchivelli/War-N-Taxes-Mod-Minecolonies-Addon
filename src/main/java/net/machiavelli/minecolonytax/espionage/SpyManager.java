@@ -219,8 +219,7 @@ public class SpyManager {
 
         // Validate target colony exists before committing resources
         if (SERVER != null) {
-            IColony targetCheck = IMinecoloniesAPI.getInstance()
-                    .getColonyManager().getColonyByWorld(targetColonyId, SERVER.overworld());
+            IColony targetCheck = net.machiavelli.minecolonytax.util.ColonyLookup.byId(targetColonyId);
             if (targetCheck == null) {
                 player.sendSystemMessage(
                         Component.literal("Target colony does not exist.").withStyle(ChatFormatting.RED));
@@ -232,11 +231,8 @@ public class SpyManager {
         int srcX = 0, srcZ = 0, dstX = 0, dstZ = 0;
         long travelDurationMs = TaxConfig.getSpyTravelMinMinutes() * 60000L;
         if (SERVER != null) {
-            ServerLevel level = SERVER.overworld();
-            IColony attackerColony = IMinecoloniesAPI.getInstance()
-                    .getColonyManager().getColonyByWorld(attackerColonyId, level);
-            IColony targetColony = IMinecoloniesAPI.getInstance()
-                    .getColonyManager().getColonyByWorld(targetColonyId, level);
+            IColony attackerColony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(attackerColonyId);
+            IColony targetColony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(targetColonyId);
             if (attackerColony != null && targetColony != null) {
                 net.minecraft.core.BlockPos src = attackerColony.getCenter();
                 net.minecraft.core.BlockPos dst = targetColony.getCenter();
@@ -457,8 +453,7 @@ public class SpyManager {
         int midMin = TaxConfig.getIntelMidThresholdMinutes();
         int lateMin = TaxConfig.getIntelLateThresholdMinutes();
 
-        IColony colony = IMinecoloniesAPI.getInstance().getColonyManager()
-                .getColonyByWorld(mission.getTargetColonyId(), SERVER.overworld());
+        IColony colony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(mission.getTargetColonyId());
         if (colony == null) return;
 
         // Tier 1 — early intel
@@ -534,7 +529,7 @@ public class SpyManager {
         try {
             ServerPlayer player = SERVER.getPlayerList().getPlayer(UUID.fromString(mission.getAttackerPlayerId()));
             if (player == null) return; // Player offline — map cannot be given
-            ServerLevel level = SERVER.overworld();
+            ServerLevel level = levelOfColony(mission.getTargetColonyId());
             String colonyName = getColonyName(mission.getTargetColonyId());
             ItemStack map = SpyMapGenerator.generateColonyMap(level, mission.getDestX(), mission.getDestZ(), colonyName);
             if (map != null) {
@@ -777,8 +772,7 @@ public class SpyManager {
 
                 // Auto-cancel if target colony no longer exists
                 if (SERVER != null) {
-                    IColony targetColony = IMinecoloniesAPI.getInstance().getColonyManager()
-                            .getColonyByWorld(mission.getTargetColonyId(), SERVER.overworld());
+                    IColony targetColony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(mission.getTargetColonyId());
                     if (targetColony == null) {
                         if (TaxConfig.isNormalLogging()) LOGGER.info("Mission {} target colony {} no longer exists — auto-cancelling",
                                 missionId, mission.getTargetColonyId());
@@ -802,10 +796,15 @@ public class SpyManager {
         }
 
         // Clean expired completed missions (older than 1 hour)
-        COMPLETED_MISSIONS.entrySet().removeIf(e -> {
+        // Expiring stale entries is itself a change worth persisting. It used to run without
+        // touching anyProcessed, so a prune that wasn't accompanied by some other mission event
+        // never reached disk and the expired missions came back on every restart.
+        if (COMPLETED_MISSIONS.entrySet().removeIf(e -> {
             long missionEnd = e.getValue().getStartTime() + e.getValue().getMaxDurationMs();
             return (now - missionEnd) > COMPLETED_MISSION_TTL_MS;
-        });
+        })) {
+            anyProcessed = true;
+        }
 
         // Clean expired stolen secrets buffs
         clearExpiredStolenSecrets();
@@ -933,7 +932,16 @@ public class SpyManager {
 
     public static int consumePendingCost(int colonyId) {
         int cost = PENDING_COSTS.getOrDefault(colonyId, 0);
+        if (cost <= 0) {
+            PENDING_COSTS.remove(colonyId);
+            return 0;
+        }
         PENDING_COSTS.remove(colonyId);
+        // Persist immediately. Without this the charge only left memory: an unclean shutdown
+        // (crash, kill -9) restored the already-billed cost from disk and the colony paid the
+        // same spy mission again on the next tax cycle. Only writes when something was
+        // actually consumed, so the per-colony no-op case stays free.
+        saveData();
         return cost;
     }
 
@@ -1001,12 +1009,19 @@ public class SpyManager {
 
     private static void spawnSpyEntityForMission(SpyMission mission) {
         if (SERVER == null) return;
-        ServerLevel level = SERVER.overworld();
-        IColony targetColony = IMinecoloniesAPI.getInstance().getColonyManager()
-                .getColonyByWorld(mission.getTargetColonyId(), level);
+        IColony targetColony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(mission.getTargetColonyId());
         if (targetColony == null) {
             LOGGER.warn("Target colony {} not found when spawning spy for mission {}",
                     mission.getTargetColonyId(), mission.getMissionId());
+            return;
+        }
+        // The spy must spawn in the TARGET COLONY'S dimension. Hard-coding SERVER.overworld()
+        // for both the lookup and the spawn placed the spy at the colony's x/z in the OVERWORLD
+        // whenever the target sat in another dimension — wrong world, nowhere near the colony.
+        ServerLevel level = SERVER.getLevel(targetColony.getDimension());
+        if (level == null) {
+            LOGGER.warn("Dimension {} of target colony {} is not loaded; cannot spawn spy for mission {}",
+                    targetColony.getDimension().location(), mission.getTargetColonyId(), mission.getMissionId());
             return;
         }
         net.minecraft.core.BlockPos center = targetColony.getCenter();
@@ -1070,13 +1085,14 @@ public class SpyManager {
 
     private static void notifyColonyOfficers(int colonyId, Component message) {
         if (SERVER == null) return;
-        IColony colony = IMinecoloniesAPI.getInstance().getColonyManager()
-                .getColonyByWorld(colonyId, SERVER.overworld());
+        IColony colony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId);
         if (colony == null) return;
 
         Set<UUID> recipients = new HashSet<>();
         IPermissions perms = colony.getPermissions();
-        recipients.add(perms.getOwner());
+        // getOwner() is nullable on colonies with a damaged owner record.
+        UUID owner = perms.getOwner();
+        if (owner != null) recipients.add(owner);
         for (ColonyPlayer cp : perms.getPlayersByRank(perms.getRankOfficer())) {
             recipients.add(cp.getID());
         }
@@ -1089,10 +1105,24 @@ public class SpyManager {
         }
     }
 
+    /**
+     * The world a colony actually lives in, for rendering its map. Falls back to the overworld
+     * when the colony or its dimension can't be resolved — a map of the wrong dimension is a
+     * cosmetic defect, so this never blocks reward delivery.
+     */
+    private static ServerLevel levelOfColony(int colonyId) {
+        if (SERVER == null) return null;
+        IColony colony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId);
+        if (colony != null) {
+            ServerLevel level = SERVER.getLevel(colony.getDimension());
+            if (level != null) return level;
+        }
+        return SERVER.overworld();
+    }
+
     private static String getColonyName(int colonyId) {
         if (SERVER == null) return "Colony " + colonyId;
-        IColony colony = IMinecoloniesAPI.getInstance().getColonyManager()
-                .getColonyByWorld(colonyId, SERVER.overworld());
+        IColony colony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId);
         return colony != null ? colony.getName() : "Colony " + colonyId;
     }
 }

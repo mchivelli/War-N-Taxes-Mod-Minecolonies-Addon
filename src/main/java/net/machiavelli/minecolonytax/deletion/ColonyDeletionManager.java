@@ -213,8 +213,13 @@ public final class ColonyDeletionManager {
         int guardTowers = 0;
         int townHallLevel = 0;
         int nonTownHall = 0;
+        // IColony.hasTownHall() was removed from the MineColonies interface (it survives only on
+        // CompactColonyReference), so the town hall is detected from the building list we are
+        // already walking. Same approach as the 1.20.1 branch.
+        boolean hasTownHall = false;
         for (IBuilding b : buildings) {
             if (isTownHall(b)) {
+                hasTownHall = true;
                 townHallLevel = Math.max(townHallLevel, safeLevel(b));
             } else {
                 nonTownHall++;
@@ -226,7 +231,7 @@ public final class ColonyDeletionManager {
 
         // No town hall at all, or a town hall that is only a placed block (level 0) with nothing
         // else built → instant.
-        if (!colony.hasTownHall() || total == 0 || (nonTownHall == 0 && townHallLevel <= 0)) {
+        if (!hasTownHall || total == 0 || (nonTownHall == 0 && townHallLevel <= 0)) {
             return 0;
         }
         // Town hall built but no other buildings → 1 day.

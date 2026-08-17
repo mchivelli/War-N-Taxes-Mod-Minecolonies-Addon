@@ -66,6 +66,13 @@ public class MineColonyTax {
 
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
+        // Verify the MineColonies API surface BEFORE any system starts using it. The declared
+        // dependency range is open-ended at the top, so a drifted MineColonies loads cleanly and
+        // then fails at runtime - or worse, silently returns nothing (see CompatibilityCheck).
+        // Exactly how 5.0.4 shipped broken on this branch. Deliberately non-fatal: it reports
+        // loudly and lets the server owner decide.
+        net.machiavelli.minecolonytax.compat.CompatibilityCheck.runAtStartup();
+
         var dispatcher = event.getServer().getCommands().getDispatcher();
 
         // Commands
@@ -83,6 +90,7 @@ public class MineColonyTax {
         TaxManager.initialize(event.getServer());
 
         FirstColonyTracker.loadData();
+        net.machiavelli.minecolonytax.permissions.TaxPermissionManager.load();
         net.machiavelli.minecolonytax.deletion.ColonyDeletionManager.load();
 
         WarExhaustionManager.initialize(event.getServer());
@@ -251,6 +259,8 @@ public class MineColonyTax {
         try { VassalManager.shutdown(); }          catch (Throwable t) { LOGGER.warn("VassalManager shutdown error: {}", t.toString()); }
         try { WarChestManager.shutdown(); }         catch (Throwable t) { LOGGER.warn("WarChestManager shutdown error: {}", t.toString()); }
         try { WarExhaustionManager.shutdown(); }    catch (Throwable t) { LOGGER.warn("WarExhaustionManager shutdown error: {}", t.toString()); }
+        try { net.machiavelli.minecolonytax.permissions.TaxPermissionManager.save(); }
+        catch (Throwable t) { LOGGER.warn("TaxPermissionManager save error: {}", t.toString()); }
         try { FactionManager.saveData(); }          catch (Throwable t) { LOGGER.warn("FactionManager save error: {}", t.toString()); }
         try { TaxPolicyManager.shutdown(); }        catch (Throwable t) { LOGGER.warn("TaxPolicyManager shutdown error: {}", t.toString()); }
         try { RandomEventManager.shutdown(); }      catch (Throwable t) { LOGGER.warn("RandomEventManager shutdown error: {}", t.toString()); }

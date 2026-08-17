@@ -23,12 +23,14 @@ public class ClientPacketHelper {
         PacketDistributor.sendToServer(new RequestOfficerDataPayload(colonyId));
     }
 
-    public static void sendUpdateTaxPermissionPacket(int colonyId, boolean allowOfficers) {
-        PacketDistributor.sendToServer(new UpdateTaxPermissionPayload(colonyId, allowOfficers));
+    public static void sendUpdateTaxPermissionPacket(int colonyId,
+            net.machiavelli.minecolonytax.permissions.ColonyPermission permission, boolean allowOfficers) {
+        PacketDistributor.sendToServer(new UpdateTaxPermissionPayload(colonyId, permission, allowOfficers));
     }
 
-    public static void sendUpdatePlayerTaxPermissionPacket(int colonyId, UUID playerId, boolean allowed) {
-        PacketDistributor.sendToServer(new UpdatePlayerTaxPermissionPayload(colonyId, playerId, allowed));
+    public static void sendUpdatePlayerTaxPermissionPacket(int colonyId, UUID playerId,
+            net.machiavelli.minecolonytax.permissions.ColonyPermission permission, boolean allowed) {
+        PacketDistributor.sendToServer(new UpdatePlayerTaxPermissionPayload(colonyId, playerId, permission, allowed));
     }
 
     public static void sendPayTaxDebtPacket(int colonyId) {

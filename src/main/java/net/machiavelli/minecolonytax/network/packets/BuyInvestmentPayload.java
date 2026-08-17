@@ -47,7 +47,11 @@ public record BuyInvestmentPayload(int colonyId, String upgradeTypeName) impleme
             if (!TaxConfig.isUpgradesEnabled()) return;
 
             IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-            IColony colony = colonyManager.getColonyByWorld(payload.colonyId, player.level());
+            // Resolved via ColonyLookup: getColonyByWorld(id, level) only sees colonies
+            // registered in the level the player currently stands in, and a bare
+            // getAllColonies() filter can hit a same-id colony from another dimension
+            // (ids are unique per dimension only).
+            IColony colony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(payload.colonyId, player);
             if (colony == null) return;
 
             // Investment purchases are OWNER-ONLY (aligns with the /wnt invest buy command).

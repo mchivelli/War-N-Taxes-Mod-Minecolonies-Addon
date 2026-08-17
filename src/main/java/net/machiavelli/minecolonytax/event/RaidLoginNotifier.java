@@ -59,7 +59,7 @@ public class RaidLoginNotifier {
                 ActiveRaidData raid = it.next();
                 boolean wasRelevant = notifyIfRelevant(player, raid, notified, false);
                 // Once the owner has been notified, we can drop this history entry
-                if (wasRelevant && raid.getColony().getPermissions().getOwner().equals(playerUUID)) {
+                if (wasRelevant && playerUUID.equals(raid.getColony().getPermissions().getOwner())) {
                     it.remove();
                 }
             }
@@ -75,7 +75,7 @@ public class RaidLoginNotifier {
      */
     private static boolean isPlayerOfficerOrOwner(ServerPlayer player, IPermissions perms) {
         UUID playerUUID = player.getUUID();
-        boolean isOwner = perms.getOwner().equals(playerUUID);
+        boolean isOwner = playerUUID.equals(perms.getOwner());
         boolean isOfficer = perms.getPlayersByRank(perms.getRankOfficer())
                 .stream()
                 .anyMatch(cp -> cp.getID().equals(playerUUID));

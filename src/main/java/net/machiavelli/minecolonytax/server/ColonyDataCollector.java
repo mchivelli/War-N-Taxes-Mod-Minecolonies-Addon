@@ -232,7 +232,7 @@ public class ColonyDataCollector {
             int approximateRevenue = calculateApproximateRevenue(buildingCount, guardTowerCount);
             
             // Check if player is owner (colony founder)
-            boolean isOwner = colony.getPermissions().getOwner().equals(playerId);
+            boolean isOwner = playerId.equals(colony.getPermissions().getOwner());
             
             return new ColonyTaxData(
                 colonyId, colonyName, taxBalance, maxTaxRevenue,

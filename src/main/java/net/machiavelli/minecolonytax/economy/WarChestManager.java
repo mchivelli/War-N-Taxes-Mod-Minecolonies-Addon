@@ -62,6 +62,14 @@ public class WarChestManager {
         saveData();
     }
 
+    /**
+     * Public runtime save trigger, used by the war chest drain loop so an in-progress war's
+     * balances survive a crash without waiting for shutdown.
+     */
+    public static void save() {
+        saveData();
+    }
+
     // ==================== War Role Tracking ====================
 
     /**
@@ -441,7 +449,6 @@ public class WarChestManager {
     public static IColony getColony(int colonyId) {
         if (SERVER == null)
             return null;
-        IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-        return colonyManager.getColonyByWorld(colonyId, SERVER.overworld());
+        return net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId);
     }
 }

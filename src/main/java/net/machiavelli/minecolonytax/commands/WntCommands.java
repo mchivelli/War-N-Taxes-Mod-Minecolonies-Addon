@@ -1408,7 +1408,7 @@ public class WntCommands {
                 return 0;
             }
             boolean isOwner = colony.getPermissions().getOwner() != null
-                    && colony.getPermissions().getOwner().equals(player.getUUID());
+                    && player.getUUID().equals(colony.getPermissions().getOwner());
             if (!isOwner && !ctx.getSource().hasPermission(2)) {
                 ctx.getSource().sendFailure(Component.literal("Only the colony owner (or an admin) can delete this colony.")
                         .withStyle(ChatFormatting.RED));
@@ -1437,7 +1437,7 @@ public class WntCommands {
                 return 0;
             }
             boolean isOwner = colony.getPermissions().getOwner() != null
-                    && colony.getPermissions().getOwner().equals(player.getUUID());
+                    && player.getUUID().equals(colony.getPermissions().getOwner());
             if (!isOwner && !ctx.getSource().hasPermission(2)) {
                 ctx.getSource().sendFailure(Component.literal("Only the colony owner (or an admin) can cancel this deletion.")
                         .withStyle(ChatFormatting.RED));
@@ -2190,7 +2190,7 @@ public class WntCommands {
 
         // Check if player has permission to pay for this colony
         Rank playerRank = targetColony.getPermissions().getRank(player.getUUID());
-        boolean isAuthorized = targetColony.getPermissions().getOwner().equals(player.getUUID()) ||
+        boolean isAuthorized = player.getUUID().equals(targetColony.getPermissions().getOwner()) ||
                 (playerRank != null && playerRank.isColonyManager());
         
         if (!isAuthorized) {
@@ -2291,7 +2291,7 @@ public class WntCommands {
         }
         if (takenFromColony > 0) {
             IColony attackerColony = IColonyManager.getInstance().getColonies(attacker.level()).stream()
-                    .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                    .filter(c -> attacker.getUUID().equals(c.getPermissions().getOwner()))
                     .findFirst().orElse(null);
             if (attackerColony != null) {
                 TaxManager.adjustTax(attackerColony, takenFromColony);

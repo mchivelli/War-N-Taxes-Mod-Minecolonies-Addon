@@ -153,6 +153,7 @@ public class TaxConfig {
         public static final ModConfigSpec.DoubleValue GUARD_TOWER_TAX_BOOST_PERCENTAGE;
 
         public static final ModConfigSpec.BooleanValue ENABLE_WAR_ACTIONS;
+        public static final ModConfigSpec.BooleanValue ENABLE_CORPSE_RETRIEVAL_IN_COLONIES;
         public static final ModConfigSpec.IntValue PLAYER_LIVES_IN_WAR; // New config
 
         public static final ModConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_WAR_ACTIONS;
@@ -516,6 +517,15 @@ public class TaxConfig {
 
                 ENABLE_WAR_ACTIONS = BUILDER.comment("If false, war will not toggle any interaction permissions")
                                 .define("EnableWarActions", true);
+
+                ENABLE_CORPSE_RETRIEVAL_IN_COLONIES = BUILDER.comment(
+                                "Let a player open their OWN corpse (Corpse mod) inside a colony where they have no interaction rights.\n"
+                                                + "Dying in a foreign colony is normal here - wars, raids and besieges all happen there - and"
+                                                + " without this the colony's permissions keep the owner from picking their own inventory back up.\n"
+                                                + "Only the corpse's owner is ever exempted: other players' corpses stay subject to the normal"
+                                                + " colony rules, so a besieger still cannot loot the defenders.\n"
+                                                + "No effect unless the Corpse mod is installed.")
+                                .define("EnableCorpseRetrievalInColonies", true);
 
                 WAR_ACCEPTANCE_REQUIRED = BUILDER.comment(
                                 "If true, war requests must be manually accepted; if false, wars requests will automatically accept.")
@@ -3367,6 +3377,10 @@ public class TaxConfig {
         }
 
         // --- War Chest ---
+        public static boolean isCorpseRetrievalInColoniesEnabled() {
+                return ENABLE_CORPSE_RETRIEVAL_IN_COLONIES.get();
+        }
+
         public static boolean isWarChestEnabled() {
                 return ENABLE_WAR_CHEST.get();
         }

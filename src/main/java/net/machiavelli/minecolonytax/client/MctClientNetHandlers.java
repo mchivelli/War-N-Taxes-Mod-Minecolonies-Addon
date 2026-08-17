@@ -51,7 +51,7 @@ public final class MctClientNetHandlers {
 
     public static void officerData(OfficerDataResponsePayload payload) {
         if (Minecraft.getInstance().screen instanceof TaxManagementScreen screen) {
-            screen.updateOfficerData(payload.getOfficers(), payload.colonyId());
+            screen.updateOfficerData(payload.getOfficers(), payload.colonyId(), payload.getColonyDefaults());
         }
     }
 

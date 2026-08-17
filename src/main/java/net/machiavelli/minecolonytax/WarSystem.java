@@ -7,10 +7,7 @@ import com.minecolonies.api.colony.permissions.Action;
 import com.minecolonies.api.colony.permissions.IPermissions;
 import com.minecolonies.api.colony.permissions.Rank;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import dev.ftb.mods.ftbteams.FTBTeamsAPIImpl;
-import dev.ftb.mods.ftbteams.api.Team;
-import dev.ftb.mods.ftbteams.api.TeamManager;
-import dev.ftb.mods.ftbteams.data.PartyTeam;
+import net.machiavelli.minecolonytax.compat.FtbTeamsCompat;
 import net.machiavelli.minecolonytax.compat.ColonyBuildingUtil;
 import net.machiavelli.minecolonytax.data.HistoryManager;
 import net.machiavelli.minecolonytax.data.PlayerWarDataManager;
@@ -78,17 +75,14 @@ public class WarSystem {
         return rank.isColonyManager() || !rank.isHostile();
     }
 
-    private static boolean isFTBTeamsLoaded() {
-        try {
-            Class.forName("dev.ftb.mods.ftbteams.api.TeamManager");
-            return true;
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-    }
-
-    public static final boolean FTB_TEAMS_INSTALLED = isFTBTeamsLoaded();
-    public static final TeamManager FTB_TEAM_MANAGER = FTB_TEAMS_INSTALLED ? FTBTeamsAPIImpl.INSTANCE.getManager() : null;
+    /**
+     * FTB Teams is OPTIONAL. This used to be a {@code public static final TeamManager} field, i.e.
+     * an FTB type in WarSystem's own signature, initialised in its static block. That made loading
+     * WarSystem - the class every war path runs through - depend on FTB Teams being present, so a
+     * server without it hit NoClassDefFoundError instead of simply running without team support.
+     * All FTB access now goes through the classloader-safe shim; no FTB type appears here.
+     */
+    public static final boolean FTB_TEAMS_INSTALLED = FtbTeamsCompat.isInstalled();
     public static final Map<Integer, WarData> ACTIVE_WARS = new ConcurrentHashMap<>();
 
     private static final Component JOIN_MSG = Component.literal("[Join War]")
@@ -105,9 +99,12 @@ public class WarSystem {
 
     public static final long WAR_PHASE_DURATION_SECONDS = 60; // For debugging
 
-    public static void initiateWar(ServerPlayer attacker, UUID defender, Team attackerTeam, Team defenderTeam, IColony colony, IColony attackerColony) {
-        UUID attackerTeamID = (FTB_TEAMS_INSTALLED && attackerTeam != null) ? attackerTeam.getId() : attacker.getUUID();
-        UUID defenderTeamID = (FTB_TEAMS_INSTALLED && defenderTeam != null) ? defenderTeam.getId() : colony.getPermissions().getOwner();
+    public static void initiateWar(ServerPlayer attacker, UUID defender, FtbTeamsCompat.TeamHandle attackerTeam,
+            FtbTeamsCompat.TeamHandle defenderTeam, IColony colony, IColony attackerColony) {
+        UUID attackerTeamID = attackerTeam != null ? FtbTeamsCompat.getTeamId(attackerTeam) : null;
+        if (attackerTeamID == null) attackerTeamID = attacker.getUUID();
+        UUID defenderTeamID = defenderTeam != null ? FtbTeamsCompat.getTeamId(defenderTeam) : null;
+        if (defenderTeamID == null) defenderTeamID = colony.getPermissions().getOwner();
 
         ServerBossEvent bossEvent = new ServerBossEvent(
                 Component.literal("War for " + colony.getName()),
@@ -205,11 +202,11 @@ public class WarSystem {
         });
         
         // Optional: Add FTB Team members if FTB Teams is installed
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
+        if (FTB_TEAMS_INSTALLED) {
             WARSYSTEM_LOGGER.debug("[DEBUG] FTB Teams detected, adding team members as additional participants");
             
             if (attackerTeam != null) {
-                attackerTeam.getMembers().forEach(uuid -> {
+                FtbTeamsCompat.getTeamMembers(attackerTeam).forEach(uuid -> {
                     if (!data.getAttackerLives().containsKey(uuid)) { // Don't add if already added via colony
                         data.getAttackerLives().put(uuid, playerLives);
                         WARSYSTEM_LOGGER.debug("[DEBUG] Added FTB team member to attackers: " + uuid);
@@ -238,7 +235,7 @@ public class WarSystem {
             }
             
             if (defenderTeam != null) {
-                defenderTeam.getMembers().forEach(uuid -> {
+                FtbTeamsCompat.getTeamMembers(defenderTeam).forEach(uuid -> {
                     if (!data.getDefenderLives().containsKey(uuid)) { // Don't add if already added via colony
                         data.getDefenderLives().put(uuid, playerLives);
                         WARSYSTEM_LOGGER.debug("[DEBUG] Added FTB team member to defenders: " + uuid);
@@ -270,6 +267,57 @@ public class WarSystem {
         data.initialAttackerTotalLives = data.getAttackerLives().values().stream().mapToInt(Integer::intValue).sum();
         data.initialDefenderTotalLives = data.getDefenderLives().values().stream().mapToInt(Integer::intValue).sum();
         ACTIVE_WARS.put(colony.getID(), data);
+
+        // Mark the defender for the home-field drain reduction and start the war chest drain.
+        // Neither was wired up on this branch: WarChestManager.drainWarChest had no callers at
+        // all, so war chests never drained during a war and the configured auto-surrender could
+        // never fire, while setColonyAsDefender was only ever called on the server-restart
+        // restore path (so a freshly declared war gave the defender no drain reduction either).
+        net.machiavelli.minecolonytax.economy.WarChestManager.setColonyAsDefender(colony.getID());
+        scheduleWarChestDrain(data, colony, data.getAttackerColony());
+    }
+
+    /**
+     * Schedule a repeating war chest drain for both sides. Drains every 60 seconds and saves
+     * every 5 ticks; when either side runs dry the war ends (auto-surrender).
+     */
+    private static void scheduleWarChestDrain(WarData data, IColony defenderColony, IColony attackerColony) {
+        if (!TaxConfig.isWarChestEnabled()) return;
+        if (defenderColony == null) return;
+
+        final int defenderColonyId = defenderColony.getID();
+        final int attackerColonyId = attackerColony != null ? attackerColony.getID() : -1;
+        final long[] tickCount = {0};
+
+        data.warChestDrainTaskId = net.machiavelli.minecolonytax.util.TickScheduler.scheduleRepeating(() -> {
+            // "Still my war" identity guard. A drain task that outlives its war must not keep
+            // draining, and must never end a replacement war registered under the same defender.
+            if (ACTIVE_WARS.get(defenderColonyId) != data) {
+                net.machiavelli.minecolonytax.util.TickScheduler.cancel(data.warChestDrainTaskId);
+                data.warChestDrainTaskId = -1L;
+                return;
+            }
+
+            tickCount[0]++;
+
+            int defenderResult = net.machiavelli.minecolonytax.economy.WarChestManager.drainWarChest(defenderColonyId);
+            int attackerResult = attackerColonyId >= 0
+                    ? net.machiavelli.minecolonytax.economy.WarChestManager.drainWarChest(attackerColonyId)
+                    : Integer.MAX_VALUE;
+
+            if (tickCount[0] % 5 == 0) {
+                net.machiavelli.minecolonytax.economy.WarChestManager.save();
+            }
+
+            // ACTIVE_WARS is keyed by the DEFENDER colony id and endWar() resolves the war via
+            // ACTIVE_WARS.remove(colony.getID()), so the war that ran out of funds is ended by
+            // passing its DEFENDER — never the attacker, which would either find nothing (war
+            // runs on forever, re-firing this branch every minute) or end an unrelated war in
+            // which that attacker happens to be the defender.
+            if (defenderResult == -1 || attackerResult == -1) {
+                endWar(defenderColony);
+            }
+        }, 60_000, 60_000);
     }
 
     public static void setWarInteractionPermissions(IColony colony, boolean allowed) {
@@ -1191,10 +1239,22 @@ public class WarSystem {
         
         // Now remove from active wars
         warData = ACTIVE_WARS.remove(colony.getID());
+
+        // Drop the home-field defender flag for both sides. Without this the flag leaked and a
+        // colony kept its drain reduction forever after its first war.
+        net.machiavelli.minecolonytax.economy.WarChestManager.clearColonyRole(colony.getID());
+        if (warData != null && warData.getAttackerColony() != null) {
+            net.machiavelli.minecolonytax.economy.WarChestManager.clearColonyRole(warData.getAttackerColony().getID());
+        }
+
         if (warData != null) {
             if (warData.warTimerTaskId != -1L) {
                 net.machiavelli.minecolonytax.util.TickScheduler.cancel(warData.warTimerTaskId);
                 warData.warTimerTaskId = -1L;
+            }
+            if (warData.warChestDrainTaskId != -1L) {
+                net.machiavelli.minecolonytax.util.TickScheduler.cancel(warData.warChestDrainTaskId);
+                warData.warChestDrainTaskId = -1L;
             }
             if (warData.bossEvent != null) {
                 warData.bossEvent.removeAllPlayers();
@@ -1680,32 +1740,34 @@ public class WarSystem {
             return war.getDefenderLives();
         }
         
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
-            Optional<Team> teamOpt = FTB_TEAM_MANAGER.getPlayerTeamForPlayerID(playerUUID);
+        if (FTB_TEAMS_INSTALLED) {
+            Optional<FtbTeamsCompat.TeamHandle> teamOpt = FtbTeamsCompat.getTeamForPlayer(playerUUID);
             WARSYSTEM_LOGGER.debug("[DEBUG] Player team found: " + teamOpt.isPresent());
             if (teamOpt.isPresent()) {
-                Team team = teamOpt.get();
-                WARSYSTEM_LOGGER.debug("[DEBUG] Player team ID: " + team.getId());
+                UUID teamId = FtbTeamsCompat.getTeamId(teamOpt.get());
+                WARSYSTEM_LOGGER.debug("[DEBUG] Player team ID: " + teamId);
                 WARSYSTEM_LOGGER.debug("[DEBUG] War attacker team ID: " + war.getAttackerTeamID());
                 WARSYSTEM_LOGGER.debug("[DEBUG] War defender team ID: " + war.getDefenderTeamID());
                 
-                if (team.getId().equals(war.getAttackerTeamID())) {
+                if (teamId != null && teamId.equals(war.getAttackerTeamID())) {
                     WARSYSTEM_LOGGER.debug("[DEBUG] Player is on attacker team, returning attacker lives");
                     return war.getAttackerLives();
-                } else if (team.getId().equals(war.getDefenderTeamID())) {
+                } else if (teamId != null && teamId.equals(war.getDefenderTeamID())) {
                     WARSYSTEM_LOGGER.debug("[DEBUG] Player is on defender team, returning defender lives");
                     return war.getDefenderLives();
                 }
                 
                 // Check if player is allied to any participating team
-                Team atkTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
-                if (atkTeam != null && atkTeam.isPartyTeam() && ((PartyTeam) atkTeam).getMembers().contains(playerUUID)) {
+                FtbTeamsCompat.TeamHandle atkTeam = war.getAttackerTeamID() == null ? null
+                        : FtbTeamsCompat.getTeamById(war.getAttackerTeamID()).orElse(null);
+                if (FtbTeamsCompat.partyTeamContains(atkTeam, playerUUID)) {
                     WARSYSTEM_LOGGER.debug("[DEBUG] Player is allied to attacker team, returning attacker lives");
                     return war.getAttackerLives();
                 }
                 
-                Team defTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
-                if (defTeam != null && defTeam.isPartyTeam() && ((PartyTeam) defTeam).getMembers().contains(playerUUID)) {
+                FtbTeamsCompat.TeamHandle defTeam = war.getDefenderTeamID() == null ? null
+                        : FtbTeamsCompat.getTeamById(war.getDefenderTeamID()).orElse(null);
+                if (FtbTeamsCompat.partyTeamContains(defTeam, playerUUID)) {
                     WARSYSTEM_LOGGER.debug("[DEBUG] Player is allied to defender team, returning defender lives");
                     return war.getDefenderLives();
                 }
@@ -1772,22 +1834,25 @@ public class WarSystem {
             }
             
             // Check FTB Teams
-            if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
-                Optional<Team> teamOpt = FTB_TEAM_MANAGER.getTeamForPlayerID(player.getUUID());
+            if (FTB_TEAMS_INSTALLED) {
+                Optional<FtbTeamsCompat.TeamHandle> teamOpt = FtbTeamsCompat.getTeamForPlayer(player.getUUID());
                 if (teamOpt.isPresent()) {
-                    Team team = teamOpt.get();
-                    if (team.getId().equals(war.getAttackerTeamID()) || team.getId().equals(war.getDefenderTeamID())) {
+                    UUID teamId = FtbTeamsCompat.getTeamId(teamOpt.get());
+                    if (teamId != null && (teamId.equals(war.getAttackerTeamID())
+                            || teamId.equals(war.getDefenderTeamID()))) {
                         return war;
                     }
                     
                     // Check if player is allied to any participating team
-                    Team atkTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
-                    if (atkTeam != null && atkTeam.isPartyTeam() && ((PartyTeam) atkTeam).getMembers().contains(player.getUUID())) {
+                    FtbTeamsCompat.TeamHandle atkTeam = war.getAttackerTeamID() == null ? null
+                            : FtbTeamsCompat.getTeamById(war.getAttackerTeamID()).orElse(null);
+                    if (FtbTeamsCompat.partyTeamContains(atkTeam, player.getUUID())) {
                         return war;
                     }
                     
-                    Team defTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
-                    if (defTeam != null && defTeam.isPartyTeam() && ((PartyTeam) defTeam).getMembers().contains(player.getUUID())) {
+                    FtbTeamsCompat.TeamHandle defTeam = war.getDefenderTeamID() == null ? null
+                            : FtbTeamsCompat.getTeamById(war.getDefenderTeamID()).orElse(null);
+                    if (FtbTeamsCompat.partyTeamContains(defTeam, player.getUUID())) {
                         return war;
                     }
                 }
@@ -1887,18 +1952,35 @@ public class WarSystem {
     }
     
     public static void startJoinPhase(IColony colony, ServerPlayer attacker, ServerPlayer owner) {
-        Team attackerTeam = FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null
-                ? FTB_TEAM_MANAGER.getTeamForPlayerID(attacker.getUUID()).orElse(null)
-                : null;
-        Team defenderTeam = FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null
-                ? FTB_TEAM_MANAGER.getTeamForPlayerID(owner.getUUID()).orElse(null)
-                : null;
+        FtbTeamsCompat.TeamHandle attackerTeam = FtbTeamsCompat.getTeamForPlayer(attacker.getUUID()).orElse(null);
+        FtbTeamsCompat.TeamHandle defenderTeam = FtbTeamsCompat.getTeamForPlayer(owner.getUUID()).orElse(null);
 
+        // Colonies the player owns rank ahead of colonies they merely officer. An officer may
+        // wage war on the colony's behalf when the owner granted DECLARE_WAR in the Officers
+        // tab; that permission is enforced here rather than only hidden in the interface.
+        final java.util.UUID attackerId = attacker.getUUID();
         IColony attackerColony = IColonyManager.getInstance().getColonies(attacker.level()).stream()
-                .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                .filter(c -> {
+                    com.minecolonies.api.colony.permissions.IPermissions perms = c.getPermissions();
+                    if (attackerId.equals(perms.getOwner())) return true;
+                    com.minecolonies.api.colony.permissions.Rank rank = perms.getRank(attackerId);
+                    if (rank == null || !rank.isColonyManager()) return false;
+                    boolean isOfficer = rank.equals(perms.getRankOfficer());
+                    return net.machiavelli.minecolonytax.permissions.TaxPermissionManager.can(
+                            c.getID(), attackerId,
+                            net.machiavelli.minecolonytax.permissions.ColonyPermission.DECLARE_WAR,
+                            false, isOfficer);
+                })
+                .sorted((a, b) -> {
+                    boolean aOwned = attackerId.equals(a.getPermissions().getOwner());
+                    boolean bOwned = attackerId.equals(b.getPermissions().getOwner());
+                    if (aOwned != bOwned) return aOwned ? -1 : 1;
+                    return 0;
+                })
                 .findFirst().orElse(null);
         if (attackerColony == null) {
-            attacker.sendSystemMessage(Component.literal("You must own a colony to declare war.")
+            attacker.sendSystemMessage(Component.literal(
+                    "You must own a colony, or hold war rights in one, to declare war.")
                     .withStyle(style -> style.withColor(ChatFormatting.RED)));
             return;
         }
@@ -1955,7 +2037,7 @@ public class WarSystem {
             .append(Component.literal(" "))
             .append(LEAVE_MSG);
 
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
+        if (FTB_TEAMS_INSTALLED) {
             if (attackerTeam != null) {
                 sendNotificationToColonyParticipants(attackerColony, joinAnnouncement);
             }
@@ -1975,7 +2057,7 @@ public class WarSystem {
                         String.format("%02d:%02d", remainingMillis / (60 * 1000), (remainingMillis / 1000) % 60))
                 .withStyle(style -> style.withColor(ChatFormatting.YELLOW).withBold(true));
 
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
+        if (FTB_TEAMS_INSTALLED) {
             if (attackerTeam != null) sendNotificationToColonyParticipants(attackerColony, joinPhaseInfo);
             if (defenderTeam != null) sendNotificationToColonyParticipants(colony, joinPhaseInfo);
         } else {
@@ -2096,14 +2178,14 @@ public class WarSystem {
         }
         
         // If FTB Teams is installed, also notify team members
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
+        if (FTB_TEAMS_INSTALLED) {
             WarData war = ACTIVE_WARS.get(defenderColony.getID());
             if (war != null) {
                 // Notify attacker team members
                 if (war.getAttackerTeamID() != null) {
-                    Team attackerTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
-                    if (attackerTeam != null && attackerTeam.isPartyTeam()) {
-                        ((PartyTeam) attackerTeam).getMembers().forEach(uuid -> {
+                    FtbTeamsCompat.TeamHandle attackerTeam = FtbTeamsCompat.getTeamById(war.getAttackerTeamID()).orElse(null);
+                    if (FtbTeamsCompat.isPartyTeam(attackerTeam)) {
+                        FtbTeamsCompat.getPartyMembers(attackerTeam).forEach(uuid -> {
                             if (!notifiedPlayers.contains(uuid)) {
                                 ServerPlayer player = server.getPlayerList().getPlayer(uuid);
                                 if (player != null) {
@@ -2117,9 +2199,9 @@ public class WarSystem {
                 
                 // Notify defender team members
                 if (war.getDefenderTeamID() != null) {
-                    Team defenderTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
-                    if (defenderTeam != null && defenderTeam.isPartyTeam()) {
-                        ((PartyTeam) defenderTeam).getMembers().forEach(uuid -> {
+                    FtbTeamsCompat.TeamHandle defenderTeam = FtbTeamsCompat.getTeamById(war.getDefenderTeamID()).orElse(null);
+                    if (FtbTeamsCompat.isPartyTeam(defenderTeam)) {
+                        FtbTeamsCompat.getPartyMembers(defenderTeam).forEach(uuid -> {
                             if (!notifiedPlayers.contains(uuid)) {
                                 ServerPlayer player = server.getPlayerList().getPlayer(uuid);
                                 if (player != null) {
@@ -2337,9 +2419,9 @@ public class WarSystem {
         });
     }
 
-    public static void sendMessageToTeam(Team team, Component msg) {
+    public static void sendMessageToTeam(FtbTeamsCompat.TeamHandle team, Component msg) {
         if (team == null || ServerLifecycleHooks.getCurrentServer() == null) return;
-        for (UUID member : team.getMembers()) {
+        for (UUID member : FtbTeamsCompat.getTeamMembers(team)) {
             ServerPlayer sp = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(member);
             if (sp != null) sp.sendSystemMessage(msg);
         }
@@ -2380,7 +2462,7 @@ public class WarSystem {
         }
 
         IColony attackerColony = IColonyManager.getInstance().getColonies(level).stream()
-                .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                .filter(c -> attacker.getUUID().equals(c.getPermissions().getOwner()))
                 .findFirst().orElse(null);
         if (attackerColony == null) {
             source.sendFailure(Component.literal("You must own a colony to declare war."));
@@ -2513,7 +2595,7 @@ public class WarSystem {
         }
 
         IColony attackerColony = IColonyManager.getInstance().getColonies(level).stream()
-                .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                .filter(c -> attacker.getUUID().equals(c.getPermissions().getOwner()))
                 .findFirst().orElse(null);
         if (attackerColony == null) {
             source.sendFailure(Component.literal("You must own a colony to declare war."));
@@ -2636,7 +2718,7 @@ public class WarSystem {
         }
 
         Rank executorRank = targetColony.getPermissions().getRank(executor.getUUID());
-        boolean isAuthorized = targetColony.getPermissions().getOwner().equals(executor.getUUID()) ||
+        boolean isAuthorized = executor.getUUID().equals(targetColony.getPermissions().getOwner()) ||
                 (executorRank != null && executorRank.isColonyManager());
         if (!isAuthorized) {
             source.sendFailure(Component.literal("You are not authorized to accept/decline this war request.")
@@ -2664,7 +2746,7 @@ public class WarSystem {
             WARSYSTEM_LOGGER.info("War request for colony {} accepted by {}.", targetColony.getID(), executor.getName().getString());
             if (ServerLifecycleHooks.getCurrentServer() != null) {
                 IColony attackerColony = IColonyManager.getInstance().getColonies(attacker.level()).stream()
-                    .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                    .filter(c -> attacker.getUUID().equals(c.getPermissions().getOwner()))
                     .findFirst().orElse(null);
                 String attackerColonyName = attackerColony != null ? attackerColony.getName() : attacker.getName().getString() + "'s forces";
 
@@ -2744,20 +2826,23 @@ public class WarSystem {
         }
         
         // Check FTB Teams
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
-            Team playerTeam = FTB_TEAM_MANAGER.getTeamForPlayerID(player.getUUID()).orElse(null);
-            Team atkTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
-            Team defTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
+        if (FTB_TEAMS_INSTALLED) {
+            UUID playerTeamId = FtbTeamsCompat.getTeamForPlayer(player.getUUID())
+                    .map(FtbTeamsCompat::getTeamId).orElse(null);
+            FtbTeamsCompat.TeamHandle atkTeam = war.getAttackerTeamID() == null ? null
+                    : FtbTeamsCompat.getTeamById(war.getAttackerTeamID()).orElse(null);
+            FtbTeamsCompat.TeamHandle defTeam = war.getDefenderTeamID() == null ? null
+                    : FtbTeamsCompat.getTeamById(war.getDefenderTeamID()).orElse(null);
 
             // Direct team membership
-            if (playerTeam != null && (playerTeam.getId().equals(war.getAttackerTeamID()) || 
-                                      playerTeam.getId().equals(war.getDefenderTeamID()))) {
+            if (playerTeamId != null && (playerTeamId.equals(war.getAttackerTeamID())
+                    || playerTeamId.equals(war.getDefenderTeamID()))) {
                 return true;
             }
             
             // Allied team membership
-            if ((atkTeam != null && atkTeam.isPartyTeam() && ((PartyTeam) atkTeam).getMembers().contains(player.getUUID())) ||
-                (defTeam != null && defTeam.isPartyTeam() && ((PartyTeam) defTeam).getMembers().contains(player.getUUID()))) {
+            if (FtbTeamsCompat.partyTeamContains(atkTeam, player.getUUID())
+                    || FtbTeamsCompat.partyTeamContains(defTeam, player.getUUID())) {
                 return true;
             }
         }
@@ -2840,24 +2925,27 @@ public class WarSystem {
         boolean canJoinDefenders = false;
         
         // Check FTB Teams first
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
-            Team playerTeam = FTB_TEAM_MANAGER.getTeamForPlayerID(player.getUUID()).orElse(null);
-            Team atkTeam = FTB_TEAM_MANAGER.getTeamByID(war.getAttackerTeamID()).orElse(null);
-            Team defTeam = FTB_TEAM_MANAGER.getTeamByID(war.getDefenderTeamID()).orElse(null);
+        if (FTB_TEAMS_INSTALLED) {
+            UUID playerTeamId = FtbTeamsCompat.getTeamForPlayer(player.getUUID())
+                    .map(FtbTeamsCompat::getTeamId).orElse(null);
+            FtbTeamsCompat.TeamHandle atkTeam = war.getAttackerTeamID() == null ? null
+                    : FtbTeamsCompat.getTeamById(war.getAttackerTeamID()).orElse(null);
+            FtbTeamsCompat.TeamHandle defTeam = war.getDefenderTeamID() == null ? null
+                    : FtbTeamsCompat.getTeamById(war.getDefenderTeamID()).orElse(null);
 
             // Direct team membership
-            if (playerTeam != null && playerTeam.getId().equals(war.getAttackerTeamID())) {
+            if (playerTeamId != null && playerTeamId.equals(war.getAttackerTeamID())) {
                 canJoinAttackers = true;
             }
-            if (playerTeam != null && playerTeam.getId().equals(war.getDefenderTeamID())) {
+            if (playerTeamId != null && playerTeamId.equals(war.getDefenderTeamID())) {
                 canJoinDefenders = true;
             }
             
             // Allied team membership
-            if (atkTeam != null && atkTeam.isPartyTeam() && ((PartyTeam) atkTeam).getMembers().contains(player.getUUID())) {
+            if (FtbTeamsCompat.partyTeamContains(atkTeam, player.getUUID())) {
                 canJoinAttackers = true;
             }
-            if (defTeam != null && defTeam.isPartyTeam() && ((PartyTeam) defTeam).getMembers().contains(player.getUUID())) {
+            if (FtbTeamsCompat.partyTeamContains(defTeam, player.getUUID())) {
                 canJoinDefenders = true;
             }
         }
@@ -3648,8 +3736,12 @@ public class WarSystem {
             return true;
         }
 
-        // Restore the WarChest defender role (treasury-drain bookkeeping).
-        try { net.machiavelli.minecolonytax.economy.WarChestManager.setColonyAsDefender(e.defenderColonyId); }
+        // Restore the WarChest defender role (drain bookkeeping) and restart the drain, which
+        // does not survive a restart because TickScheduler tasks are in-memory only.
+        try {
+            net.machiavelli.minecolonytax.economy.WarChestManager.setColonyAsDefender(e.defenderColonyId);
+            scheduleWarChestDrain(warData, defenderColony, warData.getAttackerColony());
+        }
         catch (Throwable t) { WARSYSTEM_LOGGER.warn("Could not restore WarChest defender role for colony {}: {}", e.defenderColonyId, t.toString()); }
 
         for (UUID uuid : warData.getAttackerLives().keySet()) {

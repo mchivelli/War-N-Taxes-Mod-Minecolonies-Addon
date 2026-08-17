@@ -442,15 +442,10 @@ public class VassalManager {
 
         // FTB Teams extension: also notify members of the owner's FTB party (if installed)
         try {
-            if (ownerId != null && WarSystem.FTB_TEAMS_INSTALLED && WarSystem.FTB_TEAM_MANAGER != null) {
-                var teamOpt = WarSystem.FTB_TEAM_MANAGER.getTeamForPlayerID(ownerId);
+            if (ownerId != null) {
+                var teamOpt = net.machiavelli.minecolonytax.compat.FtbTeamsCompat.getTeamForPlayer(ownerId);
                 if (teamOpt.isPresent()) {
-                    var team = teamOpt.get();
-                    // For party teams, notify direct members
-                    try {
-                        var members = team.getMembers();
-                        if (members != null) recipients.addAll(members);
-                    } catch (Throwable ignoredInner) {}
+                    recipients.addAll(net.machiavelli.minecolonytax.compat.FtbTeamsCompat.getTeamMembers(teamOpt.get()));
                 }
             }
         } catch (Throwable ignored) {}
@@ -482,16 +477,16 @@ public class VassalManager {
     private static IColony getPrimaryColonyOfPlayer(UUID playerId) {
         IColonyManager cm = IMinecoloniesAPI.getInstance().getColonyManager();
         for (IColony c : cm.getAllColonies()) {
-            if (c.getPermissions().getOwner().equals(playerId)) return c;
+            if (playerId.equals(c.getPermissions().getOwner())) return c;
         }
         return null;
     }
 
     private static IColony getColonyById(int colonyId) {
-        return IMinecoloniesAPI.getInstance().getColonyManager().getAllColonies().stream()
-                .filter(c -> c.getID() == colonyId)
-                .findFirst()
-                .orElse(null);
+        // Ids are unique per dimension only, so a bare filter picks whichever level iterates
+        // first. This resolver feeds the tribute transfer - a wrong resolve moves money between
+        // the wrong colonies.
+        return net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId);
     }
 
     /* ---------------- data persistence ------------- */

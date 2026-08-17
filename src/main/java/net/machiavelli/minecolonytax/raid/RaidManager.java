@@ -60,7 +60,7 @@ public class RaidManager {
             ServerPlayer raider = context.getSource().getPlayerOrException();
             // Prefer the colony where the player is the OWNER; fall back to any colony where the player is a member.
             IColony raiderColony = IColonyManager.getInstance().getColonies(raider.level()).stream()
-                    .filter(c -> c.getPermissions().getOwner().equals(raider.getUUID()))
+                    .filter(c -> raider.getUUID().equals(c.getPermissions().getOwner()))
                     .findFirst()
                     .orElseGet(() -> IColonyManager.getInstance().getColonies(raider.level()).stream()
                             .filter(c -> c.getPermissions().getPlayers().containsKey(raider.getUUID()))
@@ -178,7 +178,7 @@ public class RaidManager {
             // Send comprehensive raid instructions to the raider
             sendRaidInstructions(raider, colony, targetGuards);
 
-            if (colony.getPermissions().getOwner().equals(raiderUUID)) {
+            if (raiderUUID.equals(colony.getPermissions().getOwner())) {
                 context.getSource().sendFailure(Component.literal("You cannot raid your own colony!"));
                 return 0;
             }

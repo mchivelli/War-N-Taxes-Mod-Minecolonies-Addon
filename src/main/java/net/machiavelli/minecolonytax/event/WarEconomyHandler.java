@@ -1,7 +1,6 @@
 package net.machiavelli.minecolonytax.event;
 
 import com.minecolonies.api.colony.IColony;
-import dev.ftb.mods.ftbteams.api.Team;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.WarSystem;
@@ -21,7 +20,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static net.machiavelli.minecolonytax.WarSystem.FTB_TEAMS_INSTALLED;
-import static net.machiavelli.minecolonytax.WarSystem.FTB_TEAM_MANAGER;
 
 /**
  * Handles transferring or deducting money from entire teams (attacker or defender).
@@ -45,10 +43,12 @@ public class WarEconomyHandler {
      */
     private static List<UUID> resolveTeamMembers(UUID teamID) {
         List<UUID> members = new ArrayList<>();
-        if (FTB_TEAMS_INSTALLED && FTB_TEAM_MANAGER != null) {
-            Team team = FTB_TEAM_MANAGER.getTeamByID(teamID).orElse(null);
+        if (FTB_TEAMS_INSTALLED) {
+            net.machiavelli.minecolonytax.compat.FtbTeamsCompat.TeamHandle team =
+                    teamID == null ? null
+                            : net.machiavelli.minecolonytax.compat.FtbTeamsCompat.getTeamById(teamID).orElse(null);
             if (team != null) {
-                members.addAll(team.getMembers());
+                members.addAll(net.machiavelli.minecolonytax.compat.FtbTeamsCompat.getTeamMembers(team));
                 return members;
             }
             // FTB present but no matching team → fall through to war-roster / lone-player resolution.
@@ -79,9 +79,13 @@ public class WarEconomyHandler {
         long totalDeducted = 0L;
         List<UUID> losingPlayers = new ArrayList<>();
         if (FTB_TEAMS_INSTALLED) {
-            Team losingTeam = FTB_TEAM_MANAGER.getTeamByID(teamID).orElse(null);
+            // NOTE: this used FTB_TEAM_MANAGER without the null check the sibling branch had,
+            // so an installed-but-unavailable manager NPE'd here. The shim cannot be null.
+            net.machiavelli.minecolonytax.compat.FtbTeamsCompat.TeamHandle losingTeam =
+                    teamID == null ? null
+                            : net.machiavelli.minecolonytax.compat.FtbTeamsCompat.getTeamById(teamID).orElse(null);
             if (losingTeam != null) {
-                losingPlayers.addAll(losingTeam.getMembers());
+                losingPlayers.addAll(net.machiavelli.minecolonytax.compat.FtbTeamsCompat.getTeamMembers(losingTeam));
             } else {
                 losingPlayers.add(teamID);
             }

@@ -570,7 +570,7 @@ public class BesiegeManager {
 
         // 2. Cannot besiege own colony
         if (colony.getPermissions().getOwner() != null
-                && colony.getPermissions().getOwner().equals(besiegerUUID)) {
+                && besiegerUUID.equals(colony.getPermissions().getOwner())) {
             besieger.sendSystemMessage(Component.literal("You cannot besiege your own colony.")
                     .withStyle(ChatFormatting.RED));
             return false;
@@ -1942,10 +1942,10 @@ public class BesiegeManager {
     }
 
     private static IColony getColonyById(int colonyId) {
-        return IMinecoloniesAPI.getInstance().getColonyManager().getAllColonies().stream()
-                .filter(c -> c.getID() == colonyId)
-                .findFirst()
-                .orElse(null);
+        // Besiege state (ACTIVE_RAIDS, OCCUPATIONS, spoils) is keyed on the bare colony id, and
+        // ids are unique per dimension only - a wrong resolve moves treasury between the wrong
+        // colonies.
+        return net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId);
     }
 
     private static IColony getPrimaryColonyOfPlayer(UUID playerId) {
@@ -1953,9 +1953,7 @@ public class BesiegeManager {
         // Prefer FCT: it tracks the true first colony regardless of permissions state
         Integer firstColonyId = FirstColonyTracker.getFirstColony(playerId);
         if (firstColonyId != null) {
-            IColony first = cm.getAllColonies().stream()
-                    .filter(c -> c.getID() == firstColonyId)
-                    .findFirst().orElse(null);
+            IColony first = net.machiavelli.minecolonytax.util.ColonyLookup.byId(firstColonyId);
             if (first != null) return first;
         }
         // Fallback: any colony where the player is listed as MC owner

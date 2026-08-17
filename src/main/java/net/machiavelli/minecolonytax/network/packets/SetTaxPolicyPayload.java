@@ -40,11 +40,9 @@ public record SetTaxPolicyPayload(int colonyId, String policyName) implements Cu
         context.enqueueWork(() -> {
             if (!(context.player() instanceof ServerPlayer player)) return;
 
-            IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-            IColony colony = colonyManager.getAllColonies().stream()
-                    .filter(c -> c.getID() == payload.colonyId)
-                    .findFirst()
-                    .orElse(null);
+            // Colony ids are only unique per dimension, so a bare getAllColonies() filter can
+            // resolve a same-id colony from another dimension.
+            IColony colony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(payload.colonyId, player);
 
             if (colony == null) {
                 player.sendSystemMessage(Component.literal("\u00a7cColony not found!"));

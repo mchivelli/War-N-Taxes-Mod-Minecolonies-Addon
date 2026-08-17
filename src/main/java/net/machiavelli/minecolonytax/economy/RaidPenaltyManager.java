@@ -62,8 +62,7 @@ public class RaidPenaltyManager {
     public static IColony getColony(int colonyId) {
         if (SERVER == null)
             return null;
-        IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-        return colonyManager.getColonyByWorld(colonyId, SERVER.overworld());
+        return net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId);
     }
 
     // ==================== Penalty Operations ====================

@@ -58,8 +58,25 @@ authors="${mod_authors}"
 [[dependencies.${mod_id}]]
     modId="minecolonies"
     type="required"
-    versionRange="[1.1.759,)"
+    # Floor is the oldest MineColonies whose API surface has actually been VERIFIED against this
+    # build (see CompatibilityCheck + CompatibilityCheckTest), not the oldest that might work.
+    # It used to read [1.1.759,) - a claim nothing tested. MineColonies removes API between
+    # builds and the mismatches are missing methods / missing enum constants, so NeoForge loads
+    # the mod happily and the server dies mid-session: exactly how 5.0.4 shipped broken.
+    # Verified: 1.1.1164 and 1.1.1368. Upper bound stays open because a future MineColonies
+    # cannot be tested in advance; CompatibilityCheck reports drift inside the range at startup.
+    versionRange="[1.1.1164,)"
     ordering="AFTER"
+    side="BOTH"
+
+# Corpse (henkelmax) - OPTIONAL. Only used to let a player retrieve their OWN corpse inside a
+# colony they have no interaction rights in; no Corpse type is referenced anywhere in the code
+# (the entity is matched by its registry id), so the mod is genuinely optional at runtime.
+[[dependencies.${mod_id}]]
+    modId="corpse"
+    type="optional"
+    versionRange="[1.0,)"
+    ordering="NONE"
     side="BOTH"
 
 [[dependencies.${mod_id}]]

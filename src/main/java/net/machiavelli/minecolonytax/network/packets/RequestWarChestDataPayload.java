@@ -41,7 +41,11 @@ public record RequestWarChestDataPayload(int colonyId) implements CustomPacketPa
             if (!TaxConfig.isWarChestEnabled()) return;
 
             IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-            IColony colony = colonyManager.getColonyByWorld(payload.colonyId, player.level());
+            // Resolved via ColonyLookup: getColonyByWorld(id, level) only sees colonies
+            // registered in the level the player currently stands in, and a bare
+            // getAllColonies() filter can hit a same-id colony from another dimension
+            // (ids are unique per dimension only).
+            IColony colony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(payload.colonyId, player);
             if (colony == null) {
                 player.sendSystemMessage(net.minecraft.network.chat.Component
                         .literal("War chest: colony not found in this dimension.")

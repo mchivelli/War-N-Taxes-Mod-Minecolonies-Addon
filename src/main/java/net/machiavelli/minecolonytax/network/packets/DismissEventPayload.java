@@ -55,8 +55,9 @@ public record DismissEventPayload(int colonyId, String eventId) implements Custo
             if (!(context.player() instanceof ServerPlayer player)) return;
             if (player.getServer() == null) return;
 
-            IColony colony = IMinecoloniesAPI.getInstance().getColonyManager()
-                    .getColonyByWorld(payload.colonyId(), player.getServer().overworld());
+            // Was pinned to the overworld, so events could not be dismissed for a colony in
+            // any other dimension.
+            IColony colony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(payload.colonyId(), player);
             if (colony == null) return;
 
             if (!colony.getPermissions().hasPermission(player, Action.ACCESS_HUTS)) return;

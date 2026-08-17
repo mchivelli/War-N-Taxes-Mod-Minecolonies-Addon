@@ -278,21 +278,53 @@ public class FactionCommand {
             return 0;
         }
 
-        if (faction.withdrawTax(amount)) {
-            // Give money to colony or player? "Tax credits" usually implies virtual
-            // currency or War Chest.
-            // Let's add it to the War Chest of the leader colony.
-            net.machiavelli.minecolonytax.economy.WarChestManager.deposit(player, colony.getID(), amount);
-
-            FactionManager.saveData();
-            source.sendSuccess(
-                    () -> Component.literal("Withdrew " + amount + " to War Chest.").withStyle(ChatFormatting.GREEN),
-                    true);
-            return Command.SINGLE_SUCCESS;
-        } else {
+        if (!faction.withdrawTax(amount)) {
             source.sendFailure(Component.literal("Insufficient funds in faction pool."));
             return 0;
         }
+
+        // The faction pool has now been debited, so everything below MUST either land the coins
+        // in the war chest or hand them back.
+        //
+        // This used to call WarChestManager.deposit(player, colonyId, amount), which is a transfer
+        // FROM the colony's tax ledger INTO the war chest - it does its own
+        // TaxManager.adjustTax(colony, -amount). So the colony's tax was charged as well:
+        // pool -amount, colony tax -amount, war chest +amount, and the pool's coins were destroyed
+        // on the SUCCESS path. Its return value was also ignored, so when it refused (war chest
+        // disabled or full, colony tax too low) the pool was debited, nothing was credited, and the
+        // player was still told "Withdrew X to War Chest". These are already-owned faction coins,
+        // so credit the war chest directly.
+        int colonyId = colony.getID();
+        int before = net.machiavelli.minecolonytax.economy.WarChestManager.getWarChestBalance(colonyId);
+        int after = net.machiavelli.minecolonytax.economy.WarChestManager.addToWarChest(colonyId, amount);
+        int credited = Math.max(0, after - before);
+
+        // addToWarChest clamps at capacity; refund whatever did not fit.
+        int refunded = amount - credited;
+        if (refunded > 0) {
+            faction.addTax(refunded);
+        }
+
+        FactionManager.saveData();
+
+        if (credited <= 0) {
+            source.sendFailure(Component.literal(
+                    "The war chest is at maximum capacity - nothing was withdrawn, your "
+                            + amount + " is still in the faction pool.")
+                    .withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
+        final int creditedFinal = credited;
+        final int refundedFinal = refunded;
+        source.sendSuccess(
+                () -> Component.literal("Withdrew " + creditedFinal + " to War Chest."
+                        + (refundedFinal > 0
+                                ? " (" + refundedFinal + " did not fit and stayed in the faction pool.)"
+                                : ""))
+                        .withStyle(ChatFormatting.GREEN),
+                true);
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int executeRelation(CommandSourceStack source, String targetFactionName, FactionRelation relation) {

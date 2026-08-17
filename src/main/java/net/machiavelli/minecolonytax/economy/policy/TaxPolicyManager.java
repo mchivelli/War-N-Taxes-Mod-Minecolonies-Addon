@@ -66,12 +66,9 @@ public class TaxPolicyManager {
     /**
      * Get a colony by ID.
      */
-    public static IColony getColony(int colonyId) {
-        if (SERVER == null)
-            return null;
-        IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-        return colonyManager.getColonyByWorld(colonyId, SERVER.overworld());
-    }
+    // Removed: an unused getColony(int) helper that resolved ids against SERVER.overworld()
+    // only. Dead code, and a dimension-blind resolver waiting for a future caller to pick it
+    // up. Use ColonyLookup.byId(...) if id-based resolution is ever needed here.
 
     // ==================== Policy Operations ====================
 
@@ -276,7 +273,7 @@ public class TaxPolicyManager {
         IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
         for (var world : SERVER.getAllLevels()) {
             for (IColony colony : colonyManager.getColonies(world)) {
-                if (colony.getPermissions().getOwner().equals(player.getUUID())) {
+                if (player.getUUID().equals(colony.getPermissions().getOwner())) {
                     return colony;
                 }
                 if (colony.getPermissions().getRank(player.getUUID()).isColonyManager()) {
