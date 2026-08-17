@@ -49,8 +49,9 @@ public class DismissEventPacket {
             ServerPlayer player = context.getSender();
             if (player == null) return;
 
-            IColony colony = IMinecoloniesAPI.getInstance().getColonyManager()
-                    .getColonyByWorld(colonyId, player.getServer().overworld());
+            // Was pinned to the overworld, so events could not be dismissed for a colony in
+            // any other dimension.
+            IColony colony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId, player);
             if (colony == null) return;
 
             if (!colony.getPermissions().hasPermission(player, Action.ACCESS_HUTS)) return;

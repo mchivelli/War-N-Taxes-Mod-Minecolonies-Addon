@@ -3,9 +3,7 @@ package net.machiavelli.minecolonytax.economy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import com.minecolonies.api.IMinecoloniesAPI;
 import com.minecolonies.api.colony.IColony;
-import com.minecolonies.api.colony.IColonyManager;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.TaxManager;
 import net.machiavelli.minecolonytax.integration.CurrencyService;
@@ -595,10 +593,24 @@ public class TreasuryManager {
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, effective));
     }
 
+    /**
+     * Resolve a colony id for treasury purposes.
+     *
+     * <p>This used to be {@code getColonyByWorld(colonyId, SERVER.overworld())}, which reads the
+     * colony-manager capability of the overworld ONLY. TaxManager generates tax across every
+     * level ({@code getAllLevels() -> getColonies(world)}), so a colony outside the overworld
+     * accrued tax but was invisible here: deposits failed with "Colony not found", and
+     * {@code getRequiredTreasury} silently valued it at 0, making war on it artificially cheap.
+     * Worse, because MineColonies ids are unique per dimension only, an overworld colony sharing
+     * the id was returned instead — so a TAX_BALANCE deposit debited a different colony's ledger.
+     *
+     * <p>Deliberately the player-less {@link ColonyLookup#byId(int)} overload: TREASURIES is
+     * itself keyed by the bare colony id, so resolution must be deterministic and must not depend
+     * on which dimension the acting player happens to be standing in.
+     */
     public static IColony getColony(int colonyId) {
         if (SERVER == null)
             return null;
-        IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-        return colonyManager.getColonyByWorld(colonyId, SERVER.overworld());
+        return net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId);
     }
 }

@@ -57,6 +57,12 @@ public class TaxManagementScreen extends Screen {
     private final List<ColonyTaxData> colonies = new ArrayList<>();
     private final List<VassalIncomeData> vassalData = new ArrayList<>();
     private final List<OfficerData> officerData = new ArrayList<>();
+    /** Colony the officer list belongs to; -2 = nothing loaded yet (distinguishes "loading" from "empty"). */
+    private int officerDataColonyId = -2;
+    /** Colony-wide default per action, as reported by the server. */
+    private final java.util.Map<net.machiavelli.minecolonytax.permissions.ColonyPermission, Boolean>
+            colonyPermissionDefaults = new java.util.EnumMap<>(
+                    net.machiavelli.minecolonytax.permissions.ColonyPermission.class);
     private final List<SpyMissionData> spyMissions = new ArrayList<>();
     private final List<ColonySummary> allColonySummaries = new ArrayList<>();
     private final Map<Integer, List<EventLogEntry>> eventLogData = new HashMap<>();
@@ -128,9 +134,21 @@ public class TaxManagementScreen extends Screen {
         }
     }
 
-    public void updateOfficerData(List<OfficerData> newOfficerData, int colonyId) {
+    public void updateOfficerData(List<OfficerData> newOfficerData, int colonyId,
+                                  java.util.Map<net.machiavelli.minecolonytax.permissions.ColonyPermission,
+                                          Boolean> colonyDefaults) {
+        // Drop responses for a colony that is no longer selected. The colonyId used to be
+        // ignored, so a late reply for the previously selected colony overwrote the list the
+        // player was actually looking at.
+        if (colonyId != -1 && (selectedColony == null || selectedColony.getColonyId() != colonyId)) {
+            return;
+        }
+
         this.officerData.clear();
         this.officerData.addAll(newOfficerData);
+        this.officerDataColonyId = colonyId;
+        this.colonyPermissionDefaults.clear();
+        if (colonyDefaults != null) this.colonyPermissionDefaults.putAll(colonyDefaults);
     }
 
     public void updateSpyData(List<SpyMissionData> missions) {
@@ -182,7 +200,9 @@ public class TaxManagementScreen extends Screen {
                 () -> vassalData, () -> colonies, this::requestColonyData));
 
         pages.put(BookTab.OFFICERS, new OfficersPage(this, this.font,
-                () -> officerData, () -> selectedColony));
+                () -> officerData, () -> selectedColony,
+                () -> officerDataColonyId,
+                perm -> colonyPermissionDefaults.getOrDefault(perm, perm.isDefaultAllowed())));
 
         treasuryPage = new TreasuryPage(this, this.font, () -> selectedColony,
                 eb -> this.addRenderableWidget(eb),
@@ -238,6 +258,14 @@ public class TaxManagementScreen extends Screen {
     private void requestColonyData() {
         NetworkHandler.sendToServer(new RequestColonyDataPacket());
         officerData.clear();
+        officerDataColonyId = -2;
+        // Re-request instead of only clearing: hitting Refresh while the Officers tab was open
+        // used to wipe the list and leave it on "Loading..." until the player switched tabs.
+        if (selectedColony != null) {
+            NetworkHandler.sendToServer(
+                    new net.machiavelli.minecolonytax.network.packets.RequestOfficerDataPacket(
+                            selectedColony.getColonyId()));
+        }
     }
 
     private void claimAllTaxes() {

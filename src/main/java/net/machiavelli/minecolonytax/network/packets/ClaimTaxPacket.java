@@ -67,10 +67,10 @@ public class ClaimTaxPacket {
 
             // Find the colony
             IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-            IColony colony = colonyManager.getAllColonies().stream()
-                .filter(c -> c.getID() == colonyId)
-                .findFirst()
-                .orElse(null);
+            // Colony ids are only unique per dimension, so a bare getAllColonies() filter could
+            // pick a same-id colony from another dimension — on this path that would move real
+            // money. ColonyLookup resolves the asking player's own dimension first.
+            IColony colony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId, player);
                 
             if (colony == null) {
                 player.sendSystemMessage(Component.literal("Colony not found!"));

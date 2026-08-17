@@ -3,7 +3,6 @@ package net.machiavelli.minecolonytax.compat;
 import dev.ftb.mods.ftbteams.FTBTeamsAPIImpl;
 import dev.ftb.mods.ftbteams.api.Team;
 import dev.ftb.mods.ftbteams.api.TeamManager;
-import dev.ftb.mods.ftbteams.data.PartyTeam;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -77,7 +76,10 @@ final class FtbTeamsCompatImpl {
     static Set<UUID> getPartyMembers(FtbTeamsCompat.TeamHandle handle) {
         Team t = (Team) handle.raw();
         if (!t.isPartyTeam()) return Collections.emptySet();
-        Collection<UUID> members = ((PartyTeam) t).getMembers();
+        // Read through the Team interface rather than casting to the concrete PartyTeam.
+        // getMembers() is declared on Team itself, so the cast bought nothing while adding a
+        // ClassCastException path for any party team that is not that exact implementation.
+        Collection<UUID> members = t.getMembers();
         if (members == null) return Collections.emptySet();
         return new java.util.HashSet<>(members);
     }

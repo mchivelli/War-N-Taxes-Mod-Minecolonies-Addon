@@ -258,7 +258,7 @@ public class ColonyDataCollector {
             double happinessMultiplier = TaxConfig.calculateHappinessTaxMultiplier(colonyHappiness);
             int approximateRevenue = calculateApproximateRevenue(buildingCount, guardTowerCount, happinessMultiplier);
 
-            boolean isOwner = colony.getPermissions().getOwner().equals(playerId);
+            boolean isOwner = playerId.equals(colony.getPermissions().getOwner());
             String taxPolicy = TaxPolicyManager.getPolicy(colonyId).name();
 
             return new ColonyTaxData(

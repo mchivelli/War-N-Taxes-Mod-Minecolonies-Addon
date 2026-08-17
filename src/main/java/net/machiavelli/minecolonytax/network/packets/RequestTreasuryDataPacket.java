@@ -50,7 +50,7 @@ public class RequestTreasuryDataPacket {
             }
 
             IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-            IColony colony = colonyManager.getColonyByWorld(colonyId, player.level());
+            IColony colony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId, player);
 
             if (colony == null) {
                 player.sendSystemMessage(net.minecraft.network.chat.Component

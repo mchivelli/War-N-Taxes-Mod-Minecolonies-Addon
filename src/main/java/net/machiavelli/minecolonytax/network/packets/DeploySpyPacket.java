@@ -67,6 +67,20 @@ public class DeploySpyPacket {
                 return;
             }
 
+            // Spy missions are billed to the colony treasury, so the owner can withhold this
+            // per officer in the Officers tab. Granted by default — nothing changes until an
+            // owner turns it off.
+            boolean isOwner = playerRank.equals(colony.getPermissions().getRankOwner());
+            boolean isOfficer = playerRank.equals(colony.getPermissions().getRankOfficer()) || isOwner;
+            if (!net.machiavelli.minecolonytax.permissions.TaxPermissionManager.can(colony.getID(),
+                    player.getUUID(), net.machiavelli.minecolonytax.permissions.ColonyPermission.DEPLOY_SPY,
+                    isOwner, isOfficer)) {
+                player.sendSystemMessage(Component.literal(
+                        "You do not have permission to deploy spies for this colony.")
+                        .withStyle(ChatFormatting.RED));
+                return;
+            }
+
             SpyManager.deploySpyMission(player, colony.getID(), targetColonyId, missionType);
 
             // Trigger a refresh after deploying so UI updates

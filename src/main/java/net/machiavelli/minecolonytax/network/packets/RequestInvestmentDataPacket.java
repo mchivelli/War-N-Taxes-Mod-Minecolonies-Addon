@@ -48,10 +48,15 @@ public class RequestInvestmentDataPacket {
             }
 
             IColonyManager mgr = IMinecoloniesAPI.getInstance().getColonyManager();
-            IColony colony = mgr.getColonyByWorld(colonyId, player.level());
+            // Keeps 5.0.4's "say why it was refused" message, but resolves through ColonyLookup:
+            // getColonyByWorld(id, player.level()) only sees the dimension the player is standing
+            // in, so an overworld colony was "not found" the moment its owner stepped into the
+            // Nether. The message is worded accordingly — this now really is unknown, not merely
+            // absent from the current dimension.
+            IColony colony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId, player);
             if (colony == null) {
                 player.sendSystemMessage(net.minecraft.network.chat.Component
-                        .literal("Investments: colony not found in this dimension.")
+                        .literal("Investments: colony not found.")
                         .withStyle(net.minecraft.ChatFormatting.RED));
                 return;
             }

@@ -62,10 +62,14 @@ public class RaidManager {
             ServerPlayer raider = context.getSource().getPlayerOrException();
             UUID raiderUUID = raider.getUUID();
 
-            // Collect all colonies this player owns, FCT-primary colony first
-            int primaryColonyId = net.machiavelli.minecolonytax.FirstColonyTracker.getFirstColony(raiderUUID);
+            // Collect all colonies this player owns, FCT-primary colony first.
+            // getFirstColony() returns a nullable Integer; unboxing it straight into an int threw
+            // for anyone without a tracked colony — i.e. /wnt raid crashed instead of reporting
+            // "You must own a colony to initiate a raid.".
+            Integer trackedPrimary = net.machiavelli.minecolonytax.FirstColonyTracker.getFirstColony(raiderUUID);
+            final int primaryColonyId = trackedPrimary != null ? trackedPrimary : -1;
             List<IColony> ownedColonies = IColonyManager.getInstance().getColonies(raider.level()).stream()
-                    .filter(c -> c.getPermissions().getOwner().equals(raiderUUID))
+                    .filter(c -> raiderUUID.equals(c.getPermissions().getOwner()))
                     .sorted((a, b) -> {
                         if (a.getID() == primaryColonyId) return -1;
                         if (b.getID() == primaryColonyId) return 1;
@@ -261,7 +265,7 @@ public class RaidManager {
                 return 0;
             }
 
-            if (colony.getPermissions().getOwner().equals(raiderUUID)) {
+            if (raiderUUID.equals(colony.getPermissions().getOwner())) {
                 context.getSource().sendFailure(Component.literal("You cannot raid your own colony!"));
                 return 0;
             }

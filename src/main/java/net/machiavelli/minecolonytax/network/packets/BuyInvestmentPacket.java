@@ -43,7 +43,7 @@ public class BuyInvestmentPacket {
             if (player == null || !TaxConfig.isUpgradesEnabled()) return;
 
             IColonyManager mgr = IMinecoloniesAPI.getInstance().getColonyManager();
-            IColony colony = mgr.getColonyByWorld(colonyId, player.level());
+            IColony colony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId, player);
             if (colony == null) return;
             // Align packet auth with the /wnt invest buy slash command (WntCommands.java:3833):
             // investment purchases are OWNER-ONLY. Officers can manage the colony but not

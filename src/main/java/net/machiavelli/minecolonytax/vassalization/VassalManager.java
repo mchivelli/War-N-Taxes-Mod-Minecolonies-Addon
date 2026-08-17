@@ -529,11 +529,13 @@ public class VassalManager {
         return null;
     }
 
+    /**
+     * Colony ids are unique per dimension only, so a bare getAllColonies() filter silently picks
+     * whichever level iterates first. Vassal relations are keyed on the bare id and this resolver
+     * feeds the tribute transfer, so a wrong resolve moves money between the wrong colonies.
+     */
     private static IColony getColonyById(int colonyId) {
-        return IMinecoloniesAPI.getInstance().getColonyManager().getAllColonies().stream()
-                .filter(c -> c.getID() == colonyId)
-                .findFirst()
-                .orElse(null);
+        return net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId);
     }
 
     private static void loadData(MinecraftServer server) {

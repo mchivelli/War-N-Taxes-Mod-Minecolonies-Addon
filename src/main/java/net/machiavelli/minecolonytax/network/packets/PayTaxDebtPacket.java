@@ -53,11 +53,9 @@ public class PayTaxDebtPacket {
             if (player == null) return;
             
             // Find the colony
-            IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-            IColony colony = colonyManager.getAllColonies().stream()
-                .filter(c -> c.getID() == colonyId)
-                .findFirst()
-                .orElse(null);
+            // Colony ids are only unique per dimension, so a bare getAllColonies() filter can
+            // resolve a same-id colony from another dimension.
+            IColony colony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId, player);
                 
             if (colony == null) {
                 player.sendSystemMessage(Component.literal("Colony not found!"));

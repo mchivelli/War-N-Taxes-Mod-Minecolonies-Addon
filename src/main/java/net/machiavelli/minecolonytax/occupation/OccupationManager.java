@@ -342,14 +342,22 @@ public class OccupationManager {
             return 0;
         }
 
-        TaxManager.adjustTax(colony, -taxToCollect);
-
-        if (data.occupierColonyId > 0) {
-            IColony occupierColony = findColonyById(data.occupierColonyId);
-            if (occupierColony != null) {
-                TaxManager.incrementTaxRevenue(occupierColony, taxToCollect);
-            }
+        // MONEY CONSERVATION: resolve the RECIPIENT before debiting the occupied colony.
+        // This used to deduct first and credit only "if (occupierColonyId > 0 && colony != null)",
+        // so an occupier whose own colony had been deleted, abandoned or was never recorded
+        // silently destroyed the tax — taken from the occupied colony, credited to nobody, while
+        // the player was still told "Collected X occupation tax". Same guard VassalManager
+        // already applies to tribute.
+        IColony occupierColony = data.occupierColonyId > 0 ? findColonyById(data.occupierColonyId) : null;
+        if (occupierColony == null) {
+            occupier.sendSystemMessage(Component.literal(
+                    "You have no colony to receive the occupation tax, so nothing was collected.")
+                    .withStyle(ChatFormatting.RED));
+            return 0;
         }
+
+        TaxManager.adjustTax(colony, -taxToCollect);
+        TaxManager.incrementTaxRevenue(occupierColony, taxToCollect);
 
         data.lastTaxCollectionTime = System.currentTimeMillis();
         saveData();
@@ -386,15 +394,20 @@ public class OccupationManager {
         diverted = Math.min(diverted, available);
         if (diverted <= 0) return 0;
 
-        if (data.occupierColonyId > 0) {
-            IColony occupierColony = findColonyById(data.occupierColonyId);
-            if (occupierColony != null) {
-                TaxManager.incrementTaxRevenue(occupierColony, diverted);
-                if (TaxConfig.isDebugLogging()) {
-                    LOGGER.info("Auto-diverted {} occupation tax from colony {} to occupier colony {}",
-                            diverted, colonyId, data.occupierColonyId);
-                }
-            }
+        // The caller debits the occupied colony by exactly our return value, so returning a
+        // non-zero amount without crediting anyone DESTROYS it. The clamp above conserved money
+        // against over-crediting but left this hole open: a missing occupier colony skipped the
+        // credit and still returned `diverted`. Resolve the recipient first and return 0 (no
+        // debit at all) when there is none.
+        IColony occupierColony = data.occupierColonyId > 0 ? findColonyById(data.occupierColonyId) : null;
+        if (occupierColony == null) {
+            return 0;
+        }
+
+        TaxManager.incrementTaxRevenue(occupierColony, diverted);
+        if (TaxConfig.isDebugLogging()) {
+            LOGGER.info("Auto-diverted {} occupation tax from colony {} to occupier colony {}",
+                    diverted, colonyId, data.occupierColonyId);
         }
 
         return diverted;

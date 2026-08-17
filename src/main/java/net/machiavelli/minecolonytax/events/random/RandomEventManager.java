@@ -2,9 +2,7 @@ package net.machiavelli.minecolonytax.events.random;
 
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
-import com.minecolonies.api.IMinecoloniesAPI;
 import com.minecolonies.api.colony.IColony;
-import com.minecolonies.api.colony.IColonyManager;
 import net.machiavelli.minecolonytax.TaxConfig;
 import net.machiavelli.minecolonytax.events.random.deep.CitizenManipulator;
 import net.minecraft.core.BlockPos;
@@ -675,17 +673,9 @@ public class RandomEventManager {
         }
     }
 
-    /**
-     * Get a colony by ID.
-     *
-     * @param colonyId The colony ID
-     * @return The colony, or null if not found
-     */
-    private static IColony getColony(int colonyId) {
-        if (SERVER == null) return null;
-        IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-        return colonyManager.getColonyByWorld(colonyId, SERVER.overworld());
-    }
+    // Removed: an unused private getColony(int) that resolved ids against SERVER.overworld()
+    // only — dead code, and a dimension-blind resolver waiting to be picked up by a future
+    // caller. Use ColonyLookup.byId(...) if id-based resolution is ever needed here.
 
     /**
      * Notify colony players about an event.

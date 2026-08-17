@@ -323,6 +323,16 @@ public class WarSystem {
         final long[] tickCount = {0}; // mutable counter for periodic save
 
         data.warChestDrainTaskId = TickScheduler.scheduleRepeating(() -> {
+            // "Still my war" identity guard (same pattern as checkForVictory /
+            // handleTimeExpiry). A drain task that outlives its war must not keep
+            // draining treasury — and must never end the *replacement* war that a
+            // later declaration registered under the same defender colony id.
+            if (ACTIVE_WARS.get(defenderColonyId) != data) {
+                TickScheduler.cancel(data.warChestDrainTaskId);
+                data.warChestDrainTaskId = -1;
+                return;
+            }
+
             tickCount[0]++;
 
             int defenderResult = net.machiavelli.minecolonytax.economy.TreasuryManager.drainTreasury(defenderColonyId);
@@ -336,12 +346,17 @@ public class WarSystem {
                 net.machiavelli.minecolonytax.economy.TreasuryManager.save();
             }
 
-            // Auto-surrender if either side is depleted
+            // Auto-surrender if either side is depleted.
+            //
+            // ACTIVE_WARS is keyed by the DEFENDER colony id, and endWar() resolves the
+            // war via ACTIVE_WARS.remove(colony.getID()). Passing the ATTACKER colony
+            // here (the old behaviour when the attacker ran dry) therefore did not end
+            // this war at all: it either found nothing and returned early — leaving the
+            // war running and re-firing this branch every 60s forever — or, if the
+            // attacker happened to be the defender of a *different* war, it ended that
+            // unrelated war instead. Always end the war this task belongs to.
             if (defenderResult == -1 || attackerResult == -1) {
-                IColony colony = defenderResult == -1 ? defenderColony : attackerColony;
-                if (colony != null) {
-                    endWar(colony);
-                }
+                endWar(defenderColony);
             }
         }, 60_000, 60_000);
     }
@@ -2560,7 +2575,7 @@ public class WarSystem {
                 : null;
 
         IColony attackerColony = IColonyManager.getInstance().getColonies(attacker.level()).stream()
-                .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                .filter(c -> attacker.getUUID().equals(c.getPermissions().getOwner()))
                 .findFirst().orElse(null);
         if (attackerColony == null) {
             attacker.sendSystemMessage(Component.literal("You must own a colony to declare war.")
@@ -2945,10 +2960,34 @@ public class WarSystem {
             return null;
 
         UUID playerUUID = player.getUUID();
-        int primaryColonyId = FirstColonyTracker.getFirstColony(playerUUID);
+        // getFirstColony() returns a nullable Integer — unboxing it straight into an int NPEs
+        // for any player without a tracked colony, which is now reachable because officers
+        // (who need not own anything) can get here.
+        Integer trackedPrimary = FirstColonyTracker.getFirstColony(playerUUID);
+        final int primaryColonyId = trackedPrimary != null ? trackedPrimary : -1;
+
         List<IColony> playerColonies = IColonyManager.getInstance().getColonies(player.level()).stream()
-                .filter(c -> c.getPermissions().getOwner().equals(playerUUID))
+                .filter(c -> {
+                    IPermissions perms = c.getPermissions();
+                    // Null-safe: getOwner() can be null on a colony with damaged permissions.
+                    if (playerUUID.equals(perms.getOwner())) return true;
+
+                    // An officer may wage war on the colony's behalf only when the owner granted
+                    // DECLARE_WAR in the Officers tab. That permission is off by default, so
+                    // ownership remains the only route unless someone explicitly opts in.
+                    Rank rank = perms.getRank(playerUUID);
+                    if (rank == null || !rank.isColonyManager()) return false;
+                    boolean isOfficer = rank.equals(perms.getRankOfficer());
+                    return net.machiavelli.minecolonytax.permissions.TaxPermissionManager.can(
+                            c.getID(), playerUUID,
+                            net.machiavelli.minecolonytax.permissions.ColonyPermission.DECLARE_WAR,
+                            false, isOfficer);
+                })
                 .sorted((a, b) -> {
+                    // Colonies the player actually owns outrank colonies they merely officer.
+                    boolean aOwned = playerUUID.equals(a.getPermissions().getOwner());
+                    boolean bOwned = playerUUID.equals(b.getPermissions().getOwner());
+                    if (aOwned != bOwned) return aOwned ? -1 : 1;
                     if (a.getID() == primaryColonyId) return -1;
                     if (b.getID() == primaryColonyId) return 1;
                     return 0;
@@ -2972,7 +3011,7 @@ public class WarSystem {
                     net.machiavelli.minecolonytax.occupation.OccupationManager.getOccupation(potentialAttacker.getID());
                 if (attackerOccData != null && attackerOccData.getOriginalOwnerUUID().equals(player.getUUID())) {
                     UUID occupierUUID = attackerOccData.getOccupierUUID();
-                    if (targetColony.getPermissions().getOwner().equals(occupierUUID)) {
+                    if (occupierUUID.equals(targetColony.getPermissions().getOwner())) {
                         isReclamationWar = true;
                         WARSYSTEM_LOGGER.info(
                                 "Reclamation war (B): {} using occupied colony {} to attack occupier's colony {}",
@@ -3052,7 +3091,7 @@ public class WarSystem {
                 // Find if any of the attacker's colonies are occupied by the target colony's owner
                 UUID targetOwner = targetColony.getPermissions().getOwner();
                 List<IColony> attackerColonies = IColonyManager.getInstance().getColonies(source.getLevel()).stream()
-                        .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                        .filter(c -> attacker.getUUID().equals(c.getPermissions().getOwner()))
                         .toList();
                 for (IColony ac : attackerColonies) {
                     net.machiavelli.minecolonytax.occupation.OccupationManager.OccupationData acOccData =
@@ -3079,7 +3118,7 @@ public class WarSystem {
             // Retained specific error messaging logic for better user feedback if they have
             // at least one colony
             IColony anyColony = IColonyManager.getInstance().getColonies(level).stream()
-                    .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                    .filter(c -> attacker.getUUID().equals(c.getPermissions().getOwner()))
                     .findFirst().orElse(null);
 
             if (anyColony == null) {
@@ -3416,7 +3455,7 @@ public class WarSystem {
         if (attackerColony == null) {
             // Retained specific error messaging logic for better user feedback
             IColony anyColony = IColonyManager.getInstance().getColonies(level).stream()
-                    .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                    .filter(c -> attacker.getUUID().equals(c.getPermissions().getOwner()))
                     .findFirst().orElse(null);
 
             if (anyColony == null) {
@@ -3559,7 +3598,7 @@ public class WarSystem {
         }
 
         Rank executorRank = targetColony.getPermissions().getRank(executor.getUUID());
-        boolean isAuthorized = targetColony.getPermissions().getOwner().equals(executor.getUUID()) ||
+        boolean isAuthorized = executor.getUUID().equals(targetColony.getPermissions().getOwner()) ||
                 (executorRank != null && executorRank.isColonyManager());
         if (!isAuthorized) {
             source.sendFailure(Component.literal("You are not authorized to accept/decline this war request.")
@@ -3590,7 +3629,7 @@ public class WarSystem {
                     executor.getName().getString());
             if (ServerLifecycleHooks.getCurrentServer() != null) {
                 IColony attackerColony = IColonyManager.getInstance().getColonies(attacker.level()).stream()
-                        .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                        .filter(c -> attacker.getUUID().equals(c.getPermissions().getOwner()))
                         .findFirst().orElse(null);
                 String attackerColonyName = attackerColony != null ? attackerColony.getName()
                         : attacker.getName().getString() + "'s forces";

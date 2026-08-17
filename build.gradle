@@ -148,12 +148,15 @@ dependencies {
         jarJar.ranged(it, '[8.0.0,9.0.0)')
     }
 
-    implementation fg.deobf("curse.maven:minecolonies-245506:8186502")
+    implementation fg.deobf("curse.maven:minecolonies-245506:8615315")
     runtimeOnly fg.deobf("curse.maven:blockui-522992:7606230")
     runtimeOnly fg.deobf("curse.maven:multi-piston-303278:7097889")
     runtimeOnly fg.deobf("curse.maven:domum-ornamentum-527361:8179147")
-    runtimeOnly fg.deobf("curse.maven:structurize-298744:8138301")
+    runtimeOnly fg.deobf("curse.maven:structurize-298744:8610456")
     runtimeOnly fg.deobf("curse.maven:jei-238222:7920915")
+    // Corpse (henkelmax) - dev runtime only, so runServer/runClient can exercise the corpse
+    // retrieval integration. Same scope as the other optional integrations above; not shipped.
+    runtimeOnly fg.deobf("curse.maven:corpse-316582:7018272")
     implementation fg.deobf("curse.maven:sdm-shop-948942:7935087")
     runtimeOnly fg.deobf("curse.maven:ftb-library-forge-404465:7296748")
     runtimeOnly fg.deobf("curse.maven:sdm-economy-1102542:6689080")
@@ -180,6 +183,14 @@ dependencies {
     minecraft "net.minecraftforge:forge:1.20.1-47.3.10"
 
     // Unit tests (plain JUnit, no Minecraft bootstrap needed)
+    // Corpse (henkelmax), TEST SCOPE ONLY - project 316582, file 7018272 = 1.20.1-1.0.23.
+    // Deliberately NOT a compile dependency: the production integration touches no Corpse type at
+    // all (entity matched by registry id, owner read reflectively). It is on the test classpath so
+    // CorpseContractTest can assert against the REAL jar that the reflection target still exists -
+    // a Corpse update that renames it then fails the build instead of silently disabling the
+    // feature on players' servers.
+    testRuntimeOnly fg.deobf("curse.maven:corpse-316582:7018272")
+
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -252,6 +263,183 @@ def buildingApiGuard = tasks.register('checkBuildingApiUsage') {
     }
 }
 tasks.named('check') { dependsOn buildingApiGuard }
+
+// ---------------------------------------------------------------------------
+// Colony permission / lookup guard.
+//
+// Two bug classes shipped to players and are easy to reintroduce, so they are
+// gated here rather than left to review:
+//
+//  1. Numeric rank comparisons. MineColonies numbers ranks OWNER=0 .. HOSTILE=4,
+//     i.e. the number grows as privilege FALLS, and colony-defined custom ranks
+//     start at 5. Code written as `rank.getId() >= n` reads backwards: it hid the
+//     owner and every officer from the Officers tab, and separately let ordinary
+//     colony friends answer peace proposals while locking officers out. Use the
+//     named accessors (getRankOwner/getRankOfficer/isColonyManager/isHostile).
+//     Reading getId() is still fine - only comparing it is banned.
+//
+//  2. Ad-hoc colony-id lookups in client-triggered packets. getColonyByWorld(id,
+//     level) only sees the level the player currently stands in, so several
+//     screens came up empty for anyone outside the overworld; and a bare
+//     getAllColonies() filter on getID() is not a safe substitute, because
+//     MineColonies keeps one colony list per dimension with its own id counter,
+//     so ids are unique per dimension only. Packets must use ColonyLookup.
+//
+// Runs automatically as part of `gradlew build` / `gradlew check`.
+// ---------------------------------------------------------------------------
+def colonyPermissionGuard = tasks.register('checkColonyPermissionUsage') {
+    group = 'verification'
+    description = 'Fails the build on numeric rank comparisons or ad-hoc colony-id lookups in packets'
+    def srcDir = file('src/main/java')
+    def reportFile = layout.buildDirectory.file('reports/colonyPermissionGuard.txt')
+    inputs.dir(srcDir)
+    outputs.file(reportFile)
+    doLast {
+        // `rank.getId() >= 2` and friends. Assigning getId() to a variable (as the spy
+        // intel roster does when sorting) is deliberately NOT matched.
+        def rankPattern = ~/(?i)\brank\w*\s*\.\s*getId\s*\(\s*\)\s*(<=|>=|<|>|==|!=)|getRank\s*\(\s*\)\s*\.\s*getId\s*\(\s*\)\s*(<=|>=|<|>|==|!=)/
+        def lookupPattern = ~/\.\s*getColonyByWorld\s*\(|getAllColonies\s*\(\s*\)\s*\.\s*stream\s*\(\s*\)/
+        // `colony.getPermissions().getOwner().equals(uuid)` NPEs on a colony whose owner record
+        // is damaged - and those exist in the wild, which is why this mod ships owner-repair
+        // tooling. Inside a filter over every colony, one bad colony breaks the operation for
+        // everyone. Compare the other way round: `uuid.equals(...getOwner())`.
+        def ownerPattern = ~/\.\s*getOwner\s*\(\s*\)\s*\.\s*equals\s*\(/
+        // Resolving a colony id against a hard-coded overworld. MineColonies defaults
+        // allowotherdimcolonies=true and TaxManager already generates tax across every level,
+        // so an overworld-pinned lookup makes colonies elsewhere invisible - and returns the
+        // WRONG colony when an overworld colony happens to share the id. Matched across
+        // newlines ([^;] spans them) because the call is routinely wrapped onto two lines.
+        def overworldPattern = ~/getColonyByWorld\s*\([^;]*overworld\s*\(\s*\)/
+        // getAllColonies().stream().filter(c -> c.getID() == id) looks global but is not: ids are
+        // unique PER DIMENSION, so this silently picks whichever level iterates first. Matches only
+        // id-FILTERING - plain iteration over all colonies stays legal.
+        def idFilterPattern = ~/getAllColonies\s*\(\s*\)[^;]*?filter[^;]*?getID\s*\(\s*\)\s*==/
+        // Optional mods must only ever be touched from their dedicated impl class. A direct import
+        // anywhere else makes the JVM resolve that type when the OUTER class loads, which throws
+        // NoClassDefFoundError on a server without the mod - before any isLoaded() guard can run.
+        def optionalModPackages = ['dev.ftb.': 'FtbTeamsCompatImpl.java', 'journeymap.': 'JmImpl.java']
+
+        def rankOffenders = []
+        def lookupOffenders = []
+        def ownerOffenders = []
+        def overworldOffenders = []
+        def idFilterOffenders = []
+        def optionalImportOffenders = []
+
+        srcDir.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+            if (!f.name.endsWith('.java')) return
+            if (f.name == 'ColonyLookup.java') return
+            def path = f.absolutePath.replace('\\', '/')
+            boolean isPacket = path.contains('/network/packets/')
+
+            boolean inBlockComment = false
+            def strippedFile = new StringBuilder()
+            f.readLines('UTF-8').eachWithIndex { line, idx ->
+                def code = line
+                if (inBlockComment) {
+                    def end = code.indexOf('*/')
+                    if (end < 0) return
+                    code = code.substring(end + 2)
+                    inBlockComment = false
+                }
+                code = code.replaceAll('//.*$', '')
+                while (true) {
+                    def start = code.indexOf('/*')
+                    if (start < 0) break
+                    def end = code.indexOf('*/', start + 2)
+                    if (end < 0) { code = code.substring(0, start); inBlockComment = true; break }
+                    code = code.substring(0, start) + code.substring(end + 2)
+                }
+                if (code =~ rankPattern) {
+                    rankOffenders << "${f.absolutePath}:${idx + 1}: ${line.trim()}"
+                }
+                if (isPacket && code =~ lookupPattern) {
+                    lookupOffenders << "${f.absolutePath}:${idx + 1}: ${line.trim()}"
+                }
+                if (code =~ ownerPattern) {
+                    ownerOffenders << "${f.absolutePath}:${idx + 1}: ${line.trim()}"
+                }
+                optionalModPackages.each { pkg, allowedFile ->
+                    if (code =~ ('^\s*import\s+' + java.util.regex.Pattern.quote(pkg)) && f.name != allowedFile) {
+                        optionalImportOffenders << "${f.absolutePath}:${idx + 1}: ${line.trim()} (only ${allowedFile} may import ${pkg}*)"
+                    }
+                }
+                strippedFile.append(code).append('\n')
+            }
+
+            // Multi-line scan over the comment-stripped file: report the 1-based line the
+            // match starts on by counting newlines ahead of it.
+            def text = strippedFile.toString()
+            def m = overworldPattern.matcher(text)
+            while (m.find()) {
+                def lineNo = text.substring(0, m.start()).count('\n') + 1
+                overworldOffenders << "${f.absolutePath}:${lineNo}: ${m.group().replaceAll('\\s+', ' ').trim()}"
+            }
+            def m2 = idFilterPattern.matcher(text)
+            while (m2.find()) {
+                def lineNo = text.substring(0, m2.start()).count('\n') + 1
+                idFilterOffenders << "${f.absolutePath}:${lineNo}: ${m2.group().replaceAll('\\s+', ' ').trim()}"
+            }
+        }
+
+        def report = reportFile.get().asFile
+        report.parentFile.mkdirs()
+        def all = rankOffenders + lookupOffenders + ownerOffenders + overworldOffenders + idFilterOffenders + optionalImportOffenders
+        report.text = all.isEmpty() ? 'OK - rank comparisons, colony lookups, owner comparisons and dimension handling are all safe.\n'
+                                    : all.join('\n') + '\n'
+
+        def problems = []
+        if (!rankOffenders.isEmpty()) {
+            problems << "Numeric MineColonies rank comparison detected.\n" +
+                "Rank ids run OWNER=0 .. HOSTILE=4 (higher number = less privilege) and custom ranks start at 5, " +
+                "so comparing them numerically inverts the intended check. Use getRankOwner()/getRankOfficer()/" +
+                "isColonyManager()/isHostile() instead:\n  " + rankOffenders.join('\n  ')
+        }
+        if (!lookupOffenders.isEmpty()) {
+            problems << "Ad-hoc colony-id lookup in a client-triggered packet.\n" +
+                "getColonyByWorld(id, level) misses colonies outside the player's current dimension, and a bare " +
+                "getAllColonies() filter can hit a same-id colony from another dimension. " +
+                "Use ColonyLookup.byId(colonyId, player):\n  " + lookupOffenders.join('\n  ')
+        }
+        if (!ownerOffenders.isEmpty()) {
+            problems << "Null-unsafe colony owner comparison detected.\n" +
+                "getOwner() returns null on a colony with a damaged owner record, so " +
+                "colony.getPermissions().getOwner().equals(uuid) throws - and inside a filter over all " +
+                "colonies that breaks the operation for every player. Write uuid.equals(...getOwner()):\n  " +
+                ownerOffenders.join('\n  ')
+        }
+        if (!overworldOffenders.isEmpty()) {
+            problems << "Dimension-blind colony lookup detected.\n" +
+                "getColonyByWorld(id, ...overworld()) reads only the overworld's colony-manager " +
+                "capability. MineColonies defaults allowotherdimcolonies=true and TaxManager taxes " +
+                "every dimension, so a colony outside the overworld becomes invisible here - and " +
+                "because ids are unique per dimension only, a same-id overworld colony is returned " +
+                "in its place (wrong treasury, wrong spy target). Use ColonyLookup.byId(colonyId), " +
+                "and derive any ServerLevel from the resolved colony's own dimension:\n  " +
+                overworldOffenders.join('\n  ')
+        }
+        if (!idFilterOffenders.isEmpty()) {
+            problems << "Ambiguous colony-id filter detected.\n" +
+                "getAllColonies().filter(c -> c.getID() == id) looks global but MineColonies keeps one " +
+                "colony list per level, each with its own id counter - ids are unique PER DIMENSION only, " +
+                "so this silently resolves to whichever level iterates first. Use ColonyLookup.byId(id), " +
+                "which disambiguates deterministically and logs when an id really is ambiguous:\n  " +
+                idFilterOffenders.join('\n  ')
+        }
+        if (!optionalImportOffenders.isEmpty()) {
+            problems << "Optional-mod type imported outside its compat impl.\n" +
+                "Importing an optional mod's classes makes the JVM resolve them when the importing " +
+                "class loads - so on a server WITHOUT that mod you get NoClassDefFoundError before " +
+                "any ModList.isLoaded() guard can run. Route the call through the compat shim and " +
+                "keep the import inside its impl class:\n  " +
+                optionalImportOffenders.join('\n  ')
+        }
+        if (!problems.isEmpty()) {
+            throw new GradleException(problems.join('\n\n'))
+        }
+    }
+}
+tasks.named('check') { dependsOn colonyPermissionGuard }
 
 // This block of code expands all declared replace properties in the specified resource targets.
 // A missing property will result in an error. Properties are expanded using ${} Groovy notation.

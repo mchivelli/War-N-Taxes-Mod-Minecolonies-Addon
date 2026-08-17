@@ -4,6 +4,34 @@ War 'N Taxes offers a robust set of commands for both end-users (Colony managers
 
 All commands share the root `/wnt`.
 
+## Officer Permissions
+
+Holding officer rank in a colony does not automatically grant every colony action. The colony owner controls, per action, what officers are allowed to do. This is managed in the **Officers** tab of the colony management book.
+
+Open the book, pick a colony on the Colonies tab, then switch to Officers. The left page lists everyone in the colony above neutral rank, owner first. The right page is the permission editor:
+
+- With **no officer selected**, you edit the colony-wide defaults. These apply to every officer who has no personal override.
+- With **an officer selected**, you edit that person's individual overrides. An override always beats the colony default.
+
+Only the colony owner sees the switches. Officers see the same page read-only, so they can check what they are allowed to do.
+
+### Available permissions
+
+| Permission | Default | What it controls |
+|---|---|---|
+| Claim Taxes | Allowed | Claiming the colony's accumulated tax revenue, both by command and from the book. |
+| Withdraw Funds | Allowed | Taking money out of the colony treasury. Depositing is always permitted. |
+| Deploy Spies | Allowed | Sending spy missions that are billed to the colony treasury. |
+| Declare War | Allowed | Declaring war on another colony on this colony's behalf. |
+
+All four are allowed by default, so officers keep every ability they had until an owner turns something off.
+
+**Declare War is worth a deliberate look.** Before this system existed, only a colony owner could declare war at all — officers now can as well. An officer declaring war commits the whole colony to the fight and to the treasury drain that comes with it, so if your officers are not all equally trusted, this is the first switch to review.
+
+A permission shown in red is granted but cannot be used right now — for example, tax claiming while the colony is under siege. The setting is intact and takes effect again once the blocking situation ends.
+
+Settings are stored per colony and survive server restarts. Collecting vassal tribute is not part of this system; it remains tied to the overlord personally and cannot be delegated to an officer.
+
 ## Player Commands (Colony Owners / Officers)
 
 These commands can be executed by players who hold sufficient rank in their respective colonies.

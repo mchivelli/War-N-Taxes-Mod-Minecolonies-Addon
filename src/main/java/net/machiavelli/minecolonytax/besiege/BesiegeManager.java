@@ -349,7 +349,7 @@ public class BesiegeManager {
 
         // 2. Cannot besiege own colony
         if (colony.getPermissions().getOwner() != null
-                && colony.getPermissions().getOwner().equals(besiegerUUID)) {
+                && besiegerUUID.equals(colony.getPermissions().getOwner())) {
             besieger.sendSystemMessage(Component.literal("You cannot besiege your own colony.")
                     .withStyle(ChatFormatting.RED));
             return false;
@@ -1596,11 +1596,15 @@ public class BesiegeManager {
         return p != null ? p.getName().getString() : uuid.toString();
     }
 
+    /**
+     * A bare {@code getAllColonies().filter(id).findFirst()} looks global but is not safe:
+     * MineColonies keeps one colony list per level with its own id counter, so ids are unique
+     * per dimension only and this silently picked whichever level iterated first. Besiege state
+     * (ACTIVE_RAIDS, OCCUPATIONS, spoils) is all keyed on the bare id, so a wrong resolve here
+     * moves treasury between the wrong colonies.
+     */
     private static IColony getColonyById(int colonyId) {
-        return IMinecoloniesAPI.getInstance().getColonyManager().getAllColonies().stream()
-                .filter(c -> c.getID() == colonyId)
-                .findFirst()
-                .orElse(null);
+        return net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId);
     }
 
     private static IColony getPrimaryColonyOfPlayer(UUID playerId) {
@@ -1608,9 +1612,7 @@ public class BesiegeManager {
         // Prefer FCT: it tracks the true first colony regardless of permissions state
         Integer firstColonyId = FirstColonyTracker.getFirstColony(playerId);
         if (firstColonyId != null) {
-            IColony first = cm.getAllColonies().stream()
-                    .filter(c -> c.getID() == firstColonyId)
-                    .findFirst().orElse(null);
+            IColony first = net.machiavelli.minecolonytax.util.ColonyLookup.byId(firstColonyId);
             if (first != null) return first;
         }
         // Fallback: any colony where the player is listed as MC owner

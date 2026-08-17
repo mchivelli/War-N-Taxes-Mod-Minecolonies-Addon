@@ -258,18 +258,52 @@ public class FactionCommand {
             return 0;
         }
 
-        if (faction.withdrawTax(amount)) {
-            net.machiavelli.minecolonytax.economy.TreasuryManager.deposit(player, colony.getID(), amount);
-
-            FactionManager.saveData();
-            source.sendSuccess(
-                    () -> Component.literal("Withdrew " + amount + " to treasury.").withStyle(ChatFormatting.GREEN),
-                    true);
-            return Command.SINGLE_SUCCESS;
-        } else {
+        if (!faction.withdrawTax(amount)) {
             source.sendFailure(Component.literal("Insufficient funds in faction pool."));
             return 0;
         }
+
+        // The faction pool has now been debited, so everything below MUST either land the coins
+        // in the treasury or hand them back.
+        //
+        // This used to call TreasuryManager.deposit(player, colonyId, amount), which is a
+        // transfer FROM a currency source INTO the treasury and defaults to TAX_BALANCE. So the
+        // colony's tax ledger was charged as well: pool -amount, colony tax -amount, treasury
+        // +amount — the pool's coins were destroyed on the SUCCESS path. And its return value was
+        // ignored, so when it refused (treasury disabled or full, colony tax too low) the pool was
+        // debited, nothing was credited, and the player was still told "Withdrew X to treasury".
+        // These are already-owned faction coins moving into the treasury, so credit it directly.
+        int colonyId = colony.getID();
+        int before = net.machiavelli.minecolonytax.economy.TreasuryManager.getTreasuryBalance(colonyId);
+        int after = net.machiavelli.minecolonytax.economy.TreasuryManager.addToTreasury(colonyId, amount);
+        int credited = Math.max(0, after - before);
+
+        // addToTreasury clamps at the treasury capacity; refund whatever did not fit.
+        int refunded = amount - credited;
+        if (refunded > 0) {
+            faction.addTax(refunded);
+        }
+
+        FactionManager.saveData();
+
+        if (credited <= 0) {
+            source.sendFailure(Component.literal(
+                    "The treasury is at maximum capacity - nothing was withdrawn, your "
+                            + amount + " is still in the faction pool.")
+                    .withStyle(ChatFormatting.RED));
+            return 0;
+        }
+
+        final int creditedFinal = credited;
+        final int refundedFinal = refunded;
+        source.sendSuccess(
+                () -> Component.literal("Withdrew " + creditedFinal + " to treasury."
+                        + (refundedFinal > 0
+                                ? " (" + refundedFinal + " did not fit and stayed in the faction pool.)"
+                                : ""))
+                        .withStyle(ChatFormatting.GREEN),
+                true);
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int executeRelation(CommandSourceStack source, String targetFactionName, FactionRelation relation) {

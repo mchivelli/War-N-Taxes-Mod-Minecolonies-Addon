@@ -737,11 +737,20 @@ public class PvPBattleManager {
     private void refundWager(UUID playerId, int wager, CurrencyService.Source source) {
         if (wager <= 0) return;
         ServerPlayer player = getPlayerByUUID(playerId);
-        if (player == null) return;
+        if (player == null) {
+            // Offline is the COMMON case here, not an edge case: refundAllWagers runs on
+            // "draw/cancel/disconnect/abort", and a disconnect is exactly what makes this lookup
+            // null. Returning here destroyed the stake silently, and the battle was then marked
+            // settled so it could never be recovered. Owe it instead; paid out on next login.
+            PendingWagerPayouts.queue(playerId, wager, "refund while offline");
+            return;
+        }
         // Only confirm the refund to the player when the coins were actually delivered (H#3).
         if (deliverWagerOrFallback(player, wager, source, "refund")) {
             player.sendSystemMessage(Component.literal("Your " + wager + " wager was refunded.")
                     .withStyle(ChatFormatting.YELLOW));
+        } else {
+            PendingWagerPayouts.queue(playerId, wager, "refund delivery failed");
         }
     }
 
@@ -1266,10 +1275,16 @@ public class PvPBattleManager {
             // escrow is returned via the stored source; idempotent re-credit.
             for (UUID playerId : battle.getAllPlayers()) {
                 ServerPlayer p = getPlayerByUUID(playerId);
-                if (p != null && deliverWagerOrFallback(p, wager, source, "winner-offline-refund")) {
+                // This branch runs BECAUSE people are offline, so skipping offline participants
+                // here destroyed exactly the stakes it claims to be conserving.
+                if (p == null) {
+                    PendingWagerPayouts.queue(playerId, wager, "stake refund, no winner online");
+                } else if (deliverWagerOrFallback(p, wager, source, "winner-offline-refund")) {
                     p.sendSystemMessage(Component.literal(
                             "No winner was online to collect the pot - your " + wager + " stake was refunded.")
                             .withStyle(ChatFormatting.YELLOW));
+                } else {
+                    PendingWagerPayouts.queue(playerId, wager, "stake refund delivery failed");
                 }
             }
             return;
@@ -1285,10 +1300,14 @@ public class PvPBattleManager {
             first = false;
             if (payout <= 0) continue;
             ServerPlayer winner = getPlayerByUUID(winnerId);
-            // Only announce the win when the coins were actually delivered (H#3).
+            // Only announce the win when the coins were actually delivered (H#3). A winner who
+            // logged out between the online check above and this payout, or whose stores both
+            // refuse, is owed the pot rather than losing it.
             if (deliverWagerOrFallback(winner, payout, source, "win")) {
                 winner.sendSystemMessage(Component.literal("You won " + payout + " coins from the wager!")
                         .withStyle(ChatFormatting.GOLD));
+            } else {
+                PendingWagerPayouts.queue(winnerId, payout, "winnings delivery failed");
             }
         }
     }

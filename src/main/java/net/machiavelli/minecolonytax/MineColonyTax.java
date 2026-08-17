@@ -90,6 +90,13 @@ public class MineColonyTax {
         // PvPEventHandler.onRegisterCommands so the commands re-register on every dispatcher
         // rebuild, including after /reload — registering them here only ran at boot (H5).
 
+        // Verify the MineColonies API surface BEFORE any manager starts using it. The declared
+        // dependency range is open-ended, so a drifted MineColonies loads cleanly and then fails
+        // later at runtime - or, worse, silently returns nothing (see CompatibilityCheck). This
+        // is deliberately non-fatal: it reports loudly and lets the server owner decide, rather
+        // than refusing to boot a world that may still be largely playable.
+        net.machiavelli.minecolonytax.compat.CompatibilityCheck.runAtStartup();
+
         if (TaxConfig.isNormalLogging()) LOGGER.info("Server starting - initializing TaxManager with configured interval of {} minutes",
                 TaxConfig.getTaxIntervalInMinutes());
         TaxManager.initialize(event.getServer());
@@ -102,6 +109,7 @@ public class MineColonyTax {
         }
 
         FirstColonyTracker.loadData();
+        net.machiavelli.minecolonytax.permissions.TaxPermissionManager.load();
         net.machiavelli.minecolonytax.deletion.ColonyDeletionManager.load();
 
         // Periodic pending-colony-deletion check every minute (deletion timers are day-scale, so a minute is fine)
@@ -191,6 +199,14 @@ public class MineColonyTax {
 
         TreasuryManager.initialize(event.getServer());
         if (TaxConfig.isNormalLogging()) LOGGER.info("TreasuryManager initialized");
+
+        // Duel wager coins that could not be handed over (offline player, refused store) are
+        // owed rather than destroyed; load the outstanding debts so a restart does not clear them.
+        try {
+            net.machiavelli.minecolonytax.pvp.PendingWagerPayouts.initialize();
+        } catch (Throwable t) {
+            LOGGER.warn("Could not load pending wager payouts: {}", t.toString());
+        }
 
         FactionManager.init();
         if (TaxConfig.isNormalLogging()) LOGGER.info("FactionManager initialized");
@@ -365,6 +381,7 @@ public class MineColonyTax {
         try {
             TreasuryManager.shutdown();
             if (TaxConfig.isNormalLogging()) LOGGER.info("TreasuryManager shutdown complete");
+            net.machiavelli.minecolonytax.pvp.PendingWagerPayouts.shutdown();
         } catch (Throwable t) {
             LOGGER.warn("Error during TreasuryManager shutdown: {}", t.toString());
         }
@@ -388,6 +405,13 @@ public class MineColonyTax {
             if (TaxConfig.isNormalLogging()) LOGGER.info("FactionManager data saved");
         } catch (Throwable t) {
             LOGGER.warn("Error saving FactionManager data: {}", t.toString());
+        }
+
+        try {
+            net.machiavelli.minecolonytax.permissions.TaxPermissionManager.save();
+            if (TaxConfig.isNormalLogging()) LOGGER.info("TaxPermissionManager data saved");
+        } catch (Throwable t) {
+            LOGGER.warn("Error saving tax permissions: {}", t.toString());
         }
 
         try {

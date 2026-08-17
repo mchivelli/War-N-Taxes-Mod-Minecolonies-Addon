@@ -92,10 +92,7 @@ public abstract class WorldTickHandlerMixin {
                     continue;
                 }
                 // Fallback for a raid with no cached dimension (e.g. restored): resolve by id.
-                IColony c = com.minecolonies.api.IMinecoloniesAPI.getInstance().getColonyManager()
-                        .getAllColonies().stream()
-                        .filter(col -> col.getID() == raid.colonyId)
-                        .findFirst().orElse(null);
+                IColony c = net.machiavelli.minecolonytax.util.ColonyLookup.byId(raid.colonyId);
                 if (c != null && c.getWorld() == eventLevel) { ci.cancel(); return; }
             }
         }

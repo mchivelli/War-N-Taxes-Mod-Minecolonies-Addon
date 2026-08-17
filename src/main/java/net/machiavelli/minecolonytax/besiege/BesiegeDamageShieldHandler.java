@@ -167,9 +167,9 @@ public class BesiegeDamageShieldHandler {
         // Player on defender side?
         if (target instanceof ServerPlayer player) {
             try {
-                IColony besieged = com.minecolonies.api.colony.IColonyManager.getInstance().getAllColonies().stream()
-                        .filter(c -> c.getID() == raid.colonyId)
-                        .findFirst().orElse(null);
+                // Dimension-safe: ids are unique per dimension only, and resolving the wrong
+                // colony here decides whether a hit is cancelled — i.e. who can damage whom.
+                IColony besieged = net.machiavelli.minecolonytax.util.ColonyLookup.byId(raid.colonyId);
                 if (besieged == null) return false;
                 Rank targetRank = besieged.getPermissions().getRank(player.getUUID());
                 if (targetRank == null) return false;

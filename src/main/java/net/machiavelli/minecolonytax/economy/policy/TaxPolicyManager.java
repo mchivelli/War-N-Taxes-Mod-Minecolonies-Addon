@@ -62,14 +62,10 @@ public class TaxPolicyManager {
         if (TaxConfig.isNormalLogging()) LOGGER.info("TaxPolicyManager shutdown complete");
     }
 
-    // ==================== Helper Methods ====================
-
-    public static IColony getColony(int colonyId) {
-        if (SERVER == null)
-            return null;
-        IColonyManager colonyManager = IMinecoloniesAPI.getInstance().getColonyManager();
-        return colonyManager.getColonyByWorld(colonyId, SERVER.overworld());
-    }
+    // Removed: an unused getColony(int) helper that resolved ids against SERVER.overworld()
+    // only. It had no callers, and leaving a dimension-blind resolver lying around invites a
+    // future caller to reintroduce the bug fixed in TreasuryManager.getColony. Use
+    // ColonyLookup.byId(...) if this class ever needs id-based resolution.
 
     // ==================== Policy Operations ====================
 
@@ -336,7 +332,7 @@ public class TaxPolicyManager {
         UUID playerUUID = player.getUUID();
         for (var world : SERVER.getAllLevels()) {
             for (IColony colony : colonyManager.getColonies(world)) {
-                if (colony.getPermissions().getOwner().equals(playerUUID)
+                if (playerUUID.equals(colony.getPermissions().getOwner())
                         || colony.getPermissions().getRank(playerUUID).isColonyManager()) {
                     result.add(colony);
                 }

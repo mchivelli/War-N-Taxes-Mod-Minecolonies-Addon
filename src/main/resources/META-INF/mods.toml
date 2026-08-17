@@ -65,12 +65,23 @@ description='''${mod_description}'''
 
 # MineColonies is a HARD requirement — the mod is an addon to it and does not
 # function without it (all colony/treasury/war/spy systems route through the
-# MineColonies API surface). Version range is broad to allow patch updates of
-# MineColonies on the 1.20.1 line.
+# MineColonies API surface).
+#
+# The floor is the oldest MineColonies whose API surface has actually been VERIFIED against
+# this build (see CompatibilityCheck + CompatibilityCheckTest), not the oldest that might
+# happen to work. It used to read [1.1.700,) — a claim nothing ever tested. That matters
+# because MineColonies removes API between builds, and the mismatches are missing methods
+# and missing enum constants: Forge loads the mod happily and the server then dies at
+# runtime, mid-session. That is exactly how 5.0.4 shipped broken on the 1.21.1 line.
+#
+# Verified: 1.1.1237 and 1.1.1276. Raising this floor is deliberate — being refused at
+# startup with a clear reason beats a silent mid-game failure. The upper bound stays open
+# because a future MineColonies cannot be tested in advance; CompatibilityCheck reports API
+# drift inside the range at server start instead.
 [[dependencies.${mod_id}]]
     modId="minecolonies"
     mandatory=true
-    versionRange="[1.1.700,)"
+    versionRange="[1.1.1237,)"
     ordering="AFTER"
     side="BOTH"
 
@@ -97,6 +108,16 @@ description='''${mod_description}'''
     mandatory=false
     versionRange="[1.0,)"
     ordering="AFTER"
+    side="BOTH"
+
+# Corpse (henkelmax) - OPTIONAL. Only used to let a player retrieve their OWN corpse inside a
+# colony they have no interaction rights in; no Corpse type is referenced anywhere in the code
+# (the entity is matched by its registry id), so the mod is genuinely optional at runtime.
+[[dependencies.${mod_id}]]
+    modId="corpse"
+    mandatory=false
+    versionRange="[1.0,)"
+    ordering="NONE"
     side="BOTH"
 
 [[dependencies.${mod_id}]]

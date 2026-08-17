@@ -11,6 +11,34 @@ import java.util.Set;
 @Mod.EventBusSubscriber
 public class TaxConfig {
 
+        private static final org.apache.logging.log4j.Logger CONFIG_LOGGER =
+                        org.apache.logging.log4j.LogManager.getLogger(TaxConfig.class);
+
+        /**
+         * Invalid permission-action names already reported, so a stale config line is called out
+         * once instead of on every single lookup.
+         */
+        private static final Set<String> REPORTED_INVALID_ACTIONS =
+                        java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+        /**
+         * Report an unusable action name from the config.
+         *
+         * <p>These used to go to {@code System.err} on every call, which meant they never reached
+         * the log file server owners actually read, and repeated forever. That matters because the
+         * dropped entry is silently missing from the permission set afterwards — e.g. a config
+         * still listing {@code GUARDS_ATTACK} (removed from the MineColonies API) quietly loses
+         * that permission instead of saying so.
+         */
+        private static void reportInvalidAction(String category, String name) {
+                if (REPORTED_INVALID_ACTIONS.add(category + ":" + name)) {
+                        CONFIG_LOGGER.warn("[WnT] Ignoring unknown {} action \"{}\" from the config - "
+                                        + "it is not a MineColonies permission action in this version, so that "
+                                        + "permission will NOT be applied. Remove or correct it in minecolonytax.toml.",
+                                        category, name);
+                }
+        }
+
         private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
 
         public static ForgeConfigSpec CONFIG;
@@ -102,6 +130,7 @@ public class TaxConfig {
         public static final ForgeConfigSpec.DoubleValue GUARD_TOWER_TAX_BOOST_PERCENTAGE;
 
         public static final ForgeConfigSpec.BooleanValue ENABLE_WAR_ACTIONS;
+        public static final ForgeConfigSpec.BooleanValue ENABLE_CORPSE_RETRIEVAL_IN_COLONIES;
         public static final ForgeConfigSpec.IntValue PLAYER_LIVES_IN_WAR;
 
         public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CONFIGURABLE_WAR_ACTIONS;
@@ -558,6 +587,15 @@ public class TaxConfig {
 
                 ENABLE_WAR_ACTIONS = BUILDER.comment("If false, war will not toggle any interaction permissions")
                                 .define("EnableWarActions", true);
+
+                ENABLE_CORPSE_RETRIEVAL_IN_COLONIES = BUILDER.comment(
+                                "Let a player open their OWN corpse (Corpse mod) inside a colony where they have no interaction rights.\n"
+                                                + "Dying in a foreign colony is normal here - wars, raids and besieges all happen there - and"
+                                                + " without this the colony's permissions keep the owner from picking their own inventory back up.\n"
+                                                + "Only the corpse's owner is ever exempted: other players' corpses stay subject to the normal"
+                                                + " colony rules, so a besieger still cannot loot the defenders.\n"
+                                                + "No effect unless the Corpse mod is installed.")
+                                .define("EnableCorpseRetrievalInColonies", true);
 
                 WAR_ACCEPTANCE_REQUIRED = BUILDER.comment(
                                 "If true, war requests must be manually accepted; if false, wars requests will automatically accept.")
@@ -2980,8 +3018,7 @@ public class TaxConfig {
                                                 return com.minecolonies.api.colony.permissions.Action
                                                                 .valueOf(s.toUpperCase());
                                         } catch (IllegalArgumentException e) {
-                                                // Log error or handle invalid action string
-                                                System.err.println("Invalid war action in config: " + s);
+                                                reportInvalidAction("war", s);
                                                 return null;
                                         }
                                 })
@@ -2997,8 +3034,7 @@ public class TaxConfig {
                                                 return com.minecolonies.api.colony.permissions.Action
                                                                 .valueOf(s.toUpperCase());
                                         } catch (IllegalArgumentException e) {
-                                                // Log error or handle invalid action string
-                                                System.err.println("Invalid raid action in config: " + s);
+                                                reportInvalidAction("raid", s);
                                                 return null;
                                         }
                                 })
@@ -3014,8 +3050,7 @@ public class TaxConfig {
                                                 return com.minecolonies.api.colony.permissions.Action
                                                                 .valueOf(s.toUpperCase());
                                         } catch (IllegalArgumentException e) {
-                                                // Log error or handle invalid claiming action string
-                                                System.err.println("Invalid claiming action in config: " + s);
+                                                reportInvalidAction("claiming", s);
                                                 return null;
                                         }
                                 })
@@ -3117,8 +3152,7 @@ public class TaxConfig {
                                                 return com.minecolonies.api.colony.permissions.Action
                                                                 .valueOf(s.toUpperCase());
                                         } catch (IllegalArgumentException e) {
-                                                // Log error or handle invalid action string
-                                                System.err.println("Invalid general colony action in config: " + s);
+                                                reportInvalidAction("general colony", s);
                                                 return null;
                                         }
                                 })
@@ -3572,6 +3606,10 @@ public class TaxConfig {
         }
 
         // --- Treasury ---
+        public static boolean isCorpseRetrievalInColoniesEnabled() {
+                return ENABLE_CORPSE_RETRIEVAL_IN_COLONIES.get();
+        }
+
         public static boolean isTreasuryEnabled() {
                 return ENABLE_TREASURY.get();
         }

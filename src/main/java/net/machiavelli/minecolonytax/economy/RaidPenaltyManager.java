@@ -3,7 +3,6 @@ package net.machiavelli.minecolonytax.economy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import com.minecolonies.api.IMinecoloniesAPI;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
 import net.machiavelli.minecolonytax.TaxConfig;
@@ -58,13 +57,16 @@ public class RaidPenaltyManager {
 
     // ==================== Helper Methods ====================
 
+    /**
+     * A bare {@code getAllColonies().filter(id).findFirst()} looks global but isn't safe:
+     * MineColonies keeps one colony list per level, each with its own id counter, so ids are
+     * unique per dimension only and this silently picked whichever level iterated first.
+     * ColonyLookup applies a deterministic tie-break and logs the ambiguity.
+     */
     public static IColony getColony(int colonyId) {
         if (SERVER == null)
             return null;
-        return IMinecoloniesAPI.getInstance().getColonyManager().getAllColonies().stream()
-                .filter(c -> c.getID() == colonyId)
-                .findFirst()
-                .orElse(null);
+        return net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId);
     }
 
     // ==================== Penalty Operations ====================

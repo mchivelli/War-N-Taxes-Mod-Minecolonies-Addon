@@ -234,7 +234,15 @@ public class PeaceProposalManager {
             return false;
         }
 
-        // Officer rank (id >= 2) or owner may accept/decline on behalf of their colony.
+        // Colony managers (owner, officer, custom manager ranks) may accept/decline on behalf
+        // of their colony.
+        //
+        // This used to test `rank.getId() >= 2`, which is backwards: MineColonies numbers ranks
+        // OWNER=0, OFFICER=1, FRIEND=2, NEUTRAL=3, HOSTILE=4. The check therefore rejected every
+        // officer while accepting ordinary friends and neutral members — the opposite of the
+        // intent in the comment it carried. isColonyManager() is the accessor the rest of the
+        // mod uses and it stays correct for custom ranks.
+        //
         // Finding 7: getRank(...) can return null for non-members (e.g. team-based
         // participants without a permissions entry). Null-guard before deref.
         if (responderIsAttacker && war.getAttackerColony() != null) {
@@ -244,7 +252,7 @@ public class PeaceProposalManager {
             Rank rank = colony.getPermissions().getRank(responder);
             if (rank == null) return false;
             if (rank.isHostile()) return false;
-            if (rank.getId() >= 2) return true;
+            if (rank.isColonyManager()) return true;
         }
         if (responderIsDefender && war.getColony() != null) {
             IColony colony = war.getColony();
@@ -253,7 +261,7 @@ public class PeaceProposalManager {
             Rank rank = colony.getPermissions().getRank(responder);
             if (rank == null) return false;
             if (rank.isHostile()) return false;
-            if (rank.getId() >= 2) return true;
+            if (rank.isColonyManager()) return true;
         }
         return false;
     }

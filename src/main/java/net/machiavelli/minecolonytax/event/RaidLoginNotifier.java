@@ -64,7 +64,7 @@ public class RaidLoginNotifier {
             while (it.hasNext()) {
                 ActiveRaidData raid = it.next();
                 boolean wasRelevant = notifyRaidIfRelevant(player, raid, notifiedRaids, false);
-                if (wasRelevant && raid.getColony().getPermissions().getOwner().equals(playerUUID)) {
+                if (wasRelevant && playerUUID.equals(raid.getColony().getPermissions().getOwner())) {
                     it.remove();
                 }
             }
@@ -114,9 +114,7 @@ public class RaidLoginNotifier {
                     int colonyId = entry.getKey();
                     BesiegeManager.BesiegeRaidData raid = entry.getValue();
 
-                    IColony besiegedColony = com.minecolonies.api.IMinecoloniesAPI.getInstance()
-                            .getColonyManager().getAllColonies().stream()
-                            .filter(c -> c.getID() == colonyId).findFirst().orElse(null);
+                    IColony besiegedColony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(colonyId);
                     if (besiegedColony == null) continue;
 
                     if (!isPlayerOfficerOrOwner(player, besiegedColony.getPermissions())) continue;
@@ -166,7 +164,7 @@ public class RaidLoginNotifier {
 
     private static boolean isPlayerOfficerOrOwner(ServerPlayer player, IPermissions perms) {
         UUID playerUUID = player.getUUID();
-        boolean isOwner = perms.getOwner().equals(playerUUID);
+        boolean isOwner = playerUUID.equals(perms.getOwner());
         boolean isOfficer = perms.getPlayersByRank(perms.getRankOfficer())
                 .stream()
                 .anyMatch(cp -> cp.getID().equals(playerUUID));

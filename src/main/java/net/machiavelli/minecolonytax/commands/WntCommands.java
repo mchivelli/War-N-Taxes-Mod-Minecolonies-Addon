@@ -1607,10 +1607,8 @@ public class WntCommands {
                         src.sendSuccess(() -> Component.literal("  None").withStyle(ChatFormatting.GRAY), false);
                 } else {
                         for (BesiegeManager.BesiegeRaidData raid : raids.values()) {
-                                String colonyName = cm.getAllColonies().stream()
-                                                .filter(c -> c.getID() == raid.colonyId)
-                                                .map(IColony::getName)
-                                                .findFirst().orElse("Colony#" + raid.colonyId);
+                                IColony raidColony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(raid.colonyId);
+                                String colonyName = raidColony != null ? raidColony.getName() : "Colony#" + raid.colonyId;
                                 ServerPlayer besieger = src.getServer().getPlayerList().getPlayer(raid.besiegingPlayerUUID);
                                 String besiegerName = besieger != null ? besieger.getName().getString() : raid.besiegingPlayerUUID.toString();
                                 long elapsedMin = (System.currentTimeMillis() - raid.startTime) / 60000;
@@ -1653,12 +1651,10 @@ public class WntCommands {
                 List<BesiegeManager.BesiegeRaidData> myRaids = raids.values().stream()
                                 .filter(r -> {
                                         if (r.besiegingPlayerUUID.equals(playerUUID)) return true;
-                                        return cm.getAllColonies().stream()
-                                                        .filter(c -> c.getID() == r.colonyId)
-                                                        .anyMatch(c -> {
-                                                                var rank = c.getPermissions().getRank(playerUUID);
-                                                                return rank != null && rank.isColonyManager();
-                                                        });
+                                        IColony rc = net.machiavelli.minecolonytax.util.ColonyLookup.byId(r.colonyId);
+                                        if (rc == null) return false;
+                                        var rank = rc.getPermissions().getRank(playerUUID);
+                                        return rank != null && rank.isColonyManager();
                                 })
                                 .collect(Collectors.toList());
 
@@ -1679,10 +1675,8 @@ public class WntCommands {
                 if (!myRaids.isEmpty()) {
                         src.sendSuccess(() -> Component.literal("Active Raids:").withStyle(ChatFormatting.YELLOW), false);
                         for (BesiegeManager.BesiegeRaidData raid : myRaids) {
-                                String colonyName = cm.getAllColonies().stream()
-                                                .filter(c -> c.getID() == raid.colonyId)
-                                                .map(IColony::getName)
-                                                .findFirst().orElse("Colony#" + raid.colonyId);
+                                IColony raidColony = net.machiavelli.minecolonytax.util.ColonyLookup.byId(raid.colonyId);
+                                String colonyName = raidColony != null ? raidColony.getName() : "Colony#" + raid.colonyId;
                                 long elapsedMin = (System.currentTimeMillis() - raid.startTime) / 60000;
                                 long remainingMin = Math.max(0, raid.endTime - System.currentTimeMillis()) / 60000;
                                 final String line;
@@ -2658,7 +2652,7 @@ public class WntCommands {
 
                 // Check if player has permission to pay for this colony
                 Rank playerRank = targetColony.getPermissions().getRank(player.getUUID());
-                boolean isAuthorized = targetColony.getPermissions().getOwner().equals(player.getUUID()) ||
+                boolean isAuthorized = player.getUUID().equals(targetColony.getPermissions().getOwner()) ||
                                 (playerRank != null && playerRank.isColonyManager());
 
                 if (!isAuthorized) {
@@ -2791,7 +2785,7 @@ public class WntCommands {
                 }
                 if (takenFromColony > 0) {
                         IColony attackerColony = IColonyManager.getInstance().getColonies(attacker.level()).stream()
-                                        .filter(c -> c.getPermissions().getOwner().equals(attacker.getUUID()))
+                                        .filter(c -> attacker.getUUID().equals(c.getPermissions().getOwner()))
                                         .findFirst().orElse(null);
                         if (attackerColony != null) {
                                 TaxManager.adjustTax(attackerColony, takenFromColony);
@@ -3994,7 +3988,7 @@ public class WntCommands {
                         return 0;
                 }
 
-                if (!colony.getPermissions().getOwner().equals(player.getUUID())) {
+                if (!player.getUUID().equals(colony.getPermissions().getOwner())) {
                         player.sendSystemMessage(Component.literal("Only the colony owner can purchase investments.").withStyle(ChatFormatting.RED));
                         return 0;
                 }
@@ -4047,7 +4041,7 @@ public class WntCommands {
                                 return 0;
                         }
                         boolean isOwner = colony.getPermissions().getOwner() != null
-                                        && colony.getPermissions().getOwner().equals(player.getUUID());
+                                        && player.getUUID().equals(colony.getPermissions().getOwner());
                         if (!isOwner && !ctx.getSource().hasPermission(2)) {
                                 ctx.getSource().sendFailure(Component.literal("Only the colony owner (or an admin) can delete this colony.")
                                                 .withStyle(ChatFormatting.RED));
@@ -4076,7 +4070,7 @@ public class WntCommands {
                                 return 0;
                         }
                         boolean isOwner = colony.getPermissions().getOwner() != null
-                                        && colony.getPermissions().getOwner().equals(player.getUUID());
+                                        && player.getUUID().equals(colony.getPermissions().getOwner());
                         if (!isOwner && !ctx.getSource().hasPermission(2)) {
                                 ctx.getSource().sendFailure(Component.literal("Only the colony owner (or an admin) can cancel this deletion.")
                                                 .withStyle(ChatFormatting.RED));
@@ -4173,7 +4167,7 @@ public class WntCommands {
                 IColonyManager mgr = IMinecoloniesAPI.getInstance().getColonyManager();
                 for (net.minecraft.server.level.ServerLevel world : player.getServer().getAllLevels()) {
                         for (IColony colony : mgr.getColonies(world)) {
-                                if (colony.getPermissions().getOwner().equals(player.getUUID())) {
+                                if (player.getUUID().equals(colony.getPermissions().getOwner())) {
                                         return colony;
                                 }
                         }
