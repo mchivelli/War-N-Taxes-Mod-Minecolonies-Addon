@@ -5,6 +5,22 @@ All notable changes to WarNTaxes (the War 'N Taxes MineColonies addon) will be d
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.6] - 2026-08-17
+
+### Fixed - The codex opened on T, which is the chat key
+
+The default key for the tax/war codex was **T** — vanilla Minecraft's "open chat". Every player met
+that conflict on their first session: pressing T either opened the codex instead of chat, or fired
+both, depending on which binding won. The default is now **G**, which nothing else in a normal
+MineColonies pack claims.
+
+Note that Minecraft stores key bindings per installation, so an existing setup keeps whatever it
+already had. To pick up the new default, clear the binding in Options → Controls (or delete the
+`key_key.minecolonytax.open_tax_gui` line from `options.txt`).
+
+The build now refuses any default that collides with a vanilla binding — not just T, but the
+movement keys, inventory, drop, offhand swap, player list and the rest.
+
 ## [5.0.5] - 2026-08-17
 
 ### Changed - Built against current MineColonies

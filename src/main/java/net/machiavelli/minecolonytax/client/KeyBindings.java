@@ -17,10 +17,17 @@ public class KeyBindings {
     public static final String KEY_CATEGORY_MINECOLONYTAX = "key.category.minecolonytax";
     public static final String KEY_OPEN_TAX_GUI = "key.minecolonytax.open_tax_gui";
     
+    /**
+     * Default key for the tax/war codex.
+     *
+     * <p>MUST NOT be T. T is vanilla Minecraft's "open chat" key, so defaulting to it put this mod
+     * in a conflict every player hits on their first session: pressing T either opened the codex
+     * instead of chat or triggered both, depending on which binding won. G is unbound in vanilla.
+     */
     public static final KeyMapping OPEN_TAX_GUI_KEY = new KeyMapping(
-            KEY_OPEN_TAX_GUI, 
-            InputConstants.Type.KEYSYM, 
-            GLFW.GLFW_KEY_T, 
+            KEY_OPEN_TAX_GUI,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_G,
             KEY_CATEGORY_MINECOLONYTAX
     );
     
