@@ -1760,8 +1760,16 @@ public class WarSystem {
             String outcome;
             long amountTransferred = 0L;
 
-            if (warData.getPenaltyReport().isEmpty()) {
-                outcome = "Stalemate";
+            // A war is a stalemate when the resolving path SAID so (timer stalemates,
+            // white peace, both war chests dry) or when nothing resolved it at all (empty
+            // report: cancelled / administratively ended). The old check keyed on the
+            // empty report only, so real timer stalemates — which carry a report — never
+            // counted toward the players' stalemate stat while cancelled wars did.
+            boolean recordedStalemate = "STALEMATE".equals(warData.resolvedOutcome)
+                    || (warData.resolvedOutcome == null && warData.getPenaltyReport().isEmpty());
+            if (recordedStalemate) {
+                outcome = warData.getPenaltyReport().isEmpty() ? "Stalemate" : warData.getPenaltyReport();
+                amountTransferred = warData.economyTransferTotal;
                 if (colony.getWorld() != null && colony.getWorld().getServer() != null) {
                     for (UUID uuid : warData.getAttackerLives().keySet()) {
                         ServerPlayer player = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
@@ -1786,9 +1794,20 @@ public class WarSystem {
                 amountTransferred = warData.economyTransferTotal;
             }
 
-            // Record war outcome in DB
-            boolean ledToOccupation = warData.getPenaltyReport().contains("TOTAL VICTORY")
-                    && TaxConfig.ENABLE_COLONY_TRANSFER.get();
+            // Record war outcome in DB. "Led to occupation" is a fact about the world, not
+            // about the report text: ask OccupationManager whether either colony is occupied
+            // now (kill-based attacker victories write a "War reparations" report and start
+            // the occupation separately, so the old "TOTAL VICTORY" text check missed them).
+            boolean ledToOccupation = false;
+            try {
+                ledToOccupation = TaxConfig.isOccupationSystemEnabled()
+                        && (net.machiavelli.minecolonytax.occupation.OccupationManager.isOccupied(colony.getID())
+                            || (warData.getAttackerColony() != null
+                                && net.machiavelli.minecolonytax.occupation.OccupationManager
+                                        .isOccupied(warData.getAttackerColony().getID())));
+            } catch (Throwable ignored) {
+                // Occupation state is best-effort telemetry; never let it break endWar.
+            }
             net.machiavelli.minecolonytax.db.WarStatsDB.recordWarEnd(
                     warData,
                     net.machiavelli.minecolonytax.db.WarStatsDB.determineOutcome(warData),

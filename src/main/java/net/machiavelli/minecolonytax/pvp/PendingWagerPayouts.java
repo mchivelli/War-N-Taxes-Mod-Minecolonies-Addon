@@ -114,7 +114,7 @@ public final class PendingWagerPayouts {
         OWED.remove(key);
         save();
         player.sendSystemMessage(Component.literal(
-                "You were owed " + amount + " coins from a duel wager. They have been paid out.")
+                "You were owed " + amount + " coins (duel wager or war reparations). They have been paid out.")
                 .withStyle(ChatFormatting.GOLD));
         if (TaxConfig.isNormalLogging()) {
             LOGGER.info("[WnT] Paid out {} owed wager coins to {}.", amount, player.getName().getString());

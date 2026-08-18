@@ -38,6 +38,8 @@ class WarEconomyInvariantsTest {
             "src/main/java/net/machiavelli/minecolonytax/WarSystem.java");
     private static final Path RAID_MANAGER = Path.of(
             "src/main/java/net/machiavelli/minecolonytax/raid/RaidManager.java");
+    private static final Path TAX_MANAGER = Path.of(
+            "src/main/java/net/machiavelli/minecolonytax/TaxManager.java");
 
     /** Calls that move coins between ledgers/players. endWar must contain none of them. */
     private static final String[] MONEY_MOVERS = {
@@ -95,6 +97,15 @@ class WarEconomyInvariantsTest {
                         + "(SDMShop missing/failing, broken currency config) then destroys the coins.");
         assertTrue(body.contains("credited"),
                 "transferTaxRevenue() no longer tracks whether the raider credit succeeded.");
+    }
+
+    @Test
+    @DisplayName("percentage penalties never credit a colony that is in debt")
+    void percentagePenaltiesClampToPositiveBalance() throws Exception {
+        String body = methodBody(TAX_MANAGER, "public static void deductColonyTax");
+        assertTrue(body.contains("Math.max(0, currentTax)"),
+                "deductColonyTax() multiplies the raw balance by the percentage - with a negative "
+                        + "balance the deduction goes negative and the penalty PAYS DOWN the debt.");
     }
 
     // ==================== helpers ====================

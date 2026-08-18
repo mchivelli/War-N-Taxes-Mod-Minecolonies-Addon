@@ -2138,7 +2138,7 @@ public class WntCommands {
                         }
                         foundColony = true;
 
-                        boolean deducted = deductCurrency(player, amount);
+                        boolean deducted = deductCurrency(player, colony, amount);
                         if (!deducted) {
                                 source.sendFailure(
                                                 Component.translatable("command.taxdebt.insufficient_funds", amount));
@@ -2157,41 +2157,28 @@ public class WntCommands {
                 return 1;
         }
 
-        private static boolean deductCurrency(ServerPlayer player, int amount) {
+        private static boolean deductCurrency(ServerPlayer player, IColony colony, int amount) {
                 if (TaxConfig.isSDMShopConversionEnabled()
                                 && net.machiavelli.minecolonytax.integration.SDMShopIntegration.isAvailable()) {
                         long balance = net.machiavelli.minecolonytax.integration.SDMShopIntegration.getMoney(player);
                         if (balance < amount) {
                                 return false;
                         }
-                        net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(player, balance - amount);
-                        return true;
+                        // Only report success when the debit actually happened — otherwise the
+                        // colony debt would be paid down with coins that were never taken.
+                        return net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(player,
+                                        balance - amount);
                 } else {
-                        return deductCurrencyFromInventory(player, amount);
+                        // Route through CurrencyService.takeFromPlayer: it verifies sufficiency and
+                        // exact change BEFORE mutating any stack. The previous local loop shrank the
+                        // player's stacks to zero one by one and only then discovered the total was
+                        // short — an underpaying player lost every coin they had and the debt stayed.
+                        // It also honours multi-denomination currency instead of a single item id.
+                        int taken = net.machiavelli.minecolonytax.integration.CurrencyService.takeFromPlayer(
+                                        player, colony, amount,
+                                        net.machiavelli.minecolonytax.integration.CurrencyService.Source.INVENTORY);
+                        return taken >= amount;
                 }
-        }
-
-        private static boolean deductCurrencyFromInventory(ServerPlayer player, int amount) {
-                int remaining = amount;
-                for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-                        var stack = player.getInventory().getItem(i);
-                        if (!stack.isEmpty()) {
-                                var registryName = net.minecraftforge.registries.ForgeRegistries.ITEMS
-                                                .getKey(stack.getItem());
-                                if (registryName != null
-                                                && registryName.toString().equals(TaxConfig.getCurrencyItemName())) {
-                                        int available = stack.getCount();
-                                        if (available >= remaining) {
-                                                stack.shrink(remaining);
-                                                return true;
-                                        } else {
-                                                remaining -= available;
-                                                stack.setCount(0);
-                                        }
-                                }
-                        }
-                }
-                return remaining <= 0;
         }
 
         private static int executeWarHistory(CommandContext<CommandSourceStack> ctx, String colonyArg)

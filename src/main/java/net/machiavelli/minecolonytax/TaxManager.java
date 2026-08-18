@@ -360,7 +360,10 @@ public class TaxManager {
 
     public static void deductColonyTax(IColony colony, double percentage) {
         int currentTax = colonyTaxMap.getOrDefault(colony.getID(), 0);
-        int deduction = (int) (currentTax * percentage);
+        // A percentage penalty only ever takes from positive holdings. With a negative balance
+        // (debt) the product is negative and "currentTax - deduction" would RAISE the balance,
+        // so a stalemate/defeat penalty used to pay down the loser's debt instead of hurting.
+        int deduction = (int) (Math.max(0, currentTax) * Math.max(0.0, percentage));
         colonyTaxMap.put(colony.getID(), currentTax - deduction);
         if (TaxConfig.isNormalLogging()) {
             LOGGER.info("Deducted {} tax as penalty from colony {}", deduction, colony.getName());
@@ -1101,11 +1104,22 @@ public class TaxManager {
             if (debtEventCycles > 0 && cycles >= debtEventCycles && TaxConfig.isRandomEventsEnabled()) {
                 if ((cycles - debtEventCycles) % debtEventCycles == 0) { // fire every N cycles, not every cycle
                     try {
-                        net.machiavelli.minecolonytax.events.random.RandomEventManager.forceTriggerEvent(
-                            colony, net.machiavelli.minecolonytax.events.random.RandomEventType.BANDIT_HARASSMENT);
-                        net.machiavelli.minecolonytax.events.random.RandomEventManager.forceTriggerEvent(
-                            colony, net.machiavelli.minecolonytax.events.random.RandomEventType.GUARD_DESERTION);
-                        if (TaxConfig.isNormalLogging())
+                        // forceTriggerEvent bypasses the per-event config switches (it exists
+                        // for the admin command), so honour them here: an admin who disabled
+                        // guard desertion — a PERMANENT guard loss — must not get it through the
+                        // debt path anyway. Bandits are the same, just less destructive.
+                        boolean fired = false;
+                        if (TaxConfig.isBanditHarassmentEnabled()) {
+                            net.machiavelli.minecolonytax.events.random.RandomEventManager.forceTriggerEvent(
+                                colony, net.machiavelli.minecolonytax.events.random.RandomEventType.BANDIT_HARASSMENT);
+                            fired = true;
+                        }
+                        if (TaxConfig.isGuardDesertionEnabled()) {
+                            net.machiavelli.minecolonytax.events.random.RandomEventManager.forceTriggerEvent(
+                                colony, net.machiavelli.minecolonytax.events.random.RandomEventType.GUARD_DESERTION);
+                            fired = true;
+                        }
+                        if (fired && TaxConfig.isNormalLogging())
                             LOGGER.info("Debt consequence events triggered for colony {} (cycle {})", colony.getName(), cycles);
                     } catch (Exception e) {
                         LOGGER.warn("Failed to trigger debt events for colony {}: {}", colony.getName(), e.getMessage());

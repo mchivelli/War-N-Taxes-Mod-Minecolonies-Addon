@@ -572,6 +572,19 @@ public class WarStatsDB {
 
     /** Determine the DB outcome string from a WarData at the moment endWar() is called. */
     public static String determineOutcome(WarData warData) {
+        // Prefer the explicit outcome recorded by the code path that resolved the war.
+        // The report-text heuristic below only recognises victories whose report carries
+        // "TOTAL VICTORY" / "Strategic Victory" markers; kill-based victories and (since
+        // 5.0.7) timer victories write a "War reparations: ..." report and would otherwise
+        // be stored as STALEMATE.
+        if (warData.resolvedOutcome != null) {
+            switch (warData.resolvedOutcome) {
+                case "ATTACKER_VICTORY": return "ATTACKER_WIN";
+                case "DEFENDER_VICTORY": return "DEFENDER_WIN";
+                case "STALEMATE": return "STALEMATE";
+                default: break; // unknown tag: fall through to the heuristic
+            }
+        }
         String report = warData.getPenaltyReport();
         if (report == null || report.isEmpty()) return "STALEMATE";
         if (report.contains("TOTAL VICTORY") || report.contains("COUNTER-CONQUEST")) {

@@ -108,8 +108,9 @@ public class TaxDebtCommand {
             if (balance < amount) {
                 return false;
             }
-            SDMShopIntegration.setMoney(player, balance - amount);
-            return true;
+            // Only report success when the debit actually happened — a false return here
+            // would otherwise still pay down the colony debt with coins never taken.
+            return SDMShopIntegration.setMoney(player, balance - amount);
         } else {
             // Route through the safe path: CurrencyService.takeFromPlayer (via
             // ItemUtils.takeCurrencyFromInventory) runs a countInventoryValue
