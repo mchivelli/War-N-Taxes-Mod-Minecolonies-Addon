@@ -5,6 +5,27 @@ All notable changes to the War N Tax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.8] - 2026-08-18
+
+### Fixed - Debt payments could wipe a player's coins without paying anything
+
+`/wnt taxdebt` (and the tax-debt command) removed the player's currency stack by stack and only
+afterwards noticed the total was short: a player who could not cover the amount lost **every coin
+they had** and the debt stayed. The command now verifies sufficiency before touching the inventory,
+and the SDMShop path only credits the colony when the wallet debit actually succeeded.
+
+### Fixed - War penalties paid down the debt of a colony that was already broke
+
+`deductColonyTax` multiplied the raw balance by the penalty percentage. With a negative balance the
+"deduction" was negative and the penalty **increased** the balance — a stalemate or defeat penalty
+rewarded a colony in debt. Percentage penalties now only take from positive holdings; the raid-repair
+cost is floored at zero for the same reason (it used to quote and "pay" a negative price).
+
+### Fixed - Follow-ups to the 5.0.7 settlement rewrite
+
+- Real timer stalemates never counted toward the players' stalemate stat (only cancelled wars did);
+  the stat now follows the recorded outcome.
+
 ## [5.0.7] - 2026-08-17
 
 ### Fixed - War victories that expired on the timer destroyed the spoils

@@ -330,7 +330,10 @@ public class TaxManager {
 
     public static void deductColonyTax(IColony colony, double percentage) {
         int currentTax = colonyTaxMap.getOrDefault(colony.getID(), 0);
-        int deduction = (int)(currentTax * percentage);
+        // A percentage penalty only ever takes from positive holdings. With a negative balance
+        // (debt) the product is negative and "currentTax - deduction" would RAISE the balance,
+        // so a stalemate/defeat penalty used to pay down the loser's debt instead of hurting.
+        int deduction = (int) (Math.max(0, currentTax) * Math.max(0.0, percentage));
         colonyTaxMap.put(colony.getID(), currentTax - deduction);
         if (TaxConfig.showTaxGenerationLogs()) {
             LOGGER.info("Deducted {} tax as penalty from colony {}", deduction, colony.getName());

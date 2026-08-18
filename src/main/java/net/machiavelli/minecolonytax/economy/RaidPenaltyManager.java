@@ -139,7 +139,9 @@ public class RaidPenaltyManager {
 
         int taxBalance = TaxManager.getStoredTaxForColony(colony);
         double costPercent = TaxConfig.getRaidRepairCostPercent();
-        return (int) Math.ceil(taxBalance * costPercent);
+        // A colony in debt has nothing to repair WITH: floor at 0 rather than quoting (and
+        // "paying") a negative cost, which read as "Paid -250 gold" and credited the debt.
+        return (int) Math.ceil(Math.max(0, taxBalance) * costPercent);
     }
 
     /**

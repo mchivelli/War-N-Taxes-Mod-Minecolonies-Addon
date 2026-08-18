@@ -111,8 +111,9 @@ public class TaxDebtCommand {
             if (balance < amount) {
                 return false;
             }
-            SDMShopCompat.setMoney(player, balance - amount);
-            return true;
+            // Only report success when the debit actually happened — a false return here
+            // would otherwise still pay down the colony debt with coins never taken.
+            return SDMShopCompat.setMoney(player, balance - amount);
         } else {
             return deductCurrencyFromInventory(player, amount);
         }
@@ -123,6 +124,22 @@ public class TaxDebtCommand {
      * Uses ForgeRegistries to obtain the registry name for modded items.
      */
     private static boolean deductCurrencyFromInventory(ServerPlayer player, int amount) {
+        // Sufficiency pass BEFORE mutating any stack. The loop below used to shrink the
+        // player's stacks to zero one by one and only then discover the total was short:
+        // an underpaying player lost every coin they had and the debt stayed unpaid.
+        int total = 0;
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            var probe = player.getInventory().getItem(i);
+            if (!probe.isEmpty()) {
+                var probeName = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(probe.getItem());
+                if (probeName != null && probeName.toString().equals(TaxConfig.getCurrencyItemName())) {
+                    total += probe.getCount();
+                }
+            }
+        }
+        if (total < amount) {
+            return false;
+        }
         int remaining = amount;
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);

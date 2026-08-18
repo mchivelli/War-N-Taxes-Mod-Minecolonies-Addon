@@ -1404,8 +1404,16 @@ public class WarSystem {
             String outcome;
             long amountTransferred = 0L;
 
-            if (warData.getPenaltyReport().isEmpty()) {
-                outcome = "Stalemate";
+            // A war is a stalemate when the resolving path SAID so (timer stalemates,
+            // white peace, both war chests dry) or when nothing resolved it at all (empty
+            // report: cancelled / administratively ended). The old check keyed on the
+            // empty report only, so real timer stalemates — which carry a report — never
+            // counted toward the players' stalemate stat while cancelled wars did.
+            boolean recordedStalemate = "STALEMATE".equals(warData.resolvedOutcome)
+                    || (warData.resolvedOutcome == null && warData.getPenaltyReport().isEmpty());
+            if (recordedStalemate) {
+                outcome = warData.getPenaltyReport().isEmpty() ? "Stalemate" : warData.getPenaltyReport();
+                amountTransferred = warData.economyTransferTotal;
                 if (colony.getWorld() != null && colony.getWorld().getServer() != null) {
                     for (UUID uuid : warData.getAttackerLives().keySet()) {
                         ServerPlayer player = colony.getWorld().getServer().getPlayerList().getPlayer(uuid);
