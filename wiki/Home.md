@@ -20,4 +20,6 @@ War 'N Taxes transforms peaceful city-building into a strategic simulation. Colo
 - **Random Events**: Dynamic events like Merchants, Food Shortages, Plagues, and Festivals keep leadership engaging.
 - **Colony Abandonment**: Reclaim, protect, or take over inactive colonies on the server dynamically.
 
+**In-game help:** press **G** to open the tax & war management screen at any time. Every new player also receives the **War 'N Taxes Codex** (Patchouli book), which teaches every system with clickable commands.
+
 Navigate through the sidebar to explore detailed documentation on how to configure, administrate, and play with War 'N Taxes.

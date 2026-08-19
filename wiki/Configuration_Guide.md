@@ -47,6 +47,10 @@ Below is a list of all server configurations for War 'N Taxes. All settings live
 - **Description**: Enable colony ownership transfer when a war is won.
 - **Default Value**: true
 
+### EnableCorpseRetrievalInColonies
+- **Description**: Allows players to interact with their **own** corpse (Corpse mod) inside foreign colonies even when colony permissions would block the interaction. Only the corpse owner is exempted; other players' corpses remain protected. Has no effect if the Corpse mod is not installed.
+- **Default**: `true`
+
 ### EnableWarActions
 - **Description**: If false, war will not toggle any colony interaction permissions.
 - **Default Value**: true

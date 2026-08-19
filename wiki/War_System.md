@@ -193,7 +193,12 @@ If all territory systems are disabled, the war resolves purely through economic 
 
 ### Victor's Cut
 
-Regardless of the territory outcome, winning players split `WarVictoryPercentage` (default: 20%) of the losing colony's total tax balance.
+Unless the deed itself changes hands, the war ends with one economic settlement:
+
+- **With an economy mod (SDMShop):** each losing player pays the defeat percentage from their wallet, and the collected sum goes to a single winner — the winning colony's owner if they fought, otherwise an officer or another participant. If that recipient is offline, the payment is held and delivered on their next login; it is never lost.
+- **Without an economy mod:** `WarVictoryPercentage` (default: 20%) of the losing colony's tax balance is transferred to the winning colony's tax balance (going into debt if needed, up to the debt limit).
+
+The war history records the amount that actually moved.
 
 ---
 

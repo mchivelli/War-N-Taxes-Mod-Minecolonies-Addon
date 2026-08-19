@@ -25,6 +25,7 @@ Colonies can declare war on one another, changing interactions from peaceful to 
 - **Persistent Siege Damage:** Explosion damage during a war is recorded and fully restored when the war ends — including chest and sign contents — so siege warfare does not permanently scar the map. The ledger survives restarts.
 - **Peace Treaties:** Players can propose white peace or demand reparations at any point during a war.
 - **War Persistence:** Active wars survive server restarts and crashes. All war state is saved to `config/warntax/active_wars.json` automatically.
+- **Own-Corpse Retrieval:** With the Corpse mod installed, players can always collect their **own** corpse inside a foreign colony, even when colony permissions would normally block interaction. Other players' corpses stay protected. Disable with `EnableCorpseRetrievalInColonies`.
 
 ---
 

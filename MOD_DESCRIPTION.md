@@ -15,7 +15,7 @@ Your MineColonies village isn't just a settlement anymore — it's a **power on 
 
 ![Taxation](https://raw.githubusercontent.com/mchivelli/War-N-Taxes-Mod-Minecolonies-Addon/1.20.1/curseforge/images/b02_taxation.jpg)
 
-Open the **tax book** and your whole empire is right there: every colony, its balance, who's healthy and who's drowning in debt. One click on **Claim All** and the gold is yours.
+Open the **tax book** (press **G**) and your whole empire is right there: every colony, its balance, who's healthy and who's drowning in debt. One click on **Claim All** and the gold is yours.
 
 ![Colony Tax Management book](https://raw.githubusercontent.com/mchivelli/War-N-Taxes-Mod-Minecolonies-Addon/1.20.1/curseforge/images/gui.jpg)
 
@@ -33,6 +33,7 @@ Call your allies, declare war with `/wnt wagewar`, and settle it on the battlefi
 - ► Your **first colony is your capital** — it can be taxed under occupation, but its deed can't be taken unless the server allows it
 - ► Win against a second colony and you take it outright
 - ► When colony-transfer is off, a war win still **vassalizes** the loser and grabs a fat one-time cut of their treasury *and* their personal wallet
+- ► **Wars cost gold** — fund your **War Chest** before you declare, and watch it drain every minute of fighting. Run dry and you auto-surrender; defenders drain at half rate
 
 ---
 
@@ -70,12 +71,24 @@ Winning is just the start. **Occupy** a colony and pocket its taxes until they f
 
 ---
 
+## ◆ Diplomacy & Dirty Tricks
+
+- ● **Extortion** — declare war with a demand attached: they pay up and buy 24 hours of peace, or they fight
+- ● **Ransom** — cut down the owner mid-raid and name a price to call your raiders off
+- ● **Peace deals** — white peace, paid reparations, or full surrender, negotiated mid-war
+- ● **Factions** — band colonies together, pool a shared tax fund, forge alliances — and climb the server **leaderboards**
+- ● **Tax policies** — squeeze your citizens for more gold at the cost of happiness, or govern gently and watch morale pay you back
+
+---
+
 ## ◆ Colony Investments
 
 Don't just hoard gold — **spend it on power.** From the in-game Investments tab:
 
 - ● **Militia** — more boots on the ground &nbsp;&nbsp; ● **Defense** — a harder colony to crack
 - ● **Raid Force** — hit harder &nbsp;&nbsp; ● **Spy Capacity / Speed / Evasion** — a sharper cloak and dagger
+- ● **Treasury Cap** — a deeper war chest &nbsp;&nbsp; ● **Tax Efficiency** — every cycle pays more
+- ● **Fortification** — shrug off siege damage &nbsp;&nbsp; ● **Counter-Intel** — catch enemy spies at the gate
 
 ---
 
@@ -87,7 +100,9 @@ Settle the score without risking your stuff. **Duels and team battles** with `/p
 
 ## ◆ Living World
 
-Tax cycles spark **random events** — bandits, festivals, shortages — shaped by how you've built your colony. And a **Patchouli Codex** lands in every new player's hands, teaching the whole mod with clickable commands, advancements, and translations in **German, Russian, French & Spanish**.
+Tax cycles spark **random events** — bandit raids, festivals, plagues, labor strikes, deserting guards — shaped by how you've built your colony. Colonies whose owners vanish can **decay and be claimed**: survive the claiming raid against the leftover militia and the town is yours. And a **Patchouli Codex** lands in every new player's hands, teaching the whole mod with clickable commands, advancements, and translations in **German, Russian, French & Spanish**.
+
+*Quality of life:* with the **Corpse** mod installed you can always recover **your own** corpse inside enemy colonies — no more items locked behind border permissions. Everyone else's corpses stay protected.
 
 ---
 
@@ -113,7 +128,7 @@ Tax cycles spark **random events** — bandits, festivals, shortages — shaped 
 | **MineColonies** | Required |
 | **SDMShop** | Recommended — currency |
 | **Patchouli** | Recommended — the Codex |
-| **FTB Teams** / **Recruits** / **JourneyMap** | Optional integrations |
+| **FTB Teams** / **Recruits** / **JourneyMap** / **Corpse** / **Easy Factions** / **Hundred Years' War** | Optional integrations |
 
 Built for **Minecraft 1.20.1 (Forge)** and **1.21.1 (NeoForge)**.
 
