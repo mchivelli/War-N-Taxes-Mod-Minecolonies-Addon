@@ -961,6 +961,8 @@ public class WarSystem {
                 // Apply team economic penalties - transfer from ALL losers to SINGLE winner
                 long totalCollected = 0;
                 List<String> transactionDetails = new ArrayList<>();
+                // Track successful debits so a failed winner credit can be rolled back.
+                java.util.Map<ServerPlayer, Long> debits = new java.util.LinkedHashMap<>();
 
                 // Collect from all losing participants (only when a recipient exists)
                 if (singleWinner != null) {
@@ -970,8 +972,10 @@ public class WarSystem {
                             long loserBalance = net.machiavelli.minecolonytax.integration.SDMShopIntegration.getMoney(loser);
                             long transferAmount = Math.max(1, (long)(loserBalance * transferPercentage));
 
-                            if (transferAmount > 0 && loserBalance >= transferAmount) {
-                                net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(loser, loserBalance - transferAmount);
+                            // Count only debits that actually happened (setMoney can fail).
+                            if (transferAmount > 0 && loserBalance >= transferAmount
+                                    && net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(loser, loserBalance - transferAmount)) {
+                                debits.put(loser, transferAmount);
                                 totalCollected += transferAmount;
 
                                 // Notify losing participant
@@ -989,7 +993,17 @@ public class WarSystem {
                 // Award all collected funds to single winner
                 if (totalCollected > 0 && singleWinner != null) {
                     long currentBalance = net.machiavelli.minecolonytax.integration.SDMShopIntegration.getMoney(singleWinner);
-                    net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(singleWinner, currentBalance + totalCollected);
+                    if (!net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(singleWinner, currentBalance + totalCollected)) {
+                        // Wallet credit failed after the losers were debited: roll every
+                        // debit back so nothing is destroyed (no payout store on this branch).
+                        for (java.util.Map.Entry<ServerPlayer, Long> d : debits.entrySet()) {
+                            net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(d.getKey(),
+                                    net.machiavelli.minecolonytax.integration.SDMShopIntegration.getMoney(d.getKey()) + d.getValue());
+                        }
+                        WARSYSTEM_LOGGER.error("War reparations credit failed; refunded {} coins to {} player(s).",
+                                totalCollected, debits.size());
+                        totalCollected = 0;
+                    } else {
                     
                     // Notify winner
                     singleWinner.sendSystemMessage(Component.literal("🏆 WAR VICTORY REWARD 🏆")
@@ -1006,6 +1020,7 @@ public class WarSystem {
                                .withStyle(ChatFormatting.GREEN));
                     
                     sendMessageToWarParticipants(war, transactionSummary);
+                }
                 }
                 
                 totalTransferred = totalCollected;
