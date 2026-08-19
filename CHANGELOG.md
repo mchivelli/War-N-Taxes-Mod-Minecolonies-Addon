@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.0.8] - 2026-08-18
 
+### Fixed - War reparation transfers are now checked end-to-end
+
+Every SDMShop wallet transfer in the war-economy paths (team penalties, strategic-victory
+transfers, peace reparations, individual transfers) now verifies that the debit and the credit
+actually happened. A failed credit rolls the debits back; a recipient who is offline gets the
+payment queued for their next login instead of the coins being destroyed. Proportional peace
+reparations also no longer over-charge later team members (the denominator was recomputed after
+each debit, so two players with 1000 coins each paying a 1000-coin demand were charged 1166).
+
 ### Fixed - Debt payments could wipe a player's coins without paying anything
 
 `/wnt taxdebt` (and the tax-debt command) removed the player's currency stack by stack and only

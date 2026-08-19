@@ -1207,9 +1207,10 @@ public class WarSystem {
                                 .getMoney(loser);
                         long transferAmount = Math.max(1, (long) (loserBalance * transferPercentage));
 
-                        if (transferAmount > 0 && loserBalance >= transferAmount) {
-                            net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(loser,
-                                    loserBalance - transferAmount);
+                        // Count only debits that actually happened (setMoney can fail).
+                        if (transferAmount > 0 && loserBalance >= transferAmount
+                                && net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(loser,
+                                        loserBalance - transferAmount)) {
                             totalCollected += transferAmount;
 
                             // Notify losing participant
@@ -1238,8 +1239,17 @@ public class WarSystem {
                 if (totalCollected > 0 && singleWinner != null) {
                     long currentBalance = net.machiavelli.minecolonytax.integration.SDMShopIntegration
                             .getMoney(singleWinner);
-                    net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(singleWinner,
-                            currentBalance + totalCollected);
+                    if (!net.machiavelli.minecolonytax.integration.SDMShopIntegration.setMoney(singleWinner,
+                            currentBalance + totalCollected)) {
+                        // Losers are already debited; a failed wallet credit must not destroy
+                        // the coins. Queue them for delivery like the offline-winner case.
+                        net.machiavelli.minecolonytax.pvp.PendingWagerPayouts.queue(
+                                singleWinner.getUUID(), (int) Math.min(Integer.MAX_VALUE, totalCollected),
+                                "war reparations (wallet credit failed)");
+                        WARSYSTEM_LOGGER.error(
+                                "War reparations: crediting {} failed, queued {} coins for retry on next login",
+                                singleWinner.getName().getString(), totalCollected);
+                    } else {
 
                     // Notify winner
                     singleWinner.sendSystemMessage(Component.literal("🏆 WAR VICTORY REWARD 🏆")
@@ -1258,6 +1268,7 @@ public class WarSystem {
                                     .withStyle(ChatFormatting.GREEN));
 
                     sendMessageToWarParticipants(war, transactionSummary);
+                    }
                 }
 
                 totalTransferred = totalCollected;

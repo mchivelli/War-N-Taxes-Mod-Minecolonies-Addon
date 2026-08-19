@@ -53,16 +53,23 @@ public class WarEconomyHandler {
                 if (TaxConfig.isSDMShopConversionEnabled() && SDMShopIntegration.isAvailable()) {
                     long balance = SDMShopIntegration.getMoney(loserPlayer);
                     deducted = (long) (balance * fraction);
-                    SDMShopIntegration.setMoney(loserPlayer, balance - deducted);
+                    // Count the penalty only when the wallet debit actually happened.
+                    if (deducted > 0 && !SDMShopIntegration.setMoney(loserPlayer, balance - deducted)) {
+                        LOGGER.error("Failed to deduct {} penalty coins from {} via SDMShop",
+                                deducted, loserPlayer.getName().getString());
+                        deducted = 0;
+                    }
                 } else {
                     long invBalance = getInventoryCurrencyBalance(loserPlayer);
                     deducted = (long) (invBalance * fraction);
                     deducted = deductCurrencyFromInventory(loserPlayer, deducted);
                 }
                 totalDeducted += deducted;
-                loserPlayer.sendSystemMessage(
-                        Component.literal("You lost " + deducted + " coins due to war reparations!")
-                                .withStyle(ChatFormatting.RED));
+                if (deducted > 0) {
+                    loserPlayer.sendSystemMessage(
+                            Component.literal("You lost " + deducted + " coins due to war reparations!")
+                                    .withStyle(ChatFormatting.RED));
+                }
             }
         }
         return totalDeducted;
@@ -78,13 +85,20 @@ public class WarEconomyHandler {
             FtbTeamsCompat.TeamHandle losingTeam = losingTeamID == null ? null
                     : FtbTeamsCompat.getTeamById(losingTeamID).orElse(null);
             if (losingTeam == null) return 0L;
+            // Track successful debits so a failed winner credit can be rolled back
+            // instead of destroying the collected coins.
+            java.util.Map<ServerPlayer, Long> debits = new java.util.LinkedHashMap<>();
             for (UUID loserUUID : FtbTeamsCompat.getTeamMembers(losingTeam)) {
                 ServerPlayer loserPlayer = ServerLifecycleHooks.getCurrentServer()
                         .getPlayerList().getPlayer(loserUUID);
                 if (loserPlayer != null) {
                     long balance = SDMShopIntegration.getMoney(loserPlayer);
                     long lostAmount = (long) (balance * fraction);
-                    SDMShopIntegration.setMoney(loserPlayer, balance - lostAmount);
+                    if (lostAmount <= 0
+                            || !SDMShopIntegration.setMoney(loserPlayer, balance - lostAmount)) {
+                        continue; // nothing moved for this player
+                    }
+                    debits.put(loserPlayer, lostAmount);
                     totalTransferred += lostAmount;
                     loserPlayer.sendSystemMessage(
                             Component.literal("You lost " + lostAmount + " coins in reparations to " +
@@ -92,12 +106,35 @@ public class WarEconomyHandler {
                                     .withStyle(ChatFormatting.RED));
                 }
             }
-            if (winnerPlayer != null && totalTransferred > 0) {
-                long winnerBalance = SDMShopIntegration.getMoney(winnerPlayer);
-                SDMShopIntegration.setMoney(winnerPlayer, winnerBalance + totalTransferred);
-                winnerPlayer.sendSystemMessage(
-                        Component.literal("You received " + totalTransferred + " coins in war reparations!")
-                                .withStyle(ChatFormatting.GREEN));
+            if (totalTransferred > 0) {
+                boolean credited = false;
+                if (winnerPlayer != null) {
+                    long winnerBalance = SDMShopIntegration.getMoney(winnerPlayer);
+                    credited = SDMShopIntegration.setMoney(winnerPlayer, winnerBalance + totalTransferred);
+                    if (credited) {
+                        winnerPlayer.sendSystemMessage(
+                                Component.literal("You received " + totalTransferred + " coins in war reparations!")
+                                        .withStyle(ChatFormatting.GREEN));
+                    }
+                }
+                if (!credited) {
+                    if (winnerPlayer == null && winnerUUID != null) {
+                        // Winner offline: previously the losers were debited and the coins
+                        // silently destroyed. Queue the payout for their next login instead.
+                        net.machiavelli.minecolonytax.pvp.PendingWagerPayouts.queue(
+                                winnerUUID, (int) Math.min(Integer.MAX_VALUE, totalTransferred),
+                                "war reparations (winner offline)");
+                    } else {
+                        // Wallet credit failed: roll every debit back so nothing is destroyed.
+                        for (java.util.Map.Entry<ServerPlayer, Long> d : debits.entrySet()) {
+                            SDMShopIntegration.setMoney(d.getKey(),
+                                    SDMShopIntegration.getMoney(d.getKey()) + d.getValue());
+                        }
+                        LOGGER.error("War reparations credit failed; refunded {} coins to {} player(s).",
+                                totalTransferred, debits.size());
+                        totalTransferred = 0;
+                    }
+                }
             }
         } else {
             FtbTeamsCompat.TeamHandle losingTeam = losingTeamID == null ? null
@@ -117,17 +154,25 @@ public class WarEconomyHandler {
                                     .withStyle(ChatFormatting.RED));
                 }
             }
-            if (winnerPlayer != null && totalTransferred > 0) {
-                ItemStack coinStack = new ItemStack(
-                        ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName())),
-                        (int) totalTransferred);
-                boolean added = winnerPlayer.getInventory().add(coinStack);
-                if (!added) {
-                    winnerPlayer.drop(coinStack, false);
+            if (totalTransferred > 0) {
+                if (winnerPlayer != null) {
+                    ItemStack coinStack = new ItemStack(
+                            ForgeRegistries.ITEMS.getValue(new ResourceLocation(TaxConfig.getCurrencyItemName())),
+                            (int) totalTransferred);
+                    boolean added = winnerPlayer.getInventory().add(coinStack);
+                    if (!added) {
+                        winnerPlayer.drop(coinStack, false);
+                    }
+                    winnerPlayer.sendSystemMessage(
+                            Component.literal("You received " + totalTransferred + " coins in war reparations!")
+                                    .withStyle(ChatFormatting.GREEN));
+                } else if (winnerUUID != null) {
+                    // Winner offline: the value is already collected from the losers — queue
+                    // it for delivery on the winner's next login rather than destroying it.
+                    net.machiavelli.minecolonytax.pvp.PendingWagerPayouts.queue(
+                            winnerUUID, (int) Math.min(Integer.MAX_VALUE, totalTransferred),
+                            "war reparations (winner offline)");
                 }
-                winnerPlayer.sendSystemMessage(
-                        Component.literal("You received " + totalTransferred + " coins in war reparations!")
-                                .withStyle(ChatFormatting.GREEN));
             }
         }
         return totalTransferred;
@@ -198,6 +243,9 @@ public class WarEconomyHandler {
                     : FtbTeamsCompat.getTeamById(losingTeamID).orElse(null);
             if (losingTeam == null) return false;
             Collection<UUID> losingMembers = FtbTeamsCompat.getTeamMembers(losingTeam);
+            // Fixed denominator: recomputing the team total inside the loop shrank it after
+            // each debit, over-charging later members (2 x 1000, demand 1000 -> 500 + 666).
+            final long teamTotalAtStart = Math.max(1L, getTeamTotalBalance(losingTeamID));
             long totalTransferred = 0L;
             StringBuilder contributionReport = new StringBuilder("Reparations breakdown:\n");
             ServerPlayer winner = ServerLifecycleHooks.getCurrentServer()
@@ -207,8 +255,10 @@ public class WarEconomyHandler {
                         .getPlayerList().getPlayer(member);
                 if (loser != null) {
                     long balance = SDMShopIntegration.getMoney(loser);
-                    long take = (long) (balance * ((double) demandedAmount / getTeamTotalBalance(losingTeamID)));
-                    SDMShopIntegration.setMoney(loser, balance - take);
+                    long take = (long) (balance * ((double) demandedAmount / teamTotalAtStart));
+                    if (take <= 0 || !SDMShopIntegration.setMoney(loser, balance - take)) {
+                        continue; // nothing moved for this player
+                    }
                     totalTransferred += take;
                     contributionReport.append("  ").append(loser.getName().getString()).append(": ").append(take).append(" coins\n");
                     loser.sendSystemMessage(Component.literal("You lost " + take + " coins in reparations!")
@@ -222,12 +272,24 @@ public class WarEconomyHandler {
                     p.sendSystemMessage(Component.literal(contributionReport.toString()).withStyle(ChatFormatting.YELLOW));
                 }
             }
-            if (winner != null && totalTransferred > 0) {
-                long wb = SDMShopIntegration.getMoney(winner);
-                SDMShopIntegration.setMoney(winner, wb + totalTransferred);
-                winner.sendSystemMessage(
-                        Component.literal("You received " + totalTransferred + " coins in reparations!")
-                                .withStyle(ChatFormatting.GREEN));
+            if (totalTransferred > 0) {
+                boolean credited = false;
+                if (winner != null) {
+                    long wb = SDMShopIntegration.getMoney(winner);
+                    credited = SDMShopIntegration.setMoney(winner, wb + totalTransferred);
+                    if (credited) {
+                        winner.sendSystemMessage(
+                                Component.literal("You received " + totalTransferred + " coins in reparations!")
+                                        .withStyle(ChatFormatting.GREEN));
+                    }
+                }
+                if (!credited) {
+                    // The peace deal completes either way (the losers HAVE paid) — deliver the
+                    // payment on the winner's next login instead of destroying it.
+                    net.machiavelli.minecolonytax.pvp.PendingWagerPayouts.queue(
+                            winnerUUID, (int) Math.min(Integer.MAX_VALUE, totalTransferred),
+                            "peace reparations (recipient unavailable)");
+                }
             }
             return true;
         } else {
@@ -310,6 +372,12 @@ public class WarEconomyHandler {
                     }
                     winner.sendSystemMessage(Component.literal("You received " + totalTaken + " coins in reparations!")
                             .withStyle(ChatFormatting.GREEN));
+                } else {
+                    // Winner offline: the payment has been collected — queue it for delivery
+                    // on the winner's next login rather than destroying it.
+                    net.machiavelli.minecolonytax.pvp.PendingWagerPayouts.queue(
+                            winnerUUID, (int) Math.min(Integer.MAX_VALUE, totalTaken),
+                            "peace reparations (recipient offline)");
                 }
             }
 
@@ -331,9 +399,18 @@ public class WarEconomyHandler {
                 long transferAmount = (long) (loserBalance * percentage);
 
                 if (transferAmount > 0) {
-                    SDMShopIntegration.setMoney(loserPlayer, loserBalance - transferAmount);
+                    // Debit and credit as a checked pair; roll the debit back if the credit
+                    // fails so the coins are never destroyed.
+                    if (!SDMShopIntegration.setMoney(loserPlayer, loserBalance - transferAmount)) {
+                        return 0;
+                    }
                     long winnerBalance = SDMShopIntegration.getMoney(winnerPlayer);
-                    SDMShopIntegration.setMoney(winnerPlayer, winnerBalance + transferAmount);
+                    if (!SDMShopIntegration.setMoney(winnerPlayer, winnerBalance + transferAmount)) {
+                        SDMShopIntegration.setMoney(loserPlayer, loserBalance); // roll back
+                        LOGGER.error("transferBalanceToPlayer: credit to {} failed - debit rolled back",
+                                winnerPlayer.getName().getString());
+                        return 0;
+                    }
                     transferredAmount = transferAmount;
                     loserPlayer.sendSystemMessage(
                             Component.literal("You lost " + transferAmount + " as war reparations to " +
