@@ -308,9 +308,7 @@ public class TaxPolicyManager {
         Path path = Paths.get(STORAGE_FILE);
         try {
             Files.createDirectories(path.getParent());
-            try (Writer writer = new FileWriter(path.toFile())) {
-                GSON.toJson(COLONY_POLICIES, writer);
-            }
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(path.toFile(), GSON.toJson(COLONY_POLICIES));
         } catch (IOException e) {
             LOGGER.error("Failed to save tax policies data", e);
         }

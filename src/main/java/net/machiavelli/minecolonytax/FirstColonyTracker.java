@@ -205,9 +205,7 @@ public class FirstColonyTracker {
             File file = new File(DATA_FILE);
             file.getParentFile().mkdirs();
 
-            try (FileWriter writer = new FileWriter(file)) {
-                GSON.toJson(playerColoniesMap, writer);
-            }
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(file, GSON.toJson(playerColoniesMap));
 
             LOGGER.debug("First colony data saved successfully");
         } catch (IOException e) {

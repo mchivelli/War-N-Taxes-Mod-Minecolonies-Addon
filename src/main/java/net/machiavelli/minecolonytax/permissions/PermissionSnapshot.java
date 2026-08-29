@@ -217,9 +217,7 @@ public class PermissionSnapshot {
     private static void saveToFile() {
         try {
             Files.createDirectories(SNAPSHOT_FILE.getParent());
-            try (Writer writer = new FileWriter(SNAPSHOT_FILE.toFile())) {
-                GSON.toJson(new HashMap<>(SNAPSHOTS), writer);
-            }
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(SNAPSHOT_FILE.toFile(), GSON.toJson(new HashMap<>(SNAPSHOTS)));
         } catch (Exception e) {
             LOGGER.error("[PermSnapshot] Failed to save permission snapshots to {}", SNAPSHOT_FILE, e);
         }

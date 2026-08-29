@@ -12,6 +12,8 @@ group = mod_group_id
 repositories {
     mavenLocal()
     mavenCentral()
+    // Patchouli (dev runtime, codex verification)
+    maven { url = "https://maven.blamejared.com" }
     maven {
         url = "https://maven.pkg.github.com/ldtteam/minecolonies"
         credentials {
@@ -94,6 +96,10 @@ dependencies {
     // Corpse (henkelmax) - dev runtime only, so runServer/runClient can exercise the corpse
     // retrieval integration. Not shipped.
     runtimeOnly "curse.maven:corpse-316582:7018307"
+
+    // Patchouli - dev runtime only, so runServer can verify the ported codex actually
+    // registers (the 5.0.9 report "Codex not recognized" was exactly this going unseen).
+    runtimeOnly "vazkii.patchouli:Patchouli:1.21.1-92-NEOFORGE"
     
     // MineColonies required dependencies
     implementation "curse.maven:structurize-298744:8610535"

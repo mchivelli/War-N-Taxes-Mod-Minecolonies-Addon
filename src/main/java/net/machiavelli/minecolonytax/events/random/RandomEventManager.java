@@ -790,9 +790,7 @@ public class RandomEventManager {
             root.add("eventLog", logJson);
 
             // Write to file
-            try (Writer writer = Files.newBufferedWriter(path)) {
-                GSON.toJson(root, writer);
-            }
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(path.toFile(), GSON.toJson(root));
 
             LOGGER.debug("Saved random events data to {}", STORAGE_FILE);
         } catch (Exception e) {

@@ -439,9 +439,7 @@ public class WarExhaustionManager {
             data.reparations = new ConcurrentHashMap<>(REPARATIONS);
             data.warImmunity = new ConcurrentHashMap<>(WAR_IMMUNITY);
 
-            try (Writer writer = new FileWriter(path.toFile())) {
-                GSON.toJson(data, writer);
-            }
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(path.toFile(), GSON.toJson(data));
         } catch (Exception e) {
             LOGGER.error("Failed to save war exhaustion data", e);
         }

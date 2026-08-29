@@ -538,9 +538,7 @@ public class OccupationManager {
             OccupationSaveData saveData = new OccupationSaveData();
             saveData.occupations = new ArrayList<>(ACTIVE_OCCUPATIONS.values());
 
-            try (Writer writer = new FileWriter(STORAGE_FILE)) {
-                GSON.toJson(saveData, writer);
-            }
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(STORAGE_FILE, GSON.toJson(saveData));
         } catch (Exception e) {
             LOGGER.error("Failed to save occupation data: {}", e.getMessage());
         }

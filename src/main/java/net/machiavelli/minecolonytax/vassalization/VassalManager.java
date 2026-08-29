@@ -509,9 +509,9 @@ public class VassalManager {
     private static void saveData() {
         if (SERVER == null) return;
         File f = SERVER.getServerDirectory().resolve(STORAGE_FILE).toFile();
-        try (FileWriter w = new FileWriter(f)) {
+        try {
             List<VassalRelation> list = new ArrayList<>(ACTIVE_VASSALS.values());
-            GSON.toJson(list, w);
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(f, GSON.toJson(list));
         } catch (Exception e) {
             LOGGER.error("Failed to save vassal data", e);
         }

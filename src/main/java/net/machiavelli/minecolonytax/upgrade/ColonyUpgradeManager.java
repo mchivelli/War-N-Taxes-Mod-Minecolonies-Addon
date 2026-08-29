@@ -184,8 +184,8 @@ public class ColonyUpgradeManager {
     private static void saveData() {
         File file = new File(STORAGE_FILE);
         file.getParentFile().mkdirs();
-        try (FileWriter writer = new FileWriter(file)) {
-            GSON.toJson(UPGRADES, writer);
+        try {
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(file, GSON.toJson(UPGRADES));
         } catch (Exception e) {
             LOGGER.error("Failed to save colony investment data: {}", e.getMessage());
         }

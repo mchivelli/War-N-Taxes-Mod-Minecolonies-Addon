@@ -253,9 +253,7 @@ public class RaidPenaltyManager {
         Path path = Paths.get(STORAGE_FILE);
         try {
             Files.createDirectories(path.getParent());
-            try (Writer writer = new FileWriter(path.toFile())) {
-                GSON.toJson(RAID_PENALTIES, writer);
-            }
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(path.toFile(), GSON.toJson(RAID_PENALTIES));
         } catch (IOException e) {
             LOGGER.error("Failed to save raid penalties data", e);
         }

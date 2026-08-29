@@ -36,9 +36,7 @@ public class HistoryManager
             if (!parentDir.exists()) {
                 parentDir.mkdirs();
             }
-            try (FileWriter writer = new FileWriter(HISTORY_FILE)) {
-                GSON.toJson(colonyHistories, writer);
-            }
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(HISTORY_FILE, GSON.toJson(colonyHistories));
         } catch (IOException e) {
             LOGGER.error("Could not save colony history", e);
         }

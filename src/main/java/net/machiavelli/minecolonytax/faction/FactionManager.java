@@ -55,8 +55,8 @@ public class FactionManager {
             CONFIG_DIR.toFile().mkdirs();
         }
 
-        try (FileWriter writer = new FileWriter(FACTIONS_FILE)) {
-            GSON.toJson(FACTIONS, writer);
+        try {
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(FACTIONS_FILE, GSON.toJson(FACTIONS));
         } catch (IOException e) {
             LOGGER.error("Failed to save factions data", e);
         }

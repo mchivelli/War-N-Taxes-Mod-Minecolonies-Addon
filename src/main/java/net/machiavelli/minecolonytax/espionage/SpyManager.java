@@ -123,7 +123,7 @@ public class SpyManager {
         File file = new File(STORAGE_FILE);
         file.getParentFile().mkdirs();
 
-        try (FileWriter writer = new FileWriter(file)) {
+        try {
             SpySaveData data = new SpySaveData();
             data.activeMissions.putAll(ACTIVE_MISSIONS);
             data.completedMissions.putAll(COMPLETED_MISSIONS);
@@ -133,7 +133,7 @@ public class SpyManager {
             data.bribedGuards.putAll(BRIBED_GUARDS);
             data.stolenSecretsBuff.putAll(STOLEN_SECRETS_BUFF);
 
-            GSON.toJson(data, writer);
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(file, GSON.toJson(data));
         } catch (Exception e) {
             LOGGER.error("Failed to save espionage data: {}", e.getMessage());
         }

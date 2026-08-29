@@ -138,8 +138,8 @@ public class PvPMapManager {
             if (!PvPManager.ARENA_DATA_FILE.getParentFile().exists()) {
                 PvPManager.ARENA_DATA_FILE.getParentFile().mkdirs();
             }
-            try (FileWriter writer = new FileWriter(PvPManager.ARENA_DATA_FILE)) {
-                ArenaDataCollection data = new ArenaDataCollection();
+            ArenaDataCollection data = new ArenaDataCollection();
+            {
                 for (PvPMap map : pvpManager.arenaMapsByName.values()) {
                     ArenaMapData mapData = new ArenaMapData();
                     mapData.name = map.getName();
@@ -156,8 +156,8 @@ public class PvPMapManager {
                     data.maps.add(mapData);
                 }
                 data.defaultMapName = pvpManager.defaultMapName;
-                PvPManager.GSON.toJson(data, writer);
             }
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(PvPManager.ARENA_DATA_FILE, PvPManager.GSON.toJson(data));
         } catch (IOException e) {
             LOGGER.error("Failed to save arena data", e);
         }

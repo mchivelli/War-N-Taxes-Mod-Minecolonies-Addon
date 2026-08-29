@@ -2062,9 +2062,7 @@ public class BesiegeManager {
         net.machiavelli.minecolonytax.util.AsyncSaveExecutor.submit("besiege", () -> {
             try {
                 f.getParentFile().mkdirs();
-                try (FileWriter w = new FileWriter(f)) {
-                    GSON.toJson(list, w);
-                }
+                net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(f, GSON.toJson(list));
             } catch (Exception e) {
                 LOGGER.error("Failed to save besiege occupation data", e);
             }

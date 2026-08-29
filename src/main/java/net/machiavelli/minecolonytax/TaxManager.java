@@ -746,8 +746,8 @@ public class TaxManager {
     private static void saveTaxData(boolean logSave) {
         File file = new File(TAX_DATA_FILE);
         file.getParentFile().mkdirs(); // Ensure the directory exists
-        try (FileWriter writer = new FileWriter(file)) {
-            GSON.toJson(colonyTaxMap, writer);
+        try {
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(file, GSON.toJson(colonyTaxMap));
             if (logSave && TaxConfig.showTaxGenerationLogs()) {
                 LOGGER.info("Saved tax data to file.");
             }
@@ -892,11 +892,11 @@ public class TaxManager {
         File timestampFile = new File(TAX_TIMESTAMP_FILE);
         timestampFile.getParentFile().mkdirs(); // Ensure directory exists
         
-        try (FileWriter writer = new FileWriter(timestampFile)) {
+        try {
             Map<String, Long> timestampData = new HashMap<>();
             timestampData.put("lastTaxGeneration", lastTaxGenerationTime);
             timestampData.put("version", 1L); // Version for future compatibility
-            GSON.toJson(timestampData, writer);
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(timestampFile, GSON.toJson(timestampData));
             
             if (TaxConfig.showTaxGenerationLogs()) {
                 LOGGER.debug("Saved tax generation timestamp: {} ({})", lastTaxGenerationTime, new java.util.Date(lastTaxGenerationTime));
