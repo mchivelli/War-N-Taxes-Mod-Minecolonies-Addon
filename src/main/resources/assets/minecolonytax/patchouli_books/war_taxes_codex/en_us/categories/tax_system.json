@@ -1,0 +1,6 @@
+{
+    "name": "minecolonytax.category.tax_system.name",
+    "description": "minecolonytax.category.tax_system.desc",
+    "icon": "minecraft:gold_ingot",
+    "sortnum": 10
+}

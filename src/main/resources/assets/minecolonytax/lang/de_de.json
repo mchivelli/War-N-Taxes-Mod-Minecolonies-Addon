@@ -12,7 +12,6 @@
   "command.claimtax.invalid_amount": "Ungültiger Betrag. Bitte geben Sie eine positive Zahl an.",
   "message.minecolonytax.tax_report": "Kolonie: %s - Generierte Steuern: %d Münzen hinzugefügt; Wartungskosten abgezogen: %d Münzen.",
   "message.minecolonytax.debt_warning": "Kolonie: %s – Warnung: Wartung (%d Münzen) überstieg erzeugte Steuern (%d Münzen).",
-  
   "message.minecolonytax.tax_report_header": "STEUERBERICHT FÜR %s",
   "message.minecolonytax.tax_report_separator": "══════════════════════════════════",
   "message.minecolonytax.tax_report_generation": "Einnahmen: %d Gebäude generierten %d Münzen",
@@ -23,7 +22,6 @@
   "message.minecolonytax.tax_report_status_near_max": "HINWEIS: Maximale Steuerspeicherung (%d Münzen) wird erreicht. Steuern einfordern!",
   "message.minecolonytax.tax_report_status_healthy": "STATUS: Kolonienfinanzen sind stabil und gesund.",
   "message.minecolonytax.tax_report_footer": "══════════════════════════════════",
-  
   "war.declare.title": "📜 KRIEG ERKLÄRT! 📜",
   "war.declare.body": "%s hat KRIEG gegen %s erklärt!",
   "war.begin.title": "🔥 DER KRIEG BEGINNT! 🔥",
@@ -50,16 +48,13 @@
   "war.defender.victory.strategic": "Die Verteidiger von %s haben einen STRATEGISCHEN SIEG errungen. Sie haben weniger Kräfte verloren als die Eindringlinge!",
   "war.attacker.victory.strategic": "Die Angreifer von %s haben mit überlegener Leistung einen STRATEGISCHEN SIEG über %s errungen!",
   "war.stalemate.proportional": "Beide Seiten haben proportionale Verluste erlitten. Der Krieg endet in einem PATT.",
-  
   "war.guard.death.attacker.title": "🛡️ Feindlicher Wächter gefallen! 🛡️",
   "war.guard.death.attacker.body": "Verteidiger-Wächter eliminiert! %d übrig",
   "war.guard.death.defender.title": "❗ Dein Wächter ist gefallen! ❗",
   "war.guard.death.defender.body": "%d Wächter verbleiben",
-  
   "war.player.killed.title": "💀 OPFER DES KRIEGES! 💀",
   "war.player.killed.body": "%s (%s) hat %s (%s) erschlagen!",
   "war.player.killed.remaining": "%s hat noch %d Leben für diesen Kämpfer.",
-  
   "raid.initiate.message": "⚔️ Überfall auf %s initiiert! ⚔️ Bleib in der Kolonie!",
   "raid.alert.colony": "🚨 ÜBERFALL-ALARM! 🚨 Kolonie %s wird von %s überfallen!",
   "raid.active.error": "❗ Ein Krieg ist derzeit aktiv! Du kannst keinen Überfall starten.",
@@ -71,14 +66,12 @@
   "raid.end.raider.body": "Dein Überfall auf %s ist beendet.\nGrund: %s",
   "raid.warning.title": "🚨 ÜBERFALL-WARNUNG 🚨",
   "raid.warning.body": "Der Überfall auf %s hat noch %s übrig!",
-  
   "peace.proposal.title": "🕊️ FRIEDEN ANGEBOTEN! 🕊️",
   "peace.proposal.body": "%s (%s) schlägt %s Frieden vor! Reparationen: %d Münzen",
   "peace.accept.message": "✅ Du hast den Friedensvorschlag angenommen.",
   "peace.decline.message": "❌ Du hast den Friedensvorschlag abgelehnt.",
   "peace.timeout.title": "⏳🕊️ Friedensvorschlag abgelaufen 🕊️⏳",
   "peace.timeout.body": "Der Friedensvorschlag bezüglich %s und %s ist aufgrund fehlender Antwort abgelaufen.",
-  
   "command.joinwar.attacking": "⚔️ Du hast dich der angreifenden Seite angeschlossen!",
   "command.joinwar.defending": "🛡️ Du hast dich der verteidigenden Seite angeschlossen!",
   "command.joinwar.error.none": "❌ Kein aktiver Krieg zum Beitreten.",
@@ -88,6 +81,7 @@
   "command.suepeace.accept": "✅ Friedensvorschlag angenommen. Der Krieg wird nun enden.",
   "command.suepeace.decline": "❌ Friedensvorschlag abgelehnt.",
   "command.suepeace.declined.team": "❌🕊️ Der Friedensvorschlag wurde vom Koloniebesitzer abgelehnt.",
-  
-  "war.siege.status": "%s wird belagert! Beitrittsphase initiiert. Verbleibende Zeit: %s"
+  "war.siege.status": "%s wird belagert! Beitrittsphase initiiert. Verbleibende Zeit: %s",
+  "minecolonytax.book.name": "War 'N Taxes Codex",
+  "minecolonytax.book.landing": "Willkommen im $(war)War 'N Taxes$() Kodex! Dieser Führer erklärt das Steuersystem, Raubzüge, Kriege und mehr. $(br2)$(tip)Tipp: Klicke auf Befehle, um sie auszuführen!$(/tip)"
 }

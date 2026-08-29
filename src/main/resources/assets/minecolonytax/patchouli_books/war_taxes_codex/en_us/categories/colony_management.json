@@ -1,0 +1,6 @@
+{
+    "name": "minecolonytax.category.colony_management.name",
+    "description": "minecolonytax.category.colony_management.desc",
+    "icon": "minecolonies:blockhuttownhall",
+    "sortnum": 60
+}

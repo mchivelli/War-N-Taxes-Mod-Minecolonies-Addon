@@ -1,0 +1,17 @@
+{
+    "name": "minecolonytax.entry.team_battles.name",
+    "icon": "minecraft:golden_sword",
+    "category": "minecolonytax:pvp_arena",
+    "sortnum": 1,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.team_battles.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.team_battles.setup.title",
+            "text": "minecolonytax.entry.team_battles.setup"
+        }
+    ]
+}

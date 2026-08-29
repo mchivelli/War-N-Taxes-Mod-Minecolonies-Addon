@@ -106,6 +106,26 @@ public class PatchouliBookHandler {
     }
 
     /**
+     * Command-facing re-give (/wnt codex): hands the codex to the player regardless of
+     * the first-join flag — players lose books, and this answers "how do I get it back"
+     * without creative mode or knowing Patchouli's give syntax.
+     *
+     * @return false when Patchouli is missing or the book stack could not be built
+     */
+    public static boolean giveCodexAgain(ServerPlayer player) {
+        if (!isPatchouliLoaded()) {
+            return false;
+        }
+        boolean ok = giveBookToPlayer(player);
+        if (ok) {
+            player.sendSystemMessage(net.minecraft.network.chat.Component
+                    .literal("The War 'N Taxes Codex has been added to your inventory.")
+                    .withStyle(net.minecraft.ChatFormatting.GREEN));
+        }
+        return ok;
+    }
+
+    /**
      * Reset the book given flag for a player (useful for testing)
      */
     public static void resetBookGiven(ServerPlayer player) {

@@ -1,0 +1,37 @@
+{
+    "name": "minecolonytax.entry.positive_events.name",
+    "icon": "minecraft:emerald",
+    "category": "minecolonytax:random_events",
+    "sortnum": 1,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.positive_events.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.positive_events.merchant_caravan.title",
+            "text": "minecolonytax.entry.positive_events.merchant_caravan"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.positive_events.bountiful_harvest.title",
+            "text": "minecolonytax.entry.positive_events.bountiful_harvest"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.positive_events.cultural_festival.title",
+            "text": "minecolonytax.entry.positive_events.cultural_festival"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.positive_events.successful_recruitment.title",
+            "text": "minecolonytax.entry.positive_events.successful_recruitment"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.positive_events.war_profiteering.title",
+            "text": "minecolonytax.entry.positive_events.war_profiteering"
+        }
+    ]
+}

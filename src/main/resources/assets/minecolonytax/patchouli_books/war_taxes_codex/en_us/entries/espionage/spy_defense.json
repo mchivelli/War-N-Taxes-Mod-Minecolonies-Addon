@@ -1,0 +1,22 @@
+{
+    "name": "minecolonytax.entry.spy_defense.name",
+    "icon": "minecraft:iron_bars",
+    "category": "minecolonytax:espionage",
+    "sortnum": 4,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.spy_defense.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.spy_defense.detection.title",
+            "text": "minecolonytax.entry.spy_defense.detection"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.spy_defense.counter_intel.title",
+            "text": "minecolonytax.entry.spy_defense.counter_intel"
+        }
+    ]
+}

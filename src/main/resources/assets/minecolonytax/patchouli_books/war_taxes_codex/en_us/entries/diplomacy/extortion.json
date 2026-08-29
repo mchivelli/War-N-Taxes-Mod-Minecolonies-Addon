@@ -1,0 +1,22 @@
+{
+    "name": "minecolonytax.entry.extortion.name",
+    "icon": "minecraft:emerald",
+    "category": "minecolonytax:diplomacy",
+    "sortnum": 1,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.extortion.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.extortion.paying.title",
+            "text": "minecolonytax.entry.extortion.paying"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.extortion.immunity.title",
+            "text": "minecolonytax.entry.extortion.immunity"
+        }
+    ]
+}

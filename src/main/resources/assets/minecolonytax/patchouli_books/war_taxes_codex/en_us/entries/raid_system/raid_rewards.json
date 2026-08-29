@@ -1,0 +1,22 @@
+{
+    "name": "minecolonytax.entry.raid_rewards.name",
+    "icon": "minecraft:gold_nugget",
+    "category": "minecolonytax:raid_system",
+    "sortnum": 3,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.raid_rewards.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.raid_rewards.stealing.title",
+            "text": "minecolonytax.entry.raid_rewards.stealing"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.raid_rewards.defense.title",
+            "text": "minecolonytax.entry.raid_rewards.defense"
+        }
+    ]
+}

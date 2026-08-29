@@ -1,0 +1,28 @@
+{
+    "name": "minecolonytax.entry.espionage_overview.name",
+    "icon": "minecraft:ender_eye",
+    "category": "minecolonytax:espionage",
+    "sortnum": 0,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.espionage_overview.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.espionage_overview.missions.title",
+            "text": "minecolonytax.entry.espionage_overview.missions"
+        },
+        {
+            "type": "patchouli:relations",
+            "title": "minecolonytax.entry.espionage_overview.related.title",
+            "entries": [
+                "minecolonytax:espionage/spy_missions",
+                "minecolonytax:espionage/spy_lifecycle",
+                "minecolonytax:espionage/spy_intel",
+                "minecolonytax:espionage/spy_defense"
+            ],
+            "text": "minecolonytax.entry.espionage_overview.related"
+        }
+    ]
+}

@@ -1,0 +1,22 @@
+{
+    "name": "minecolonytax.entry.declaring_war.name",
+    "icon": "minecraft:red_banner",
+    "category": "minecolonytax:war_system",
+    "sortnum": 1,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.declaring_war.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.declaring_war.requirements.title",
+            "text": "minecolonytax.entry.declaring_war.requirements"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.declaring_war.extortion.title",
+            "text": "minecolonytax.entry.declaring_war.extortion"
+        }
+    ]
+}

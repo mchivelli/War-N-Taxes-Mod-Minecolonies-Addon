@@ -1,0 +1,27 @@
+{
+    "name": "minecolonytax.entry.treasury.name",
+    "icon": "minecraft:gold_block",
+    "category": "minecolonytax:colony_management",
+    "sortnum": 2,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.treasury.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.treasury.depositing.title",
+            "text": "minecolonytax.entry.treasury.depositing"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.treasury.war_drain.title",
+            "text": "minecolonytax.entry.treasury.war_drain"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.treasury.home_field.title",
+            "text": "minecolonytax.entry.treasury.home_field"
+        }
+    ]
+}

@@ -5,6 +5,28 @@ All notable changes to the War N Tax mod will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.9] - 2026-08-29
+
+### Fixed - The codex was never ported: Patchouli showed an unrecognized book
+
+The NeoForge port shipped the handler that gives the War 'N Taxes Codex on first join, but none of
+the book's content: no book.json, none of the 59 category/entry files, no item model, no texture,
+no translations. Patchouli received a book id it had never heard of and displayed the item as an
+invalid/unrecognized book. The full codex is now in the jar (all six languages).
+
+### Added - /wnt codex hands out the guide book again
+
+Players lose the Patchouli codex (death without keepInventory, full inventory on join, chests).
+The only ways back were creative mode or knowing Patchouli's give syntax. `/wnt codex` now gives
+the book to whoever runs it, any time. With Patchouli missing it says so instead of failing silently.
+
+### Fixed - A corrupt investment file could silently erase every colony's paid upgrades
+
+If `colony_upgrades.json` failed to parse at boot, the manager started empty — and the shutdown
+save then overwrote the only copy on disk with that empty state. The unreadable file is now backed
+up next to itself (`.corrupt-<timestamp>`) before the server continues, so paid investments are
+recoverable instead of gone.
+
 ## [5.0.8] - 2026-08-18
 
 ### Fixed - War reparation transfers are now checked end-to-end

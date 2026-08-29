@@ -1,0 +1,22 @@
+{
+    "name": "minecolonytax.entry.starting_raids.name",
+    "icon": "minecraft:crossbow",
+    "category": "minecolonytax:raid_system",
+    "sortnum": 1,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.starting_raids.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.starting_raids.requirements.title",
+            "text": "minecolonytax.entry.starting_raids.requirements"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.starting_raids.command.title",
+            "text": "minecolonytax.entry.starting_raids.command"
+        }
+    ]
+}

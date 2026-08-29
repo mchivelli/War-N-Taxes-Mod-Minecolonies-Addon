@@ -12,7 +12,6 @@
   "command.claimtax.invalid_amount": "Montant invalide. Veuillez entrer un nombre positif.",
   "message.minecolonytax.tax_report": "Colonie : %s - Taxes générées : %d pièces ajoutées ; Maintenance déduite : %d pièces.",
   "message.minecolonytax.debt_warning": "Colonie : %s – Attention : la maintenance (%d pièces) a dépassé les taxes générées (%d pièces).",
-  
   "message.minecolonytax.tax_report_header": "RAPPORT FISCAL POUR %s",
   "message.minecolonytax.tax_report_separator": "══════════════════════════════════",
   "message.minecolonytax.tax_report_generation": "Revenus : %d bâtiments ont généré %d pièces",
@@ -23,7 +22,6 @@
   "message.minecolonytax.tax_report_status_near_max": "AVIS : Approche du stockage fiscal maximum (%d pièces). Réclamez les taxes !",
   "message.minecolonytax.tax_report_status_healthy": "STATUT : Les finances de la colonie sont stables et saines.",
   "message.minecolonytax.tax_report_footer": "══════════════════════════════════",
-  
   "war.declare.title": "📜 GUERRE DÉCLARÉE ! 📜",
   "war.declare.body": "%s a déclaré la GUERRE à %s !",
   "war.begin.title": "🔥 LA GUERRE COMMENCE ! 🔥",
@@ -50,16 +48,13 @@
   "war.defender.victory.strategic": "Les défenseurs de %s ont remporté une VICTOIRE STRATÉGIQUE. Ils ont perdu moins de forces que les envahisseurs !",
   "war.attacker.victory.strategic": "Les attaquants de %s ont remporté une VICTOIRE STRATÉGIQUE sur %s avec une performance supérieure !",
   "war.stalemate.proportional": "Les deux camps ont subi des pertes proportionnelles. La guerre se termine par une IMPASSE.",
-  
   "war.guard.death.attacker.title": "🛡️ Garde Ennemi Tombé ! 🛡️",
   "war.guard.death.attacker.body": "Garde défenseur éliminé ! %d restants",
   "war.guard.death.defender.title": "❗ Votre Garde Est Tombé ! ❗",
   "war.guard.death.defender.body": "%d gardes restants",
-  
   "war.player.killed.title": "💀 VICTIME DE GUERRE ! 💀",
   "war.player.killed.body": "%s (%s) a tué %s (%s) !",
   "war.player.killed.remaining": "%s a %d vies restantes pour ce combattant.",
-  
   "raid.initiate.message": "⚔️ Raid initié sur %s ! ⚔️ Restez dans la colonie !",
   "raid.alert.colony": "🚨 ALERTE DE RAID ! 🚨 La colonie %s est attaquée par %s !",
   "raid.active.error": "❗ Une guerre est actuellement active ! Vous ne pouvez pas lancer un raid.",
@@ -71,14 +66,12 @@
   "raid.end.raider.body": "Votre raid sur %s est terminé.\nRaison : %s",
   "raid.warning.title": "🚨 AVERTISSEMENT DE RAID 🚨",
   "raid.warning.body": "Le raid sur %s a encore %s restant !",
-  
   "peace.proposal.title": "🕊️ PAIX PROPOSÉE ! 🕊️",
   "peace.proposal.body": "%s (%s) propose %s Paix ! Réparations : %d pièces",
   "peace.accept.message": "✅ Vous avez accepté la proposition de paix.",
   "peace.decline.message": "❌ Vous avez refusé la proposition de paix.",
   "peace.timeout.title": "⏳🕊️ Proposition de Paix Expirée 🕊️⏳",
   "peace.timeout.body": "La proposition de paix concernant %s et %s a expiré en raison de l'absence de réponse.",
-  
   "command.joinwar.attacking": "⚔️ Vous avez rejoint le camp attaquant !",
   "command.joinwar.defending": "🛡️ Vous avez rejoint le camp défenseur !",
   "command.joinwar.error.none": "❌ Pas de guerre active à rejoindre.",
@@ -88,6 +81,7 @@
   "command.suepeace.accept": "✅ Proposition de paix acceptée. La guerre va maintenant se terminer.",
   "command.suepeace.decline": "❌ Proposition de paix refusée.",
   "command.suepeace.declined.team": "❌🕊️ La proposition de paix a été refusée par le propriétaire de la colonie.",
-  
-  "war.siege.status": "%s est assiégé ! Phase de ralliement initiée. Temps restant : %s"
+  "war.siege.status": "%s est assiégé ! Phase de ralliement initiée. Temps restant : %s",
+  "minecolonytax.book.name": "Codex War 'N Taxes",
+  "minecolonytax.book.landing": "Bienvenue dans le Codex $(war)War 'N Taxes$() ! Ce guide vous apprendra tout sur le système fiscal, les raids, les guerres, et plus encore. $(br2)$(tip)Astuce : Cliquez sur les commandes pour les exécuter !$(/tip)"
 }

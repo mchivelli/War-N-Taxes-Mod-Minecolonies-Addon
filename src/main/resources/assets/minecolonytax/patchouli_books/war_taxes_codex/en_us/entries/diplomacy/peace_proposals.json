@@ -1,0 +1,22 @@
+{
+    "name": "minecolonytax.entry.peace_proposals.name",
+    "icon": "minecraft:paper",
+    "category": "minecolonytax:diplomacy",
+    "sortnum": 0,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.peace_proposals.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.peace_proposals.white_peace.title",
+            "text": "minecolonytax.entry.peace_proposals.white_peace"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.peace_proposals.reparations.title",
+            "text": "minecolonytax.entry.peace_proposals.reparations"
+        }
+    ]
+}

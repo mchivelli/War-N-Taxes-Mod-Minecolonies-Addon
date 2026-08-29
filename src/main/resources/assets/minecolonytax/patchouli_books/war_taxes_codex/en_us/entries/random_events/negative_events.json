@@ -1,0 +1,37 @@
+{
+    "name": "minecolonytax.entry.negative_events.name",
+    "icon": "minecraft:wither_skeleton_skull",
+    "category": "minecolonytax:random_events",
+    "sortnum": 2,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.negative_events.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.negative_events.food_shortage.title",
+            "text": "minecolonytax.entry.negative_events.food_shortage"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.negative_events.disease_outbreak.title",
+            "text": "minecolonytax.entry.negative_events.disease_outbreak"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.negative_events.bandit_harassment.title",
+            "text": "minecolonytax.entry.negative_events.bandit_harassment"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.negative_events.corrupt_official.title",
+            "text": "minecolonytax.entry.negative_events.corrupt_official"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.negative_events.guard_desertion.title",
+            "text": "minecolonytax.entry.negative_events.guard_desertion"
+        }
+    ]
+}

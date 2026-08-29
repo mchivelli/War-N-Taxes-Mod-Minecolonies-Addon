@@ -12,7 +12,6 @@
   "command.claimtax.invalid_amount": "Cantidad inválida. Por favor, especifica un número positivo.",
   "message.minecolonytax.tax_report": "Colonia: %s - Impuestos Generados: %d monedas añadidas; Mantenimiento Deducido: %d monedas.",
   "message.minecolonytax.debt_warning": "Colonia: %s - Advertencia: Mantenimiento (%d monedas) excedió los impuestos generados (%d monedas).",
-  
   "war.declare.title": "📜 ¡GUERRA DECLARADA! 📜",
   "war.declare.body": "%s ha declarado GUERRA contra %s!",
   "war.begin.title": "🔥 ¡LA GUERRA COMIENZA! 🔥",
@@ -39,16 +38,13 @@
   "war.defender.victory.strategic": "Los defensores de %s han logrado una VICTORIA ESTRATÉGICA. Perdieron menos fuerzas que los invasores!",
   "war.attacker.victory.strategic": "Los atacantes de %s han logrado una VICTORIA ESTRATÉGICA sobre %s con un rendimiento superior!",
   "war.stalemate.proportional": "Ambos bandos sufrieron pérdidas proporcionales. La guerra termina en EMPATE.",
-  
   "war.guard.death.attacker.title": "🛡️ ¡Guardia Enemigo Caído! 🛡️",
   "war.guard.death.attacker.body": "Guardia defensor eliminado! %d restantes",
   "war.guard.death.defender.title": "❗ ¡Tu Guardia Ha Caído! ❗",
   "war.guard.death.defender.body": "%d guardias restantes",
-  
   "war.player.killed.title": "💀 ¡BAJA DE GUERRA! 💀",
   "war.player.killed.body": "%s (%s) ha matado a %s (%s)!",
   "war.player.killed.remaining": "%s tiene %d vidas restantes para este combatiente.",
-  
   "raid.initiate.message": "⚔️ ¡Incursión iniciada en %s! ⚔️ ¡Permanece en la colonia!",
   "raid.alert.colony": "🚨 ¡ALERTA DE INCURSIÓN! 🚨 ¡La colonia %s está siendo asaltada por %s!",
   "raid.active.error": "❗ ¡Una guerra está actualmente activa! No puedes iniciar una incursión.",
@@ -60,14 +56,12 @@
   "raid.end.raider.body": "Tu incursión en %s ha terminado.\nRazón: %s",
   "raid.warning.title": "🚨 ADVERTENCIA DE INCURSIÓN 🚨",
   "raid.warning.body": "La incursión en %s tiene %s restante!",
-  
   "peace.proposal.title": "🕊️ ¡PAZ OFRECIDA! 🕊️",
   "peace.proposal.body": "%s (%s) propone %s Paz! Reparaciones: %d monedas",
   "peace.accept.message": "✅ Has aceptado la propuesta de paz.",
   "peace.decline.message": "❌ Has rechazado la propuesta de paz.",
   "peace.timeout.title": "⏳🕊️ Propuesta de Paz Expirada 🕊️⏳",
   "peace.timeout.body": "La propuesta de paz concerniente a %s y %s ha expirado debido a la falta de respuesta.",
-  
   "command.joinwar.attacking": "⚔️ ¡Te has unido al bando atacante!",
   "command.joinwar.defending": "🛡️ ¡Te has unido al bando defensor!",
   "command.joinwar.error.none": "❌ No hay guerra activa a la que unirse.",
@@ -77,9 +71,7 @@
   "command.suepeace.accept": "✅ Propuesta de paz aceptada. La guerra terminará ahora.",
   "command.suepeace.decline": "❌ Propuesta de paz rechazada.",
   "command.suepeace.declined.team": "❌🕊️ La propuesta de paz ha sido rechazada por el dueño de la colonia.",
-  
   "war.siege.status": "%s está bajo asedio! Fase de unión iniciada. Tiempo restante: %s",
-  
   "message.minecolonytax.tax_report_header": "INFORME FISCAL PARA %s",
   "message.minecolonytax.tax_report_separator": "══════════════════════════════════",
   "message.minecolonytax.tax_report_generation": "Ingresos: %d edificios generaron %d monedas",
@@ -89,5 +81,7 @@
   "message.minecolonytax.tax_report_status_debt": "ADVERTENCIA: La colonia tiene %d monedas de deuda! Considera reducir gastos.",
   "message.minecolonytax.tax_report_status_near_max": "AVISO: Aproximándose al almacenamiento máximo de impuestos (%d monedas). ¡Reclama impuestos!",
   "message.minecolonytax.tax_report_status_healthy": "ESTADO: Las finanzas de la colonia están estables y saludables.",
-  "message.minecolonytax.tax_report_footer": "══════════════════════════════════"
+  "message.minecolonytax.tax_report_footer": "══════════════════════════════════",
+  "minecolonytax.book.name": "Códice War 'N Taxes",
+  "minecolonytax.book.landing": "¡Bienvenido al Códice $(war)War 'N Taxes$()! Esta guía te enseñará todo sobre el sistema de impuestos, asaltos, guerras y más. $(br2)$(tip)Consejo: ¡Haz clic en los comandos para ejecutarlos!$(/tip)"
 }

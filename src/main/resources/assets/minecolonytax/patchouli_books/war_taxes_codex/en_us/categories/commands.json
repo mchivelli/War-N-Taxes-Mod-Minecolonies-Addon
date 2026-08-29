@@ -1,0 +1,6 @@
+{
+    "name": "minecolonytax.category.commands.name",
+    "description": "minecolonytax.category.commands.desc",
+    "icon": "minecraft:command_block",
+    "sortnum": 70
+}

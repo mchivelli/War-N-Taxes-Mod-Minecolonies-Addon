@@ -1,0 +1,6 @@
+{
+    "name": "minecolonytax.category.pvp_arena.name",
+    "description": "minecolonytax.category.pvp_arena.desc",
+    "icon": "minecraft:diamond_sword",
+    "sortnum": 50
+}

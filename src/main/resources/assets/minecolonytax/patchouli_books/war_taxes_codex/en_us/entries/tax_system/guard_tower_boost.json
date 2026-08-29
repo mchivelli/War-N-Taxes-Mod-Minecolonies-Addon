@@ -1,0 +1,17 @@
+{
+    "name": "minecolonytax.entry.guard_tower_boost.name",
+    "icon": "minecolonies:blockhutguardtower",
+    "category": "minecolonytax:tax_system",
+    "sortnum": 2,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.guard_tower_boost.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.guard_tower_boost.requirements.title",
+            "text": "minecolonytax.entry.guard_tower_boost.requirements"
+        }
+    ]
+}

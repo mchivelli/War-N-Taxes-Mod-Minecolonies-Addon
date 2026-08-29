@@ -1,0 +1,33 @@
+{
+    "name": "minecolonytax.entry.random_events_overview.name",
+    "icon": "minecraft:bell",
+    "category": "minecolonytax:random_events",
+    "sortnum": 0,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.random_events_overview.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.random_events_overview.mechanics.title",
+            "text": "minecolonytax.entry.random_events_overview.mechanics"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.random_events_overview.types.title",
+            "text": "minecolonytax.entry.random_events_overview.types"
+        },
+        {
+            "type": "patchouli:relations",
+            "title": "minecolonytax.entry.random_events_overview.related.title",
+            "entries": [
+                "minecolonytax:random_events/positive_events",
+                "minecolonytax:random_events/negative_events",
+                "minecolonytax:random_events/deep_integration",
+                "minecolonytax:random_events/managing_events"
+            ],
+            "text": "minecolonytax.entry.random_events_overview.related"
+        }
+    ]
+}

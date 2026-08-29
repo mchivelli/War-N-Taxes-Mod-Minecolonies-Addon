@@ -1,0 +1,22 @@
+{
+    "name": "minecolonytax.entry.raid_mechanics.name",
+    "icon": "minecraft:clock",
+    "category": "minecolonytax:raid_system",
+    "sortnum": 2,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.raid_mechanics.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.raid_mechanics.boundaries.title",
+            "text": "minecolonytax.entry.raid_mechanics.boundaries"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.raid_mechanics.bossbar.title",
+            "text": "minecolonytax.entry.raid_mechanics.bossbar"
+        }
+    ]
+}

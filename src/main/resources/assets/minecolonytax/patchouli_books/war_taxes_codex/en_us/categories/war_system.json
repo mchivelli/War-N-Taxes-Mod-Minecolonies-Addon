@@ -1,0 +1,6 @@
+{
+    "name": "minecolonytax.category.war_system.name",
+    "description": "minecolonytax.category.war_system.desc",
+    "icon": "minecraft:netherite_sword",
+    "sortnum": 30
+}

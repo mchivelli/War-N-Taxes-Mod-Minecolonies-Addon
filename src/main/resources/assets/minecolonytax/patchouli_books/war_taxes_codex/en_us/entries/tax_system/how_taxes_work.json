@@ -1,0 +1,32 @@
+{
+    "name": "minecolonytax.entry.how_taxes_work.name",
+    "icon": "minecraft:gold_ingot",
+    "category": "minecolonytax:tax_system",
+    "sortnum": 0,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.how_taxes_work.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.how_taxes_work.generation.title",
+            "text": "minecolonytax.entry.how_taxes_work.generation"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.how_taxes_work.buildings.title",
+            "text": "minecolonytax.entry.how_taxes_work.buildings"
+        },
+        {
+            "type": "patchouli:relations",
+            "title": "minecolonytax.entry.how_taxes_work.modifiers.title",
+            "entries": [
+                "minecolonytax:tax_system/happiness_modifier",
+                "minecolonytax:tax_system/guard_tower_boost",
+                "minecolonytax:tax_system/claiming_tax"
+            ],
+            "text": "minecolonytax.entry.how_taxes_work.modifiers"
+        }
+    ]
+}

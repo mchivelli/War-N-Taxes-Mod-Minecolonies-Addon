@@ -1,0 +1,6 @@
+{
+    "name": "minecolonytax.category.raid_system.name",
+    "description": "minecolonytax.category.raid_system.desc",
+    "icon": "minecraft:iron_sword",
+    "sortnum": 20
+}

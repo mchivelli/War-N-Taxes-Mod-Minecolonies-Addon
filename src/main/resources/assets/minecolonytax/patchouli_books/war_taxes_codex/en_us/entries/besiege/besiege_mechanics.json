@@ -1,0 +1,22 @@
+{
+    "name": "minecolonytax.entry.besiege_mechanics.name",
+    "icon": "minecraft:bow",
+    "category": "minecolonytax:besiege",
+    "sortnum": 1,
+    "pages": [
+        {
+            "type": "patchouli:text",
+            "text": "minecolonytax.entry.besiege_mechanics.page0"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.besiege_mechanics.during.title",
+            "text": "minecolonytax.entry.besiege_mechanics.during"
+        },
+        {
+            "type": "patchouli:text",
+            "title": "minecolonytax.entry.besiege_mechanics.victory.title",
+            "text": "minecolonytax.entry.besiege_mechanics.victory"
+        }
+    ]
+}
