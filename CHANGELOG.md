@@ -20,6 +20,14 @@ save then overwrote the only copy on disk with that empty state. The unreadable 
 up next to itself (`.corrupt-<timestamp>`) before the server continues, so paid investments are
 recoverable instead of gone.
 
+### Fixed - A crash mid-save could no longer erase mod state (atomic writes everywhere)
+
+Most managers wrote their JSON straight into the final file. A crash or kill in the middle of a
+write left a truncated file, which the loaders treated as "no data, starting fresh" - silently
+erasing taxes, war chests, factions, occupations, vassals, spy state or history. Every save now
+goes through an atomic tmp+rename (`SafeFileIO`), so the on-disk file is always either the old or
+the new state, never a torn one. A source-level test fails the build if a direct writer returns.
+
 ## [5.0.8] - 2026-08-18
 
 ### Fixed - War reparation transfers are now checked end-to-end

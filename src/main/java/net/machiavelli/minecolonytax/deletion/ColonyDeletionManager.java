@@ -345,9 +345,7 @@ public final class ColonyDeletionManager {
         try {
             File file = new File(DATA_FILE);
             file.getParentFile().mkdirs();
-            try (FileWriter writer = new FileWriter(file)) {
-                GSON.toJson(PENDING, writer);
-            }
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(file, GSON.toJson(PENDING));
         } catch (IOException e) {
             LOGGER.error("Failed to save pending colony deletions", e);
         }

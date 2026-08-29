@@ -1401,11 +1401,11 @@ public class TaxManager {
         File timestampFile = new File(TAX_TIMESTAMP_FILE);
         timestampFile.getParentFile().mkdirs(); // Ensure directory exists
 
-        try (FileWriter writer = new FileWriter(timestampFile)) {
+        try {
             Map<String, Long> timestampData = new HashMap<>();
             timestampData.put("lastTaxGeneration", lastTaxGenerationTime);
             timestampData.put("version", 1L); // Version for future compatibility
-            GSON.toJson(timestampData, writer);
+            net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(timestampFile, GSON.toJson(timestampData));
 
             if (TaxConfig.showTaxGenerationLogs()) {
                 LOGGER.debug("Saved tax generation timestamp: {} ({})", lastTaxGenerationTime,

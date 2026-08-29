@@ -449,9 +449,7 @@ public class WarExhaustionManager {
             try {
                 Path path = Paths.get(STORAGE_FILE);
                 Files.createDirectories(path.getParent());
-                try (Writer writer = new FileWriter(path.toFile())) {
-                    GSON.toJson(data, writer);
-                }
+                net.machiavelli.minecolonytax.util.SafeFileIO.writeStringAtomic(path.toFile(), GSON.toJson(data));
             } catch (Exception e) {
                 LOGGER.error("Failed to save war exhaustion data", e);
             }
