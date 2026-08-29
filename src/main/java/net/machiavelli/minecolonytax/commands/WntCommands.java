@@ -293,6 +293,19 @@ public class WntCommands {
                                                 .requires(src -> src.hasPermission(2))
                                                 .executes(WntCommands::handlePermCheckCommand))
 
+                                // Codex: re-give the Patchouli guide book (players lose it)
+                                .then(Commands.literal("codex")
+                                                .executes(context -> {
+                                                        ServerPlayer player = context.getSource().getPlayerOrException();
+                                                        if (!net.machiavelli.minecolonytax.event.PatchouliBookHandler
+                                                                        .giveCodexAgain(player)) {
+                                                                context.getSource().sendFailure(Component.literal(
+                                                                                "The codex needs the Patchouli mod - it is not installed on this server."));
+                                                                return 0;
+                                                        }
+                                                        return 1;
+                                                }))
+
                                 // Tax commands
                                 .then(Commands.literal("claimtax")
                                                 .executes(context -> executeClaimTax(context, null, -1))

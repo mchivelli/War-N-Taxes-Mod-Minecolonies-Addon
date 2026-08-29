@@ -55,6 +55,7 @@ These commands can be executed by players who hold sufficient rank in their resp
 | `/wnt warinfo` | Show detailed information about your current active war. |
 | **Tax Commands** | |
 | `/wnt claimtax [colony] [amount]` | Claim accumulated tax revenue from your colony's treasury. |
+| `/wnt codex` | Gives you the War 'N Taxes Codex (Patchouli guide book) again - for example after losing it. Requires the Patchouli mod. |
 | `/wnt checktax` | Check your current tax generation statistics and total revenue. |
 | `/wnt taxdebt pay <amount> <colony>` | Pay off your colony's debt. |
 | **Info Commands** | |

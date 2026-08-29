@@ -170,7 +170,17 @@ public class ColonyUpgradeManager {
         } catch (Exception e) {
             // Corrupt/truncated JSON (Gson throws JsonSyntaxException) degrades to keeping
             // the prior in-memory UPGRADES rather than crashing world load or losing data.
-            LOGGER.error("Failed to load colony investment data: {} (starting fresh)", e.getMessage());
+            // Also back the broken file up: the shutdown save would otherwise overwrite the
+            // ONLY copy of everyone's paid investments with the empty in-memory state.
+            try {
+                java.nio.file.Files.copy(file.toPath(),
+                        file.toPath().resolveSibling(file.getName() + ".corrupt-" + System.currentTimeMillis()),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                LOGGER.error("Failed to load colony investment data: {} - the unreadable file was backed up next to it", e.getMessage());
+            } catch (Exception backupEx) {
+                LOGGER.error("Failed to load colony investment data: {} (backup of the unreadable file also failed: {})",
+                        e.getMessage(), backupEx.getMessage());
+            }
         }
     }
 
